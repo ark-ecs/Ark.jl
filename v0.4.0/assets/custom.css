@@ -1,0 +1,26 @@
+/* Default: show light image, hide dark */
+.only-dark { display: none; }
+.only-light { display: inline; }
+
+/* Dark themes: show dark image, hide light */
+.theme--documenter-dark .only-dark,
+.theme--catppuccin-frappe .only-dark,
+.theme--catppuccin-macchiato .only-dark,
+.theme--catppuccin-mocha .only-dark {
+    display: inline;
+}
+
+.theme--documenter-dark .only-light,
+.theme--catppuccin-frappe .only-light,
+.theme--catppuccin-macchiato .only-light,
+.theme--catppuccin-mocha .only-light {
+    display: none;
+}
+
+/* Treat latte as light theme */
+.theme--catppuccin-latte .only-dark {
+    display: none;
+}
+.theme--catppuccin-latte .only-light {
+    display: inline;
+}
