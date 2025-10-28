@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Systems · Ark.jl</title><meta name="title" content="Systems · Ark.jl"/><meta property="og:title" content="Systems · Ark.jl"/><meta property="twitter:title" content="Systems · Ark.jl"/><meta name="description" content="Ark.jl is an archetype-based entity component system (ECS) for Julia."/><meta property="og:description" content="Ark.jl is an archetype-based entity component system (ECS) for Julia."/><meta property="twitter:description" content="Ark.jl is an archetype-based entity component system (ECS) for Julia."/><meta property="og:url" content="https://mlange-42.github.io/Ark.jl/stable/manual/systems.html"/><meta property="twitter:url" content="https://mlange-42.github.io/Ark.jl/stable/manual/systems.html"/><link rel="canonical" href="https://mlange-42.github.io/Ark.jl/stable/manual/systems.html"/><meta property="og:image" content="https://mlange-42.github.io/Ark.jl/stable/assets/preview.png"/><meta property="twitter:image" content="https://mlange-42.github.io/Ark.jl/stable/assets/preview.png"/><meta property="twitter:card" content="summary_large_image"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script><link href="../assets/favicon.ico" rel="icon" type="image/x-icon"/><link href="../assets/custom.css" rel="stylesheet" type="text/css"/></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../index.html"><img class="docs-light-only" src="../assets/logo.svg" alt="Ark.jl logo"/><img class="docs-dark-only" src="../assets/logo-dark.svg" alt="Ark.jl logo"/></a><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../index.html">Home</a></li><li><span class="tocitem">Manual</span><ul><li><a class="tocitem" href="quickstart.html">Quickstart</a></li><li><a class="tocitem" href="world.html">The World</a></li><li><a class="tocitem" href="entities.html">Entities</a></li><li><a class="tocitem" href="components.html">Components</a></li><li><a class="tocitem" href="queries.html">Queries</a></li><li class="is-active"><a class="tocitem" href="systems.html">Systems</a><ul class="internal"><li><a class="tocitem" href="#Systems-example"><span>Systems example</span></a></li></ul></li><li><a class="tocitem" href="resources.html">Resources</a></li><li><a class="tocitem" href="architecture.html">Architecture</a></li></ul></li><li><a class="tocitem" href="../api.html">Public API</a></li><li><a class="tocitem" href="../benchmarks.html">Benchmarks</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Manual</a></li><li class="is-active"><a href="systems.html">Systems</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href="systems.html">Systems</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/mlange-42/Ark.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/mlange-42/Ark.jl/blob/main/docs/src/manual/systems.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Systems"><a class="docs-heading-anchor" href="#Systems">Systems</a><a id="Systems-1"></a><a class="docs-heading-anchor-permalink" href="#Systems" title="Permalink"></a></h1><p>Ark provides <strong>no systems</strong> as they are widely known in ECS implementations. This is a deliberate decisions, based on these reasons:</p><ul><li>Systems can be hard to integrate into frameworks, like a game engine&#39;s update loop.   Ark wants to stay flexible and is completely engine-agnostic.</li><li>Systems are usually tied to queries in a 1:1 relation, while it is easily possible to combine multiple queries.</li><li>Systems and a scheduler are easy to implement, so this is left to the user.</li></ul><p>Below, we provide an example for how to implement systems and a scheduler.</p><h2 id="Systems-example"><a class="docs-heading-anchor" href="#Systems-example">Systems example</a><a id="Systems-example-1"></a><a class="docs-heading-anchor-permalink" href="#Systems-example" title="Permalink"></a></h2><h3 id="sys-components"><a class="docs-heading-anchor" href="#sys-components">Components</a><a id="sys-components-1"></a><a class="docs-heading-anchor-permalink" href="#sys-components" title="Permalink"></a></h3><p>We start by defining our component types:</p><pre><code class="language-julia hljs">using Ark
+
+struct Position
+    x::Float64
+    y::Float64
+end
+struct Velocity
+    dx::Float64
+    dy::Float64
+end</code></pre><h3 id="Abstract-system-type"><a class="docs-heading-anchor" href="#Abstract-system-type">Abstract system type</a><a id="Abstract-system-type-1"></a><a class="docs-heading-anchor-permalink" href="#Abstract-system-type" title="Permalink"></a></h3><p>We write and abstract system type. This is optional, but useful for clarity and to avoid boilerplate.</p><pre><code class="language-julia hljs">abstract type System end
+
+function initialize!(::System, ::World) end
+function update!(::System, ::World) end
+function finalize!(::System, ::World) end</code></pre><h3 id="Scheduler"><a class="docs-heading-anchor" href="#Scheduler">Scheduler</a><a id="Scheduler-1"></a><a class="docs-heading-anchor-permalink" href="#Scheduler" title="Permalink"></a></h3><p>Next, we build a (type-stable) scheduler:</p><pre><code class="language-julia hljs">struct Scheduler{ST&lt;:Tuple}
+    world::World
+    systems::ST
+end
+
+function run!(s::Scheduler, steps::Int)
+    # initialize all systems
+    for sys in s.systems
+        initialize!(sys, s.world)
+    end
+
+    # update loop
+    for _ in 1:steps
+        # update all systems
+        for sys in s.systems
+            update!(sys, s.world)
+        end
+    end
+    
+    # finalize all systems
+    for sys in s.systems
+        finalize!(sys, s.world)
+    end
+end</code></pre><h3 id="Initializer-system"><a class="docs-heading-anchor" href="#Initializer-system">Initializer system</a><a id="Initializer-system-1"></a><a class="docs-heading-anchor-permalink" href="#Initializer-system" title="Permalink"></a></h3><p>Now we can write some systems. First one that creates some entities.</p><pre><code class="language-julia hljs">struct InitializerSystem &lt;: System
+    count::Int
+end
+
+function initialize!(s::InitializerSystem, w::World)
+    for (entities, positions, velocities) in @new_entities!(w, s.count, (Position, Velocity))
+        @inbounds for i in eachindex(entities)
+            positions[i] = Position(rand() * 100, rand() * 100)
+            velocities[i] = Velocity(randn(), randn())
+        end
+    end
+end</code></pre><p>As we have the abstract type, we only need to implement the functions that are required for the system.</p><h3 id="Movement-system"><a class="docs-heading-anchor" href="#Movement-system">Movement system</a><a id="Movement-system-1"></a><a class="docs-heading-anchor-permalink" href="#Movement-system" title="Permalink"></a></h3><p>And here the classical movement system:</p><pre><code class="language-julia hljs">struct MovementSystem &lt;: System
+end
+
+function update!(s::InitializerSystem, w::World)
+    for (entities, positions, velocities) in @Query(world, (Position, Velocity))
+        @inbounds for i in eachindex(entities)
+            pos = positions[i]
+            vel = velocities[i]
+            positions[i] = Position(pos.x + vel.dx, pos.y + vel.dy)
+        end
+    end
+end</code></pre><h3 id="Putting-it-together"><a class="docs-heading-anchor" href="#Putting-it-together">Putting it together</a><a id="Putting-it-together-1"></a><a class="docs-heading-anchor-permalink" href="#Putting-it-together" title="Permalink"></a></h3><p>Finally, we can plug everything together:</p><pre><code class="language-julia hljs">world = World(Position, Velocity)
+
+scheduler = Scheduler(
+    world,
+    (
+        InitializerSystem(100),
+        MovementSystem(),
+    ),
+)
+
+run!(scheduler, 1000)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="queries.html">« Queries</a><a class="docs-footer-nextpage" href="resources.html">Resources »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.0 on <span class="colophon-date" title="Saturday 15 November 2025 22:07">Saturday 15 November 2025</span>. Using Julia version 1.12.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
