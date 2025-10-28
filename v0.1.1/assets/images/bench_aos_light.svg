@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="640" height="400" viewBox="0 0 2560 1600">
+<defs>
+  <clipPath id="clip930">
+    <rect x="0" y="0" width="2560" height="1600"/>
+  </clipPath>
+</defs>
+<defs>
+  <clipPath id="clip931">
+    <rect x="512" y="0" width="1793" height="1600"/>
+  </clipPath>
+</defs>
+<defs>
+  <clipPath id="clip932">
+    <rect x="194" y="119" width="2319" height="1302"/>
+  </clipPath>
+</defs>
+<polyline clip-path="url(#clip932)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:2; stroke-opacity:0.1; fill:none" points="244.775,1420.61 244.775,119.423 "/>
+<polyline clip-path="url(#clip932)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:2; stroke-opacity:0.1; fill:none" points="760.467,1420.61 760.467,119.423 "/>
+<polyline clip-path="url(#clip932)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:2; stroke-opacity:0.1; fill:none" points="1276.16,1420.61 1276.16,119.423 "/>
+<polyline clip-path="url(#clip932)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:2; stroke-opacity:0.1; fill:none" points="1791.85,1420.61 1791.85,119.423 "/>
+<polyline clip-path="url(#clip932)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:2; stroke-opacity:0.1; fill:none" points="2307.54,1420.61 2307.54,119.423 "/>
+<polyline clip-path="url(#clip932)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:2; stroke-opacity:0.1; fill:none" points="194.8,1420.61 2512.76,1420.61 "/>
+<polyline clip-path="url(#clip932)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:2; stroke-opacity:0.1; fill:none" points="194.8,1206.53 2512.76,1206.53 "/>
+<polyline clip-path="url(#clip932)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:2; stroke-opacity:0.1; fill:none" points="194.8,992.438 2512.76,992.438 "/>
+<polyline clip-path="url(#clip932)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:2; stroke-opacity:0.1; fill:none" points="194.8,778.351 2512.76,778.351 "/>
+<polyline clip-path="url(#clip932)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:2; stroke-opacity:0.1; fill:none" points="194.8,564.264 2512.76,564.264 "/>
+<polyline clip-path="url(#clip932)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:2; stroke-opacity:0.1; fill:none" points="194.8,350.176 2512.76,350.176 "/>
+<polyline clip-path="url(#clip932)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:2; stroke-opacity:0.1; fill:none" points="194.8,136.089 2512.76,136.089 "/>
+<polyline clip-path="url(#clip930)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:4; stroke-opacity:1; fill:none" points="194.8,1420.61 2512.76,1420.61 "/>
+<polyline clip-path="url(#clip930)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:4; stroke-opacity:1; fill:none" points="244.775,1420.61 244.775,1401.72 "/>
+<polyline clip-path="url(#clip930)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:4; stroke-opacity:1; fill:none" points="760.467,1420.61 760.467,1401.72 "/>
+<polyline clip-path="url(#clip930)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:4; stroke-opacity:1; fill:none" points="1276.16,1420.61 1276.16,1401.72 "/>
+<polyline clip-path="url(#clip930)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:4; stroke-opacity:1; fill:none" points="1791.85,1420.61 1791.85,1401.72 "/>
+<polyline clip-path="url(#clip930)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:4; stroke-opacity:1; fill:none" points="2307.54,1420.61 2307.54,1401.72 "/>
+<g clip-path="url(#clip930)">
+<text style="fill:#000000; fill-opacity:1; font-family:Courier,Courier New,Lucida Sans Typewriter,Lucida Typewriter,monospace; font-size:74px; text-anchor:middle;" transform="rotate(0, 244.775, 1494.84)" x="244.775" y="1494.84">100</text>
+</g>
+<g clip-path="url(#clip930)">
+<text style="fill:#000000; fill-opacity:1; font-family:Courier,Courier New,Lucida Sans Typewriter,Lucida Typewriter,monospace; font-size:74px; text-anchor:middle;" transform="rotate(0, 760.467, 1494.84)" x="760.467" y="1494.84">1&apos;000</text>
+</g>
+<g clip-path="url(#clip930)">
+<text style="fill:#000000; fill-opacity:1; font-family:Courier,Courier New,Lucida Sans Typewriter,Lucida Typewriter,monospace; font-size:74px; text-anchor:middle;" transform="rotate(0, 1276.16, 1494.84)" x="1276.16" y="1494.84">10&apos;000</text>
+</g>
+<g clip-path="url(#clip930)">
+<text style="fill:#000000; fill-opacity:1; font-family:Courier,Courier New,Lucida Sans Typewriter,Lucida Typewriter,monospace; font-size:74px; text-anchor:middle;" transform="rotate(0, 1791.85, 1494.84)" x="1791.85" y="1494.84">100&apos;000</text>
+</g>
+<g clip-path="url(#clip930)">
+<text style="fill:#000000; fill-opacity:1; font-family:Courier,Courier New,Lucida Sans Typewriter,Lucida Typewriter,monospace; font-size:74px; text-anchor:middle;" transform="rotate(0, 2307.54, 1494.84)" x="2307.54" y="1494.84">1&apos;000&apos;000</text>
+</g>
+<g clip-path="url(#clip930)">
+<text style="fill:#000000; fill-opacity:1; font-family:Courier,Courier New,Lucida Sans Typewriter,Lucida Typewriter,monospace; font-size:82px; text-anchor:middle;" transform="rotate(0, 1353.78, 1584.85)" x="1353.78" y="1584.85">Number of entities</text>
+</g>
+<polyline clip-path="url(#clip930)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:4; stroke-opacity:1; fill:none" points="194.8,1420.61 194.8,119.423 "/>
+<polyline clip-path="url(#clip930)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:4; stroke-opacity:1; fill:none" points="194.8,1420.61 213.697,1420.61 "/>
+<polyline clip-path="url(#clip930)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:4; stroke-opacity:1; fill:none" points="194.8,1206.53 213.697,1206.53 "/>
+<polyline clip-path="url(#clip930)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:4; stroke-opacity:1; fill:none" points="194.8,992.438 213.697,992.438 "/>
+<polyline clip-path="url(#clip930)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:4; stroke-opacity:1; fill:none" points="194.8,778.351 213.697,778.351 "/>
+<polyline clip-path="url(#clip930)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:4; stroke-opacity:1; fill:none" points="194.8,564.264 213.697,564.264 "/>
+<polyline clip-path="url(#clip930)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:4; stroke-opacity:1; fill:none" points="194.8,350.176 213.697,350.176 "/>
+<polyline clip-path="url(#clip930)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:4; stroke-opacity:1; fill:none" points="194.8,136.089 213.697,136.089 "/>
+<g clip-path="url(#clip930)">
+<text style="fill:#000000; fill-opacity:1; font-family:Courier,Courier New,Lucida Sans Typewriter,Lucida Typewriter,monospace; font-size:74px; text-anchor:middle;" transform="rotate(0, 133.339, 1442.11)" x="133.339" y="1442.11">0</text>
+</g>
+<g clip-path="url(#clip930)">
+<text style="fill:#000000; fill-opacity:1; font-family:Courier,Courier New,Lucida Sans Typewriter,Lucida Typewriter,monospace; font-size:74px; text-anchor:middle;" transform="rotate(0, 133.339, 1228.03)" x="133.339" y="1228.03">1</text>
+</g>
+<g clip-path="url(#clip930)">
+<text style="fill:#000000; fill-opacity:1; font-family:Courier,Courier New,Lucida Sans Typewriter,Lucida Typewriter,monospace; font-size:74px; text-anchor:middle;" transform="rotate(0, 133.339, 1013.94)" x="133.339" y="1013.94">2</text>
+</g>
+<g clip-path="url(#clip930)">
+<text style="fill:#000000; fill-opacity:1; font-family:Courier,Courier New,Lucida Sans Typewriter,Lucida Typewriter,monospace; font-size:74px; text-anchor:middle;" transform="rotate(0, 133.339, 799.851)" x="133.339" y="799.851">3</text>
+</g>
+<g clip-path="url(#clip930)">
+<text style="fill:#000000; fill-opacity:1; font-family:Courier,Courier New,Lucida Sans Typewriter,Lucida Typewriter,monospace; font-size:74px; text-anchor:middle;" transform="rotate(0, 133.339, 585.764)" x="133.339" y="585.764">4</text>
+</g>
+<g clip-path="url(#clip930)">
+<text style="fill:#000000; fill-opacity:1; font-family:Courier,Courier New,Lucida Sans Typewriter,Lucida Typewriter,monospace; font-size:74px; text-anchor:middle;" transform="rotate(0, 133.339, 371.676)" x="133.339" y="371.676">5</text>
+</g>
+<g clip-path="url(#clip930)">
+<text style="fill:#000000; fill-opacity:1; font-family:Courier,Courier New,Lucida Sans Typewriter,Lucida Typewriter,monospace; font-size:74px; text-anchor:middle;" transform="rotate(0, 133.339, 157.589)" x="133.339" y="157.589">6</text>
+</g>
+<g clip-path="url(#clip930)">
+<text style="fill:#000000; fill-opacity:1; font-family:Courier,Courier New,Lucida Sans Typewriter,Lucida Typewriter,monospace; font-size:82px; text-anchor:middle;" transform="rotate(-90, 58.537, 770.018)" x="58.537" y="770.018">Time per entity [ns]</text>
+</g>
+<g clip-path="url(#clip930)">
+<text style="fill:#000000; fill-opacity:1; font-family:Courier,Courier New,Lucida Sans Typewriter,Lucida Typewriter,monospace; font-size:105px; text-anchor:middle;" transform="rotate(0, 1353.78, 73.2)" x="1353.78" y="73.2">Benchmark vs. Array of Structs</text>
+</g>
+<polyline clip-path="url(#clip932)" style="stroke:#2e63b8; stroke-linecap:round; stroke-linejoin:round; stroke-width:5.2; stroke-opacity:1; fill:none" points="244.775,1298.78 760.467,1369.63 1276.16,1352.8 1791.85,1334.01 2307.54,1275.25 "/>
+<polyline clip-path="url(#clip932)" style="stroke:#2e63b8; stroke-linecap:round; stroke-linejoin:round; stroke-width:7.2; stroke-opacity:1; fill:none" points="244.775,1302.44 760.467,1367.8 1276.16,1352.32 1791.85,1327.73 2307.54,1261.98 "/>
+<polyline clip-path="url(#clip932)" style="stroke:#2e63b8; stroke-linecap:round; stroke-linejoin:round; stroke-width:9.2; stroke-opacity:1; fill:none" points="244.775,1290.64 760.467,1365.66 1276.16,1351.52 1791.85,1326.05 2307.54,1268.83 "/>
+<polyline clip-path="url(#clip932)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:5.2; stroke-opacity:1; fill:none" points="244.775,1270.05 760.467,1221.91 1276.16,1208.6 1791.85,1207.09 2307.54,833.602 "/>
+<polyline clip-path="url(#clip932)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:7.2; stroke-opacity:1; fill:none" points="244.775,1264.69 760.467,1194.8 1276.16,1143.42 1791.85,1144.48 2307.54,553.537 "/>
+<polyline clip-path="url(#clip932)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:9.2; stroke-opacity:1; fill:none" points="244.775,1269.19 760.467,1169.62 1276.16,1018.97 1791.85,1022.75 2307.54,119.423 "/>
+<path clip-path="url(#clip930)" d="M272.065 614.244 L1380.16 614.244 L1380.16 162.796 L272.065 162.796  Z" fill="#000000" fill-rule="evenodd" fill-opacity="0"/>
+<polyline clip-path="url(#clip930)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:4; stroke-opacity:1; fill:none" points="272.065,614.244 1380.16,614.244 1380.16,162.796 272.065,162.796 272.065,614.244 "/>
+<polyline clip-path="url(#clip930)" style="stroke:#2e63b8; stroke-linecap:round; stroke-linejoin:round; stroke-width:6.5; stroke-opacity:1; fill:none" points="297.82,227.289 452.35,227.289 "/>
+<g clip-path="url(#clip930)">
+<text style="fill:#000000; fill-opacity:1; font-family:Courier,Courier New,Lucida Sans Typewriter,Lucida Typewriter,monospace; font-size:74px; text-anchor:start;" transform="rotate(0, 478.106, 248.789)" x="478.106" y="248.789">Ark ( 32B,  4 Vars)</text>
+</g>
+<polyline clip-path="url(#clip930)" style="stroke:#2e63b8; stroke-linecap:round; stroke-linejoin:round; stroke-width:9; stroke-opacity:1; fill:none" points="297.82,291.781 452.35,291.781 "/>
+<g clip-path="url(#clip930)">
+<text style="fill:#000000; fill-opacity:1; font-family:Courier,Courier New,Lucida Sans Typewriter,Lucida Typewriter,monospace; font-size:74px; text-anchor:start;" transform="rotate(0, 478.106, 313.281)" x="478.106" y="313.281">Ark ( 64B,  8 Vars)</text>
+</g>
+<polyline clip-path="url(#clip930)" style="stroke:#2e63b8; stroke-linecap:round; stroke-linejoin:round; stroke-width:11.5; stroke-opacity:1; fill:none" points="297.82,356.274 452.35,356.274 "/>
+<g clip-path="url(#clip930)">
+<text style="fill:#000000; fill-opacity:1; font-family:Courier,Courier New,Lucida Sans Typewriter,Lucida Typewriter,monospace; font-size:74px; text-anchor:start;" transform="rotate(0, 478.106, 377.774)" x="478.106" y="377.774">Ark (128B, 16 Vars)</text>
+</g>
+<polyline clip-path="url(#clip930)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:6.5; stroke-opacity:1; fill:none" points="297.82,420.766 452.35,420.766 "/>
+<g clip-path="url(#clip930)">
+<text style="fill:#000000; fill-opacity:1; font-family:Courier,Courier New,Lucida Sans Typewriter,Lucida Typewriter,monospace; font-size:74px; text-anchor:start;" transform="rotate(0, 478.106, 442.266)" x="478.106" y="442.266">AoS ( 32B,  4 Vars)</text>
+</g>
+<polyline clip-path="url(#clip930)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:9; stroke-opacity:1; fill:none" points="297.82,485.259 452.35,485.259 "/>
+<g clip-path="url(#clip930)">
+<text style="fill:#000000; fill-opacity:1; font-family:Courier,Courier New,Lucida Sans Typewriter,Lucida Typewriter,monospace; font-size:74px; text-anchor:start;" transform="rotate(0, 478.106, 506.759)" x="478.106" y="506.759">AoS ( 64B,  8 Vars)</text>
+</g>
+<polyline clip-path="url(#clip930)" style="stroke:#000000; stroke-linecap:round; stroke-linejoin:round; stroke-width:11.5; stroke-opacity:1; fill:none" points="297.82,549.751 452.35,549.751 "/>
+<g clip-path="url(#clip930)">
+<text style="fill:#000000; fill-opacity:1; font-family:Courier,Courier New,Lucida Sans Typewriter,Lucida Typewriter,monospace; font-size:74px; text-anchor:start;" transform="rotate(0, 478.106, 571.251)" x="478.106" y="571.251">AoS (128B, 16 Vars)</text>
+</g>
+</svg>
