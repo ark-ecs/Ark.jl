@@ -1,6 +1,6 @@
 # Changelog
 
-## [[unpublished]](https://github.com/ark-ecs/Ark.jl/compare/v0.2.0...main)
+## [[v0.3.0]](https://github.com/ark-ecs/Ark.jl/compare/v0.2.0...v0.3.0)
 
 ### Breaking changes
 
@@ -15,11 +15,13 @@
 - Adds batch entity removal (#396, #402)
 - Adds batch-setting entity relation targets (#406)
 - Adds batched versions of adding, removing and exchanging components (#408)
-- Makes Ark compatible with Mooncake (#405)
+- Makes Ark compatible with [Mooncake.jl](https://github.com/chalk-lab/Mooncake.jl) (#405)
 
 ### Performance
 
-- Uses a hash table for some component transitions (#348)
+- Uses a hash table for some component transitions, with up t0 30% speedup (#348)
+- Uses `push!` instead of `resize!`+`setindex!` for moving and creating components (#439)
+- Caches the last component transition, with 15-35% speedup (#448)
 
 ### Documentation
 
@@ -28,6 +30,10 @@
 ### Bugfixes
 
 - Fixes missing swaps in archetypes when removing components (#432, fixes #430)
+
+### Other
+
+- Ark.jl moved from the personal account of it's initiator to the [ark-ecs](https://github.com/ark-ecs) organization
 
 ## [[v0.2.0]](https://github.com/ark-ecs/Ark.jl/compare/v0.1.1...v0.2.0)
 
