@@ -1,6 +1,6 @@
 name = "Ark"
 uuid = "56664e29-41e4-4ea5-ab0e-825499acc647"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Martin Lange <martin_lange_@gmx.net>", "Adriano Meligrana <adriano.meligrana@centai.eu>"]
 
 [deps]
