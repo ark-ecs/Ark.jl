@@ -19,6 +19,17 @@
         end
     end
 
+    counters = Int[0, 0]
+    obs1 = observe!(world, OnAddRelations) do entity
+        @test get_relations(world, entity, (ChildOf,)) == (zero_entity,)
+        counters[1] += 1
+    end
+    obs2 = observe!(world, OnRemoveRelations) do entity
+        rel = get_relations(world, entity, (ChildOf,))
+        @test rel == (parent1,) || rel == (parent2,)
+        counters[2] += 1
+    end
+
     tables = 0
     count = 0
     for (_, children) in Query(world, (ChildOf,))
@@ -29,6 +40,7 @@
     @test count == 150
 
     remove_entity!(world, parent1)
+    @test counters == [100, 100]
 
     count = 0
     for (_, children) in Query(world, (ChildOf,); relations=(ChildOf => zero_entity,))
@@ -37,6 +49,10 @@
     @test count == 100
 
     remove_entity!(world, parent2)
+    @test counters == [150, 150]
+
+    observe!(world, obs1; unregister=true)
+    observe!(world, obs2; unregister=true)
 
     count = 0
     for (_, children) in Query(world, (ChildOf,); relations=(ChildOf => zero_entity,))

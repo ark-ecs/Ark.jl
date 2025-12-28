@@ -921,10 +921,6 @@ end
             end
         end
 
-        if should_lock
-            _unlock(world._lock, l)
-        end
-
         cleanup = world._pool.entities
         for table_id in tables
             table = world._tables[table_id]
@@ -957,6 +953,10 @@ end
         ) :
           (:(nothing))
         )
+
+        if should_lock
+            _unlock(world._lock, l)
+        end
 
         if !_is_cached(filter._filter) # Do not clear for cached filters!!!
             empty!(tables)
