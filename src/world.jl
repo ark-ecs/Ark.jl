@@ -1075,12 +1075,19 @@ function _get_exchange_targets_unchecked(
     new_relations = world._pool.relations
     append!(new_relations, old_table.relations)
 
+    mask = _clear_mask!(world._pool.mask)
     for (rel, trg) in relations
-        @inbounds index = world._relations[rel].archetypes[old_table.archetype]
+        @inbounds comp_relations = world._relations[rel]
+        @inbounds target = comp_relations.targets[old_table.id]
+        @inbounds index = comp_relations.archetypes[old_table.archetype]
         @inbounds new_relations[index] = Pair(rel, trg)
+
+        if target._id != trg._id
+            _set_bit!(mask, rel)
+        end
     end
 
-    return new_relations
+    return new_relations, mask
 end
 
 @inline function _get_table(world::World, arch::_Archetype, relations::Vector{Pair{Int,Entity}})::Tuple{_Table,Bool}
@@ -1176,7 +1183,16 @@ function _cleanup_archetypes(world::World, entity::Entity)
             @check has_target == true
 
             if !isempty(table.entities)
-                new_relations = _get_exchange_targets_unchecked(world, table, relations)
+                new_relations, mask = _get_exchange_targets_unchecked(world, table, relations)
+
+                if _has_observers(world._event_manager, OnRemoveRelations)
+                    _fire_set_relations(world._event_manager, OnRemoveRelations,
+                        _BatchTable(table, archetype,
+                            UInt32(1), UInt32(length(table)),
+                        ),
+                        mask)
+                end
+
                 new_table, found = _get_table(world, archetype, new_relations)
                 if !found
                     new_table_id = _create_table!(world, archetype, copy(new_relations))
@@ -1184,7 +1200,17 @@ function _cleanup_archetypes(world::World, entity::Entity)
                 end
                 empty!(new_relations)
 
+                start_index = length(new_table) + 1
                 _move_entities!(world, table.id, new_table.id)
+
+                if _has_observers(world._event_manager, OnAddRelations)
+                    _fire_set_relations(world._event_manager, OnAddRelations,
+                        _BatchTable(new_table, archetype,
+                            UInt32(start_index), UInt32(length(new_table)),
+                        ),
+                        mask,
+                    )
+                end
             end
             _free_table!(archetype, table)
             _remove_table!(world._cache, table)
