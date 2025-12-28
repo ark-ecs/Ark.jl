@@ -2,6 +2,14 @@
 @testset "Relations remove target" begin
     world = World(Position, ChildOf, ChildOf2)
 
+    counters = Int[0, 0]
+    observe!(world, OnAddRelations) do _
+        counters[1] += 1
+    end
+    observe!(world, OnRemoveRelations) do _
+        counters[2] += 1
+    end
+
     parent1 = new_entity!(world, ())
     parent2 = new_entity!(world, ())
 
@@ -19,6 +27,8 @@
         end
     end
 
+    @test counters == [150, 0]
+
     tables = 0
     count = 0
     for (_, children) in Query(world, (ChildOf,))
@@ -29,6 +39,7 @@
     @test count == 150
 
     remove_entity!(world, parent1)
+    @test counters == [250, 100]
 
     count = 0
     for (_, children) in Query(world, (ChildOf,); relations=(ChildOf => zero_entity,))
@@ -37,6 +48,7 @@
     @test count == 100
 
     remove_entity!(world, parent2)
+    @test counters == [300, 150]
 
     count = 0
     for (_, children) in Query(world, (ChildOf,); relations=(ChildOf => zero_entity,))
