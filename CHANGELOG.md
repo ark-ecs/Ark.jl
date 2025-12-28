@@ -33,7 +33,7 @@
 
 ### Other
 
-- Ark.jl moved from the personal account of it's initiator to the [ark-ecs](https://github.com/ark-ecs) organization
+- Ark.jl moved from the personal account of its initiator to the [ark-ecs](https://github.com/ark-ecs) organization
 
 ## [[v0.2.0]](https://github.com/ark-ecs/Ark.jl/compare/v0.1.1...v0.2.0)
 
