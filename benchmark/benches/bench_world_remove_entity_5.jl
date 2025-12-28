@@ -9,6 +9,15 @@ function setup_world_remove_entity_5(n::Int)
         push!(entities, e)
     end
 
+    for e in entities
+        remove_entity!(world, e)
+    end
+
+    for i in 1:n
+        e = new_entity!(world, (Position(0, 0), Velocity(0, 0), CompA(0, 0), CompB(0, 0), CompC(0, 0)))
+        entities[i] = e
+    end
+
     return (world, entities)
 end
 
