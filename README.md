@@ -30,9 +30,10 @@ It is a port of the Go ECS [Ark](https://github.com/mlange-42/ark).
 
 - Designed for [performance](https://ark-ecs.github.io/Ark.jl/stable/benchmarks) and highly optimized.
 - Well-[documented](https://ark-ecs.github.io/Ark.jl/stable/), type-stable [API](https://ark-ecs.github.io/Ark.jl/stable/api).
+- [Entity relationships](https://ark-ecs.github.io/Ark.jl/stable/manual/relations.html) as a first-class feature.
 - [Storage mode](https://ark-ecs.github.io/Ark.jl/stable/manual/components.html#component-storages) per component for ergonomics and SIMD.
 - Extensible [event system](https://ark-ecs.github.io/Ark.jl/stable/manual/events.html) with filtering and custom event types.
-- Blazing fast [batch entity creation](https://ark-ecs.github.io/Ark.jl/stable/manual/entities.html#creating-entities).
+- Fast [batch operations](https://ark-ecs.github.io/Ark.jl/stable/manual/batch.html) for mass manipulation.
 - No [systems](https://ark-ecs.github.io/Ark.jl/stable/manual/systems). Just [queries](https://ark-ecs.github.io/Ark.jl/stable/manual/queries). Use your own structure.
 - Minimal [dependencies](https://github.com/ark-ecs/Ark.jl/blob/main/Project.toml), 100% [test coverage](https://app.codecov.io/github/ark-ecs/ark.jl).
 
