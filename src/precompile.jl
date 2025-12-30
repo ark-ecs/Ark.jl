@@ -32,7 +32,7 @@ using PrecompileTools
         has_components(w, e2, (A, B, C)) && collect(Query(w, (A, B)))
         collect(Query(w, (A, B, C)))
         a, b, c = get_components(w, e2, (A, B, C))
-        set_components!(w, e2, (A(a.x+1.0), B(b.x+1.0), c))
+        set_components!(w, e2, (A(a.x + 1.0), B(b.x + 1.0), c))
         remove_components!(w, e2, (A, C))
         add_components!(w, e2, (A(0.0), C()); relations=(C => e1,))
         e1, = get_relations(w, e2, (C,))
@@ -45,7 +45,7 @@ using PrecompileTools
         remove_entities!(w, Filter(w, (A, B)))
         remove_entities!(w, Filter(w, (A, B, C)))
         add_resource!(w, 1)
-        set_resource!(w, get_resource(w, Int)+1)
+        set_resource!(w, get_resource(w, Int) + 1)
         remove_resource!(w, Int)
         reset!(w)
     end
