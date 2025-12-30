@@ -742,8 +742,8 @@ end
     for i in 1:length(types)
         T = types[i]
         mode = storage_val_types[i]
-        _storage_types[i] = :(_ComponentStorage{$T, _storage_type($mode, $T)})
-        storage_exprs[i] = :(_ComponentStorage{$T, _storage_type($mode, $T)}([_new_storage($mode, $T)]))
+        _storage_types[i] = :(_ComponentStorage{$T,_storage_type($mode, $T)})
+        storage_exprs[i] = :(_ComponentStorage{$T,_storage_type($mode, $T)}([_new_storage($mode, $T)]))
     end
 
     # Final type and value tuples

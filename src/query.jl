@@ -335,7 +335,7 @@ Base.IteratorSize(::Type{<:Query}) = Base.SizeUnknown()
 
         ST = :(_storage_type($(storage_modes[i]), $T))
         base_view = if fieldcount(comp_types[i]) == 0
-            :(SubArray{$T,1,$ST,Tuple{Base.Slice{Base.OneTo{Int}}},IndexStyle($ST)==IndexLinear()})
+            :(SubArray{$T,1,$ST,Tuple{Base.Slice{Base.OneTo{Int}}},IndexStyle($ST) == IndexLinear()})
         elseif storage_modes[i] != Storage{StructArray}
             :(_FieldsViewable_type($ST))
         else

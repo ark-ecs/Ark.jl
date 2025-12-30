@@ -175,7 +175,7 @@ end
     @test isa(id_int, Int)
     @test world._registry.types[id_int] == Int
     @test length(world._storages) == N_fake + 2
-    @test world._storages[id_int] isa _ComponentStorage{Int,_storage_type(DefaultStorage,Int)}
+    @test world._storages[id_int] isa _ComponentStorage{Int,_storage_type(DefaultStorage, Int)}
     @test length(world._storages[id_int].data) == 1
 
     # Register Position component
@@ -183,7 +183,7 @@ end
     @test isa(id_pos, Int)
     @test world._registry.types[id_pos] == Position
     @test length(world._storages) == N_fake + 2
-    @test world._storages[id_pos] isa _ComponentStorage{Position,_storage_type(DefaultStorage,Position)}
+    @test world._storages[id_pos] isa _ComponentStorage{Position,_storage_type(DefaultStorage, Position)}
     @test length(world._storages[id_pos].data) == 1
 
     # Re-register Int component (should not add new storage)
