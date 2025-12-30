@@ -1,6 +1,7 @@
 module Ark
 
 using FieldViews
+using Preferences
 using StaticArrays
 using FunctionWrappers: FunctionWrapper
 
@@ -30,6 +31,7 @@ include("observer.jl")
 include("filter.jl")
 include("query.jl")
 include("batch_ops.jl")
+include("precompile.jl")
 
 #include("docs.jl") # doctest setup
 

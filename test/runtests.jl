@@ -1,9 +1,10 @@
 
-ENV["ARK_RUNNING_TESTS"] = true
-
 using Pkg
+using Preferences
 using Test
 using JET
+
+set_preferences!("Ark", "IS_TEST_ENV" => "true", "DEBUG" => "true", force=true)
 
 include("include_internals.jl")
 
@@ -44,5 +45,3 @@ if "CI" in keys(ENV) && VERSION < v"1.13" && isempty(VERSION.prerelease) && !("-
     Pkg.develop(path="..")
     include("ext/runtests.jl")
 end
-
-ENV["ARK_RUNNING_TESTS"] = false
