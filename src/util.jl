@@ -55,10 +55,10 @@ end
     end
 end
 
-const DEBUG = ("ARK_RUNNING_TESTS" in keys(ENV) && lowercase(ENV["ARK_RUNNING_TESTS"]) == "true")
+const DEBUG = @load_preference("DEBUG", default = "false")
 
 macro check(arg)
-    DEBUG ? esc(:(@assert $arg)) : nothing
+    DEBUG == "true" ? esc(:(@assert $arg)) : nothing
 end
 
 function _format_type(T)

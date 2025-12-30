@@ -11,8 +11,8 @@ function Ark.World(comp_types::Union{Type,Pair{<:Type,<:Type}}...; initial_capac
 end
 
 struct FakeComp{N} end
-global const fake_types = [FakeComp{i} for i in 1:300]
-global const fake_storage = [VectorStorage for i in 1:300]
-global const N_fake = 300
-global const offset_ID = 255
-global const M_mask = 5
+const fake_types = [FakeComp{i} for i in 1:300]
+const fake_storage = [VectorStorage for i in 1:300]
+const N_fake = 300
+const offset_ID = 255
+const M_mask = 5

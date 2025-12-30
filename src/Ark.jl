@@ -1,10 +1,13 @@
 module Ark
 
 using FieldViews
+using Preferences
 using StaticArrays
 using FunctionWrappers: FunctionWrapper
 
 isdefined(@__MODULE__, :Memory) || const Memory = Vector # Compat for Julia < 1.11
+
+const IS_TEST_ENV = @load_preference("IS_TEST_ENV", default = "false")
 
 include("abstract.jl")
 include("util.jl")
@@ -30,7 +33,9 @@ include("observer.jl")
 include("filter.jl")
 include("query.jl")
 include("batch_ops.jl")
-include("precompile.jl")
+# this is necessary since coverage is wrongly
+# reported with a precompilation workload
+IS_TEST_ENV != "true" && include("precompile.jl")
 
 #include("docs.jl") # doctest setup
 

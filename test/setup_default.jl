@@ -1,4 +1,4 @@
 
-global const N_fake = 0
-global const offset_ID = 0
-global const M_mask = 1
+const N_fake = 0
+const offset_ID = 0
+const M_mask = 1
