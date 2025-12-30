@@ -118,6 +118,6 @@ function _reset!(cache::_Cache)
         filter.id[] = UInt32(0)
     end
 
-    resize!(cache.filters, 0)
-    resize!(cache.free_indices, 0)
+    empty!(cache.filters)
+    empty!(cache.free_indices)
 end

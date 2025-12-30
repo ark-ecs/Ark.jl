@@ -52,7 +52,7 @@ function _activate_column!(storage::_ComponentStorage{C,A}, arch::Int, cap::Int)
 end
 
 function _clear_column!(storage::_ComponentStorage{C,A}, arch::UInt32) where {C,A<:AbstractArray}
-    resize!(storage.data[arch], 0)
+    empty!(storage.data[arch])
 end
 
 function _ensure_column_size!(storage::_ComponentStorage{C,A}, arch::UInt32, needed::Int) where {C,A<:AbstractArray}
@@ -101,7 +101,6 @@ end
     old_table::UInt32,
     new_table::UInt32,
     old_row::UInt32,
-    new_row::UInt32,
     ::CP,
 ) where {C,A<:AbstractArray,CP<:Val}
     # TODO: this can probably be optimized for StructArray storage
@@ -112,13 +111,13 @@ end
 
     if CP === Val{:ref} || (isbitstype(C) && !ismutabletype(C))
         # no copy required for immutable isbits
-        push!(exprs, :(@inbounds new_vec[new_row] = old_vec[old_row]))
+        push!(exprs, :(push!(new_vec, old_vec[old_row])))
     elseif CP === Val{:copy} || isbitstype(C)
         # no deep copy required for (mutable) isbits
-        push!(exprs, :(@inbounds new_vec[new_row] = _shallow_copy(old_vec[old_row])))
+        push!(exprs, :(push!(new_vec, _shallow_copy(old_vec[old_row]))))
     else # CP === Val{:deepcopy}
         # validity if checked before the call.
-        push!(exprs, :(@inbounds new_vec[new_row] = deepcopy(old_vec[old_row])))
+        push!(exprs, :(push!(new_vec, deepcopy(old_vec[old_row]))))
     end
 
     push!(exprs, Expr(:return, :nothing))

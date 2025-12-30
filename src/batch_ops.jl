@@ -579,14 +579,14 @@ end
             )
         end
         if !_is_cached(filter._filter) # Do not clear for cached filters!!!
-            resize!(tables, 0)
+            empty!(tables)
         end
 
         for batch in batches
             _set_relations_table!(fn, world, batch, $rel_ids, targets, $has_fn)
         end
 
-        resize!(batches, 0)
+        empty!(batches)
 
         _unlock(world._lock, l)
 
@@ -604,7 +604,7 @@ function _set_relations_table!(
 ) where {Fn,W<:World}
     new_relations, changed, mask = _get_exchange_targets(world, batch.table, relations, targets)
     if !changed
-        resize!(new_relations, 0)
+        empty!(new_relations)
         return nothing
     end
 
@@ -613,7 +613,7 @@ function _set_relations_table!(
         new_table_id = _create_table!(world, batch.archetype, copy(new_relations))
         new_table = world._tables[new_table_id]
     end
-    resize!(new_relations, 0)
+    empty!(new_relations)
 
     if _has_observers(world._event_manager, OnRemoveRelations)
         _fire_set_relations(world._event_manager, OnRemoveRelations, batch, mask)
@@ -686,7 +686,7 @@ end
             )
         end
         if !_is_cached(filter._filter) # Do not clear for cached filters!!!
-            resize!(tables, 0)
+            empty!(tables)
         end
 
         for batch in batches
@@ -694,7 +694,7 @@ end
                 Val{$ATS}(), add, Val{$RTS}(), Val{$TR}(), targets, Val{$DEF}(), Val{$HFN}(), Val{$REM}())
         end
 
-        resize!(batches, 0)
+        empty!(batches)
 
         _unlock(world._lock, l)
 
@@ -921,10 +921,6 @@ end
             end
         end
 
-        if should_lock
-            _unlock(world._lock, l)
-        end
-
         cleanup = world._pool.entities
         for table_id in tables
             table = world._tables[table_id]
@@ -942,7 +938,7 @@ end
                 )
                 _recycle(world._entity_pool, entity)
             end
-            resize!(table, 0)
+            empty!(table)
             for comp in world._archetypes[table.archetype].components
                 _clear_component_data!(world, comp, table.id)
             end
@@ -958,10 +954,14 @@ end
           (:(nothing))
         )
 
-        if !_is_cached(filter._filter) # Do not clear for cached filters!!!
-            resize!(tables, 0)
+        if should_lock
+            _unlock(world._lock, l)
         end
-        resize!(cleanup, 0)
+
+        if !_is_cached(filter._filter) # Do not clear for cached filters!!!
+            empty!(tables)
+        end
+        empty!(cleanup)
 
         return nothing
     end

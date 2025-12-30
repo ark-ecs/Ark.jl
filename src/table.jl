@@ -54,3 +54,4 @@ end
 Base.length(t::_Table) = Base.length(t.entities)
 Base.isempty(t::_Table) = Base.isempty(t.entities)
 Base.resize!(t::_Table, length::Int) = Base.resize!(t.entities._data, length)
+Base.empty!(t::_Table) = Base.empty!(t.entities._data)

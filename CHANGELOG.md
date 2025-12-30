@@ -1,6 +1,12 @@
 # Changelog
 
-## [[unpublished]](https://github.com/mlange-42/Ark.jl/compare/v0.2.0...main)
+## [[unpublished]](https://github.com/ark-ecs/Ark.jl/compare/v0.3.0...main)
+
+### Features
+
+- Adds support for user-defined storage types (#437)
+
+## [[v0.3.0]](https://github.com/ark-ecs/Ark.jl/compare/v0.2.0...v0.3.0)
 
 ### Breaking changes
 
@@ -16,12 +22,13 @@
 - Adds batch entity removal (#396, #402)
 - Adds batch-setting entity relation targets (#406)
 - Adds batched versions of adding, removing and exchanging components (#408)
-- Adds support for user-defined storage types (#437)
-- Makes Ark compatible with Mooncake (#405)
+- Makes Ark compatible with [Mooncake.jl](https://github.com/chalk-lab/Mooncake.jl) (#405)
 
 ### Performance
 
-- Uses a hash table for some component transitions (#348)
+- Uses a hash table for some component transitions, with up t0 30% speedup (#348)
+- Uses `push!` instead of `resize!`+`setindex!` for moving and creating components (#439)
+- Caches the last component transition, with 15-35% speedup (#448)
 
 ### Documentation
 
@@ -31,7 +38,11 @@
 
 - Fixes missing swaps in archetypes when removing components (#432, fixes #430)
 
-## [[v0.2.0]](https://github.com/mlange-42/Ark.jl/compare/v0.1.1...v0.2.0)
+### Other
+
+- Ark.jl moved from the personal account of its initiator to the [ark-ecs](https://github.com/ark-ecs) organization
+
+## [[v0.2.0]](https://github.com/ark-ecs/Ark.jl/compare/v0.1.1...v0.2.0)
 
 ### Breaking changes
 
@@ -71,12 +82,12 @@
 - Checks for duplicate components on query construction (#255)
 - Improves string representations of all exposed types (#275)
 
-## [[v0.1.1]](https://github.com/mlange-42/Ark.jl/compare/v0.1.0...v0.1.1)
+## [[v0.1.1]](https://github.com/ark-ecs/Ark.jl/compare/v0.1.0...v0.1.1)
 
 ### Bugfixes
 
 - Fix broken archetype pre-selection in queries (#301)
 
-## [[v0.1.0]](https://github.com/mlange-42/Ark.jl/tree/v0.1.0)
+## [[v0.1.0]](https://github.com/ark-ecs/Ark.jl/tree/v0.1.0)
 
 Initial release of Ark.jl.

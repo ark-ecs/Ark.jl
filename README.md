@@ -1,22 +1,22 @@
 <div align="center" width="100%">
-<a href="https://github.com/mlange-42/ark.jl">
+<a href="https://github.com/ark-ecs/ark.jl">
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/mlange-42/Ark.jl/refs/heads/main/docs/src/assets/ark-logo-text-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/mlange-42/Ark.jl/refs/heads/main/docs/src/assets/ark-logo-text-light.svg">
-  <img alt="Ark.jl Logo" src="https://raw.githubusercontent.com/mlange-42/Ark.jl/refs/heads/main/docs/src/assets/ark-logo-text-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/ark-ecs/Ark.jl/refs/heads/main/docs/src/assets/ark-logo-text-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/ark-ecs/Ark.jl/refs/heads/main/docs/src/assets/ark-logo-text-light.svg">
+  <img alt="Ark.jl Logo" src="https://raw.githubusercontent.com/ark-ecs/Ark.jl/refs/heads/main/docs/src/assets/ark-logo-text-light.svg">
 </picture>
 </a>
 
-[![Build Status](https://github.com/mlange-42/Ark.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/mlange-42/Ark.jl/actions/workflows/CI.yml?query=branch%3Amain)
-[![Coverage](https://codecov.io/gh/mlange-42/Ark.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/mlange-42/Ark.jl)
+[![Build Status](https://github.com/ark-ecs/Ark.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/ark-ecs/Ark.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Coverage](https://codecov.io/gh/ark-ecs/Ark.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/ark-ecs/Ark.jl)
 [![Aqua QA](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
 [![JET](https://img.shields.io/badge/%F0%9F%9B%A9%EF%B8%8F_tested_with-JET.jl-233f9a)](https://github.com/aviatesk/JET.jl)
-[![Docs stable](https://img.shields.io/badge/docs-stable-blue?logo=julia)](https://mlange-42.github.io/Ark.jl/stable/)
-[![Docs dev](https://img.shields.io/badge/docs-dev-blue?logo=julia)](https://mlange-42.github.io/Ark.jl/dev/)
-[![GitHub](https://img.shields.io/badge/github-repo-blue?logo=github)](https://github.com/mlange-42/ark)
+[![Docs stable](https://img.shields.io/badge/docs-stable-blue?logo=julia)](https://ark-ecs.github.io/Ark.jl/stable/)
+[![Docs dev](https://img.shields.io/badge/docs-dev-blue?logo=julia)](https://ark-ecs.github.io/Ark.jl/dev/)
+[![GitHub](https://img.shields.io/badge/github-repo-blue?logo=github)](https://github.com/ark-ecs/Ark.jl)
 [![DOI:10.5281/zenodo.17512271](https://img.shields.io/badge/10.5281%2Fzenodo.17512271-blue?label=doi)](https://doi.org/10.5281/zenodo.17512271)
-[![MIT license](https://img.shields.io/badge/MIT-brightgreen?label=license)](https://github.com/mlange-42/ark/blob/main/LICENSE-MIT)
-[![Apache 2.0 license](https://img.shields.io/badge/Apache%202.0-brightgreen?label=license)](https://github.com/mlange-42/ark/blob/main/LICENSE-APACHE)
+[![MIT license](https://img.shields.io/badge/MIT-brightgreen?label=license)](https://github.com/ark-ecs/Ark.jl/blob/main/LICENSE-MIT)
+[![Apache 2.0 license](https://img.shields.io/badge/Apache%202.0-brightgreen?label=license)](https://github.com/ark-ecs/Ark.jl/blob/main/LICENSE-APACHE)
 
 Ark.jl is an archetype-based [Entity Component System](https://en.wikipedia.org/wiki/Entity_component_system) (ECS) for [Julia](https://julialang.org/).
 It is a port of the Go ECS [Ark](https://github.com/mlange-42/ark).
@@ -28,13 +28,14 @@ It is a port of the Go ECS [Ark](https://github.com/mlange-42/ark).
 
 ## Features
 
-- Designed for [performance](https://mlange-42.github.io/Ark.jl/stable/benchmarks) and highly optimized.
-- Well-[documented](https://mlange-42.github.io/Ark.jl/stable/), type-stable [API](https://mlange-42.github.io/Ark.jl/stable/api).
-- [Storage mode](https://mlange-42.github.io/Ark.jl/stable/manual/components.html#component-storages) per component for ergonomics and SIMD.
-- Extensible [event system](https://mlange-42.github.io/Ark.jl/stable/manual/events.html) with filtering and custom event types.
-- Blazing fast [batch entity creation](https://mlange-42.github.io/Ark.jl/stable/manual/entities.html#creating-entities).
-- No [systems](https://mlange-42.github.io/Ark.jl/stable/manual/systems). Just [queries](https://mlange-42.github.io/Ark.jl/stable/manual/queries). Use your own structure.
-- Minimal [dependencies](https://github.com/mlange-42/Ark.jl/blob/main/Project.toml), 100% [test coverage](https://app.codecov.io/github/mlange-42/ark.jl).
+- Designed for [performance](https://ark-ecs.github.io/Ark.jl/stable/benchmarks) and highly optimized.
+- Well-[documented](https://ark-ecs.github.io/Ark.jl/stable/), type-stable [API](https://ark-ecs.github.io/Ark.jl/stable/api).
+- [Entity relationships](https://ark-ecs.github.io/Ark.jl/stable/manual/relations.html) as a first-class feature.
+- [Storage mode](https://ark-ecs.github.io/Ark.jl/stable/manual/components.html#component-storages) per component for ergonomics and SIMD.
+- Extensible [event system](https://ark-ecs.github.io/Ark.jl/stable/manual/events.html) with filtering and custom event types.
+- Fast [batch operations](https://ark-ecs.github.io/Ark.jl/stable/manual/batch.html) for mass manipulation.
+- No [systems](https://ark-ecs.github.io/Ark.jl/stable/manual/systems). Just [queries](https://ark-ecs.github.io/Ark.jl/stable/manual/queries). Use your own structure.
+- Minimal [dependencies](https://github.com/ark-ecs/Ark.jl/blob/main/Project.toml), 100% [test coverage](https://app.codecov.io/github/ark-ecs/ark.jl).
 
 ## Why ECS?
 
@@ -60,8 +61,8 @@ Pkg.add("Ark")
 
 Here is the classical Position/Velocity example that every ECS shows in the docs.
 
-See the [Manual](https://mlange-42.github.io/Ark.jl/stable/), [API docs](https://mlange-42.github.io/Ark.jl/stable/api)
-and [demos](https://github.com/mlange-42/Ark.jl/tree/main/demos) for more details.
+See the [Manual](https://ark-ecs.github.io/Ark.jl/stable/), [API docs](https://ark-ecs.github.io/Ark.jl/stable/api)
+and [demos](https://github.com/ark-ecs/Ark.jl/tree/main/demos) for more details.
 
 ```julia
 using Ark
@@ -104,8 +105,8 @@ end
 
 ## Cite as
 
-Lange, M. & Meligrana, A. (2025): Ark.jl – An archetype-based Entity Component System for Julia. DOI: [10.5281/zenodo.17512271](https://doi.org/10.5281/zenodo.17512271), GitHub repository: https://github.com/mlange-42/Ark.jl
+Lange, M. & Meligrana, A. (2025): Ark.jl – An archetype-based Entity Component System for Julia. DOI: [10.5281/zenodo.17512271](https://doi.org/10.5281/zenodo.17512271), GitHub repository: https://github.com/ark-ecs/Ark.jl
 
 ## License
 
-Ark.jl and all its sources and documentation are distributed under the [MIT license](https://github.com/mlange-42/Ark.jl/blob/main/LICENSE-MIT) and the [Apache 2.0 license](https://github.com/mlange-42/Ark.jl/blob/main/LICENSE-APACHE), as your options.
+Ark.jl and all its sources and documentation are distributed under the [MIT license](https://github.com/ark-ecs/Ark.jl/blob/main/LICENSE-MIT) and the [Apache 2.0 license](https://github.com/ark-ecs/Ark.jl/blob/main/LICENSE-APACHE), as your options.

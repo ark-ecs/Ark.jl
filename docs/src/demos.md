@@ -1,6 +1,6 @@
 # Demos
 
-The Ark repository contains a number of runnable [demos](https://github.com/mlange-42/Ark.jl/tree/main/demos).
+The Ark repository contains a number of runnable [demos](https://github.com/ark-ecs/Ark.jl/tree/main/demos).
 These are listed here, alongside instructions for running them.
 
 ## Running a demo
@@ -13,7 +13,7 @@ These are listed here, alongside instructions for running them.
 First, clone the repository and `cd` into it:
 </p>
 
-<pre><code class="language-shell hljs">git clone https://github.com/mlange-42/Ark.jl.git
+<pre><code class="language-shell hljs">git clone https://github.com/ark-ecs/Ark.jl.git
 cd Ark.jl
 </code></pre>
 
@@ -42,22 +42,22 @@ Most of the demos are interactive, so try hovering the mouse over the window.
 
 An animated, interactive Ark.jl logo.
 Use only the most basic features of Ark.
-[Source code](https://github.com/mlange-42/Ark.jl/tree/main/demos/logo).
+[Source code](https://github.com/ark-ecs/Ark.jl/tree/main/demos/logo).
 
 ```@raw html
 <div style="text-align: center;">
-<img alt="Logo demo" src="https://raw.githubusercontent.com/mlange-42/Ark.jl/refs/heads/gh-images/screenshots/logo.png" />
+<img alt="Logo demo" src="https://raw.githubusercontent.com/ark-ecs/Ark.jl/refs/heads/gh-images/screenshots/logo.png" />
 </div>
 ```
 
 ## SIR
 
 A simple individual-based epidemiologic SIR model.
-[Source code](https://github.com/mlange-42/Ark.jl/tree/main/demos/sir).
+[Source code](https://github.com/ark-ecs/Ark.jl/tree/main/demos/sir).
 
 ```@raw html
 <div style="text-align: center;">
-<img alt="SIR demo" src="https://raw.githubusercontent.com/mlange-42/Ark.jl/refs/heads/gh-images/screenshots/sir.png" />
+<img alt="SIR demo" src="https://raw.githubusercontent.com/ark-ecs/Ark.jl/refs/heads/gh-images/screenshots/sir.png" />
 </div>
 ```
 
@@ -65,11 +65,11 @@ A simple individual-based epidemiologic SIR model.
 
 Boids model, resembling bird flocks or fish schools.
 Makes use of entities stored in a spatial acceleration structure, as well as in components.
-[Source code](https://github.com/mlange-42/Ark.jl/tree/main/demos/boids).
+[Source code](https://github.com/ark-ecs/Ark.jl/tree/main/demos/boids).
 
 ```@raw html
 <div style="text-align: center;">
-<img alt="SIR demo" src="https://raw.githubusercontent.com/mlange-42/Ark.jl/refs/heads/gh-images/screenshots/boids.png" />
+<img alt="SIR demo" src="https://raw.githubusercontent.com/ark-ecs/Ark.jl/refs/heads/gh-images/screenshots/boids.png" />
 </div>
 ```
 
@@ -77,11 +77,11 @@ Makes use of entities stored in a spatial acceleration structure, as well as in 
 
 Random travelers on a network.
 Makes massive use of entities stored in components.
-[Source code](https://github.com/mlange-42/Ark.jl/tree/main/demos/network).
+[Source code](https://github.com/ark-ecs/Ark.jl/tree/main/demos/network).
 
 ```@raw html
 <div style="text-align: center;">
-<img alt="SIR demo" src="https://raw.githubusercontent.com/mlange-42/Ark.jl/refs/heads/gh-images/screenshots/network.png" />
+<img alt="SIR demo" src="https://raw.githubusercontent.com/ark-ecs/Ark.jl/refs/heads/gh-images/screenshots/network.png" />
 </div>
 ```
 
@@ -89,10 +89,10 @@ Makes massive use of entities stored in components.
 
 An model for the evolution of the foraging behavior of grazers.
 Dynamically adds and removes components to handle behavioral states.
-[Source code](https://github.com/mlange-42/Ark.jl/tree/main/demos/grazers).
+[Source code](https://github.com/ark-ecs/Ark.jl/tree/main/demos/grazers).
 
 ```@raw html
 <div style="text-align: center;">
-<img alt="SIR demo" src="https://raw.githubusercontent.com/mlange-42/Ark.jl/refs/heads/gh-images/screenshots/grazers.png" />
+<img alt="SIR demo" src="https://raw.githubusercontent.com/ark-ecs/Ark.jl/refs/heads/gh-images/screenshots/grazers.png" />
 </div>
 ```

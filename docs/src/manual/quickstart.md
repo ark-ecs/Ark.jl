@@ -17,8 +17,8 @@ Pkg.add("Ark")
 
 Here is the classical Position/Velocity example that every ECS shows in the docs.
 
-Read the next chapters and view the [API docs](https://mlange-42.github.io/Ark.jl/stable/api)
-and [demos](https://github.com/mlange-42/Ark.jl/tree/main/demos) for more details.
+Read the next chapters and view the [API docs](https://ark-ecs.github.io/Ark.jl/stable/api)
+and [demos](https://github.com/ark-ecs/Ark.jl/tree/main/demos) for more details.
 
 ```jldoctest; output = false
 using Ark
@@ -67,5 +67,5 @@ end
 If you ask **"What is ECS?"**, take a look at the great [**ECS FAQ**](https://github.com/SanderMertens/ecs-faq) by Sander Mertens, the author of the [Flecs](http://flecs.dev) ECS.
 
 To learn how to use Ark.jl, read the following chapters,
-browse the [API documentation](https://pkg.go.dev/github.com/mlange-42/ark),
-or take a look at the [GitHub repository](https://github.com/mlange-42/Ark.jl).
+browse the [API documentation](https://ark-ecs.github.io/Ark.jl/stable/api.html),
+or take a look at the [GitHub repository](https://github.com/ark-ecs/Ark.jl).
