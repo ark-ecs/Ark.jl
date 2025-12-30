@@ -55,11 +55,9 @@ end
     end
 end
 
-const DEBUG = if contains(Base.active_project(), "tmp/jl_")
-        "true"
-    else
-        @load_preference("DEBUG", default = "false")
-    end
+# TODO: improve the heuristic with something more robust, as of 1.12 though Julia doesn't
+# expose anything to set the flag more correctly
+const DEBUG = contains(Base.active_project(), "tmp/jl_") ? "true" : @load_preference("DEBUG", default = "false")
 
 macro check(arg)
     DEBUG == "true" ? esc(:(@assert $arg)) : nothing
