@@ -149,16 +149,16 @@ Base.@propagate_inbounds function Base.iterate(sa::StructArray{C}, i::Int) where
     return sa[i], i + 1
 end
 
-Base.empty!(sa::_StructArray) = resize!(sa, 0)
-Base.length(sa::_StructArray) = length(first(getfield(sa, :_components)))
-Base.size(sa::_StructArray) = (length(sa),)
-Base.eachindex(sa::_StructArray) = 1:length(sa)
-Base.eltype(::Type{<:_StructArray{C}}) where {C} = C
-Base.IndexStyle(::Type{<:_StructArray}) = IndexLinear()
+Base.empty!(sa::StructArray) = resize!(sa, 0)
+Base.length(sa::StructArray) = length(first(getfield(sa, :_components)))
+Base.size(sa::StructArray) = (length(sa),)
+Base.eachindex(sa::StructArray) = 1:length(sa)
+Base.eltype(::Type{<:StructArray{C}}) where {C} = C
+Base.IndexStyle(::Type{<:StructArray}) = IndexLinear()
 
 function Base.firstindex(sa::StructArray)
     # Do not simplify to this, as it is then not covered by the tests for some reason:
-    # Base.firstindex(sa::_StructArray) = 1
+    # Base.firstindex(sa::StructArray) = 1
     return 1
 end
 
@@ -211,7 +211,7 @@ Base.eachindex(sa::_StructArrayView) = 1:length(sa)
 
 function Base.firstindex(sa::_StructArrayView)
     # Do not simplify to this, as it is then not covered by the tests for some reason:
-    # Base.firstindex(sa::_StructArray) = 1
+    # Base.firstindex(sa::StructArray) = 1
     return 1
 end
 
