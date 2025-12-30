@@ -1,6 +1,6 @@
 
 @testset "debug flag" begin
-    @test Ark.DEBUG == "true"
+    @test _DEBUG == "true"
 end
 
 @testset "_format_type" begin
