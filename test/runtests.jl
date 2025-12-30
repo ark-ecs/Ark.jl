@@ -14,7 +14,7 @@ try
     end
 
     # TODO: re-enable when fixed on the Julia side.
-    RUN_JET = "CI" in keys(ENV) && VERSION >= v"1.12.0" && isempty(VERSION.prerelease)
+    global const RUN_JET = "CI" in keys(ENV) && VERSION >= v"1.12.0" && isempty(VERSION.prerelease)
 
     include("TestTypes.jl")
 
