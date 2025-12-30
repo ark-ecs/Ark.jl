@@ -2,6 +2,10 @@
 
 ## [[unpublished]](https://github.com/ark-ecs/Ark.jl/compare/v0.3.0...main)
 
+### Breaking changes
+
+- Storage modes wrap the storage types instead of using unrelated types (#437)
+
 ### Features
 
 - Adds support for user-defined storage types (#437)
@@ -10,7 +14,6 @@
 
 ### Breaking changes
 
-- Storage modes wrap the storage types instead of using unrelated types (#437)
 - Batch entity creation uses a callback/`do`-block instead of an iterator (#400)
 
 ### Features
