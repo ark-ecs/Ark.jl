@@ -55,7 +55,11 @@ end
     end
 end
 
-const DEBUG = @load_preference("DEBUG", default = "false")
+const DEBUG = if contains(Base.active_project(), "tmp/jl_")
+        "true"
+    else
+        @load_preference("DEBUG", default = "false")
+    end
 
 macro check(arg)
     DEBUG == "true" ? esc(:(@assert $arg)) : nothing
