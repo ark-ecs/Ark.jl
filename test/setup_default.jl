@@ -1,4 +1,4 @@
 
-const N_fake = 0
-const offset_ID = 0
-const M_mask = 1
+N_fake = 0
+offset_ID = 0
+M_mask = 1
