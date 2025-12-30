@@ -4,7 +4,7 @@ using Preferences
 using Test
 using JET
 
-set_preferences!("Ark", "IS_TEST_ENV" => "true", "DEBUG" => "true")
+set_preferences!("Ark", "IS_TEST_ENV" => "true", "DEBUG" => "true", force=true)
 
 include("include_internals.jl")
 
