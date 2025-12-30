@@ -10,7 +10,7 @@ using PrecompileTools
     end
     struct C <: Relationship end
     @compile_workload let
-        w = World(A, B => Storage{StructArray}, C)
+        w = World(A, B => StructArrayStorage, C)
         e1 = new_entity!(w, (A(0.0), B(0.0)))
         e2 = new_entity!(w, (A(0.0), B(0.0), C()); relations=(C => e1,))
         e3 = copy_entity!(w, e1)
