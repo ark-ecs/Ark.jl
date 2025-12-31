@@ -55,10 +55,17 @@ end
     end
 end
 
-const DEBUG = ("ARK_RUNNING_TESTS" in keys(ENV) && lowercase(ENV["ARK_RUNNING_TESTS"]) == "true")
+# TODO: improve the heuristic with something more robust, as of 1.12 though Julia doesn't
+# expose anything to set the flag more correctly
+function is_testing()
+    pname = Base.active_project()
+    isnothing(pname) ? false : contains(pname, "tmp/jl_")
+end
+
+const _DEBUG = is_testing() ? "true" : @load_preference("DEBUG", default = "false")
 
 macro check(arg)
-    DEBUG ? esc(:(@assert $arg)) : nothing
+    _DEBUG == "true" ? esc(:(@assert $arg)) : nothing
 end
 
 function _format_type(T)

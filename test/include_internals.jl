@@ -21,5 +21,6 @@ using Ark: _has_observers
 using Ark: StructArray, _StructArray_type, _StructArrayView, _new_storage, _storage_type
 using Ark: _format_type
 using Ark: _IdCollection, _add_id!, _remove_id!, _get_table, _new_table, _no_entity
+using Ark: _DEBUG
 
 using FieldViews
