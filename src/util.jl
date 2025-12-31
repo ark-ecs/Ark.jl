@@ -57,7 +57,14 @@ end
 
 # TODO: improve the heuristic with something more robust, as of 1.12 though Julia doesn't
 # expose anything to set the flag more correctly
-is_testing() = contains(Base.active_project(), "tmp/jl_")
+function is_testing()
+    pname = Base.active_project()
+    if isnothing(pname)
+        return false
+    else
+        return contains(pname, "tmp/jl_")
+    end
+end
 
 const _DEBUG = is_testing() ? "true" : @load_preference("DEBUG", default = "false")
 
