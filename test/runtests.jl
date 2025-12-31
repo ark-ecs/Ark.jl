@@ -4,8 +4,6 @@ using Preferences
 using Test
 using JET
 
-set_preferences!("Ark", "DEBUG" => "true", force=true)
-
 include("include_internals.jl")
 
 if "--large-world" in ARGS
