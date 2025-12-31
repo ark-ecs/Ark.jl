@@ -31,7 +31,7 @@ include("observer.jl")
 include("filter.jl")
 include("query.jl")
 include("batch_ops.jl")
-!contains(Base.active_project(), "tmp/jl_") && include("precompile.jl")
+!is_testing() && include("precompile.jl")
 
 #include("docs.jl") # doctest setup
 
