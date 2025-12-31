@@ -59,11 +59,7 @@ end
 # expose anything to set the flag more correctly
 function is_testing()
     pname = Base.active_project()
-    if isnothing(pname)
-        return false
-    else
-        return contains(pname, "tmp/jl_")
-    end
+    isnothing(pname) ? false : contains(pname, "tmp/jl_")
 end
 
 const _DEBUG = is_testing() ? "true" : @load_preference("DEBUG", default = "false")
