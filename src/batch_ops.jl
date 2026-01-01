@@ -1118,7 +1118,7 @@ end
         push!(exprs, :(@inbounds $stor_sym = _get_storage(world, $(comp_types[i]))))
         push!(exprs, :(@inbounds $col_sym = $stor_sym.data[Int(table.id)]))
 
-        if storage_modes[i] == VectorStorage && fieldcount(comp_types[i]) > 0
+        if storage_modes[i] != Storage{StructArray} && fieldcount(comp_types[i]) > 0
             push!(exprs, :($vec_sym = FieldViewable(view($col_sym, start_idx:end_idx))))
         else
             push!(exprs, :($vec_sym = view($col_sym, start_idx:end_idx)))

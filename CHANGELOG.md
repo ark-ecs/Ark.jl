@@ -1,5 +1,15 @@
 # Changelog
 
+## [[unpublished]](https://github.com/ark-ecs/Ark.jl/compare/v0.3.0...main)
+
+### Breaking changes
+
+- Storage modes wrap the storage types instead of using unrelated types (#437)
+
+### Features
+
+- Adds support for user-defined storage types (#437)
+
 ## [[v0.3.0]](https://github.com/ark-ecs/Ark.jl/compare/v0.2.0...v0.3.0)
 
 ### Breaking changes

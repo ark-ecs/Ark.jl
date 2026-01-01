@@ -1,11 +1,11 @@
 
 function setup_world_new_entity_5_soa(n::Int)
     world = World(
-        Position => StructArrayStorage,
-        Velocity => StructArrayStorage,
-        CompA => StructArrayStorage,
-        CompB => StructArrayStorage,
-        CompC => StructArrayStorage,
+        Position => Storage{StructArray},
+        Velocity => Storage{StructArray},
+        CompA => Storage{StructArray},
+        CompB => Storage{StructArray},
+        CompC => Storage{StructArray},
     )
 
     # Run once to allocate memory

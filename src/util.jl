@@ -104,8 +104,8 @@ function _generate_component_switch(CS::Type{<:Tuple}, comp_idx_sym::Symbol, fun
 end
 
 function _generate_type_lookup(CS::Type{<:Tuple}, TargetType::Type, result_generator::Function)
-    storage_types = CS.parameters
-    for (i, S) in enumerate(storage_types)
+    _storage_types = CS.parameters
+    for (i, S) in enumerate(_storage_types)
         if S <: _ComponentStorage && S.parameters[1] === TargetType
             return result_generator(i)
         end
@@ -114,8 +114,8 @@ function _generate_type_lookup(CS::Type{<:Tuple}, TargetType::Type, result_gener
 end
 
 function _has_relations(CS::Type{<:Tuple})
-    storage_types = CS.parameters
-    for (i, S) in enumerate(storage_types)
+    _storage_types = CS.parameters
+    for (i, S) in enumerate(_storage_types)
         if S.parameters[1] <: Relationship
             return true
         end

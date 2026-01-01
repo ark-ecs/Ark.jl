@@ -17,8 +17,6 @@ World
 World(::Type...)
 reset!
 is_locked
-StructArrayStorage
-VectorStorage
 Relationship
 ```
 
@@ -53,6 +51,17 @@ remove_components!
 exchange_components!
 get_relations
 set_relations!
+```
+
+## [Storages](@id storage-api)
+
+[Storages](@ref component-storages) define the data structures for the containers of
+[Components](@ref). The default ones are Vector and [StructArray](@ref),
+but new ones can be defined implementing the [Storage Interface](@ref new-component-storages).
+
+```@docs
+Storage
+StructArray
 ```
 
 ## [Queries and Filters](@id queries-api)

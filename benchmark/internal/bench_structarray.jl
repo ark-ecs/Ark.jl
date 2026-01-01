@@ -1,4 +1,3 @@
-using Ark: _StructArray
 
 function setup_iterate_vector(n::Int)
     arr = Vector{Position}()
@@ -24,8 +23,8 @@ end
 SUITE["benchmark_iterate_vector n=1000"] =
     @be setup_iterate_vector(1000) benchmark_iterate_vector(_, 1000) seconds = SECONDS
 
-function setup_iterate_structarray(n::Int)
-    arr = _StructArray(Position)
+function setup_iterate_StructArray(n::Int)
+    arr = StructArray(Position)
     for i in 1:n
         push!(arr, Position(i, i))
     end
@@ -36,7 +35,7 @@ function setup_iterate_structarray(n::Int)
     return arr
 end
 
-function benchmark_iterate_structarray(args, n::Int)
+function benchmark_iterate_StructArray(args, n::Int)
     arr = args
     sum = 0.0
     for pos in arr
@@ -45,11 +44,11 @@ function benchmark_iterate_structarray(args, n::Int)
     return sum
 end
 
-SUITE["benchmark_iterate_structarray n=1000"] =
-    @be setup_iterate_structarray(1000) benchmark_iterate_structarray(_, 1000) seconds = SECONDS
+SUITE["benchmark_iterateStructArray n=1000"] =
+    @be setup_iterate_StructArray(1000) benchmark_iterate_StructArray(_, 1000) seconds = SECONDS
 
-function setup_iterate_structarray_view(n::Int)
-    arr = _StructArray(Position)
+function setup_iterate_StructArray_view(n::Int)
+    arr = StructArray(Position)
     for i in 1:n
         push!(arr, Position(i, i))
     end
@@ -61,7 +60,7 @@ function setup_iterate_structarray_view(n::Int)
     return v
 end
 
-function benchmark_iterate_structarray_view(args, n::Int)
+function benchmark_iterate_StructArray_view(args, n::Int)
     v = args
     sum = 0.0
     for pos in v
@@ -70,5 +69,5 @@ function benchmark_iterate_structarray_view(args, n::Int)
     return sum
 end
 
-SUITE["benchmark_iterate_structarray_view n=1000"] =
-    @be setup_iterate_structarray_view(1000) benchmark_iterate_structarray_view(_, 1000) seconds = SECONDS
+SUITE["benchmark_iterateStructArray_view n=1000"] =
+    @be setup_iterate_StructArray_view(1000) benchmark_iterate_StructArray_view(_, 1000) seconds = SECONDS

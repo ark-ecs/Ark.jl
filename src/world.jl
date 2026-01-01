@@ -71,7 +71,6 @@ All component types that will be used with the world must be specified.
 This allows Ark to use Julia's compile-time method generation to achieve the best performance.
 
 For each component type, an individual [storage mode](@ref component-storages) can be set.
-See also [VectorStorage](@ref) and [StructArrayStorage](@ref).
 
 Additional arguments can be used to allow mutable component types (forbidden by default and discouraged)
 and an initial capacity for entities in [archetypes](@ref Architecture).
@@ -101,9 +100,9 @@ A World with individually configured storage modes:
 
 ```jldoctest; setup = :(using Ark; include(string(dirname(pathof(Ark)), "/docs.jl"))), output = false
 world = World(
-    Position => StructArrayStorage,
-    Velocity => StructArrayStorage,
-    Health => VectorStorage,
+    Position => Storage{StructArray},
+    Velocity => Storage{StructArray},
+    Health => Storage{Vector},
 )
 
 # output
@@ -113,7 +112,7 @@ World(entities=0, comp_types=(Position, Velocity, Health))
 """
 function World(comp_types::Union{Type,Pair{<:Type,<:Type}}...; initial_capacity::Int=128, allow_mutable=false)
     types = map(arg -> arg isa Type ? arg : arg.first, comp_types)
-    storages = map(arg -> arg isa Type ? VectorStorage : arg.second, comp_types)
+    storages = map(arg -> arg isa Type ? Storage{Vector} : arg.second, comp_types)
 
     _World_from_types(Val{Tuple{types...}}(), Val{Tuple{storages...}}(), Val(allow_mutable), initial_capacity)
 end
@@ -705,16 +704,16 @@ end
                 ArgumentError("can't use $(nameof(T)) as component as it is not a concrete type"),
             )
         end
-        if !(mode <: StructArrayStorage || mode <: VectorStorage)
+        if !(mode <: Storage)
             throw(
                 ArgumentError(
-                    "$(nameof(mode)) is not a valid storage mode, must be StructArrayStorage or VectorStorage",
+                    "$(nameof(mode)) is not a valid storage mode, must be Storage{T<:AbstractVector}",
                 ),
             )
         end
-        if mode <: StructArrayStorage && fieldcount(T) == 0
+        if mode <: Storage{StructArray} && fieldcount(T) == 0
             throw(
-                ArgumentError("can't use StructArrayStorage for $(nameof(T)) because it has no fields"),
+                ArgumentError("can't use Storage{StructArray} for $(nameof(T)) because it has no fields"),
             )
         end
     end
@@ -722,7 +721,7 @@ end
     # Immutability checks
     for (T, mode) in zip(types, storage_val_types)
         if ismutabletype(T)
-            if mode <: StructArrayStorage
+            if mode <: Storage{StructArray}
                 throw(
                     ArgumentError("Component type $(nameof(T)) must be immutable because it uses StructArray storage"),
                 )
@@ -737,23 +736,18 @@ end
     component_tuple_type = :(Tuple{$(component_types...)})
 
     # Storage type logic (based on resolved Val{...} types)
-    storage_types = Vector{Any}(undef, length(types))
+    _storage_types = Vector{Any}(undef, length(types))
     storage_exprs = Vector{Any}(undef, length(types))
 
     for i in 1:length(types)
         T = types[i]
         mode = storage_val_types[i]
-        if mode <: StructArrayStorage
-            storage_types[i] = :(_ComponentStorage{$T,_StructArray_type($T)})
-            storage_exprs[i] = :(_new_struct_array_storage($T))
-        else
-            storage_types[i] = :(_ComponentStorage{$T,Vector{$T}})
-            storage_exprs[i] = :(_new_vector_storage($T))
-        end
+        _storage_types[i] = :(_ComponentStorage{$T,_storage_type($mode, $T)})
+        storage_exprs[i] = :(_ComponentStorage{$T,_storage_type($mode, $T)}([_new_storage($mode, $T)]))
     end
 
     # Final type and value tuples
-    storage_tuple_type = :(Tuple{$(storage_types...)})
+    storage_tuple_type = :(Tuple{$(_storage_types...)})
     storage_tuple = Expr(:tuple, storage_exprs...)
 
     storage_mode_type = :(Tuple{$(storage_val_types...)})

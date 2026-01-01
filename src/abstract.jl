@@ -18,20 +18,21 @@ struct ChildOf <: Relationship end
 abstract type Relationship end
 
 """
-    StructArrayStorage
+    Storage{T}
 
-Marks component types for using StructArray-like [storage mode](@ref component-storages) in the world constructor.
+Marks component types for using `T` as a [storage](@ref component-storages) in the
+world constructor. The default storages supported by `Ark` are `Vector` and `StructArray`.
 
-In StructArray storages, mutable components are not allowed.
+If, during world construction, the storage mode is not specified, it defaults to `Storage{Vector}`.
 
-See also [VectorStorage](@ref).
+In `StructArray` storages, mutable components are not allowed.
 
 # Example
 
 ```jldoctest; setup = :(using Ark; include(string(dirname(pathof(Ark)), "/docs.jl"))), output = false
 world = World(
-    Position => StructArrayStorage,
-    Velocity => StructArrayStorage,
+    Position,
+    Velocity => Storage{StructArray},
 )
 
 # output
@@ -39,27 +40,4 @@ world = World(
 World(entities=0, comp_types=(Position, Velocity))
 ```
 """
-abstract type StructArrayStorage end
-
-"""
-    VectorStorage
-
-Marks component types for using Vector [storage mode](@ref component-storages) in the world constructor.
-As this is the default storage mode if the storage type is not specified.
-
-See also [StructArrayStorage](@ref).
-
-# Example
-
-```jldoctest; setup = :(using Ark; include(string(dirname(pathof(Ark)), "/docs.jl"))), output = false
-world = World(
-    Position => VectorStorage,
-    Velocity => VectorStorage,
-)
-
-# output
-
-World(entities=0, comp_types=(Position, Velocity))
-```
-"""
-abstract type VectorStorage end
+struct Storage{T<:AbstractVector} end

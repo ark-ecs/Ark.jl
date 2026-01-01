@@ -1,9 +1,17 @@
 
-struct _StructArray{C,CS<:NamedTuple,N} <: AbstractArray{C,1}
+"""
+    StructArray
+
+A custom implementation of a StructArray similar to the one exported by StructArrays.jl.
+
+In the interface, it is only used to mark that a component has a struct array storage
+with `ComponentA => Storage{StructArray}`.
+"""
+struct StructArray{C,CS<:NamedTuple,N} <: AbstractArray{C,1}
     _components::CS
 end
 
-function _StructArray(tp::Type{C}) where {C}
+function StructArray(tp::Type{C}) where {C}
     _StructArray_from_type(tp)
 end
 
@@ -17,7 +25,7 @@ end
     kv_exprs = [:($name = Vector{$t}()) for (name, t) in zip(names, types)]
 
     return quote
-        _StructArray{C,$nt_type,$num_fields}((; $(kv_exprs...)))
+        StructArray{C,$nt_type,$num_fields}((; $(kv_exprs...)))
     end
 end
 
@@ -30,7 +38,7 @@ end
     nt_type = :(NamedTuple{($(map(QuoteNode, names)...),),Tuple{$(map(t -> :(Vector{$t}), types)...)}})
 
     return quote
-        _StructArray{C,$nt_type,$num_fields}
+        StructArray{C,$nt_type,$num_fields}
     end
 end
 
@@ -43,11 +51,11 @@ end
         Tuple{$(map(t -> :(SubArray{$t,1,Vector{$t},Tuple{I},true}), types)...)},
     })
     return quote
-        StructArrayView{C,$nt_type,I}
+        _StructArrayView{C,$nt_type,I}
     end
 end
 
-@generated function Base.getproperty(sa::_StructArray{C}, name::Symbol) where {C}
+@generated function Base.getproperty(sa::StructArray{C}, name::Symbol) where {C}
     component_names = fieldnames(C)
     cases = [
         :(name === $(QuoteNode(n)) && return getfield(sa, :_components).$n) for n in component_names
@@ -55,7 +63,7 @@ end
     return Expr(:block, cases..., :(throw(ErrorException(lazy"type $C has no field $name"))))
 end
 
-@generated function Base.resize!(sa::_StructArray{C}, n::Integer) where {C}
+@generated function Base.resize!(sa::StructArray{C}, n::Integer) where {C}
     names = fieldnames(C)
     resize_exprs = [
         :(resize!(getfield(sa, :_components).$name, n)) for name in names
@@ -63,7 +71,7 @@ end
     return Expr(:block, resize_exprs..., :(sa))
 end
 
-@generated function Base.sizehint!(sa::_StructArray{C}, n::Integer) where {C}
+@generated function Base.sizehint!(sa::StructArray{C}, n::Integer) where {C}
     names = fieldnames(C)
     sizehint_exprs = [
         :(sizehint!(getfield(sa, :_components).$name, n)) for name in names
@@ -71,7 +79,7 @@ end
     return Expr(:block, sizehint_exprs..., :(sa))
 end
 
-@generated function Base.push!(sa::_StructArray{C}, c::C) where {C}
+@generated function Base.push!(sa::StructArray{C}, c::C) where {C}
     names = fieldnames(C)
     push_exprs = [
         :(push!(getfield(sa, :_components).$name, c.$name)) for name in names
@@ -79,7 +87,7 @@ end
     return Expr(:block, push_exprs..., :(sa))
 end
 
-@generated function Base.pop!(sa::_StructArray{C}) where {C}
+@generated function Base.pop!(sa::StructArray{C}) where {C}
     names = fieldnames(C)
     pop_exprs = [
         :(pop!(getfield(sa, :_components).$name)) for name in names
@@ -87,7 +95,7 @@ end
     return Expr(:block, pop_exprs..., :(sa))
 end
 
-@generated function Base.fill!(sa::_StructArray{C}, value::C) where {C}
+@generated function Base.fill!(sa::StructArray{C}, value::C) where {C}
     names = fieldnames(C)
     fill_exprs = [
         :(fill!(getfield(sa, :_components).$name, value.$name)) for name in names
@@ -95,12 +103,12 @@ end
     return Expr(:block, fill_exprs..., :(sa))
 end
 
-Base.view(sa::_StructArray, ::Colon) = view(sa, 1:length(sa))
+Base.view(sa::StructArray, ::Colon) = view(sa, 1:length(sa))
 
 @generated function Base.view(
     sa::S,
     idx::I,
-) where {S<:_StructArray{C,CS,N},I<:AbstractUnitRange{T}} where {C,CS<:NamedTuple,N,T<:Integer}
+) where {S<:StructArray{C,CS,N},I<:AbstractUnitRange{T}} where {C,CS<:NamedTuple,N,T<:Integer}
     names = fieldnames(C)
     types = fieldtypes(C)
     view_exprs = [
@@ -111,11 +119,11 @@ Base.view(sa::_StructArray, ::Colon) = view(sa, 1:length(sa))
         Tuple{$(map(t -> :(SubArray{$t,1,Vector{$t},Tuple{I},true}), types)...)},
     })
     return quote
-        StructArrayView{C,$nt_type,I}((; $(view_exprs...)), idx)
+        _StructArrayView{C,$nt_type,I}((; $(view_exprs...)), idx)
     end
 end
 
-Base.@propagate_inbounds @generated function Base.getindex(sa::_StructArray{C}, i::Int) where {C}
+Base.@propagate_inbounds @generated function Base.getindex(sa::StructArray{C}, i::Int) where {C}
     names = fieldnames(C)
     field_exprs = [
         :($(name) = getfield(sa, :_components).$name[i]) for name in names
@@ -123,7 +131,7 @@ Base.@propagate_inbounds @generated function Base.getindex(sa::_StructArray{C}, 
     return Expr(:block, Expr(:new, C, field_exprs...))
 end
 
-Base.@propagate_inbounds @generated function Base.setindex!(sa::_StructArray{C}, c, i::Int) where {C}
+Base.@propagate_inbounds @generated function Base.setindex!(sa::StructArray{C}, c, i::Int) where {C}
     names = fieldnames(C)
     set_exprs = [
         :(getfield(sa, :_components).$name[i] = c.$name) for name in names
@@ -131,37 +139,37 @@ Base.@propagate_inbounds @generated function Base.setindex!(sa::_StructArray{C},
     return Expr(:block, set_exprs..., :(nothing))
 end
 
-Base.@propagate_inbounds function Base.iterate(sa::_StructArray{C}) where {C}
+Base.@propagate_inbounds function Base.iterate(sa::StructArray{C}) where {C}
     length(sa) == 0 && return nothing
     return sa[1], 2
 end
 
-Base.@propagate_inbounds function Base.iterate(sa::_StructArray{C}, i::Int) where {C}
+Base.@propagate_inbounds function Base.iterate(sa::StructArray{C}, i::Int) where {C}
     i > length(sa) && return nothing
     return sa[i], i + 1
 end
 
-Base.empty!(sa::_StructArray) = resize!(sa, 0)
-Base.length(sa::_StructArray) = length(first(getfield(sa, :_components)))
-Base.size(sa::_StructArray) = (length(sa),)
-Base.eachindex(sa::_StructArray) = 1:length(sa)
-Base.eltype(::Type{<:_StructArray{C}}) where {C} = C
-Base.IndexStyle(::Type{<:_StructArray}) = IndexLinear()
+Base.empty!(sa::StructArray) = resize!(sa, 0)
+Base.length(sa::StructArray) = length(first(getfield(sa, :_components)))
+Base.size(sa::StructArray) = (length(sa),)
+Base.eachindex(sa::StructArray) = 1:length(sa)
+Base.eltype(::Type{<:StructArray{C}}) where {C} = C
+Base.IndexStyle(::Type{<:StructArray}) = IndexLinear()
 
-function Base.firstindex(sa::_StructArray)
+function Base.firstindex(sa::StructArray)
     # Do not simplify to this, as it is then not covered by the tests for some reason:
-    # Base.firstindex(sa::_StructArray) = 1
+    # Base.firstindex(sa::StructArray) = 1
     return 1
 end
 
-Base.lastindex(sa::_StructArray) = length(sa)
+Base.lastindex(sa::StructArray) = length(sa)
 
-struct StructArrayView{C,CS<:NamedTuple,I} <: AbstractArray{C,1}
+struct _StructArrayView{C,CS<:NamedTuple,I} <: AbstractArray{C,1}
     _components::CS
     _indices::I
 end
 
-Base.@propagate_inbounds @generated function Base.getindex(sa::StructArrayView{C}, i::Int) where {C}
+Base.@propagate_inbounds @generated function Base.getindex(sa::_StructArrayView{C}, i::Int) where {C}
     names = fieldnames(C)
     field_exprs = [
         :($(name) = getfield(sa, :_components).$name[i]) for name in names
@@ -169,7 +177,7 @@ Base.@propagate_inbounds @generated function Base.getindex(sa::StructArrayView{C
     return Expr(:block, Expr(:new, C, field_exprs...))
 end
 
-Base.@propagate_inbounds @generated function Base.setindex!(sa::StructArrayView{C}, c::C, i::Int) where {C}
+Base.@propagate_inbounds @generated function Base.setindex!(sa::_StructArrayView{C}, c::C, i::Int) where {C}
     names = fieldnames(C)
     set_exprs = [
         :(getfield(sa, :_components).$name[i] = c.$name) for name in names
@@ -177,7 +185,7 @@ Base.@propagate_inbounds @generated function Base.setindex!(sa::StructArrayView{
     return Expr(:block, set_exprs..., :(sa))
 end
 
-@generated function Base.fill!(sa::StructArrayView{C}, value::C) where {C}
+@generated function Base.fill!(sa::_StructArrayView{C}, value::C) where {C}
     names = fieldnames(C)
     fill_exprs = [
         :(fill!(getfield(sa, :_components).$name, value.$name)) for name in names
@@ -185,31 +193,31 @@ end
     return Expr(:block, fill_exprs..., :(sa))
 end
 
-Base.@propagate_inbounds function Base.iterate(sa::StructArrayView{C}) where {C}
+Base.@propagate_inbounds function Base.iterate(sa::_StructArrayView{C}) where {C}
     length(sa) == 0 && return nothing
     return sa[1], 2
 end
 
-Base.@propagate_inbounds function Base.iterate(sa::StructArrayView{C}, i::Int) where {C}
+Base.@propagate_inbounds function Base.iterate(sa::_StructArrayView{C}, i::Int) where {C}
     i > length(sa) && return nothing
     return sa[i], i + 1
 end
 
-Base.size(sa::StructArrayView) = (length(sa._indices),)
-Base.length(sa::StructArrayView) = length(sa._indices)
-Base.eltype(::Type{<:StructArrayView{C}}) where {C} = C
-Base.IndexStyle(::Type{<:StructArrayView}) = IndexLinear()
-Base.eachindex(sa::StructArrayView) = 1:length(sa)
+Base.size(sa::_StructArrayView) = (length(sa._indices),)
+Base.length(sa::_StructArrayView) = length(sa._indices)
+Base.eltype(::Type{<:_StructArrayView{C}}) where {C} = C
+Base.IndexStyle(::Type{<:_StructArrayView}) = IndexLinear()
+Base.eachindex(sa::_StructArrayView) = 1:length(sa)
 
-function Base.firstindex(sa::StructArrayView)
+function Base.firstindex(sa::_StructArrayView)
     # Do not simplify to this, as it is then not covered by the tests for some reason:
-    # Base.firstindex(sa::_StructArray) = 1
+    # Base.firstindex(sa::StructArray) = 1
     return 1
 end
 
-Base.lastindex(sa::StructArrayView) = length(sa)
+Base.lastindex(sa::_StructArrayView) = length(sa)
 
-function Base.show(io::IO, a::StructArrayView{C,CS}) where {C,CS<:NamedTuple}
+function Base.show(io::IO, a::_StructArrayView{C,CS}) where {C,CS<:NamedTuple}
     names = CS.parameters[1]
     types = CS.parameters[2].parameters
 
@@ -236,24 +244,24 @@ function Base.show(io::IO, a::StructArrayView{C,CS}) where {C,CS<:NamedTuple}
 end
 
 """
-    unpack(a::StructArrayView)
+    unpack(a::_StructArrayView)
 
-Unpacks the components (i.e. field vectors) of a [StructArrayStorage](@ref) column returned from a [Query](@ref).
+Unpacks the components (i.e. field vectors) of a `StructArray` column returned from a [Query](@ref).
 See also [@unpack](@ref).
 """
-unpack(a::StructArrayView) = a._components
+unpack(a::_StructArrayView) = a._components
 
 """
     @unpack ...
 
 Unpacks the tuple returned from a [Query](@ref) during iteration into field vectors.
-Field vectors are particularly useful for [StructArrayStorage](@ref)s,
-but can also be used with [VectorStorage](@ref)s, although those are currently not
+Field vectors are particularly useful when the component is stored in a `StructArray`,
+but can also be used with other storages, although those are currently not
 equally efficient in broadcasted operations.
 
 Columns for components without fields, like primitives or label components, fall through `@unpack` unaltered.
 
-See also [unpack(::StructArrayView)](@ref) and [unpack(::FieldViewable)](@ref).
+See also [unpack(::_StructArrayView)](@ref) and [unpack(::FieldViewable)](@ref).
 
 # Example
 

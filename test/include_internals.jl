@@ -18,7 +18,7 @@ using Ark: _Linear_Map, _LOAD_FACTOR
 using Ark: _Graph, _GraphNode, _find_node, _find_or_create, _UseMap, _NoUseMap
 using Ark: _BatchTable
 using Ark: _has_observers
-using Ark: _StructArray, _StructArray_type, StructArrayView
+using Ark: StructArray, _StructArray_type, _StructArrayView, _new_storage, _storage_type
 using Ark: _format_type
 using Ark: _IdCollection, _add_id!, _remove_id!, _get_table, _new_table, _no_entity
 using Ark: _DEBUG

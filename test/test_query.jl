@@ -328,7 +328,7 @@ end
     world = World(
         Dummy,
         Position,
-        Velocity => StructArrayStorage,
+        Velocity => Storage{StructArray},
     )
 
     for i in 1:10
@@ -336,7 +336,7 @@ end
     end
 
     for (entities, vec) in Query(world, (Velocity,))
-        @test isa(vec, StructArrayView)
+        @test isa(vec, _StructArrayView)
         for i in eachindex(vec)
             pos = vec[i]
             vec[i] = Velocity(pos.dx + 1, pos.dy + 1)
@@ -355,7 +355,7 @@ end
     world = World(
         Dummy,
         Position,
-        Velocity => StructArrayStorage,
+        Velocity => Storage{StructArray},
         NoIsBits,
         Int64,
     )
@@ -405,7 +405,7 @@ end
     world = World(
         Dummy,
         Position,
-        Velocity => StructArrayStorage,
+        Velocity => Storage{StructArray},
         Altitude,
         NoIsBits,
         Int64,
@@ -420,8 +420,8 @@ end
 
     @inferred Tuple{
         Entities,
-        FieldViews.FieldViewable{Position,1,Vector{Position}},
-        Ark.StructArrayView{
+        FieldViews.FieldViewable{Position,1,_storage_type(DefaultStorage, Position)},
+        _StructArrayView{
             Velocity,
             @NamedTuple{
                 dx::SubArray{Float64,1,Vector{Float64},Tuple{UnitRange{Int64}},true},
@@ -429,10 +429,13 @@ end
             },
             UnitRange{Int64},
         },
-        SubArray{Int64,1,Vector{Int64},Tuple{Base.Slice{Base.OneTo{Int64}}},true},
-        Union{Nothing,FieldViews.FieldViewable{NoIsBits,1,Vector{NoIsBits}}},
-        Union{Nothing,FieldViews.FieldViewable{Altitude,1,Vector{Altitude}}},
-        Union{Nothing,SubArray{Float64,1,Vector{Float64},Tuple{Base.Slice{Base.OneTo{Int64}}},true}},
+        SubArray{Int64,1,_storage_type(DefaultStorage, Int64),Tuple{Base.Slice{Base.OneTo{Int64}}},true},
+        Union{Nothing,FieldViews.FieldViewable{NoIsBits,1,_storage_type(DefaultStorage, NoIsBits)}},
+        Union{Nothing,FieldViews.FieldViewable{Altitude,1,_storage_type(DefaultStorage, Altitude)}},
+        Union{
+            Nothing,
+            SubArray{Float64,1,_storage_type(DefaultStorage, Float64),Tuple{Base.Slice{Base.OneTo{Int64}}},true},
+        },
     } Base.eltype(typeof(query))
 
     expected_type = Base.eltype(typeof(query))
@@ -444,7 +447,7 @@ end
 @testset "Query JET" begin
     world = World(
         Position,
-        Velocity => StructArrayStorage,
+        Velocity => Storage{StructArray},
         Altitude,
         Health,
     )

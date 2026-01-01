@@ -3,12 +3,20 @@ struct _ComponentStorage{C,A<:AbstractArray{C,1}}
     data::Vector{A}
 end
 
-function _new_vector_storage(::Type{C}) where {C}
-    _ComponentStorage{C,Vector{C}}([Vector{C}()])
+function _new_storage(::Type{S}, ::Type{C}) where {S<:Storage,C}
+    _storage_type(S, C)()
 end
 
-function _new_struct_array_storage(::Type{C}) where {C}
-    _ComponentStorage{C,_StructArray_type(C)}([_StructArray(C)])
+function _new_storage(::Type{Storage{StructArray}}, ::Type{C}) where {C}
+    StructArray(C)
+end
+
+function _storage_type(::Type{<:Storage{T}}, ::Type{C}) where {T,C}
+    T{C}
+end
+
+function _storage_type(::Type{Storage{StructArray}}, ::Type{C}) where {C}
+    _StructArray_type(C)
 end
 
 function _get_component(s::_ComponentStorage{C,A}, arch::UInt32, row::UInt32) where {C,A<:AbstractArray}
@@ -28,13 +36,13 @@ function _set_component!(s::_ComponentStorage{C,A}, arch::UInt32, row::UInt32, v
 end
 
 @generated function _add_column!(storage::_ComponentStorage{C,A}) where {C,A<:AbstractArray}
-    if A <: _StructArray
+    if A <: StructArray
         return quote
-            push!(storage.data, _StructArray(C))
+            push!(storage.data, StructArray(C))
         end
     else
         return quote
-            push!(storage.data, Vector{C}())
+            push!(storage.data, A())
         end
     end
 end
@@ -72,7 +80,7 @@ end
     old_table::UInt32,
     new_table::UInt32,
     row::UInt32,
-) where {C,A<:_StructArray}
+) where {C,A<:StructArray}
     names = fieldnames(A.parameters[1])
     exprs_push_remove = Expr[]
     for name in names
@@ -141,7 +149,7 @@ end
     s::_ComponentStorage{C,A},
     arch::UInt32,
     row::UInt32,
-) where {C,A<:_StructArray}
+) where {C,A<:StructArray}
     names = fieldnames(A.parameters[1])
     exprs_remove = Expr[]
     for name in names

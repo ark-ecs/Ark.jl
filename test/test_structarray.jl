@@ -1,6 +1,6 @@
 
 @testset "StructArray basic functionality" begin
-    a = _StructArray(Position)
+    a = StructArray(Position)
 
     @test isa(a.x, Vector{Float64})
     @test isa(a.y, Vector{Float64})
@@ -31,7 +31,7 @@
 end
 
 @testset "StructArray iteration" begin
-    a = _StructArray(Position)
+    a = StructArray(Position)
 
     resize!(a, 10)
     @test length(a) == 10
@@ -56,25 +56,25 @@ end
 end
 
 @testset "StructArray misc functions" begin
-    a = _StructArray(Position)
+    a = StructArray(Position)
     resize!(a, 10)
 
     @test Base.firstindex(a) == 1
     @test Base.lastindex(a) == 10
 
-    @test Base.eltype(_StructArray{Position}) == Position
-    @test Base.IndexStyle(_StructArray{Position}) == IndexLinear()
+    @test Base.eltype(StructArray{Position}) == Position
+    @test Base.IndexStyle(StructArray{Position}) == IndexLinear()
 end
 
 @testset "StructArray no fields" begin
     @test_throws(
         "StructArray storage not allowed for components without fields",
-        _StructArray(LabelComponent)
+        StructArray(LabelComponent)
     )
 end
 
 @testset "StructArray unwrap" begin
-    a = _StructArray(Position)
+    a = StructArray(Position)
 
     x, y = getfield(a, :_components)
     @test isa(x, Vector{Float64})
@@ -83,7 +83,7 @@ end
 
 @testset "StructArray type" begin
     tp = _StructArray_type(Position)
-    @test tp == _StructArray{Position,@NamedTuple{x::Vector{Float64}, y::Vector{Float64}},2}
+    @test tp == StructArray{Position,@NamedTuple{x::Vector{Float64}, y::Vector{Float64}},2}
 end
 
 @testset "Vector view" begin
@@ -106,7 +106,7 @@ end
 end
 
 @testset "StructArray view" begin
-    a = _StructArray(Position)
+    a = StructArray(Position)
     for i in 1:10
         push!(a, Position(i, i))
     end
@@ -139,7 +139,7 @@ end
 end
 
 @testset "StructArray show" begin
-    a = _StructArray(Position)
+    a = StructArray(Position)
     for i in 1:11
         push!(a, Position(i, i))
     end
@@ -159,7 +159,7 @@ end
  Position(11.0, 11.0)
 "
 
-    a = _StructArray(Position)
+    a = StructArray(Position)
     for i in 1:12
         push!(a, Position(i, i))
     end

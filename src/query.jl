@@ -289,13 +289,13 @@ end
         push!(exprs, :(@inbounds $col_sym = $stor_sym.data[table.id]))
 
         if is_optional[i] === Val{true}
-            if storage_modes[i] == VectorStorage && fieldcount(comp_types[i]) > 0
+            if storage_modes[i] != Storage{StructArray} && fieldcount(comp_types[i]) > 0
                 push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : FieldViewable($col_sym)))
             else
                 push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : view($col_sym, :)))
             end
         else
-            if storage_modes[i] == VectorStorage && fieldcount(comp_types[i]) > 0
+            if storage_modes[i] != Storage{StructArray} && fieldcount(comp_types[i]) > 0
                 push!(exprs, :($vec_sym = FieldViewable($col_sym)))
             else
                 push!(exprs, :($vec_sym = view($col_sym, :)))
@@ -307,7 +307,7 @@ end
         push!(result_exprs, Symbol("vec", i))
     end
 
-    element_type = Base.eltype(Query{W,TS,SM,EX,OPT,REG,N,M})
+    element_type = :(Base.eltype(Query{W,TS,SM,EX,OPT,REG,N,M}))
 
     result_exprs = map(x -> :($x), result_exprs)
     tuple_expr = Expr(:tuple, result_exprs...)
@@ -329,23 +329,26 @@ Base.IteratorSize(::Type{<:Query}) = Base.SizeUnknown()
     storage_modes = SM.parameters
     is_optional = OPT.parameters
 
-    result_types = Any[Entities]
+    result_types = Any[:Entities]
     for i in 1:N
         T = comp_types[i]
 
+        ST = :(_storage_type($(storage_modes[i]), $T))
         base_view = if fieldcount(comp_types[i]) == 0
-            SubArray{T,1,Vector{T},Tuple{Base.Slice{Base.OneTo{Int}}},true}
-        elseif storage_modes[i] == VectorStorage
-            _FieldsViewable_type(Vector{T})
+            :(SubArray{$T,1,$ST,Tuple{Base.Slice{Base.OneTo{Int}}},IndexStyle($ST) == IndexLinear()})
+        elseif storage_modes[i] != Storage{StructArray}
+            :(_FieldsViewable_type($ST))
         else
-            _StructArrayView_type(T, UnitRange{Int})
+            :(_StructArrayView_type($T, UnitRange{Int}))
         end
 
         opt_flag = is_optional[i] === Val{true}
-        push!(result_types, opt_flag ? Union{Nothing,base_view} : base_view)
+        push!(result_types, opt_flag ? :(Union{Nothing,$base_view}) : :($base_view))
     end
 
-    return Tuple{result_types...}
+    return quote
+        Tuple{$(result_types...)}
+    end
 end
 
 function Base.show(io::IO, query::Query{W,CT,SM,EX}) where {W<:World,CT<:Tuple,SM<:Tuple,EX<:Val}
