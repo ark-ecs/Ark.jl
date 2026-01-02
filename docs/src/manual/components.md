@@ -173,3 +173,79 @@ World(entities=0, comp_types=(Position, Velocity))
 ```
 
 All the methods in the example need to be defined, along with the empty constructor.
+
+### [A GPU storage implementation](@id gpu-storage)
+
+One important application of custom storages is to support GPU storages. Here, we provide a possible, albeit not unique, 
+implementation of a GPU storage fully compatible with the Ark API. It should work for all the major backends (`CUDA.jl`, `AMDGPU.jl`, `Metal.jl` and `OneAPI.jl`) just by changing the `import` statement and the `GPUVecBackend` type accordingly.
+
+```
+using CUDA: @allowscalar
+using Ark
+
+const GPUVecBackend = CuVector
+
+mutable struct GPUVector{T} <: AbstractVector{T}
+    buffer::GPUVecBackend{T}
+    len::Int
+end
+GPUVector{T}() where {T} = GPUVector(GPUVecBackend{T}(undef, 0), 0)
+
+Base.size(s::GPUVector) = (s.len,)
+
+function Base.getindex(s::GPUVector, i::Int)
+    @boundscheck checkbounds(s, i)
+    return @allowscalar s.buffer[i]
+end
+
+function Base.setindex!(s::GPUVector, v, i::Int)
+    @boundscheck checkbounds(s, i)
+    @allowscalar s.buffer[i] = v
+    return s
+end
+
+function Base.resize!(s::GPUVector{T}, new_len::Integer) where {T}
+    if new_len > length(s.buffer)
+        new_cap = max(new_len, length(s.buffer) * 2)
+        new_buffer = GPUVecBackend{T}(undef, new_cap)
+        if s.len > 0
+            copyto!(new_buffer, 1, s.buffer, 1, s.len)
+        end
+        
+        s.buffer = new_buffer
+    end
+    s.len = new_len
+    return s
+end
+
+function Base.empty!(s::GPUVector)
+    s.len = 0
+    return s
+end
+
+function Base.sizehint!(s::GPUVector{T}, n::Integer) where {T}
+    if n > length(s.buffer)
+        new_buffer = GPUVecBackend{T}(undef, n)
+        if s.len > 0
+            copyto!(new_buffer, 1, s.buffer, 1, s.len)
+        end
+        s.buffer = new_buffer
+    end
+    return s
+end
+
+function Base.push!(s::GPUVector{T}, v) where {T}
+    resize!(s, s.len + 1)
+    @inbounds s[s.len] = v
+    return s
+end
+
+function Base.pop!(s::GPUVector)
+    if s.len == 0
+        throw(ArgumentError("array must be non-empty"))
+    end
+    val = s[s.len]
+    s.len -= 1
+    return val
+end
+```
