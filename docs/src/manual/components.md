@@ -177,7 +177,7 @@ All the methods in the example need to be defined, along with the empty construc
 ### [A GPU storage implementation](@id gpu-storage)
 
 One important application of custom storages is to support GPU storages. Here, we provide a possible, albeit not unique, 
-implementation of a GPU storage fully compatible with the Ark API. It should work for all the major backends (`CUDA.jl`, `AMDGPU.jl`, `Metal.jl` and `OneAPI.jl`) just by changing the `import` statement and the `GPUVecBackend` type accordingly.
+implementation of a GPU storage fully compatible with the Ark API. It should work for all major backends (`CUDA.jl`, `AMDGPU.jl`, `Metal.jl` and `OneAPI.jl`) just by changing the `import` statement and the `GPUVecBackend` type accordingly.
 
 ```
 using CUDA: @allowscalar
@@ -249,3 +249,5 @@ function Base.pop!(s::GPUVector)
     return val
 end
 ```
+
+Notice that a GPU storage like this will be more than an order of magnitude slower on all operations which mutates the world. However, transformations through queries which can be represented with GPU kernels will be performant. 
