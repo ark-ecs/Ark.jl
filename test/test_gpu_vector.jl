@@ -1,13 +1,17 @@
 
-@testset begin "GPUVector Interface"
+@testset begin "GPUVector interface"
     w = World(
     	A => Storage{GPUVector{Vector}}, 
     	B => Storage{GPUVector{Vector}}, 
     	C => Storage{GPUVector{Vector}},
     )
     e1 = new_entity!(w, (A(0.0), B(0.0)))
+    @test get_components(w, e1, (A, B)) == (A(0.0), B(0.0))
     e2 = new_entity!(w, (A(0.0), B(0.0), C()); relations=(C => e1,))
+    @test get_components(w, e2, (A, B, C)) == (A(0.0), B(0.0), C())
     e3 = copy_entity!(w, e1)
+    @test e1 != e2 && e2 != e3
+
     es = Entity[]
     evs = (OnAddComponents, OnRemoveComponents)
     for ev in evs
@@ -23,23 +27,61 @@
     for ev in evs3
         observe!(e -> push!(es, e), w, ev, (C,))
     end
-    has_components(w, e2, (A, B, C)) && collect(Query(w, (A, B)))
-    collect(Query(w, (A, B, C)))
+    @test isempty(es) == true
+
     a, b, c = get_components(w, e2, (A, B, C))
     set_components!(w, e2, (A(a.x + 1.0), B(b.x + 1.0), c))
+    @test length(es) == 0
     remove_components!(w, e2, (A, C))
+    @test get_components(w, e2, (B,)) == (B(1.0),)
+    @test has_components(w, e2, (A, C)) == false
+    @test length(es) == 4
     add_components!(w, e2, (A(0.0), C()); relations=(C => e1,))
-    e1, = get_relations(w, e2, (C,))
+    @test has_components(w, e2, (A, C)) == true
+    er, = get_relations(w, e2, (C,))
+    @test er == e1
     add_components!(w, e3, (C(),); relations=(C => e2,))
-    set_relations!(w, e3, (C => e1,))
+    @test length(es) == 10
+    set_relations!(w, e3, (C => er,))
+
     remove_entity!(w, e2)
+    @test is_alive(w, e1) == true
+    @test is_alive(w, e2) == false
+
     new_entities!(w, 1, (A(0.0), B(0.0)))
-    new_entities!(w, 1, (A(0.0), B(0.0), C()); relations=(C => e1,))
-    remove_entity!(w, e1)
+    new_entities!(w, 1, (A(0.0), B(0.0), C()); relations=(C => er,))
+    remove_entity!(w, er)
+    @test isempty(collect(Query(w, (A, B)))) == false
+    @test isempty(collect(Query(w, (A, B, C)))) == false
     remove_entities!(w, Filter(w, (A, B)))
     remove_entities!(w, Filter(w, (A, B, C)))
-    add_resource!(w, 1)
-    set_resource!(w, get_resource(w, Int) + 1)
-    remove_resource!(w, Int)
+    @test isempty(collect(Query(w, (A, B)))) == true
     reset!(w)
+end
+
+@testset begin "GPUVector internals"
+	gv = GPUVector{Int, Vector{Int}}()
+	@test length(gv) == 0
+	resize!(gv, 100)
+	@test length(gv) == 100
+
+	copyto!(gv, 1, fill(1, 100), 1, 100)
+	@test length(unique(gv)) == 1 && unique(gv)[1] == 1
+
+	@test typeof(similar(gv)) == GPUVector{Int, Vector{Int}}
+
+	gv[1] = 2
+	@test gv[1] == 2
+	@test gv.sync_cpu == true
+	@test gv.sync_gpu == false
+
+	view = gpuview(gv)
+	@test gv.sync_cpu == false
+	@test gv.sync_gpu == true
+	@test gv.buffer[1:length(gv)] == gv.vec
+
+	gv[1] = 1
+	@test gv[1] == 1
+	@test gv.sync_cpu == true
+	@test gv.sync_gpu == false
 end
