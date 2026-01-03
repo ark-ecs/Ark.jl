@@ -24,12 +24,12 @@ end
         "ArgumentError: Component type Health not found in the World",
         _component_id(params, Health))
 
-    @test isa(_get_storage(world, Position), _ComponentStorage{Position,_storage_type(DefaultStorage, Position)})
-    @test isa(_get_storage(world, Position).data[1], _storage_type(DefaultStorage, Position))
+    @test isa(_get_storage(world, Position), _ComponentStorage{Position,_storage_from_component(world, Position)})
+    @test isa(_get_storage(world, Position).data[1], _storage_from_component(world, Position))
     @test isa(_get_storage(world, Velocity), _ComponentStorage{Velocity,_StructArray_type(Velocity)})
     @test isa(_get_storage(world, Velocity).data[1], _StructArray_type(Velocity))
-    @test isa(_get_storage(world, Altitude), _ComponentStorage{Altitude,_storage_type(DefaultStorage, Altitude)})
-    @test isa(_get_storage(world, Altitude).data[1], _storage_type(DefaultStorage, Altitude))
+    @test isa(_get_storage(world, Altitude), _ComponentStorage{Altitude,_storage_from_component(world, Altitude)})
+    @test isa(_get_storage(world, Altitude).data[1], _storage_from_component(world, Altitude))
 
     @test length(_get_relations_storage(world, Position).archetypes) == 0
     @test length(_get_relations_storage(world, Position).targets) == 0
@@ -63,7 +63,7 @@ end
         Velocity => Storage{StructArray},
     )
 
-    @test isa(_get_storage(world, Position), _ComponentStorage{Position,_storage_type(DefaultStorage, Position)})
+    @test isa(_get_storage(world, Position), _ComponentStorage{Position,_storage_from_component(world, Position)})
     @test isa(_get_storage(world, Velocity), _ComponentStorage{Velocity,_StructArray_type(Velocity)})
 end
 
@@ -175,7 +175,7 @@ end
     @test isa(id_int, Int)
     @test world._registry.types[id_int] == Int
     @test length(world._storages) == N_fake + 2
-    @test world._storages[id_int] isa _ComponentStorage{Int,_storage_type(DefaultStorage, Int)}
+    @test world._storages[id_int] isa _ComponentStorage{Int,_storage_from_component(world, Int)}
     @test length(world._storages[id_int].data) == 1
 
     # Register Position component
@@ -183,7 +183,7 @@ end
     @test isa(id_pos, Int)
     @test world._registry.types[id_pos] == Position
     @test length(world._storages) == N_fake + 2
-    @test world._storages[id_pos] isa _ComponentStorage{Position,_storage_type(DefaultStorage, Position)}
+    @test world._storages[id_pos] isa _ComponentStorage{Position,_storage_from_component(world, Position)}
     @test length(world._storages[id_pos].data) == 1
 
     # Re-register Int component (should not add new storage)
@@ -208,11 +208,11 @@ end
     params = typeof(world).parameters[1]
 
     storage1 = _get_storage(world, Int)
-    @test storage1 isa _ComponentStorage{Int,_storage_type(DefaultStorage, Int)}
+    @test storage1 isa _ComponentStorage{Int,_storage_from_component(world, Int)}
 
     id = _component_id(params, Int)
     storage2 = _get_storage(world, Int)
-    @test storage2 isa _ComponentStorage{Int,_storage_type(DefaultStorage, Int)}
+    @test storage2 isa _ComponentStorage{Int,_storage_from_component(world, Int)}
 
     @test storage1 === storage2
 
@@ -290,8 +290,8 @@ end
     pos_storage = _get_storage(world, Position)
     vel_storage = _get_storage(world, Velocity)
 
-    @test isa(pos_storage, _ComponentStorage{Position,_storage_type(DefaultStorage, Position)})
-    @test isa(vel_storage, _ComponentStorage{Velocity,_storage_type(DefaultStorage, Velocity)})
+    @test isa(pos_storage, _ComponentStorage{Position,_storage_from_component(world, Position)})
+    @test isa(vel_storage, _ComponentStorage{Velocity,_storage_from_component(world, Velocity)})
     @test length(pos_storage.data) == 3
     @test length(vel_storage.data) == 3
 end
