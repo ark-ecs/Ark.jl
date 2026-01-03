@@ -105,20 +105,21 @@ Components are stored in [archetypes](@ref Architecture),
 with the values for each component type stored in a separate array-like column.
 For these columns, Ark offers two storage types by default:
 
-- **Vector storage** stores component objects in a simple vector per column. This is the default.
+- **Vector storage** stores components in a simple vector per column. This is the default.
 
-- **StructArray storage** stores components in an SoA data structure similar to  
+- **[StructArray](@ref) storage** stores components in an SoA data structure similar to  
   [StructArrays](https://github.com/JuliaArrays/StructArrays.jl).  
   This allows access to field vectors in [queries](@ref Queries), enabling SIMD-accelerated,  
   vectorized operations and increased cache-friendliness if not all of the component's fields are used.
-  StructArray storage has some limitations:  
+  [StructArray](@ref) storage has some limitations:  
   - Not allowed for mutable components.
   - Not allowed for components without fields, like labels and primitives.
   - ≈10-20% runtime overhead for component operations and entity creation.
   - Slower component access with [get_components](@ref) and [set_components!](@ref).
 
-The storage mode can be selected per component type by using `Storage{StructArray}` or `Storage{Vector}` during world construction.
+- **[GPUVector](@ref) storage** stores components in hybrid vector implementation that manages data synchronization between a CPU host vector and a GPU buffer. [GPUVector](@ref) is compatible with all major backends (CUDA.jl, AMDGPU.jl, Metal.jl and oneAPI.jl). As [StructArray](@ref) storage, mutable components are not allowed.
 
+The storage mode can be selected per component type by using the [Storage](@ref) wrapper during world construction.
 
 ```jldoctest; output = false
 world = World(
@@ -142,6 +143,87 @@ world = World(
 # output
 
 World(entities=0, comp_types=(Position, Velocity))
+```
+
+To use the [GPUVector](@ref) storage, also the GPU backend vector must be specified, which can be imported from one of the major backends (CUDA.jl, AMDGPU.jl, Metal.jl or oneAPI.jl) depending on the GPU. To illustrate its usage and performance we provide a classical Position/Velocity example where the Position updates are offloaded to the GPU:
+
+```
+using CUDA
+using Ark
+
+struct Position
+    x::Float32
+    y::Float32
+end
+
+struct Velocity
+    dx::Float32
+    dy::Float32
+end
+
+function update!(positions, velocities)
+    index = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    stride = blockDim().x * gridDim().x
+    @inbounds for i in index:stride:length(positions)
+        pos = positions[i]
+        vel = velocities[i]
+        positions[i] = Position(pos.x + sin(vel.dx), pos.y + cos(vel.dy))
+    end
+    return
+end
+
+function run_world_gpu()
+    world = World(
+        Position => Storage{GPUVector{CuVector}},
+        Velocity => Storage{GPUVector{CuVector}},
+    )
+    for i in 1:10^6
+        new_entity!(world, (Position(i, i * 2), Velocity(i, i)))
+    end
+
+    for i in 1:1000
+        for (entities, positions, velocities) in Query(world, (Position, Velocity))
+            gpu_pos = gpuview(positions)
+            gpu_vel = gpuview(velocities)
+            blocks = cld(length(gpu_pos), 256)
+            @cuda threads=256 blocks=blocks update!(gpu_pos, gpu_vel)
+        end
+    end
+    return world
+end
+
+function run_world_cpu()
+    world = World(Position, Velocity)
+    for i in 1:10^6
+        entity = new_entity!(world, (Position(i, i * 2), Velocity(i, i)))
+    end
+    for i in 1:1000
+        for (entities, positions, velocities) in Query(world, (Position, Velocity))
+            Threads.@threads for i in eachindex(entities)
+                @inbounds pos = positions[i]
+                @inbounds vel = velocities[i]
+                @inbounds positions[i] = Position(pos.x + sin(vel.dx), pos.y + cos(vel.dy))
+            end
+        end
+    end
+    return world
+end
+```
+
+Performance-wise the hybrid `GPUVector` performs best on some local test hardware as you can
+see below:
+
+```
+julia> # AMD Ryzen 5 5600H
+       @time run_world_cpu() # 1 core
+7.373623 seconds (7.53 k allocations: 141.863 MiB, 3.06% gc time)
+
+julia> @time run_world_cpu() # 6 cores
+1.576263 seconds (32.53 k allocations: 143.663 MiB, 1.89% gc time)
+
+julia> # NVIDIA GeForce GTX 1650
+       @time run_world_gpu()
+0.240809 seconds (19.61 k allocations: 141.952 MiB, 42.24% gc time)
 ```
 
 ## [User-defined component storages](@id new-component-storages)
@@ -173,3 +255,4 @@ World(entities=0, comp_types=(Position, Velocity))
 ```
 
 All the methods in the example need to be defined, along with the empty constructor.
+

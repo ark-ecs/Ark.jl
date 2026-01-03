@@ -1,9 +1,9 @@
 
-@testset begin "GPUVector interface"
+@testset "GPUVector interface" begin
     w = World(
-    	A => Storage{GPUVector{Vector}}, 
-    	B => Storage{GPUVector{Vector}}, 
-    	C => Storage{GPUVector{Vector}},
+        A => Storage{GPUVector{Vector}},
+        B => Storage{GPUVector{Vector}},
+        C => Storage{GPUVector{Vector}},
     )
     e1 = new_entity!(w, (A(0.0), B(0.0)))
     @test get_components(w, e1, (A, B)) == (A(0.0), B(0.0))
@@ -60,29 +60,29 @@
     reset!(w)
 end
 
-@testset begin "GPUVector internals"
-	gv = GPUVector{Int, Vector{Int}}()
-	@test length(gv) == 0
-	resize!(gv, 100)
-	@test length(gv) == 100
+@testset "GPUVector internals" begin
+    gv = GPUVector{Int,Vector{Int}}()
+    @test length(gv) == 0
+    resize!(gv, 100)
+    @test length(gv) == 100
 
-	copyto!(gv, 1, fill(1, 100), 1, 100)
-	@test length(unique(gv)) == 1 && unique(gv)[1] == 1
+    copyto!(gv, 1, fill(1, 100), 1, 100)
+    @test length(unique(gv)) == 1 && unique(gv)[1] == 1
 
-	@test typeof(similar(gv)) == GPUVector{Int, Vector{Int}}
+    @test typeof(similar(gv)) == GPUVector{Int,Vector{Int}}
 
-	gv[1] = 2
-	@test gv[1] == 2
-	@test gv.sync_cpu == true
-	@test gv.sync_gpu == false
+    gv[1] = 2
+    @test gv[1] == 2
+    @test gv.sync_cpu == true
+    @test gv.sync_gpu == false
 
-	view = gpuview(gv)
-	@test gv.sync_cpu == false
-	@test gv.sync_gpu == true
-	@test gv.buffer[1:length(gv)] == gv.vec
+    view = gpuview(gv)
+    @test gv.sync_cpu == false
+    @test gv.sync_gpu == true
+    @test gv.buffer[1:length(gv)] == gv.vec
 
-	gv[1] = 1
-	@test gv[1] == 1
-	@test gv.sync_cpu == true
-	@test gv.sync_gpu == false
+    gv[1] = 1
+    @test gv[1] == 1
+    @test gv.sync_cpu == true
+    @test gv.sync_gpu == false
 end
