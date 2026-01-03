@@ -1,4 +1,26 @@
 
+"""
+    GPUVector
+
+A hybrid vector implementation that manages data synchronization between a CPU host
+vector and a GPU buffer. The implementation is compatible with all major 
+backends (CUDA.jl, AMDGPU.jl, Metal.jl and oneAPI.jl).
+
+This struct acts as a storage type for components that require computation offloading.
+By default, array operations are performed on the CPU. To perform operations on the GPU,
+use [`gpuview`](@ref) to obtain a view of the underlying GPU device buffer.
+
+# Examples
+
+```
+using CUDA
+
+world = World(
+    Position => Storage{GPUVector{CuVector}},
+    Velocity => Storage{GPUVector{CuVector}},
+)
+```
+"""
 mutable struct GPUVector{T,BT} <: AbstractVector{T}
     const vec::Vector{T}
     buffer::BT
@@ -10,12 +32,47 @@ function GPUVector{T,BT}() where {T,BT}
     return GPUVector{T,BT}(Vector{T}(), BT(undef,0), true, true)
 end
 
-function Ark._storage_type(::Type{Storage{GPUVector{T}}}, ::Type{C}) where {T,C}
-    GPUVector{C,T{C}}
+"""
+    gpuview(v::Union{GPUVector, FieldViewable{<:Any, 1, <:GPUVector}}; readonly::Bool=false)
+
+Return a view of the underlying GPU buffer associated with the [`GPUVector`](@ref).
+
+Invoking this function triggers a synchronization: if the GPU buffer is stale, data is
+copied from the CPU to the GPU.
+
+# Arguments
+* `v`: The `GPUVector` or a CPU viewable wrapper of it (which is returned by queries).
+
+# Keyword Arguments
+* `readonly::Bool`: If set to `true`, indicates that the returned view will not be written to. 
+  
+  **Performance Note:** Setting `readonly=true` prevents the vector from marking the GPU data
+  as "dirty" (desynchronized). This avoids an unnecessary copy back to the CPU on the next host
+  access.
+  
+  **Warning:** The caller guarantees that no write operations occur when `readonly=true`.
+  Modifying the view when this flag is set results in undefined behavior regarding data
+  consistency.
+
+# Examples
+
+```
+using CUDA
+
+world = World(
+    Position => Storage{GPUVector{CuVector}},
+)
+
+new_entities!(world, 100, (Position(0.0, 0.0),))
+
+update(pos) = Position(pos.x + 1.0, pos.y + 1.0) 
+
+for (entities, positions) in Query(world, (Position,))
+    pos_gpu = gpuview(positions)
+    pos_gpu .= update.(pos_gpu)
 end
-
-Base.size(s::GPUVector) = (length(s.vec),)
-
+```
+"""
 function gpuview(s::FieldViewable{<:Any, 1, <:GPUVector}; readonly::Bool=false)
     return gpuview(parent(s); readonly=readonly)
 end
@@ -27,6 +84,8 @@ function gpuview(s::GPUVector; readonly::Bool=false)
     end
     return view(s.buffer, 1:length(s.vec))
 end
+
+Base.size(s::GPUVector) = (length(s.vec),)
 
 Base.@propagate_inbounds function Base.getindex(s::GPUVector, i::Int)
     _resync_cpu!(s)
