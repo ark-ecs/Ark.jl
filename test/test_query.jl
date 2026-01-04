@@ -420,7 +420,7 @@ end
 
     @inferred Tuple{
         Entities,
-        FieldViews.FieldViewable{Position,1,_storage_type(DefaultStorage, Position)},
+        FieldViews.FieldViewable{Position,1,_storage_from_component(world, Position)},
         _StructArrayView{
             Velocity,
             @NamedTuple{
@@ -429,12 +429,12 @@ end
             },
             UnitRange{Int64},
         },
-        SubArray{Int64,1,_storage_type(DefaultStorage, Int64),Tuple{Base.Slice{Base.OneTo{Int64}}},true},
-        Union{Nothing,FieldViews.FieldViewable{NoIsBits,1,_storage_type(DefaultStorage, NoIsBits)}},
-        Union{Nothing,FieldViews.FieldViewable{Altitude,1,_storage_type(DefaultStorage, Altitude)}},
+        SubArray{Int64,1,_storage_from_component(world, Int64),Tuple{Base.Slice{Base.OneTo{Int64}}},true},
+        Union{Nothing,FieldViews.FieldViewable{NoIsBits,1,_storage_from_component(world, NoIsBits)}},
+        Union{Nothing,FieldViews.FieldViewable{Altitude,1,_storage_from_component(world, Altitude)}},
         Union{
             Nothing,
-            SubArray{Float64,1,_storage_type(DefaultStorage, Float64),Tuple{Base.Slice{Base.OneTo{Int64}}},true},
+            SubArray{Float64,1,_storage_from_component(world, Float64),Tuple{Base.Slice{Base.OneTo{Int64}}},true},
         },
     } Base.eltype(typeof(query))
 

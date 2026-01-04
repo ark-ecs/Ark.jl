@@ -1,4 +1,14 @@
 
+struct A
+    x::Float64
+end
+
+struct B
+    x::Float64
+end
+
+struct C <: Relationship end
+
 struct Position
     x::Float64
     y::Float64

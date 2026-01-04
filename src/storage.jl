@@ -19,6 +19,10 @@ function _storage_type(::Type{Storage{StructArray}}, ::Type{C}) where {C}
     _StructArray_type(C)
 end
 
+function _storage_type(::Type{Storage{GPUVector{T}}}, ::Type{C}) where {T,C}
+    GPUVector{C,T{C}}
+end
+
 function _get_component(s::_ComponentStorage{C,A}, arch::UInt32, row::UInt32) where {C,A<:AbstractArray}
     @inbounds col = s.data[arch]
     if length(col) == 0
