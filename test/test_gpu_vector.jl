@@ -1,9 +1,9 @@
 
-@testset "GPUVector interface" begin
+@testset "GPUSyncVector interface" begin
     w = World(
-        A => Storage{GPUVector{Vector}},
-        B => Storage{GPUVector{Vector}},
-        C => Storage{GPUVector{Vector}},
+        A => Storage{GPUSyncVector{Vector}},
+        B => Storage{GPUSyncVector{Vector}},
+        C => Storage{GPUSyncVector{Vector}},
     )
     e1 = new_entity!(w, (A(0.0), B(0.0)))
     @test get_components(w, e1, (A, B)) == (A(0.0), B(0.0))
@@ -60,8 +60,8 @@
     reset!(w)
 end
 
-@testset "GPUVector internals" begin
-    gv = GPUVector{Int,Vector{Int}}()
+@testset "GPUSyncVector internals" begin
+    gv = GPUSyncVector{Int,Vector{Int}}()
     @test length(gv) == 0
     resize!(gv, 100)
     @test length(gv) == 100
@@ -69,7 +69,7 @@ end
     copyto!(gv, 1, fill(1, 100), 1, 100)
     @test length(unique(gv)) == 1 && unique(gv)[1] == 1
 
-    @test typeof(similar(gv)) == GPUVector{Int,Vector{Int}}
+    @test typeof(similar(gv)) == GPUSyncVector{Int,Vector{Int}}
 
     gv[1] = 2
     @test gv[1] == 2

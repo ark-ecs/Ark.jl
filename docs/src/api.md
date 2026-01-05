@@ -62,7 +62,7 @@ but new ones can be defined implementing the [Storage Interface](@ref new-compon
 ```@docs
 Storage
 StructArray
-GPUVector
+GPUSyncVector
 gpuview
 ```
 

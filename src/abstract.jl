@@ -1,4 +1,7 @@
 
+abstract type _AbstractStructArray{C} <: AbstractArray{C, 1} end
+
+
 abstract type _AbstractWorld end
 
 """
@@ -21,11 +24,10 @@ abstract type Relationship end
     Storage{T}
 
 Marks component types for using `T` as a [storage](@ref component-storages) in the
-world constructor. The default storages supported by `Ark` are `Vector` and `StructArray`.
+world constructor. The default storages supported by `Ark` are `Vector`, [`StructArray`](@ref),
+[`GPUSyncVector`](@ref) and [`GPUSyncStructArray`](@ref).
 
 If, during world construction, the storage mode is not specified, it defaults to `Storage{Vector}`.
-
-In `StructArray` storages, mutable components are not allowed.
 
 # Example
 

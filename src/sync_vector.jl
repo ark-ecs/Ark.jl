@@ -1,6 +1,16 @@
 
+
+struct CuStructArray end
+
+struct ROCStructArray end
+
+struct oneStructArray end
+
+struct mtlStructArray end
+
+
 """
-    GPUSyncVector
+    GPUSyncedVector
 
 A hybrid vector implementation that manages data synchronization between a CPU host
 vector and a GPU buffer. The implementation is compatible with all major
@@ -16,8 +26,8 @@ use [`gpuview`](@ref) to obtain a view of the underlying GPU device buffer.
 using CUDA
 
 world = World(
-    Position => Storage{GPUSyncVector{CuVector}},
-    Velocity => Storage{GPUSyncVector{CuVector}},
+    Position => Storage{GPUSyncedVector{Vector, CuVector}},
+    Velocity => Storage{GPUSyncedVector{StructArray, CuVector}},
 )
 ```
 """

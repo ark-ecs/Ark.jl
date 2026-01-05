@@ -62,6 +62,6 @@ export unpack, @unpack
 
 export Relationship
 
-export Storage, StructArray, GPUVector, gpuview
+export Storage, StructArray, GPUSyncVector, gpuview
 
 end
