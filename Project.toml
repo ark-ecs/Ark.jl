@@ -1,11 +1,12 @@
 name = "Ark"
 uuid = "56664e29-41e4-4ea5-ab0e-825499acc647"
-version = "0.3.0"
 authors = ["Martin Lange <martin_lange_@gmx.net>", "Adriano Meligrana <adriano.meligrana@centai.eu>"]
+version = "0.3.0"
 
 [deps]
 FieldViews = "ff5a1669-b1f2-423e-bbd7-b7fa0f7e0224"
 FunctionWrappers = "069b7b12-0de2-55c6-9aab-29f3d0a68a2e"
+JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
 PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 Preferences = "21216c6a-2e73-6563-6e65-726566657250"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
@@ -27,8 +28,8 @@ julia = "1.10"
 
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
-Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
+Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]

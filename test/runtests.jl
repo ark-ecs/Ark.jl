@@ -36,6 +36,7 @@ include("test_vec_map.jl")
 include("test_linear_map.jl")
 include("test_graph.jl")
 include("test_gpu_vector.jl")
+include("test_gpu_structarray.jl")
 include("test_quality.jl")
 
 if "CI" in keys(ENV) && VERSION < v"1.13" && isempty(VERSION.prerelease) && !("--large-world" in ARGS)

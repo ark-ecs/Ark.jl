@@ -9,8 +9,8 @@ function Ark.World(comp_types::Union{Type,Pair{<:Type,<:Type}}...; initial_capac
     storages = map(arg -> arg isa Type ? Storage{WrappedVector} : arg.second, comp_types)
     storages = collect(Any, storages)
     for i in 1:length(storages)
-        if isbitstype(types[i]) && storages[i] == Storage{WrappedVector}
-            storages[i] = Storage{GPUSyncVector{Vector}}
+        if isbitstype(types[i]) && fieldcount(types[i]) > 0 && storages[i] == Storage{WrappedVector}
+            storages[i] = Storage{GPUSyncStructArray{Array}}
             break
         end
     end

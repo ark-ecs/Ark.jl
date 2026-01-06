@@ -11,6 +11,10 @@ function _new_storage(::Type{Storage{StructArray}}, ::Type{C}) where {C}
     StructArray(C)
 end
 
+function _new_storage(::Type{Storage{GPUSyncStructArray{T}}}, ::Type{C}) where {T,C}
+    GPUSyncStructArray{C,_StructArray_type(C),_GPUStructArray_type(T, C)}()
+end
+
 function _storage_type(::Type{<:Storage{T}}, ::Type{C}) where {T,C}
     T{C}
 end
@@ -24,7 +28,7 @@ function _storage_type(::Type{Storage{GPUSyncVector{T}}}, ::Type{C}) where {T,C}
 end
 
 function _storage_type(::Type{Storage{GPUSyncStructArray{T}}}, ::Type{C}) where {T,C}
-    GPUSyncVector{_StructArray_type(C),_GPUStructArray_type(T, C)}
+    GPUSyncStructArray{C,_StructArray_type(C),_GPUStructArray_type(T, C)}
 end
 
 function _get_component(s::_ComponentStorage{C,A}, arch::UInt32, row::UInt32) where {C,A<:AbstractArray}
@@ -47,6 +51,10 @@ end
     if A <: StructArray
         return quote
             push!(storage.data, StructArray(C))
+        end
+    elseif A <: GPUSyncStructArray
+        return quote
+            push!(storage.data, A())
         end
     else
         return quote
