@@ -136,6 +136,9 @@ function Base.view(gsa::GPUSyncStructArray, idx::AbstractUnitRange)
 end
 
 function Base.getproperty(gsa::GPUSyncStructArray, name::Symbol)
+    if name in (:vec, :buffer, :sync_cpu, :sync_gpu)
+        return getfield(gsa, name)
+    end
     _resync_cpu!(gsa)
     return getproperty(gsa.vec, name)
 end
