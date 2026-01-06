@@ -68,16 +68,19 @@ world = World(
 )
 ```
 """
-mutable struct GPUSyncStructArray{C,AT,BT,T} <: AbstractVector{C}
+mutable struct GPUSyncStructArray{C,AT,BT} <: AbstractVector{C}
     const vec::AT
     buffer::BT
     sync_cpu::Bool
     sync_gpu::Bool
 end
 
-function GPUSyncStructArray{C,AT,BT,T}() where {C,AT,BT,T}
-    return GPUSyncStructArray{C,AT,BT,T}(StructArray(C), _GPUStructArray(T, C), true, true)
+function GPUSyncStructArray{C,AT,BT}() where {C,AT,BT}
+    T = _gpuarray_type(BT)
+    return GPUSyncStructArray{C,AT,BT}(StructArray(C), _GPUStructArray(T, C), true, true)
 end
+
+_gpuarray_type(::Type{_GPUStructArray{C,CS,N}}) where {C,CS,N} = fieldtypes(CS)[1].name.wrapper
 
 """
     gpuviews(gsa::GPUSyncStructArray; readonly::Bool=false)
@@ -120,10 +123,11 @@ end
     end
 end
 
-function Base.similar(gv::GPUSyncStructArray{C,AT,BT,T}, ::Type{C}, size::Dims{1}) where {C,AT,BT,T}
+function Base.similar(gv::GPUSyncStructArray{C,AT,BT}, ::Type{C}, size::Dims{1}) where {C,AT,BT}
     sa = StructArray(C)
     resize!(sa, size[1])
-    return GPUSyncStructArray{C,AT,BT,T}(sa, _GPUStructArray(T, C), true, true)
+    T = _gpuarray_type(BT)
+    return GPUSyncStructArray{C,AT,BT}(sa, _GPUStructArray(T, C), true, true)
 end
 
 function Base.view(gsa::GPUSyncStructArray, ::Colon)
@@ -146,9 +150,10 @@ end
 
 Base.eltype(::Type{<:GPUSyncStructArray{C}}) where {C} = C
 
-function _resync_gpu!(gsa::GPUSyncStructArray{C,AT,BT,T}) where {C,AT,BT,T}
+function _resync_gpu!(gsa::GPUSyncStructArray{C,AT,BT}) where {C,AT,BT}
     if !gsa.sync_gpu
         if length(gsa.buffer) < length(gsa.vec)
+            T = _gpuarray_type(BT)
             new_cap = max(length(gsa.vec), 2 * length(gsa.buffer))
             gsa.buffer = _GPUStructArray(T, C, new_cap)
         end

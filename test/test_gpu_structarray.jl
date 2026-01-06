@@ -79,7 +79,7 @@ end
 end
 
 @testset "GPUSyncStructArray internals" begin
-    gsa = GPUSyncStructArray{Position,_StructArray_type(Position),_GPUStructArray_type(Array, Position),Array}()
+    gsa = GPUSyncStructArray{Position,_StructArray_type(Position),_GPUStructArray_type(Array, Position)}()
     @test length(gsa) == 0
 
     push!(gsa, Position(1.0, 2.0))
