@@ -1,9 +1,4 @@
 
-"""
-    _GPUStructArray
-
-Internal GPU-backed struct-of-arrays storage. Used as the GPU buffer for [`GPUSyncStructArray`](@ref).
-"""
 struct _GPUStructArray{C,CS<:NamedTuple,N} <: _AbstractStructArray{C}
     _components::CS
 end
@@ -141,9 +136,6 @@ function Base.view(gsa::GPUSyncStructArray, idx::AbstractUnitRange)
 end
 
 function Base.getproperty(gsa::GPUSyncStructArray, name::Symbol)
-    if name in (:vec, :buffer, :sync_cpu, :sync_gpu)
-        return getfield(gsa, name)
-    end
     _resync_cpu!(gsa)
     return getproperty(gsa.vec, name)
 end
