@@ -87,50 +87,6 @@ function gpuview(gv::GPUSyncVector; readonly::Bool=false)
     return view(gv.buffer, 1:length(gv.vec))
 end
 
-Base.size(gv::GPUSyncVector) = (length(gv.vec),)
-
-Base.@propagate_inbounds function Base.getindex(gv::GPUSyncVector, i::Int)
-    _resync_cpu!(gv)
-    return gv.vec[i]
-end
-
-Base.@propagate_inbounds function Base.setindex!(gv::GPUSyncVector, v, i::Int)
-    _resync_cpu!(gv)
-    gv.sync_gpu = false
-    gv.vec[i] = v
-    return v
-end
-
-function Base.resize!(gv::GPUSyncVector, new_len::Integer)
-    _resync_cpu!(gv)
-    gv.sync_gpu = false
-    resize!(gv.vec, new_len)
-    return gv
-end
-
-function Base.empty!(gv::GPUSyncVector)
-    gv.sync_gpu = false
-    empty!(gv.vec)
-    return gv
-end
-
-function Base.push!(gv::GPUSyncVector, v)
-    _resync_cpu!(gv)
-    gv.sync_gpu = false
-    push!(gv.vec, v)
-    return gv
-end
-
-function Base.pop!(gv::GPUSyncVector)
-    _resync_cpu!(gv)
-    return pop!(gv.vec)
-end
-
-function Base.sizehint!(gv::GPUSyncVector, i::Integer)
-    sizehint!(gv.vec, i)
-    return gv
-end
-
 function Base.copyto!(gv::GPUSyncVector, doffs::Integer, src::AbstractVector, soffs::Integer, n::Integer)
     _resync_cpu!(gv)
     gv.sync_gpu = false
@@ -142,15 +98,7 @@ function Base.similar(gv::GPUSyncVector{T,BT}, ::Type{T}, size::Dims{1}) where {
     return GPUSyncVector{T,BT}(Vector{T}(undef, size), BT(undef, 0), true, true)
 end
 
-Base.IndexStyle(::Type{<:GPUSyncVector}) = IndexLinear()
-
-function _resync_cpu!(gv::GPUSyncVector)
-    if !gv.sync_cpu
-        copyto!(gv.vec, 1, gv.buffer, 1, length(gv.vec))
-        gv.sync_cpu = true
-    end
-    return
-end
+Base.eltype(::Type{<:GPUSyncVector{C}}) where {C} = C
 
 function _resync_gpu!(gv::GPUSyncVector{T,BT}) where {T,BT}
     if !gv.sync_gpu

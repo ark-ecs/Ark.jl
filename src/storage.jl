@@ -23,6 +23,10 @@ function _storage_type(::Type{Storage{GPUSyncVector{T}}}, ::Type{C}) where {T,C}
     GPUSyncVector{C,T{C}}
 end
 
+function _storage_type(::Type{Storage{GPUSyncStructArray{T}}}, ::Type{C}) where {T,C}
+    GPUSyncVector{_StructArray_type(C),_GPUStructArray_type(T, C)}
+end
+
 function _get_component(s::_ComponentStorage{C,A}, arch::UInt32, row::UInt32) where {C,A<:AbstractArray}
     @inbounds col = s.data[arch]
     if length(col) == 0

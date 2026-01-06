@@ -16,6 +16,8 @@ include("entity.jl")
 include("mask.jl")
 include("vec_map.jl")
 include("gpu_vector.jl")
+include("gpu_structarray.jl")
+include("gpu_interface.jl")
 include("storage.jl")
 include("linear_map.jl")
 include("graph.jl")
@@ -62,6 +64,6 @@ export unpack, @unpack
 
 export Relationship
 
-export Storage, StructArray, GPUSyncVector, gpuview
+export Storage, StructArray, GPUSyncVector, GPUSyncStructArray, gpuview, gpuviews
 
 end
