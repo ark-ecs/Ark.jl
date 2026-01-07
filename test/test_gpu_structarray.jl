@@ -91,23 +91,21 @@ end
 
     gsa[1] = Position(3.0, 4.0)
     @test gsa[1] == Position(3.0, 4.0)
-    @test gsa.sync_cpu == true
-    @test gsa.sync_gpu == false
+    @test getfield(gsa, :sync_cpu) == true
+    @test getfield(gsa, :sync_gpu) == false
 
     views = gpuviews(gsa)
-    @test gsa.sync_cpu == false
-    @test gsa.sync_gpu == true
+    @test getfield(gsa, :sync_cpu) == false
+    @test getfield(gsa, :sync_gpu) == true
     @test length(views) == 2
     @test views[1][1] == 3.0
     @test views[2][1] == 4.0
 
     gsa[1] = Position(5.0, 6.0)
     @test gsa[1] == Position(5.0, 6.0)
-    @test gsa.sync_cpu == true
-    @test gsa.sync_gpu == false
-end
+    @test getfield(gsa, :sync_cpu) == true
+    @test getfield(gsa, :sync_gpu) == false
 
-@testset "_GPUStructArray internals" begin
     gsa = _GPUStructArray(Array, Position, 10)
     @test length(gsa) == 10
 

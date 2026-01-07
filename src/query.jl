@@ -289,13 +289,13 @@ end
         push!(exprs, :(@inbounds $col_sym = $stor_sym.data[table.id]))
 
         if is_optional[i] === Val{true}
-            if storage_modes[i] != Storage{StructArray} && fieldcount(comp_types[i]) > 0
+            if !((storage_modes[i] <: Storage{StructArray}) || (storage_modes[i].parameters[1] <: GPUSyncStructArray)) && fieldcount(comp_types[i]) > 0
                 push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : FieldViewable($col_sym)))
             else
                 push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : view($col_sym, :)))
             end
         else
-            if storage_modes[i] != Storage{StructArray} && fieldcount(comp_types[i]) > 0
+            if !((storage_modes[i] <: Storage{StructArray}) || (storage_modes[i].parameters[1] <: GPUSyncStructArray)) && fieldcount(comp_types[i]) > 0
                 push!(exprs, :($vec_sym = FieldViewable($col_sym)))
             else
                 push!(exprs, :($vec_sym = view($col_sym, :)))
@@ -336,7 +336,7 @@ Base.IteratorSize(::Type{<:Query}) = Base.SizeUnknown()
         ST = :(_storage_type($(storage_modes[i]), $T))
         base_view = if fieldcount(comp_types[i]) == 0
             :(SubArray{$T,1,$ST,Tuple{Base.Slice{Base.OneTo{Int}}},IndexStyle($ST) == IndexLinear()})
-        elseif storage_modes[i] != Storage{StructArray}
+        elseif storage_modes[i] != Storage{StructArray} && !(storage_modes[i].parameters[1] <: GPUSyncStructArray)
             :(_FieldsViewable_type($ST))
         else
             :(_StructArrayView_type($T, UnitRange{Int}))

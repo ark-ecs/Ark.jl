@@ -26,8 +26,8 @@ end
 
     @test isa(_get_storage(world, Position), _ComponentStorage{Position,_storage_from_component(world, Position)})
     @test isa(_get_storage(world, Position).data[1], _storage_from_component(world, Position))
-    @test isa(_get_storage(world, Velocity), _ComponentStorage{Velocity,_StructArray_type(Velocity)})
-    @test isa(_get_storage(world, Velocity).data[1], _StructArray_type(Velocity))
+    @test isa(_get_storage(world, Velocity), _ComponentStorage{Velocity,_storage_from_component(world, Velocity)})
+    @test isa(_get_storage(world, Velocity).data[1], _storage_from_component(world, Velocity))
     @test isa(_get_storage(world, Altitude), _ComponentStorage{Altitude,_storage_from_component(world, Altitude)})
     @test isa(_get_storage(world, Altitude).data[1], _storage_from_component(world, Altitude))
 
@@ -64,7 +64,7 @@ end
     )
 
     @test isa(_get_storage(world, Position), _ComponentStorage{Position,_storage_from_component(world, Position)})
-    @test isa(_get_storage(world, Velocity), _ComponentStorage{Velocity,_StructArray_type(Velocity)})
+    @test isa(_get_storage(world, Velocity), _ComponentStorage{Velocity,_storage_from_component(world, Velocity)})
 end
 
 """

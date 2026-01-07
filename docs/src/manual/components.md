@@ -117,7 +117,9 @@ For these columns, Ark offers two storage types by default:
   - ≈10-20% runtime overhead for component operations and entity creation.
   - Slower component access with [get_components](@ref) and [set_components!](@ref).
 
-- **[GPUSyncVector](@ref) storage** stores components in hybrid vector implementation that manages data synchronization between a CPU host vector and a GPU buffer. [GPUSyncVector](@ref) is compatible with all major backends (CUDA.jl, AMDGPU.jl, Metal.jl and oneAPI.jl). As [StructArray](@ref) storage, mutable components are not allowed.
+- **[GPUSyncVector](@ref) storage** stores components in a hybrid vector implementation that manages data synchronization between a CPU host vector and a GPU buffer. [GPUSyncVector](@ref) is compatible with all major backends (CUDA.jl, AMDGPU.jl, Metal.jl and oneAPI.jl). As [StructArray](@ref) storage, mutable components are not allowed.
+
+- **[GPUSyncStructArray](@ref) storage** stores components in a hybrid structarray implementation similar to [GPUSyncVector](@ref). All the limitations of [StructArray](@ref) apply to this type.
 
 The storage mode can be selected per component type by using the [Storage](@ref) wrapper during world construction.
 
@@ -145,7 +147,7 @@ world = World(
 World(entities=0, comp_types=(Position, Velocity))
 ```
 
-To use the [GPUSyncVector](@ref) storage, also the GPU backend vector must be specified, which can be imported from one of the major backends (CUDA.jl, AMDGPU.jl, Metal.jl or oneAPI.jl) depending on the GPU. To illustrate its usage and performance we provide a classical Position/Velocity example where the Position updates are offloaded to the GPU:
+To use [GPUSyncVector](@ref) and [GPUSyncStructArray](@ref) storage, also the GPU backend vector must be specified, which can be imported from one of the major backends (CUDA.jl, AMDGPU.jl, Metal.jl or oneAPI.jl) depending on the GPU. To illustrate its usage and performance we provide a classical Position/Velocity example where the Position updates are offloaded to the GPU:
 
 ```
 using CUDA

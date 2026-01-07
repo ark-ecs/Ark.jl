@@ -52,10 +52,6 @@ end
         return quote
             push!(storage.data, StructArray(C))
         end
-    elseif A <: GPUSyncStructArray
-        return quote
-            push!(storage.data, A())
-        end
     else
         return quote
             push!(storage.data, A())

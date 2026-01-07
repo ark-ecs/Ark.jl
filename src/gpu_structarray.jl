@@ -38,6 +38,7 @@ end
     return Expr(:block, copyto_exprs..., :(dst))
 end
 
+Base.size(gsa::_GPUStructArray) = (length(gsa),)
 Base.length(gsa::_GPUStructArray) = length(first(getfield(gsa, :_components)))
 
 """
@@ -106,13 +107,13 @@ end
 @generated function gpuviews(gsa::GPUSyncStructArray{C}; readonly::Bool=false) where {C}
     names = fieldnames(C)
     views_exprs = [
-        :(view(getfield(gsa.buffer, :_components).$name, 1:length(gsa.vec))) for name in names
+        :(view(getfield(gsa, :buffer)._components.$name, 1:length(getfield(gsa, :vec)))) for name in names
     ]
     views_tuple_expr = Expr(:tuple, views_exprs...)
     quote
         _resync_gpu!(gsa)
         if !readonly
-            gsa.sync_cpu = false
+            setfield!(gsa, :sync_cpu, false)
         end
         return $views_tuple_expr
     end
@@ -127,33 +128,33 @@ end
 
 function Base.view(gsa::GPUSyncStructArray, ::Colon)
     _resync_cpu!(gsa)
-    return view(gsa.vec, 1:length(gsa))
+    return view(getfield(gsa, :vec), 1:length(gsa))
 end
 
 function Base.view(gsa::GPUSyncStructArray, idx::AbstractUnitRange)
     _resync_cpu!(gsa)
-    return view(gsa.vec, idx)
+    return view(getfield(gsa, :vec), idx)
 end
 
 function Base.getproperty(gsa::GPUSyncStructArray, name::Symbol)
-    if name in (:vec, :buffer, :sync_cpu, :sync_gpu)
-        return getfield(gsa, name)
-    end
     _resync_cpu!(gsa)
-    return getproperty(gsa.vec, name)
+    return getproperty(getfield(gsa, :vec), name)
 end
 
 Base.eltype(::Type{<:GPUSyncStructArray{C}}) where {C} = C
 
 function _resync_gpu!(gsa::GPUSyncStructArray{C,AT,BT}) where {C,AT,BT}
-    if !gsa.sync_gpu
-        if length(gsa.buffer) < length(gsa.vec)
+    if !getfield(gsa, :sync_gpu)
+        vec = getfield(gsa, :vec)
+        buffer = getfield(gsa, :buffer)
+        if length(buffer) < length(vec)
             T = _gpuarray_type(BT)
-            new_cap = max(length(gsa.vec), 2 * length(gsa.buffer))
-            gsa.buffer = _GPUStructArray(T, C, new_cap)
+            new_cap = max(length(vec), 2 * length(buffer))
+            buffer = _GPUStructArray(T, C, new_cap)
+            setfield!(gsa, :buffer, buffer)
         end
-        copyto!(gsa.buffer, 1, gsa.vec, 1, length(gsa.vec))
-        gsa.sync_gpu = true
+        copyto!(buffer, 1, vec, 1, length(vec))
+        setfield!(gsa, :sync_gpu, true)
     end
     return
 end
