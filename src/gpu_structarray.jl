@@ -33,7 +33,8 @@ end
 ) where {C}
     names = fieldnames(C)
     copyto_exprs = [
-        :(copyto!(getfield(dst, :_components).$name, doffs, getfield(src, :_components).$name, soffs, n)) for name in names
+        :(copyto!(getfield(dst, :_components).$name, doffs, getfield(src, :_components).$name, soffs, n)) for
+        name in names
     ]
     return Expr(:block, copyto_exprs..., :(dst))
 end

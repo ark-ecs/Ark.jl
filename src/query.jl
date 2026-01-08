@@ -289,13 +289,17 @@ end
         push!(exprs, :(@inbounds $col_sym = $stor_sym.data[table.id]))
 
         if is_optional[i] === Val{true}
-            if !((storage_modes[i] <: Storage{StructArray}) || (storage_modes[i].parameters[1] <: GPUSyncStructArray)) && fieldcount(comp_types[i]) > 0
+            if !(
+                (storage_modes[i] <: Storage{StructArray}) || (storage_modes[i].parameters[1] <: GPUSyncStructArray)
+            ) && fieldcount(comp_types[i]) > 0
                 push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : FieldViewable($col_sym)))
             else
                 push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : view($col_sym, :)))
             end
         else
-            if !((storage_modes[i] <: Storage{StructArray}) || (storage_modes[i].parameters[1] <: GPUSyncStructArray)) && fieldcount(comp_types[i]) > 0
+            if !(
+                (storage_modes[i] <: Storage{StructArray}) || (storage_modes[i].parameters[1] <: GPUSyncStructArray)
+            ) && fieldcount(comp_types[i]) > 0
                 push!(exprs, :($vec_sym = FieldViewable($col_sym)))
             else
                 push!(exprs, :($vec_sym = view($col_sym, :)))
