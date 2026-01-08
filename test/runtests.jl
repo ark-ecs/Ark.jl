@@ -6,11 +6,11 @@ using JET
 
 include("include_internals.jl")
 
-#if "--large-world" in ARGS
+if "--large-world" in ARGS
     include("setup_large.jl")
-#else
-#    include("setup_default.jl")
-#end
+else
+    include("setup_default.jl")
+end
 
 # TODO: re-enable when fixed on the Julia side.
 const RUN_JET = "CI" in keys(ENV) && VERSION >= v"1.12.0" && isempty(VERSION.prerelease)

@@ -195,7 +195,7 @@ function Base.show(io::IO, a::_GPUSyncStructArrayView)
     return show(io, a.array)
 end
 
-unpack(a::_GPUSyncStructArrayView) = unpack(a.array)
+unpack(a::_GPUSyncStructArrayView) = unpack(view(getfield(a.array, :vec), :))
 
 function gpuviews(gv::_GPUSyncStructArrayView; readonly::Bool=false)
     return gpuviews(gv.array; readonly=readonly)
