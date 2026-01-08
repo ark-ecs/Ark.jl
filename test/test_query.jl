@@ -336,7 +336,7 @@ end
     end
 
     for (entities, vec) in Query(world, (Velocity,))
-        @test isa(vec, _StructArrayView)
+        @test isa(vec, T_view)
         for i in eachindex(vec)
             pos = vec[i]
             vec[i] = Velocity(pos.dx + 1, pos.dy + 1)

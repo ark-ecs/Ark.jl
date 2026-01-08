@@ -100,10 +100,6 @@ copied from the CPU to the GPU.
     Modifying the views when this flag is set results in undefined behavior regarding data
     consistency.
 """
-function gpuviews(gv::FieldViewable{<:Any,1,<:GPUSyncStructArray}; readonly::Bool=false)
-    return gpuviews(parent(gv); readonly=readonly)
-end
-
 @generated function gpuviews(gsa::GPUSyncStructArray{C}; readonly::Bool=false) where {C}
     names = fieldnames(C)
     views_exprs = [
@@ -126,14 +122,13 @@ function Base.similar(gv::GPUSyncStructArray{C,AT,BT}, ::Type{C}, size::Dims{1})
     return GPUSyncStructArray{C,AT,BT}(sa, _GPUStructArray(T, C), true, true)
 end
 
-function Base.view(gsa::GPUSyncStructArray, ::Colon)
-    _resync_cpu!(gsa)
-    return view(getfield(gsa, :vec), 1:length(gsa))
-end
+Base.view(sa::GPUSyncStructArray, ::Colon) = view(sa, 1:length(sa))
 
-function Base.view(gsa::GPUSyncStructArray, idx::AbstractUnitRange)
-    _resync_cpu!(gsa)
-    return view(getfield(gsa, :vec), idx)
+@generated function Base.view(
+    sa::S,
+    idx::I,
+) where {S<:GPUSyncStructArray{C},I<:AbstractUnitRange{T}} where {C,T<:Integer}
+    return :(_GPUSyncStructArrayView{$C,$S,$I}(sa, idx))
 end
 
 function Base.getproperty(gsa::GPUSyncStructArray, name::Symbol)
@@ -157,4 +152,51 @@ function _resync_gpu!(gsa::GPUSyncStructArray{C,AT,BT}) where {C,AT,BT}
         setfield!(gsa, :sync_gpu, true)
     end
     return
+end
+
+struct _GPUSyncStructArrayView{C,AT<:GPUSyncStructArray,I} <: AbstractArray{C,1}
+    array::AT
+    indices::I
+end
+
+@generated function _GPUSyncStructArrayView_type(::Type{T}, ::Type{ST}, ::Type{I}) where {T,ST,I}
+    return :(_GPUSyncStructArrayView{T,ST,I})
+end
+
+Base.@propagate_inbounds function Base.getindex(sa::_GPUSyncStructArrayView, i::Int)
+    return getindex(sa.array, i)
+end
+
+Base.@propagate_inbounds function Base.setindex!(sa::_GPUSyncStructArrayView, c::Any, i::Int)
+    return setindex!(sa.array, c, i)
+end
+
+function Base.fill!(sa::_GPUSyncStructArrayView, value::Any)
+    return fill!(sa.array, value)
+end
+
+Base.@propagate_inbounds function Base.iterate(sa::_GPUSyncStructArrayView)
+    return iterate(sa.array)
+end
+
+Base.@propagate_inbounds function Base.iterate(sa::_GPUSyncStructArrayView, i::Int)
+    return iterate(sa.array, i)
+end
+
+Base.size(sa::_GPUSyncStructArrayView) = (length(sa),)
+Base.length(sa::_GPUSyncStructArrayView) = length(sa.indices)
+Base.eltype(::Type{<:_GPUSyncStructArrayView{<:GPUSyncStructArray{C}}}) where C = C
+Base.IndexStyle(::Type{<:_GPUSyncStructArrayView}) = IndexLinear()
+Base.eachindex(sa::_GPUSyncStructArrayView) = eachindex(sa.array)
+Base.firstindex(sa::_GPUSyncStructArrayView) = firstindex(sa.array)
+Base.lastindex(sa::_GPUSyncStructArrayView) = lastindex(sa.array)
+
+function Base.show(io::IO, a::_GPUSyncStructArrayView)
+    return show(io, a.array)
+end
+
+unpack(a::_GPUSyncStructArrayView) = unpack(a.array)
+
+function gpuviews(gv::_GPUSyncStructArrayView; readonly::Bool=false)
+    return gpuviews(gv.array; readonly=readonly)
 end

@@ -45,3 +45,4 @@ const fake_storage = [Storage{WrappedVector} for i in 1:300]
 const N_fake = 300
 const offset_ID = 255
 const M_mask = 5
+const T_view = _GPUSyncStructArrayView

@@ -862,7 +862,7 @@ end
         @test length(pos_col) == 100
         @test length(vel_col) == 100
         @test pos_col isa FieldViewable
-        @test vel_col isa _StructArrayView
+        @test vel_col isa T_view
         for i in eachindex(ent)
             @test is_alive(world, ent[i]) == true
             @test pos_col[i] == Position(99, 99)

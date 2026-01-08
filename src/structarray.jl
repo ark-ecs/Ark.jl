@@ -193,12 +193,12 @@ end
     return Expr(:block, fill_exprs..., :(sa))
 end
 
-Base.@propagate_inbounds function Base.iterate(sa::_StructArrayView{C}) where {C}
+Base.@propagate_inbounds function Base.iterate(sa::_StructArrayView)
     length(sa) == 0 && return nothing
     return sa[1], 2
 end
 
-Base.@propagate_inbounds function Base.iterate(sa::_StructArrayView{C}, i::Int) where {C}
+Base.@propagate_inbounds function Base.iterate(sa::_StructArrayView, i::Int)
     i > length(sa) && return nothing
     return sa[i], i + 1
 end

@@ -338,8 +338,10 @@ Base.IteratorSize(::Type{<:Query}) = Base.SizeUnknown()
             :(SubArray{$T,1,$ST,Tuple{Base.Slice{Base.OneTo{Int}}},IndexStyle($ST) == IndexLinear()})
         elseif storage_modes[i] != Storage{StructArray} && !(storage_modes[i].parameters[1] <: GPUSyncStructArray)
             :(_FieldsViewable_type($ST))
-        else
+        elseif storage_modes[i] == Storage{StructArray}
             :(_StructArrayView_type($T, UnitRange{Int}))
+        else
+            :(_GPUSyncStructArrayView_type($T, $ST, UnitRange{Int}))
         end
 
         opt_flag = is_optional[i] === Val{true}
