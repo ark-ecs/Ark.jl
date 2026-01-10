@@ -19,8 +19,8 @@ function _storage_type(::Type{Storage{StructArray}}, ::Type{C}) where {C}
     _StructArray_type(C)
 end
 
-function _storage_type(::Type{Storage{GPUVector{T}}}, ::Type{C}) where {T,C}
-    GPUVector{C,T{C}}
+function _storage_type(::Type{Storage{GPUVector{B}}}, ::Type{C}) where {B,C}
+    GPUVector{B,C,gpuvector_type(C, Val{B}())}
 end
 
 function _get_component(s::_ComponentStorage{C,A}, arch::UInt32, row::UInt32) where {C,A<:AbstractArray}
