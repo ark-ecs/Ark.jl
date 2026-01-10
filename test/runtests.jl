@@ -6,6 +6,7 @@ using JET
 
 include("include_internals.jl")
 
+include("setup.jl")
 if "--large-world" in ARGS
     include("setup_large.jl")
 else

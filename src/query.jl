@@ -289,18 +289,18 @@ end
         push!(exprs, :(@inbounds $col_sym = $stor_sym.data[table.id]))
 
         if is_optional[i] === Val{true}
-            if storage_modes[i] == Storage{StructArray} || fieldcount(comp_types[i]) == 0
-                push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : view($col_sym, :)))
-            elseif storage_modes[i].parameters[1] <: GPUVector
+            if storage_modes[i].parameters[1] <: GPUVector
                 push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : view(($col_sym).mem, 1:($col_sym).len)))
+            elseif storage_modes[i] == Storage{StructArray} || fieldcount(comp_types[i]) == 0
+                push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : view($col_sym, :)))
             else
                 push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : FieldViewable($col_sym)))
             end
         else
-            if storage_modes[i] == Storage{StructArray} || fieldcount(comp_types[i]) == 0
-                push!(exprs, :($vec_sym = view($col_sym, :)))
-            elseif storage_modes[i].parameters[1] <: GPUVector
+            if storage_modes[i].parameters[1] <: GPUVector
                 push!(exprs, :($vec_sym = view(($col_sym).mem, 1:($col_sym).len)))
+            elseif storage_modes[i] == Storage{StructArray} || fieldcount(comp_types[i]) == 0
+                push!(exprs, :($vec_sym = view($col_sym, :)))
             else
                 push!(exprs, :($vec_sym = FieldViewable($col_sym)))
             end

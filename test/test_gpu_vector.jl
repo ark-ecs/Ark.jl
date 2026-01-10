@@ -53,7 +53,7 @@
     remove_entity!(w, er)
     @test isempty(collect(Query(w, (A, B)))) == false
     @test isempty(collect(Query(w, (A, B, C)))) == false
-    @test gpuview(collect(Query(w, (A, B)))[1][2])[1] == (A(0.0))
+    @test collect(Query(w, (A, B)))[1][2][1] == (A(0.0))
     remove_entities!(w, Filter(w, (A, B)))
     remove_entities!(w, Filter(w, (A, B, C)))
     @test isempty(collect(Query(w, (A, B)))) == true
@@ -79,6 +79,6 @@ end
     @test length(gv) == 99
 
     push!(gv, 10)
-    @test gv[100] = 10
+    @test gv[100] == 10
     @test length(gv) == 100
 end

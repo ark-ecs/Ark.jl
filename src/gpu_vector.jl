@@ -21,9 +21,7 @@ mutable struct GPUVector{B,T,M} <: AbstractVector{T}
     len::Int
 end
 
-function gpuvector_type(::Type{T}, ::Val{:CPU}) where T
-    return Vector{T}
-end
+function gpuvector_type end
 
 function GPUVector{B,T,M}() where {B,T,M}
     return GPUVector{B,T,M}(M(), 0)
