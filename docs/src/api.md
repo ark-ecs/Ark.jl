@@ -63,7 +63,6 @@ but new ones can be defined implementing the [Storage Interface](@ref new-compon
 Storage
 StructArray
 GPUVector
-gpuview
 ```
 
 ## [Queries and Filters](@id queries-api)
