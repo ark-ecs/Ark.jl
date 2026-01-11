@@ -289,16 +289,20 @@ end
         push!(exprs, :(@inbounds $col_sym = $stor_sym.data[table.id]))
 
         if is_optional[i] === Val{true}
-            if storage_modes[i] != Storage{StructArray} && fieldcount(comp_types[i]) > 0
-                push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : FieldViewable($col_sym)))
-            else
+            if storage_modes[i].parameters[1] <: GPUVector
+                push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : view(($col_sym).mem, 1:($col_sym).len)))
+            elseif storage_modes[i] == Storage{StructArray} || fieldcount(comp_types[i]) == 0
                 push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : view($col_sym, :)))
+            else
+                push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : FieldViewable($col_sym)))
             end
         else
-            if storage_modes[i] != Storage{StructArray} && fieldcount(comp_types[i]) > 0
-                push!(exprs, :($vec_sym = FieldViewable($col_sym)))
-            else
+            if storage_modes[i].parameters[1] <: GPUVector
+                push!(exprs, :($vec_sym = view(($col_sym).mem, 1:($col_sym).len)))
+            elseif storage_modes[i] == Storage{StructArray} || fieldcount(comp_types[i]) == 0
                 push!(exprs, :($vec_sym = view($col_sym, :)))
+            else
+                push!(exprs, :($vec_sym = FieldViewable($col_sym)))
             end
         end
     end
@@ -334,7 +338,9 @@ Base.IteratorSize(::Type{<:Query}) = Base.SizeUnknown()
         T = comp_types[i]
 
         ST = :(_storage_type($(storage_modes[i]), $T))
-        base_view = if fieldcount(comp_types[i]) == 0
+        base_view = if storage_modes[i].parameters[1] <: GPUVector
+            :($(ST).parameters[3])
+        elseif fieldcount(comp_types[i]) == 0
             :(SubArray{$T,1,$ST,Tuple{Base.Slice{Base.OneTo{Int}}},IndexStyle($ST) == IndexLinear()})
         elseif storage_modes[i] != Storage{StructArray}
             :(_FieldsViewable_type($ST))

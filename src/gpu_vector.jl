@@ -2,13 +2,8 @@
 """
     GPUVector
 
-A hybrid vector implementation that manages data synchronization between a CPU host
-vector and a GPU buffer. The implementation is compatible with all major
-backends (CUDA.jl, AMDGPU.jl, Metal.jl and oneAPI.jl).
-
-This struct acts as a storage type for components that require computation offloading.
-By default, array operations are performed on the CPU. To perform operations on the GPU,
-use [`gpuview`](@ref) to obtain a view of the underlying GPU device buffer.
+A vector implementation that uses unified memory for mixed CPU/GPU operations.
+The implementation is compatible with CUDA.jl, Metal.jl and oneAPI.jl.
 
 # Examples
 
@@ -16,152 +11,82 @@ use [`gpuview`](@ref) to obtain a view of the underlying GPU device buffer.
 using CUDA
 
 world = World(
-    Position => Storage{GPUVector{CuVector}},
-    Velocity => Storage{GPUVector{CuVector}},
+    Position => Storage{GPUVector{:CUDA}},
+    Velocity => Storage{GPUVector{:CUDA}},
 )
 ```
 """
-mutable struct GPUVector{T,BT} <: AbstractVector{T}
-    const vec::Vector{T}
-    buffer::BT
-    sync_cpu::Bool
-    sync_gpu::Bool
+mutable struct GPUVector{B,T,M} <: AbstractVector{T}
+    mem::M
+    len::Int
 end
 
-function GPUVector{T,BT}() where {T,BT}
-    return GPUVector{T,BT}(Vector{T}(), BT(undef, 0), true, true)
+function gpuvector_type end
+
+function GPUVector{B,T,M}() where {B,T,M}
+    return GPUVector{B,T,M}(M(), 0)
 end
 
-"""
-    gpuview(v::Union{GPUVector, FieldViewable{<:Any, 1, <:GPUVector}}; readonly::Bool=false)
-
-Return a view of the underlying GPU buffer associated with the [`GPUVector`](@ref).
-
-Invoking this function triggers a synchronization: if the GPU buffer is stale, data is
-copied from the CPU to the GPU.
-
-# Arguments
-
-  - `v`: The `GPUVector` or a CPU viewable wrapper of it (which is returned by queries).
-
-# Keyword Arguments
-
-  - `readonly::Bool`: If set to `true`, indicates that the returned view will not be written to.
-
-    **Performance Note:** Setting `readonly=true` prevents the vector from marking the GPU data
-    as "dirty" (desynchronized). This avoids an unnecessary copy back to the CPU on the next host
-    access.
-
-    **Warning:** The caller guarantees that no write operations occur when `readonly=true`.
-    Modifying the view when this flag is set results in undefined behavior regarding data
-    consistency.
-
-# Examples
-
-```
-using CUDA
-
-world = World(
-    Position => Storage{GPUVector{CuVector}},
-)
-
-new_entities!(world, 100, (Position(0.0, 0.0),))
-
-update(pos) = Position(pos.x + 1.0, pos.y + 1.0) 
-
-for (entities, positions) in Query(world, (Position,))
-    pos_gpu = gpuview(positions)
-    pos_gpu .= update.(pos_gpu)
-end
-```
-"""
-function gpuview(gv::FieldViewable{<:Any,1,<:GPUVector}; readonly::Bool=false)
-    return gpuview(parent(gv); readonly=readonly)
-end
-
-function gpuview(gv::GPUVector; readonly::Bool=false)
-    _resync_gpu!(gv)
-    if !readonly
-        gv.sync_cpu = false
-    end
-    return view(gv.buffer, 1:length(gv.vec))
-end
-
-Base.size(gv::GPUVector) = (length(gv.vec),)
+Base.size(gv::GPUVector) = (length(gv),)
+Base.length(gv::GPUVector) = gv.len
 
 Base.@propagate_inbounds function Base.getindex(gv::GPUVector, i::Int)
-    _resync_cpu!(gv)
-    return gv.vec[i]
+    @boundscheck 0 < i <= length(gv)
+    return gv.mem[i]
 end
 
 Base.@propagate_inbounds function Base.setindex!(gv::GPUVector, v, i::Int)
-    _resync_cpu!(gv)
-    gv.sync_gpu = false
-    gv.vec[i] = v
+    @boundscheck 0 < i <= length(gv)
+    gv.mem[i] = v
     return v
 end
 
+function _resize_mem!(gv::GPUVector, new_len::Integer)
+    if length(gv.mem) < new_len
+        new_cap = max(new_len, 2 * length(gv.mem))
+        new_mem = typeof(gv.mem)(undef, new_cap)
+        copyto!(new_mem, 1, gv.mem, 1, length(gv))
+        gv.mem = new_mem
+    end
+    return
+end
+
 function Base.resize!(gv::GPUVector, new_len::Integer)
-    _resync_cpu!(gv)
-    gv.sync_gpu = false
-    resize!(gv.vec, new_len)
+    _resize_mem!(gv, new_len)
+    gv.len = new_len
     return gv
 end
 
 function Base.empty!(gv::GPUVector)
-    gv.sync_gpu = false
-    empty!(gv.vec)
+    gv.len = 0
     return gv
 end
 
-function Base.push!(gv::GPUVector, v)
-    _resync_cpu!(gv)
-    gv.sync_gpu = false
-    push!(gv.vec, v)
+Base.@propagate_inbounds function Base.push!(gv::GPUVector, v)
+    new_len = gv.len + 1
+    resize!(gv, new_len)
+    gv.mem[new_len] = v
     return gv
 end
 
 function Base.pop!(gv::GPUVector)
-    _resync_cpu!(gv)
-    return pop!(gv.vec)
+    gv.len == 0 && throw(ArgumentError("array must be non-empty"))
+    gv.len -= 1
+    return gv
 end
 
-function Base.sizehint!(gv::GPUVector, i::Integer)
-    sizehint!(gv.vec, i)
+function Base.sizehint!(gv::GPUVector, new_len::Integer)
+    _resize_mem!(gv, new_len)
     return gv
 end
 
 function Base.copyto!(gv::GPUVector, doffs::Integer, src::AbstractVector, soffs::Integer, n::Integer)
-    _resync_cpu!(gv)
-    gv.sync_gpu = false
-    copyto!(gv.vec, doffs, src, soffs, n)
+    copyto!(gv.mem, doffs, src, soffs, n)
     return gv
 end
 
-function Base.similar(gv::GPUVector{T,BT}, ::Type{T}, size::Dims{1}) where {T,BT}
-    return GPUVector{T,BT}(Vector{T}(undef, size), BT(undef, 0), true, true)
+function Base.similar(gv::GPUVector{B,T,M}, ::Type{T}, size::Dims{1}) where {B,T,M}
+    return GPUVector{B,T,M}(M(undef, size), size[1])
 end
 
 Base.IndexStyle(::Type{<:GPUVector}) = IndexLinear()
-
-function _resync_cpu!(gv::GPUVector)
-    if !gv.sync_cpu
-        copyto!(gv.vec, 1, gv.buffer, 1, length(gv.vec))
-        gv.sync_cpu = true
-    end
-    return
-end
-
-function _resync_gpu!(gv::GPUVector{T,BT}) where {T,BT}
-    if !gv.sync_gpu
-        # TODO: maybe consider shrinking if CPU vector is much smaller
-        # to save GPU space
-        if length(gv.buffer) < length(gv.vec)
-            new_cap = max(length(gv.vec), 2 * length(gv.buffer))
-            gv.buffer = BT(undef, new_cap)
-        end
-        copyto!(gv.buffer, 1, gv.vec, 1, length(gv.vec))
-        gv.sync_gpu = true
-    end
-    return
-end

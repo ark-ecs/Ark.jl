@@ -117,7 +117,7 @@ For these columns, Ark offers two storage types by default:
   - ≈10-20% runtime overhead for component operations and entity creation.
   - Slower component access with [get_components](@ref) and [set_components!](@ref).
 
-- **[GPUVector](@ref) storage** stores components in hybrid vector implementation that manages data synchronization between a CPU host vector and a GPU buffer. [GPUVector](@ref) is compatible with all major backends (CUDA.jl, AMDGPU.jl, Metal.jl and oneAPI.jl). As [StructArray](@ref) storage, mutable components are not allowed.
+- **[GPUVector](@ref) storage** stores components using unified memory for mixed CPU/GPU operations. [GPUVector](@ref) is compatible with CUDA.jl, Metal.jl and oneAPI.jl. As [StructArray](@ref) storage, mutable components are not allowed.
 
 The storage mode can be selected per component type by using the [Storage](@ref) wrapper during world construction.
 
@@ -174,8 +174,8 @@ end
 
 function run_world_gpu()
     world = World(
-        Position => Storage{GPUVector{CuVector}},
-        Velocity => Storage{GPUVector{CuVector}},
+        Position => Storage{GPUVector{:CUDA}},
+        Velocity => Storage{GPUVector{:CUDA}},
     )
     for i in 1:10^6
         new_entity!(world, (Position(i, i * 2), Velocity(i, i)))
@@ -183,10 +183,7 @@ function run_world_gpu()
 
     for i in 1:1000
         for (entities, positions, velocities) in Query(world, (Position, Velocity))
-            gpu_pos = gpuview(positions)
-            gpu_vel = gpuview(velocities)
-            blocks = cld(length(gpu_pos), 256)
-            @cuda threads=256 blocks=blocks update!(gpu_pos, gpu_vel)
+            @cuda threads=256 blocks=cld(length(positions), 256) update!(positions, velocities)
         end
     end
     return world
@@ -223,7 +220,7 @@ julia> @time run_world_cpu() # 6 cores
 
 julia> # NVIDIA GeForce GTX 1650
        @time run_world_gpu()
-0.240809 seconds (19.61 k allocations: 141.952 MiB, 42.24% gc time)
+0.325847 seconds (30.17 k allocations: 85.478 MiB, 0.36% gc time)
 ```
 
 ## [User-defined component storages](@id new-component-storages)

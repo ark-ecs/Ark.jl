@@ -1,9 +1,9 @@
 
-@testset "GPUVector interface" begin
+@testset "GPUVector components" begin
     w = World(
-        A => Storage{GPUVector{Vector}},
-        B => Storage{GPUVector{Vector}},
-        C => Storage{GPUVector{Vector}},
+        A => Storage{GPUVector{:CPU}},
+        B => Storage{GPUVector{:CPU}},
+        C => Storage{GPUVector{:CPU}},
     )
     e1 = new_entity!(w, (A(0.0), B(0.0)))
     @test get_components(w, e1, (A, B)) == (A(0.0), B(0.0))
@@ -50,39 +50,46 @@
 
     new_entities!(w, 1, (A(0.0), B(0.0)))
     new_entities!(w, 1, (A(0.0), B(0.0), C()); relations=(C => er,))
+    new_entities!(w, 2, (A, B)) do (entities, as, bs)
+        for i in eachindex(entities)
+            as[i] = A(0.0)
+            bs[i] = B(0.0)
+        end
+    end
+
     remove_entity!(w, er)
-    @test isempty(collect(Query(w, (A, B)))) == false
+    @test isempty(collect(Query(w, (A,); with=(B,)))) == false
     @test isempty(collect(Query(w, (A, B, C)))) == false
-    @test gpuview(collect(Query(w, (A, B)))[1][2])[1] == (A(0.0))
+    @test collect(Query(w, (A, B)))[1][2][1] == (A(0.0))
+    for (_, as, cs) in Query(w, (A,); optional=(C,))
+        @test as != nothing
+    end
     remove_entities!(w, Filter(w, (A, B)))
     remove_entities!(w, Filter(w, (A, B, C)))
     @test isempty(collect(Query(w, (A, B)))) == true
     reset!(w)
 end
 
-@testset "GPUVector internals" begin
-    gv = GPUVector{Int,Vector{Int}}()
+@testset "GPUVector interface" begin
+    gv = GPUVector{:CPU,Int,Vector{Int}}()
     @test length(gv) == 0
     resize!(gv, 100)
     @test length(gv) == 100
 
     copyto!(gv, 1, fill(1, 100), 1, 100)
     @test length(unique(gv)) == 1 && unique(gv)[1] == 1
-
-    @test typeof(similar(gv)) == GPUVector{Int,Vector{Int}}
+    @test typeof(similar(gv)) == GPUVector{:CPU,Int,Vector{Int}}
+    @test typeof(similar(gv, Int, (1,))) == GPUVector{:CPU,Int,Vector{Int}}
 
     gv[1] = 2
     @test gv[1] == 2
-    @test gv.sync_cpu == true
-    @test gv.sync_gpu == false
-
-    view = gpuview(gv)
-    @test gv.sync_cpu == false
-    @test gv.sync_gpu == true
-    @test gv.buffer[1:length(gv)] == gv.vec
-
     gv[1] = 1
     @test gv[1] == 1
-    @test gv.sync_cpu == true
-    @test gv.sync_gpu == false
+
+    pop!(gv)
+    @test length(gv) == 99
+
+    push!(gv, 10)
+    @test gv[100] == 10
+    @test length(gv) == 100
 end

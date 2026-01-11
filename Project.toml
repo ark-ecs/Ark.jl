@@ -11,15 +11,27 @@ Preferences = "21216c6a-2e73-6563-6e65-726566657250"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [weakdeps]
+AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+Metal = "dde4c033-4e86-420c-a63e-0dd931031962"
 Mooncake = "da2b9cff-9c12-43a0-ae48-6db2b0edb7d6"
+oneAPI = "8f75cd03-7ff8-4ecb-9b8f-daf728133b1b"
 
 [extensions]
+ArkAMDGPUInterop = "AMDGPU"
+ArkCUDAInterop = "CUDA"
+ArkMetalInterop = "Metal"
 ArkMooncakeInterop = "Mooncake"
+ArkoneAPIInterop = "oneAPI"
 
 [compat]
+AMDGPU = "2"
+CUDA = "5"
 FieldViews = "0.3.2"
 FunctionWrappers = "1"
+Metal = "1"
 Mooncake = "0.4"
+oneAPI = "2"
 PrecompileTools = "1"
 Preferences = "1"
 StaticArrays = "1"

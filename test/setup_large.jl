@@ -10,7 +10,7 @@ function Ark.World(comp_types::Union{Type,Pair{<:Type,<:Type}}...; initial_capac
     storages = collect(Any, storages)
     for i in 1:length(storages)
         if isbitstype(types[i]) && storages[i] == Storage{WrappedVector}
-            storages[i] = Storage{GPUVector{Vector}}
+            storages[i] = Storage{GPUVector{:CPU}}
             break
         end
     end
