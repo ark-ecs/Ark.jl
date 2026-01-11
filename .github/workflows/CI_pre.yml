@@ -1,4 +1,4 @@
-name: CI_pre
+name: CI - pre
 on:
   push:
     branches:
