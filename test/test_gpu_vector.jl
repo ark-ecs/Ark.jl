@@ -50,8 +50,15 @@
 
     new_entities!(w, 1, (A(0.0), B(0.0)))
     new_entities!(w, 1, (A(0.0), B(0.0), C()); relations=(C => er,))
+    new_entities!(w, 2, (A, B)) do (entities, as, bs)
+        for i in eachindex(entities)
+            as[i] = A(0.0)
+            bs[i] = B(0.0)
+        end
+    end
+
     remove_entity!(w, er)
-    @test isempty(collect(Query(w, (A, B)))) == false
+    @test isempty(collect(Query(w, (A,); with=(B,)))) == false
     @test isempty(collect(Query(w, (A, B, C)))) == false
     @test collect(Query(w, (A, B)))[1][2][1] == (A(0.0))
     remove_entities!(w, Filter(w, (A, B)))
@@ -69,6 +76,7 @@ end
     copyto!(gv, 1, fill(1, 100), 1, 100)
     @test length(unique(gv)) == 1 && unique(gv)[1] == 1
     @test typeof(similar(gv)) == GPUVector{:CPU,Int,Vector{Int}}
+    @test typeof(similar(gv, Int, (1,))) == GPUVector{:CPU,Int,Vector{Int}}
 
     gv[1] = 2
     @test gv[1] == 2
