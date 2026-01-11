@@ -61,6 +61,9 @@
     @test isempty(collect(Query(w, (A,); with=(B,)))) == false
     @test isempty(collect(Query(w, (A, B, C)))) == false
     @test collect(Query(w, (A, B)))[1][2][1] == (A(0.0))
+    for (_, as, cs) in Query(w, (A,); optional=(C,))
+        @test as != nothing
+    end
     remove_entities!(w, Filter(w, (A, B)))
     remove_entities!(w, Filter(w, (A, B, C)))
     @test isempty(collect(Query(w, (A, B)))) == true
