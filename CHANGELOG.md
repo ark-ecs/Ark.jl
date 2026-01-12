@@ -1,5 +1,11 @@
 # Changelog
 
+## [[v0.3.1]](https://github.com/ark-ecs/Ark.jl/compare/v0.3.0...v0.3.1)
+
+### Bugfixes
+
+- Fixes recycling relation tables, which caused missed entities (#484, fixes #477)
+
 ## [[v0.3.0]](https://github.com/ark-ecs/Ark.jl/compare/v0.2.0...v0.3.0)
 
 ### Breaking changes
