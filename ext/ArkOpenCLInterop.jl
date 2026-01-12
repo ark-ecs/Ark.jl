@@ -10,7 +10,7 @@ function Ark.gpuvector_type(::Type{T}, ::Val{:OpenCL}) where T
     elseif memory_backend === cl.SVMBackend()
         return CLArray{T, 1, cl.SharedVirtualMemory}
     else
-        throw(ArgumentError("Unified memory not supported"))
+        throw(ArgumentError("OpenCL storage not supported since no unified memory back-end was identified"))
     end
 end
 
