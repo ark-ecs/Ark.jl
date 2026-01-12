@@ -3,7 +3,7 @@
     GPUVector
 
 A vector implementation that uses unified memory for mixed CPU/GPU operations.
-The implementation is compatible with CUDA.jl, Metal.jl and oneAPI.jl.
+The implementation is compatible with CUDA.jl, Metal.jl, oneAPI.jl and OpenCL.jl.
 
 # Examples
 

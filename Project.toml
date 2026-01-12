@@ -16,6 +16,7 @@ CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 Metal = "dde4c033-4e86-420c-a63e-0dd931031962"
 Mooncake = "da2b9cff-9c12-43a0-ae48-6db2b0edb7d6"
 oneAPI = "8f75cd03-7ff8-4ecb-9b8f-daf728133b1b"
+OpenCL = "08131aa3-fb12-5dee-8b74-c09406e224a2"
 UniqueVectors = "2fbcfb34-fd0c-5fbb-b5d7-e826d8f5b0a9"
 
 [extensions]
@@ -24,6 +25,7 @@ ArkCUDAInterop = "CUDA"
 ArkMetalInterop = "Metal"
 ArkMooncakeInterop = "Mooncake"
 ArkoneAPIInterop = "oneAPI"
+ArkOpenCLInterop = "OpenCL"
 ArkUniqueVectorsInterop = "UniqueVectors"
 
 [compat]
@@ -34,6 +36,7 @@ FunctionWrappers = "1"
 Metal = "1"
 Mooncake = "0.4"
 oneAPI = "2"
+OpenCL = "0.10"
 PrecompileTools = "1"
 Preferences = "1"
 StaticArrays = "1"
