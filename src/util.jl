@@ -1,5 +1,5 @@
 
-@inline _swap!(v::AbstractArray, i, j) = @inbounds v[i] = v[j]
+_swap!(v::AbstractArray, i, j) = @inbounds v[i] = v[j]
 
 @inline function _swap_remove!(v::AbstractArray, i::UInt32)::Bool
     last_index = length(v)
