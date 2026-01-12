@@ -145,11 +145,12 @@ world = World(
 World(entities=0, comp_types=(Position, Velocity))
 ```
 
-To use the [GPUVector](@ref) storage, also the GPU backend vector must be specified, which can be imported from one of the major backends (CUDA.jl, AMDGPU.jl, Metal.jl or oneAPI.jl) depending on the GPU. To illustrate its usage and performance we provide a classical Position/Velocity example where the Position updates are offloaded to the GPU:
+To use the [GPUVector](@ref) storage, also the GPU backend must be specified (which can be either :CUDA, :Metal or :oneAPI) depending on the GPU. To illustrate its usage and performance we provide a classical Position/Velocity example where the Position updates are offloaded to the GPU:
 
 ```
-using CUDA
 using Ark
+using KernelAbstractions
+using CUDA
 
 struct Position
     x::Float32
@@ -161,48 +162,39 @@ struct Velocity
     dy::Float32
 end
 
-function update!(positions, velocities)
-    index = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    stride = blockDim().x * gridDim().x
-    @inbounds for i in index:stride:length(positions)
+@kernel function update_kernel!(positions, velocities)
+    i = @index(Global)
+    @inbounds begin
         pos = positions[i]
         vel = velocities[i]
         positions[i] = Position(pos.x + sin(vel.dx), pos.y + cos(vel.dy))
     end
-    return
 end
 
-function run_world_gpu()
-    world = World(
-        Position => Storage{GPUVector{:CUDA}},
-        Velocity => Storage{GPUVector{:CUDA}},
-    )
-    for i in 1:10^6
-        new_entity!(world, (Position(i, i * 2), Velocity(i, i)))
+function run_world(backend; n_entities=10^6, n_iterations=1000, use_gpu_storage=false)
+    if backend isa CUDABackend
+        world = World(
+            Position => Storage{GPUVector{:CUDA}},
+            Velocity => Storage{GPUVector{:CUDA}},
+        )
+    else
+        world = World(
+            Position => Storage{Vector}, 
+            Velocity => Storage{Vector},
+        )
     end
 
-    for i in 1:1000
-        for (entities, positions, velocities) in Query(world, (Position, Velocity))
-            @cuda threads=256 blocks=cld(length(positions), 256) update!(positions, velocities)
-        end
+    for i in 1:n_entities
+        new_entity!(world, (Position(Float32(i), Float32(i * 2)), Velocity(Float32(i), Float32(i))))
     end
-    return world
-end
 
-function run_world_cpu()
-    world = World(Position, Velocity)
-    for i in 1:10^6
-        entity = new_entity!(world, (Position(i, i * 2), Velocity(i, i)))
-    end
-    for i in 1:1000
+    kernel = update_kernel!(backend, 256)
+    for _ in 1:n_iterations
         for (entities, positions, velocities) in Query(world, (Position, Velocity))
-            Threads.@threads for i in eachindex(entities)
-                @inbounds pos = positions[i]
-                @inbounds vel = velocities[i]
-                @inbounds positions[i] = Position(pos.x + sin(vel.dx), pos.y + cos(vel.dy))
-            end
+            kernel(positions, velocities; ndrange=length(positions))
         end
     end
+
     return world
 end
 ```
@@ -212,14 +204,14 @@ see below:
 
 ```
 julia> # AMD Ryzen 5 5600H
-       @time run_world_cpu() # 1 core
+       @time run_world(CPU()) # 1 core
 7.373623 seconds (7.53 k allocations: 141.863 MiB, 3.06% gc time)
 
-julia> @time run_world_cpu() # 6 cores
+julia> @time run_world(CPU()) # 6 cores
 1.576263 seconds (32.53 k allocations: 143.663 MiB, 1.89% gc time)
 
 julia> # NVIDIA GeForce GTX 1650
-       @time run_world_gpu()
+       @time run_world(CUDABackend())
 0.325847 seconds (30.17 k allocations: 85.478 MiB, 0.36% gc time)
 ```
 
