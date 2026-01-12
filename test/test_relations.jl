@@ -89,6 +89,7 @@ end
 
     query = Query(world, (ChildOf,))
     @test count_entities(query) == 2
+    @test length(query) == 2
 
     cnt = 0
     for (entities,) in Query(world, (ChildOf,))
