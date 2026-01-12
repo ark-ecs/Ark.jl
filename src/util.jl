@@ -1,9 +1,11 @@
 
+_swap!(v::AbstractArray, i, j) = @inbounds v[i] = v[j]
+
 @inline function _swap_remove!(v::AbstractArray, i::UInt32)::Bool
     last_index = length(v)
     swapped = i != last_index
     if swapped
-        @inbounds v[i] = v[last_index]
+        _swap!(v, i, last_index)
     end
     pop!(v)
     return swapped

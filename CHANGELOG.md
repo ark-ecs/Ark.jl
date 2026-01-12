@@ -9,7 +9,8 @@
 ### Features
 
 - Adds support for user-defined storage types (#437)
-- Adds a new type GPUVector which can be used to offload work to the GPU (#470)
+- Adds a new type GPUVector which can be used to offload work to the GPU (#470, #476)
+- Adds support for UniqueVector storage (#481)
 
 ## [[v0.3.0]](https://github.com/ark-ecs/Ark.jl/compare/v0.2.0...v0.3.0)
 
