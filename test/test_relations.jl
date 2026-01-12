@@ -75,3 +75,24 @@
 end
 
 @testset "Relations multiple" begin end
+
+@testset "Issue #477" begin
+    world = World(ChildOf)
+
+    parent = new_entity!(world, ())
+    child = new_entity!(world, (ChildOf(),); relations=(ChildOf => parent,))
+    remove_entity!(world, parent)
+
+    ghost = new_entity!(world, (ChildOf(),); relations=(ChildOf => child,))
+    @test is_alive(world, ghost) == true
+    @test has_components(world, ghost, (ChildOf,)) == true
+
+    query = Query(world, (ChildOf,))
+    @test count_entities(query) == 2
+
+    cnt = 0
+    for (entities,) in Query(world, (ChildOf,))
+        cnt += length(entities)
+    end
+    @test cnt == 2
+end
