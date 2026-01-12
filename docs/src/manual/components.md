@@ -117,7 +117,7 @@ For these columns, Ark offers two storage types by default:
   - ≈10-20% runtime overhead for component operations and entity creation.
   - Slower component access with [get_components](@ref) and [set_components!](@ref).
 
-- **[GPUVector](@ref) storage** stores components using unified memory for mixed CPU/GPU operations. [GPUVector](@ref) is compatible with CUDA.jl, Metal.jl and oneAPI.jl. As [StructArray](@ref) storage, mutable components are not allowed.
+- **[GPUVector](@ref) storage** stores components using unified memory for mixed CPU/GPU operations. [GPUVector](@ref) is compatible with CUDA.jl, Metal.jl, oneAPI.jl or OpenCL.jl. As [StructArray](@ref) storage, mutable components are not allowed.
 
 The storage mode can be selected per component type by using the [Storage](@ref) wrapper during world construction.
 
@@ -145,7 +145,7 @@ world = World(
 World(entities=0, comp_types=(Position, Velocity))
 ```
 
-To use the [GPUVector](@ref) storage, also the GPU backend must be specified (which can be either :CUDA, :Metal or :oneAPI) depending on the GPU. To illustrate its usage and performance we provide a classical Position/Velocity example where the Position updates are offloaded to the GPU:
+To use the [GPUVector](@ref) storage, also the GPU backend must be specified (which can be either :CUDA, :Metal, :oneAPI or :OpenCL) depending on the GPU. To illustrate its usage and performance we provide a classical Position/Velocity example where the Position updates are offloaded to the GPU:
 
 ```
 using Ark
