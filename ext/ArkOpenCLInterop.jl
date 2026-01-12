@@ -4,7 +4,7 @@ module ArkOpenCLInterop
 using Ark, OpenCL
 
 function Ark.gpuvector_type(::Type{T}, ::Val{:OpenCL}) where T
-	memory_backend = cl.unified_memory_backend()
+    memory_backend = cl.unified_memory_backend()
     if memory_backend === cl.USMBackend()
         return CLArray{T,1,cl.UnifiedSharedMemory}
     elseif memory_backend === cl.SVMBackend()
