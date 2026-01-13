@@ -53,3 +53,17 @@ end
         _StructArrayView{C,$nt_type,I}
     end
 end
+
+@generated function Base.view(
+    sa::S,
+    idx::I,
+) where {S<:StructArray{C,CS,N},I<:AbstractUnitRange{T}} where {C,CS<:NamedTuple,N,T<:Integer}
+    names = fieldnames(C)
+    vec_types = CS.parameters[2].parameters
+    view_exprs = [:($name = @view getfield(sa, :_components).$name[idx]) for name in names]
+    subarray_types = [:(SubArray{$(eltype(vt)),1,$vt,Tuple{I},true}) for vt in vec_types]
+    nt_type = :(NamedTuple{($(map(QuoteNode, names)...),),Tuple{$(subarray_types...)}})
+    return quote
+        _StructArrayView{C,$nt_type,I}((; $(view_exprs...)), idx)
+    end
+end

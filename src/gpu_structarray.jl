@@ -59,11 +59,22 @@ end
 @generated function _GPUStructArrayView_type(::Type{C}, ::Type{I}, ::Val{B}) where {C,I<:AbstractUnitRange{T},B} where {T<:Integer}
     names = fieldnames(C)
     types = fieldtypes(C)
-
-    vec_types = [:(GPUVector{$(QuoteNode(B)),$t,gpuvector_type($t, Val{$(QuoteNode(B))}())}) for t in types]
-    subarray_types = [:(SubArray{$t,1,$vt,Tuple{I},true}) for (t, vt) in zip(types, vec_types)]
-    nt_type = :(NamedTuple{($(map(QuoteNode, names)...),),Tuple{$(subarray_types...)}})
+    vec_types = [:(gpuvector_type($t, Val{$(QuoteNode(B))}())) for t in types]
+    nt_type = :(NamedTuple{($(map(QuoteNode, names)...),),Tuple{$(vec_types...)}})
     return quote
         _StructArrayView{C,$nt_type,I}
+    end
+end
+
+@generated function Base.view(
+    sa::GPUStructArray{B,C,CS},
+    idx::I,
+) where {I<:AbstractUnitRange{<:Integer},B,C,CS<:NamedTuple}
+    names = fieldnames(C)
+    vec_types = [t.parameters[3] for t in CS.parameters[2].parameters]
+    view_exprs = [:($name = view(getfield(sa, :_components).$name.mem, idx)) for name in names]
+    nt_type = :(NamedTuple{($(map(QuoteNode, names)...),),Tuple{$(vec_types...)}})
+    return quote
+        _StructArrayView{C,$nt_type,I}((; $(view_exprs...)), idx)
     end
 end

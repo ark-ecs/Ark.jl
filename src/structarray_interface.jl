@@ -1,12 +1,3 @@
-"""
-    _AbstractStructArray{C,CS,N}
-
-Abstract base type for struct-of-arrays storage. Both `StructArray` and `GPUStructArray`
-are subtypes of this.
-"""
-abstract type _AbstractStructArray{C,CS<:NamedTuple,N} <: AbstractVector{C} end
-
-# Common interface for all _AbstractStructArray subtypes
 
 @generated function Base.getproperty(sa::_AbstractStructArray{C}, name::Symbol) where {C}
     component_names = fieldnames(C)
@@ -48,20 +39,6 @@ end
 
 Base.view(sa::_AbstractStructArray, ::Colon) = view(sa, 1:length(sa))
 
-@generated function Base.view(
-    sa::S,
-    idx::I,
-) where {S<:_AbstractStructArray{C,CS,N},I<:AbstractUnitRange{T}} where {C,CS<:NamedTuple,N,T<:Integer}
-    names = fieldnames(C)
-    vec_types = CS.parameters[2].parameters
-    view_exprs = [:($name = @view getfield(sa, :_components).$name[idx]) for name in names]
-    subarray_types = [:(SubArray{$(eltype(vt)),1,$vt,Tuple{I},true}) for vt in vec_types]
-    nt_type = :(NamedTuple{($(map(QuoteNode, names)...),),Tuple{$(subarray_types...)}})
-    return quote
-        _StructArrayView{C,$nt_type,I}((; $(view_exprs...)), idx)
-    end
-end
-
 Base.@propagate_inbounds @generated function Base.getindex(sa::_AbstractStructArray{C}, i::Int) where {C}
     names = fieldnames(C)
     field_exprs = [:($(name) = getfield(sa, :_components).$name[i]) for name in names]
@@ -92,8 +69,6 @@ Base.eltype(::Type{<:_AbstractStructArray{C}}) where {C} = C
 Base.IndexStyle(::Type{<:_AbstractStructArray}) = IndexLinear()
 Base.firstindex(sa::_AbstractStructArray) = 1
 Base.lastindex(sa::_AbstractStructArray) = length(sa)
-
-# _StructArrayView - shared view type for both StructArray and GPUStructArray
 
 struct _StructArrayView{C,CS<:NamedTuple,I} <: AbstractArray{C,1}
     _components::CS
