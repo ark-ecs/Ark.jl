@@ -291,7 +291,7 @@ end
         if is_optional[i] === Val{true}
             if storage_modes[i].parameters[1] <: GPUVector
                 push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : view(($col_sym).mem, 1:($col_sym).len)))
-            elseif storage_modes[i] == Storage{StructArray} || fieldcount(comp_types[i]) == 0
+            elseif storage_modes[i] == Storage{StructArray} || storage_modes[i].parameters[1] <: GPUStructArray || fieldcount(comp_types[i]) == 0
                 push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : view($col_sym, :)))
             else
                 push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : FieldViewable($col_sym)))
@@ -299,7 +299,7 @@ end
         else
             if storage_modes[i].parameters[1] <: GPUVector
                 push!(exprs, :($vec_sym = view(($col_sym).mem, 1:($col_sym).len)))
-            elseif storage_modes[i] == Storage{StructArray} || fieldcount(comp_types[i]) == 0
+            elseif storage_modes[i] == Storage{StructArray} || storage_modes[i].parameters[1] <: GPUStructArray || fieldcount(comp_types[i]) == 0
                 push!(exprs, :($vec_sym = view($col_sym, :)))
             else
                 push!(exprs, :($vec_sym = FieldViewable($col_sym)))
@@ -342,10 +342,13 @@ Base.IteratorSize(::Type{<:Query}) = Base.SizeUnknown()
             :($(ST).parameters[3])
         elseif fieldcount(comp_types[i]) == 0
             :(SubArray{$T,1,$ST,Tuple{Base.Slice{Base.OneTo{Int}}},IndexStyle($ST) == IndexLinear()})
-        elseif storage_modes[i] != Storage{StructArray}
-            :(_FieldsViewable_type($ST))
-        else
+        elseif storage_modes[i] == Storage{StructArray}
             :(_StructArrayView_type($T, UnitRange{Int}))
+        elseif storage_modes[i].parameters[1] <: GPUStructArray
+            B = storage_modes[i].parameters[1].body.body.body.parameters[1]
+            :(_GPUStructArrayView_type($T, UnitRange{Int}, Val{$(QuoteNode(B))}()))
+        else
+            :(_FieldsViewable_type($ST))
         end
 
         opt_flag = is_optional[i] === Val{true}

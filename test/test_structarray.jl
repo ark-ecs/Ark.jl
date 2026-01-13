@@ -179,3 +179,55 @@ end
  Position(12.0, 12.0)
 "
 end
+
+@testset "GPUStructArray basic functionality" begin
+    a = GPUStructArray{:CPU}(Position)
+
+    @test isa(a.x, GPUVector{:CPU,Float64})
+    @test isa(a.y, GPUVector{:CPU,Float64})
+
+    push!(a, Position(1, 2))
+
+    @test length(a) == 1
+    @test a[1] == Position(1, 2)
+
+    a[1] = Position(3, 4)
+    @test a[1] == Position(3, 4)
+
+    push!(a, Position(5, 6))
+    @test length(a) == 2
+
+    pop!(a)
+    @test length(a) == 1
+end
+
+@testset "GPUStructArray components" begin
+    w = World(
+        A => Storage{GPUStructArray{:CPU}},
+        B => Storage{GPUStructArray{:CPU}},
+    )
+    e1 = new_entity!(w, (A(0.0), B(0.0)))
+    @test get_components(w, e1, (A, B)) == (A(0.0), B(0.0))
+    e2 = new_entity!(w, (A(0.0), B(0.0)))
+    @test get_components(w, e2, (A, B)) == (A(0.0), B(0.0))
+    e3 = copy_entity!(w, e1)
+    @test e1 != e2 && e2 != e3
+
+    a, b = get_components(w, e2, (A, B))
+    set_components!(w, e2, (A(a.x + 1.0), B(b.x + 1.0)))
+    @test get_components(w, e2, (A, B)) == (A(1.0), B(1.0))
+    remove_components!(w, e2, (A,))
+    @test get_components(w, e2, (B,)) == (B(1.0),)
+    @test has_components(w, e2, (A,)) == false
+    add_components!(w, e2, (A(0.0),))
+    @test has_components(w, e2, (A,)) == true
+
+    remove_entity!(w, e2)
+    @test is_alive(w, e1) == true
+    @test is_alive(w, e2) == false
+
+    new_entities!(w, 2, (A(0.0), B(0.0)))
+    @test isempty(collect(Query(w, (A, B)))) == false
+    remove_entities!(w, Filter(w, (A, B)))
+    reset!(w)
+end

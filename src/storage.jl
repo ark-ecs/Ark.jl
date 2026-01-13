@@ -11,12 +11,20 @@ function _new_storage(::Type{Storage{StructArray}}, ::Type{C}) where {C}
     StructArray(C)
 end
 
+function _new_storage(::Type{Storage{GPUStructArray{B}}}, ::Type{C}) where {B,C}
+    GPUStructArray{B}(C)
+end
+
 function _storage_type(::Type{<:Storage{T}}, ::Type{C}) where {T,C}
     T{C}
 end
 
 function _storage_type(::Type{Storage{StructArray}}, ::Type{C}) where {C}
     _StructArray_type(C)
+end
+
+function _storage_type(::Type{Storage{GPUStructArray{B}}}, ::Type{C}) where {B,C}
+    _GPUStructArray_type(C, Val{B}())
 end
 
 function _storage_type(::Type{Storage{GPUVector{B}}}, ::Type{C}) where {B,C}
@@ -40,7 +48,12 @@ function _set_component!(s::_ComponentStorage{C,A}, arch::UInt32, row::UInt32, v
 end
 
 @generated function _add_column!(storage::_ComponentStorage{C,A}) where {C,A<:AbstractArray}
-    if A <: StructArray
+    if A <: GPUStructArray
+        B = A.parameters[1]
+        return quote
+            push!(storage.data, GPUStructArray{$(QuoteNode(B))}(C))
+        end
+    elseif A <: StructArray
         return quote
             push!(storage.data, StructArray(C))
         end

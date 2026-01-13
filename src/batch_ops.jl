@@ -1120,7 +1120,7 @@ end
 
         if storage_modes[i].parameters[1] <: GPUVector
             push!(exprs, :($vec_sym = view(($col_sym).mem, start_idx:end_idx)))
-        elseif storage_modes[i] == Storage{StructArray} || fieldcount(comp_types[i]) == 0
+        elseif storage_modes[i] == Storage{StructArray} || storage_modes[i].parameters[1] <: GPUStructArray || fieldcount(comp_types[i]) == 0
             push!(exprs, :($vec_sym = view($col_sym, start_idx:end_idx)))
         else
             push!(exprs, :($vec_sym = FieldViewable(view($col_sym, start_idx:end_idx))))

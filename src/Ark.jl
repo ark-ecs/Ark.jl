@@ -10,12 +10,14 @@ isdefined(@__MODULE__, :Memory) || const Memory = Vector # Compat for Julia < 1.
 include("abstract.jl")
 include("util.jl")
 include("collections.jl")
+include("structarray_interface.jl")
 include("structarray.jl")
+include("gpu_vector.jl")
+include("gpu_structarray.jl")
 include("fieldsview.jl")
 include("entity.jl")
 include("mask.jl")
 include("vec_map.jl")
-include("gpu_vector.jl")
 include("storage.jl")
 include("linear_map.jl")
 include("graph.jl")
@@ -62,6 +64,6 @@ export unpack, @unpack
 
 export Relationship
 
-export Storage, StructArray, GPUVector
+export Storage, StructArray, GPUStructArray, GPUVector
 
 end
