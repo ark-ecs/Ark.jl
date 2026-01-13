@@ -4,7 +4,6 @@ using Preferences
 using Test
 
 @static if VERSION < v"1.13.0-DEV"
-    using Pkg
     Pkg.add("JET")
     using JET
     const RUN_JET = true
