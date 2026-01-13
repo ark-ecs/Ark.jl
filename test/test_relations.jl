@@ -81,11 +81,20 @@ end
 
     parent = new_entity!(world, ())
     child = new_entity!(world, (ChildOf(),); relations=(ChildOf => parent,))
+
     remove_entity!(world, parent)
+    @test get_relations(world, child, (ChildOf,)) == (zero_entity,)
+    @test length(world._archetypes[2].tables) == 1
+    @test length(world._archetypes[2].free_tables) == 1
 
     ghost = new_entity!(world, (ChildOf(),); relations=(ChildOf => child,))
     @test is_alive(world, ghost) == true
     @test has_components(world, ghost, (ChildOf,)) == true
+
+    @test get_relations(world, child, (ChildOf,)) == (zero_entity,)
+    @test get_relations(world, ghost, (ChildOf,)) == (child,)
+    @test length(world._archetypes[2].tables) == 2
+    @test length(world._archetypes[2].free_tables) == 0
 
     query = Query(world, (ChildOf,))
     @test count_entities(query) == 2
