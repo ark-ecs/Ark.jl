@@ -4,6 +4,8 @@
 
 A vector implementation that uses unified memory for mixed CPU/GPU operations.
 The implementation is compatible with CUDA.jl, Metal.jl, oneAPI.jl and OpenCL.jl.
+When passed as a storage the back-end must be specified (either :CUDA, :Metal, 
+:oneAPI or :OpenCL).
 
 # Examples
 

@@ -17,6 +17,6 @@ Base.pop!(w::TestVector) = pop!(w.v)
 function Ark.gpuvector_type(::Type{T}, ::Val{:CPU}) where T
     return TestVector{T}
 end
-function Base.view(tv::TestVector{T}, I::UnitRange{Int}) where T
+function Base.view(tv::TestVector{T}, I::UnitRange{<:Integer}) where T
     TestVector{T}(tv.v[I])
 end

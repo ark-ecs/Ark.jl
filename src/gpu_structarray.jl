@@ -1,10 +1,10 @@
+
 """
-    GPUStructArray{B,C,CS,N}
+    GPUStructArray
 
-A GPU-backed StructArray that stores component fields in GPUVectors.
-
-Use with `Storage{GPUStructArray{:CUDA}}` (or `:Metal`, `:OpenCL`, `:AMDGPU`, `:oneAPI`)
-to store component fields in GPUVectors.
+A GPU-backed StructArray that stores each component field in a GPUVector.
+When passed as a storage the back-end must be specified (either :CUDA, :Metal, 
+:oneAPI or :OpenCL).
 
 # Examples
 

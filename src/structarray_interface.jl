@@ -67,8 +67,13 @@ Base.size(sa::_AbstractStructArray) = (length(sa),)
 Base.eachindex(sa::_AbstractStructArray) = 1:length(sa)
 Base.eltype(::Type{<:_AbstractStructArray{C}}) where {C} = C
 Base.IndexStyle(::Type{<:_AbstractStructArray}) = IndexLinear()
-Base.firstindex(sa::_AbstractStructArray) = 1
 Base.lastindex(sa::_AbstractStructArray) = length(sa)
+
+function Base.firstindex(sa::StructArray)
+    # Do not simplify to this, as it is then not covered by the tests for some reason:
+    # Base.firstindex(sa::StructArray) = 1
+    return 1
+end
 
 struct _StructArrayView{C,CS<:NamedTuple,I} <: AbstractArray{C,1}
     _components::CS
