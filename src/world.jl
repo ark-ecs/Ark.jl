@@ -963,6 +963,9 @@ function _recycle_table!(world::World, arch::_Archetype, table_id::UInt32, relat
         table.relations[i] = comp
         world._targets[entity._id] = true
     end
+
+    _add_table!(world._relations, arch, table)
+    _add_table!(world._cache, world, world._archetypes_hot[arch.id], table)
 end
 
 function _create_table!(world::World, arch::_Archetype, relations::Vector{Pair{Int,Entity}})::UInt32

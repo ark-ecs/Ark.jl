@@ -60,7 +60,6 @@
     remove_entity!(w, er)
     @test isempty(collect(Query(w, (A,); with=(B,)))) == false
     @test isempty(collect(Query(w, (A, B, C)))) == false
-    println(collect(Query(w, (A, B))))
     @test collect(Query(w, (A, B)))[1][2][1] == (A(2.0))
     for (_, as, cs) in Query(w, (A,); optional=(C,))
         @test as != nothing
