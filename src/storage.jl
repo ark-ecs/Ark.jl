@@ -51,7 +51,7 @@ end
     if A <: GPUStructArray
         B = A.parameters[1]
         return quote
-            push!(storage.data, GPUStructArray{$(QuoteNode(B))}(C))
+            push!(storage.data, GPUStructArray{$B}(C))
         end
     elseif A <: StructArray
         return quote

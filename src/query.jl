@@ -346,7 +346,7 @@ Base.IteratorSize(::Type{<:Query}) = Base.SizeUnknown()
             :(_StructArrayView_type($T, UnitRange{Int}))
         elseif storage_modes[i].parameters[1] <: GPUStructArray
             B = storage_modes[i].parameters[1].body.body.body.parameters[1]
-            :(_GPUStructArrayView_type($T, UnitRange{Int}, Val{$(QuoteNode(B))}()))
+            :(_GPUStructArrayView_type($T, UnitRange{Int}, Val{$B}()))
         else
             :(_FieldsViewable_type($ST))
         end
