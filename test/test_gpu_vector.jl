@@ -5,10 +5,10 @@
         B => Storage{GPUVector{:CPU}},
         C => Storage{GPUVector{:CPU}},
     )
-    e1 = new_entity!(w, (A(0.0), B(0.0)))
-    @test get_components(w, e1, (A, B)) == (A(0.0), B(0.0))
-    e2 = new_entity!(w, (A(0.0), B(0.0), C()); relations=(C => e1,))
-    @test get_components(w, e2, (A, B, C)) == (A(0.0), B(0.0), C())
+    e1 = new_entity!(w, (A(2.0), B(2.0)))
+    @test get_components(w, e1, (A, B)) == (A(2.0), B(2.0))
+    e2 = new_entity!(w, (A(2.0), B(2.0), C()); relations=(C => e1,))
+    @test get_components(w, e2, (A, B, C)) == (A(2.0), B(2.0), C())
     e3 = copy_entity!(w, e1)
     @test e1 != e2 && e2 != e3
 
@@ -33,10 +33,10 @@
     set_components!(w, e2, (A(a.x + 1.0), B(b.x + 1.0), c))
     @test length(es) == 0
     remove_components!(w, e2, (A, C))
-    @test get_components(w, e2, (B,)) == (B(1.0),)
+    @test get_components(w, e2, (B,)) == (B(3.0),)
     @test has_components(w, e2, (A, C)) == false
     @test length(es) == 4
-    add_components!(w, e2, (A(0.0), C()); relations=(C => e1,))
+    add_components!(w, e2, (A(2.0), C()); relations=(C => e1,))
     @test has_components(w, e2, (A, C)) == true
     er, = get_relations(w, e2, (C,))
     @test er == e1
@@ -48,19 +48,19 @@
     @test is_alive(w, e1) == true
     @test is_alive(w, e2) == false
 
-    new_entities!(w, 1, (A(0.0), B(0.0)))
-    new_entities!(w, 1, (A(0.0), B(0.0), C()); relations=(C => er,))
+    new_entities!(w, 1, (A(2.0), B(2.0)))
+    new_entities!(w, 1, (A(2.0), B(2.0), C()); relations=(C => er,))
     new_entities!(w, 2, (A, B)) do (entities, as, bs)
         for i in eachindex(entities)
-            as[i] = A(0.0)
-            bs[i] = B(0.0)
+            as[i] = A(2.0)
+            bs[i] = B(2.0)
         end
     end
 
     remove_entity!(w, er)
     @test isempty(collect(Query(w, (A,); with=(B,)))) == false
     @test isempty(collect(Query(w, (A, B, C)))) == false
-    @test collect(Query(w, (A, B)))[1][2][1] == (A(0.0))
+    @test collect(Query(w, (A, B)))[1][2][1] == (A(2.0))
     for (_, as, cs) in Query(w, (A,); optional=(C,))
         @test as != nothing
     end
