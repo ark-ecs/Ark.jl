@@ -52,8 +52,8 @@
     new_entities!(w, 1, (A(2.0), B(2.0), C()); relations=(C => er,))
     new_entities!(w, 2, (A, B)) do (entities, as, bs)
         for i in eachindex(entities)
-            as[i] = A(0.0)
-            bs[i] = B(0.0)
+            as[i] = A(2.0)
+            bs[i] = B(2.0)
         end
     end
 
