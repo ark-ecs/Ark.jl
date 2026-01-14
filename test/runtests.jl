@@ -2,7 +2,13 @@
 using Pkg
 using Preferences
 using Test
-using JET
+
+# TODO: re-enable when fixed on the Julia side.
+@static if VERSION < v"1.13.0-DEV"
+    Pkg.add("JET")
+    using JET
+end
+const RUN_JET = "CI" in keys(ENV) && VERSION >= v"1.12.0" && isempty(VERSION.prerelease)
 
 include("include_internals.jl")
 
@@ -12,9 +18,6 @@ if "--large-world" in ARGS
 else
     include("setup_default.jl")
 end
-
-# TODO: re-enable when fixed on the Julia side.
-const RUN_JET = "CI" in keys(ENV) && VERSION >= v"1.12.0" && isempty(VERSION.prerelease)
 
 include("TestTypes.jl")
 
