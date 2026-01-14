@@ -69,7 +69,7 @@ Base.eltype(::Type{<:_AbstractStructArray{C}}) where {C} = C
 Base.IndexStyle(::Type{<:_AbstractStructArray}) = IndexLinear()
 Base.lastindex(sa::_AbstractStructArray) = length(sa)
 
-function Base.firstindex(sa::StructArray)
+function Base.firstindex(sa::_AbstractStructArray)
     # Do not simplify to this, as it is then not covered by the tests for some reason:
     # Base.firstindex(sa::StructArray) = 1
     return 1
