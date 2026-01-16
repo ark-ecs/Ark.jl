@@ -93,4 +93,6 @@ end
     push!(gv, 10)
     @test gv[100] == 10
     @test length(gv) == 100
+
+    @test_throws _gpuvectorview_type(Position, Val{:V}())
 end
