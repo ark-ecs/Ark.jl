@@ -32,10 +32,10 @@ end
     num_fields == 0 && error("GPUStructArray storage not allowed for components without fields")
 
     QB = QuoteNode(B)
-    vec_types = [:(GPUVector{$QB,$t,gpuvector_type($t, Val{$QB}())}) for t in types]
+    vec_types = [:(GPUVector{$QB,$t,_gpuvector_type($t, Val{$QB}())}) for t in types]
     nt_type = :(NamedTuple{($(map(QuoteNode, names)...),),Tuple{$(vec_types...)}})
     kv_exprs = [
-        :($name = GPUVector{$QB,$t,gpuvector_type($t, Val{$QB}())}()) for (name, t) in zip(names, types)
+        :($name = GPUVector{$QB,$t,_gpuvector_type($t, Val{$QB}())}()) for (name, t) in zip(names, types)
     ]
 
     return quote
@@ -50,7 +50,7 @@ end
     num_fields == 0 && error("GPUStructArray storage not allowed for components without fields")
 
     QB = QuoteNode(B)
-    vec_types = [:(GPUVector{$QB,$t,gpuvector_type($t, Val{$QB}())}) for t in types]
+    vec_types = [:(GPUVector{$QB,$t,_gpuvector_type($t, Val{$QB}())}) for t in types]
     nt_type = :(NamedTuple{$names,Tuple{$(vec_types...)}})
 
     return quote
@@ -61,8 +61,8 @@ end
 @generated function _GPUStructArrayView_type(::Type{C}, ::Type{I}, ::Val{B}) where {C,I<:AbstractUnitRange{T},B} where {T<:Integer}
     names = fieldnames(C)
     types = fieldtypes(C)
-    QB = QuoteNode(B)
-    vec_types = [:(gpuvector_type($t, Val{$QB}())) for t in types]
+    QB = Val{B}()
+    vec_types = [:(_gpuvectorview_type($t, $QB)) for t in types]
     nt_type = :(NamedTuple{$names,Tuple{$(vec_types...)}})
     return quote
         _StructArrayView{C,$nt_type,I}
@@ -74,7 +74,9 @@ end
     idx::I,
 ) where {I<:AbstractUnitRange{<:Integer},B,C,CS<:NamedTuple}
     names = fieldnames(C)
-    vec_types = [t.parameters[3] for t in CS.parameters[2].parameters]
+    types = fieldtypes(C)
+    QB = Val{B}()
+    vec_types = [:(_gpuvectorview_type($t, $QB)) for t in types]
     view_exprs = [:($name = view(getfield(sa, :_components).$name.mem, idx)) for name in names]
     nt_type = :(NamedTuple{$names,Tuple{$(vec_types...)}})
     return quote

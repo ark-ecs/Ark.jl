@@ -339,14 +339,15 @@ Base.IteratorSize(::Type{<:Query}) = Base.SizeUnknown()
 
         ST = :(_storage_type($(storage_modes[i]), $T))
         base_view = if storage_modes[i].parameters[1] <: GPUVector
-            :($(ST).parameters[3])
+            B = Val{storage_modes[i].parameters[1].body.body.parameters[1]}()
+            :(_gpuvectorview_type($T, $B))
         elseif fieldcount(comp_types[i]) == 0
             :(SubArray{$T,1,$ST,Tuple{Base.Slice{Base.OneTo{Int}}},IndexStyle($ST) == IndexLinear()})
         elseif storage_modes[i] == Storage{StructArray}
             :(_StructArrayView_type($T, UnitRange{Int}))
         elseif storage_modes[i].parameters[1] <: GPUStructArray
-            QB = QuoteNode(storage_modes[i].parameters[1].body.body.body.parameters[1])
-            :(_GPUStructArrayView_type($T, UnitRange{Int}, Val{$QB}()))
+            B = Val{storage_modes[i].parameters[1].body.body.body.parameters[1]}()
+            :(_GPUStructArrayView_type($T, UnitRange{Int}, $B))
         else
             :(_FieldsViewable_type($ST))
         end

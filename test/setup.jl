@@ -1,50 +1,29 @@
 
-mutable struct TestVector{T} <: AbstractVector{T}
+struct TestVector{T} <: AbstractVector{T}
     v::Vector{T}
-    inds::UnitRange{Int}
 end
-TestVector{T}(v::Vector) where {T} = TestVector{T}(v, 1:length(v))
-TestVector{T}() where {T} = TestVector{T}(Vector{T}())
+struct TestVectorView{T} <: AbstractVector{T}
+    v::SubArray{T}
+end
+TestVector{T}() where T = TestVector{T}(Vector{T}())
 function TestVector{T}(::UndefInitializer, i::Integer) where T
-    TestVector{T}(Vector{T}(undef, i), 1:i)
+    TestVector{T}(Vector{T}(undef, i))
 end
-Base.size(w::TestVector) = (length(w.inds),)
-Base.length(w::TestVector) = length(w.inds)
-function Base.getindex(w::TestVector, i::Integer)
-    getindex(w.v, w.inds[i])
-end
-function Base.setindex!(w::TestVector, v, i::Integer)
-    setindex!(w.v, v, w.inds[i])
-end
-function Base.empty!(w::TestVector)
-    empty!(w.v)
-    w.inds = 1:0
-    return w
-end
-function Base.resize!(w::TestVector, i::Integer)
-    resize!(w.v, i)
-    w.inds = 1:i
-    return w
-end
-function Base.fill!(w::TestVector, v)
-    for x in w.inds
-        w.v[x] = v
-    end
-    return w
-end
+Base.size(w::TestVector) = size(w.v)
+Base.getindex(w::TestVector, i::Integer) = getindex(w.v, i)
+Base.setindex!(w::TestVector, v, i::Integer) = setindex!(w.v, v, i)
+Base.empty!(w::TestVector) = empty!(w.v)
+Base.resize!(w::TestVector, i::Integer) = resize!(w.v, i)
 Base.sizehint!(w::TestVector, i::Integer) = sizehint!(w.v, i)
-function Base.pop!(w::TestVector)
-    isempty(w.inds) && throw(error("TestVector is empty"))
-    w.v[length(w.inds)], w.v[end] = w.v[end], w.v[length(w.inds)]
-    w.inds = 1:(length(w.inds)-1)
-    pop!(w.v)
-    return w
-end
+Base.pop!(w::TestVector) = pop!(w.v)
 
-function Ark.gpuvector_type(::Type{T}, ::Val{:CPU}) where T
+function Ark._gpuvector_type(::Type{T}, ::Val{:CPU}) where T
     return TestVector{T}
 end
 function Base.view(tv::TestVector{T}, I::UnitRange) where T
-    tv.inds = I
-    return tv
+    TestVectorView{T}(view(tv.v,I))
 end
+Base.size(w::TestVectorView) = (length(w.v),)
+Base.getindex(w::TestVectorView, i::Integer) = getindex(w.v, i)
+Base.setindex!(w::TestVectorView, v, i::Integer) = setindex!(w.v, v, i)
+Ark._gpuvectorview_type(v::Type{T}, k::Val{:CPU}) where T = TestVectorView{T}
