@@ -866,8 +866,8 @@ end
         @test vel_col isa _StructArrayView
         for i in eachindex(ent)
             @test is_alive(world, ent[i]) == true
-            #@test pos_col[i] == Position(99, 99)
-            #@test vel_col[i] == Velocity(99, 99)
+            @test pos_col[i] == Position(99, 99)
+            @test vel_col[i] == Velocity(99, 99)
             pos_col[i] = Position(i + 1, i + 1)
             vel_col[i] = Velocity(i + 1, i + 1)
             count += 1
