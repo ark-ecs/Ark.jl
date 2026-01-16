@@ -113,7 +113,11 @@ Base.length(sa::_StructArrayView) = length(sa._indices)
 Base.eltype(::Type{<:_StructArrayView{C}}) where {C} = C
 Base.IndexStyle(::Type{<:_StructArrayView}) = IndexLinear()
 Base.eachindex(sa::_StructArrayView) = 1:length(sa)
-Base.firstindex(sa::_StructArrayView) = 1
+function Base.firstindex(sa::_StructArrayView)
+    # Do not simplify to this, as it is then not covered by the tests for some reason:
+    # Base.firstindex(sa::StructArray) = 1
+    return 1
+end
 Base.lastindex(sa::_StructArrayView) = length(sa)
 
 function Base.show(io::IO, a::_StructArrayView{C,CS}) where {C,CS<:NamedTuple}
