@@ -3,7 +3,7 @@ struct TestVector{T} <: AbstractVector{T}
     v::Vector{T}
 end
 struct TestVectorView{T} <: AbstractVector{T}
-    v::SubArray{T}
+    v::SubArray{T, 1, Vector{T}, Tuple{UnitRange{Int64}}, true}
 end
 TestVector{T}() where T = TestVector{T}(Vector{T}())
 function TestVector{T}(::UndefInitializer, i::Integer) where T
