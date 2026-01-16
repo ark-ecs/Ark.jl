@@ -9,13 +9,12 @@ function TestVector{T}(::UndefInitializer, i::Integer) where T
     TestVector{T}(Vector{T}(undef, i), 1:i)
 end
 Base.size(w::TestVector) = (length(w.inds),)
-Base.getindex(w::TestVector, i::Integer) = getindex(w.v, i)
+Base.length(w::TestVector) = length(w.inds)
+function Base.getindex(w::TestVector, i::Integer)
+    getindex(w.v, w.inds[i])
+end
 function Base.setindex!(w::TestVector, v, i::Integer)
-    if i in w.inds 
-        setindex!(w.v, v, i)
-    else
-        v
-    end
+    setindex!(w.v, v, w.inds[i])
 end
 function Base.empty!(w::TestVector)
     empty!(w.v)
@@ -27,9 +26,17 @@ function Base.resize!(w::TestVector, i::Integer)
     w.inds = 1:i
     return w
 end
+function Base.fill!(w::TestVector, v)
+    for x in w.inds
+        w.v[x] = v
+    end
+    return w
+end
 Base.sizehint!(w::TestVector, i::Integer) = sizehint!(w.v, i)
 function Base.pop!(w::TestVector)
-    w.inds = 1:length(w.inds)-1
+    isempty(w.inds) && throw(error("TestVector is empty"))
+    w.v[length(w.inds)], w.v[end] = w.v[end], w.v[length(w.inds)]
+    w.inds = 1:(length(w.inds)-1)
     pop!(w.v)
     return w
 end
