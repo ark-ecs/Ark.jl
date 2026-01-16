@@ -94,5 +94,5 @@ end
     @test gv[100] == 10
     @test length(gv) == 100
 
-    @test_throws _gpuvectorview_type(Position, Val{:V}())
+    @test_throws MethodError _gpuvectorview_type(Position, Val{:V}())
 end
