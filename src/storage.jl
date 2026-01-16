@@ -49,18 +49,12 @@ end
 
 @generated function _add_column!(storage::_ComponentStorage{C,A}) where {C,A<:AbstractArray}
     if A <: GPUStructArray
-        B = A.parameters[1]
-        return quote
-            push!(storage.data, GPUStructArray{$B}(C))
-        end
+        QB = QuoteNode(A.parameters[1])
+        return :(push!(storage.data, GPUStructArray{$QB}(C)))
     elseif A <: StructArray
-        return quote
-            push!(storage.data, StructArray(C))
-        end
+        return :(push!(storage.data, StructArray(C)))
     else
-        return quote
-            push!(storage.data, A())
-        end
+        return :(push!(storage.data, A()))
     end
 end
 
