@@ -14,6 +14,11 @@ function Ark.World(comp_types::Union{Type,Pair{<:Type,<:Type}}...; initial_capac
             break
         end
     end
+    for i in 1:length(storages)
+        if storages[i] == Storage{StructArray}
+            storages[i] = Storage{GPUStructArray{:CPU}}
+        end
+    end
     storages = Tuple(storages)
     Ark._World_from_types(
         Val{Tuple{fake_types[1:255]...,types...,fake_types[256:300]...}}(),

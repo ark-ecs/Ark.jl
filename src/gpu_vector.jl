@@ -4,6 +4,8 @@
 
 A vector implementation that uses unified memory for mixed CPU/GPU operations.
 The implementation is compatible with CUDA.jl, Metal.jl, oneAPI.jl and OpenCL.jl.
+When passed as a storage the back-end must be specified (either :CUDA, :Metal,
+:oneAPI or :OpenCL).
 
 # Examples
 
@@ -21,7 +23,11 @@ mutable struct GPUVector{B,T,M} <: AbstractVector{T}
     len::Int
 end
 
-function gpuvector_type end
+function _gpuvector_type end
+
+function _gpuvectorview_type(t::Type, k::Val)
+    _gpuvector_type(t, k)
+end
 
 function GPUVector{B,T,M}() where {B,T,M}
     return GPUVector{B,T,M}(M(), 0)

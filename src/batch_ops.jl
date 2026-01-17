@@ -1110,7 +1110,7 @@ end
     ]
 
     exprs = Expr[]
-    push!(exprs, :(entities = view(table.entities, start_idx:end_idx)))
+    push!(exprs, :(entities = view(table.entities, Int(start_idx):Int(end_idx))))
     for i in 1:length(comp_types)
         stor_sym = Symbol("stor", i)
         col_sym = Symbol("col", i)
@@ -1119,11 +1119,12 @@ end
         push!(exprs, :(@inbounds $col_sym = $stor_sym.data[Int(table.id)]))
 
         if storage_modes[i].parameters[1] <: GPUVector
-            push!(exprs, :($vec_sym = view(($col_sym).mem, start_idx:end_idx)))
-        elseif storage_modes[i] == Storage{StructArray} || fieldcount(comp_types[i]) == 0
-            push!(exprs, :($vec_sym = view($col_sym, start_idx:end_idx)))
+            push!(exprs, :($vec_sym = view(($col_sym).mem, Int(start_idx):Int(end_idx))))
+        elseif storage_modes[i] == Storage{StructArray} || storage_modes[i].parameters[1] <: GPUStructArray ||
+               fieldcount(comp_types[i]) == 0
+            push!(exprs, :($vec_sym = view($col_sym, Int(start_idx):Int(end_idx))))
         else
-            push!(exprs, :($vec_sym = FieldViewable(view($col_sym, start_idx:end_idx))))
+            push!(exprs, :($vec_sym = FieldViewable(view($col_sym, Int(start_idx):Int(end_idx)))))
         end
     end
     result_exprs = [:entities]

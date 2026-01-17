@@ -3,7 +3,7 @@ module ArkAMDGPUInterop
 
 using Ark, AMDGPU
 
-function Ark.gpuvector_type(::Type{T}, ::Val{:AMDGPU}) where T
+function Ark._gpuvector_type(::Type{T}, ::Val{:AMDGPU}) where T
     # AMDGPU.jl doesn't support unified memory yet (https://github.com/JuliaGPU/AMDGPU.jl/issues/840)
     # TODO: implement it when unified memory becomes supported
     return throw(error("Not Implemented"))

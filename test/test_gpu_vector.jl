@@ -60,6 +60,7 @@
     remove_entity!(w, er)
     @test isempty(collect(Query(w, (A,); with=(B,)))) == false
     @test isempty(collect(Query(w, (A, B, C)))) == false
+
     @test collect(Query(w, (A, B)))[1][2][1] == (A(2.0))
     for (_, as, cs) in Query(w, (A,); optional=(C,))
         @test as != nothing
@@ -92,4 +93,6 @@ end
     push!(gv, 10)
     @test gv[100] == 10
     @test length(gv) == 100
+
+    @test_throws MethodError _gpuvectorview_type(Position, Val{:V}())
 end

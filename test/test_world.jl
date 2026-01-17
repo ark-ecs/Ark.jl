@@ -26,8 +26,9 @@ end
 
     @test isa(_get_storage(world, Position), _ComponentStorage{Position,_storage_from_component(world, Position)})
     @test isa(_get_storage(world, Position).data[1], _storage_from_component(world, Position))
-    @test isa(_get_storage(world, Velocity), _ComponentStorage{Velocity,_StructArray_type(Velocity)})
-    @test isa(_get_storage(world, Velocity).data[1], _StructArray_type(Velocity))
+    velocity_storage_type = _storage_from_component(world, Velocity)
+    @test isa(_get_storage(world, Velocity), _ComponentStorage{Velocity,velocity_storage_type})
+    @test isa(_get_storage(world, Velocity).data[1], velocity_storage_type)
     @test isa(_get_storage(world, Altitude), _ComponentStorage{Altitude,_storage_from_component(world, Altitude)})
     @test isa(_get_storage(world, Altitude).data[1], _storage_from_component(world, Altitude))
 
@@ -64,7 +65,7 @@ end
     )
 
     @test isa(_get_storage(world, Position), _ComponentStorage{Position,_storage_from_component(world, Position)})
-    @test isa(_get_storage(world, Velocity), _ComponentStorage{Velocity,_StructArray_type(Velocity)})
+    @test isa(_get_storage(world, Velocity), _ComponentStorage{Velocity,_storage_from_component(world, Velocity)})
 end
 
 """
@@ -93,11 +94,11 @@ end
         World(Position, Velocity, Altitude => Health))
 
     @test_throws(
-        "ArgumentError: can't use Storage{StructArray} for Int64 because it has no fields",
+        ArgumentError,
         World(Int64 => Storage{StructArray}))
 
     @test_throws(
-        "ArgumentError: can't use Storage{StructArray} for LabelComponent because it has no fields",
+        ArgumentError,
         World(LabelComponent => Storage{StructArray}))
 end
 

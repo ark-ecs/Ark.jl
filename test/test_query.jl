@@ -346,8 +346,9 @@ end
     for arch in Query(world, (Position, Velocity))
         @unpack e, pos, (dx, dy) = arch
         @test isa(e, Entities)
-        @test isa(dx, SubArray{Float64})
-        @test isa(dy, SubArray{Float64})
+        T = _storage_from_component(world, Velocity) <: StructArray ? SubArray : TestVectorView
+        @test isa(dx, T{Float64})
+        @test isa(dy, T{Float64})
     end
 end
 

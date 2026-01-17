@@ -711,9 +711,9 @@ end
                 ),
             )
         end
-        if mode <: Storage{StructArray} && fieldcount(T) == 0
+        if (mode <: Storage{StructArray} || mode <: Storage{<:GPUStructArray}) && fieldcount(T) == 0
             throw(
-                ArgumentError("can't use Storage{StructArray} for $(nameof(T)) because it has no fields"),
+                ArgumentError("can't use $(mode) for $(nameof(T)) because it has no fields"),
             )
         end
     end
@@ -721,7 +721,7 @@ end
     # Immutability checks
     for (T, mode) in zip(types, storage_val_types)
         if ismutabletype(T)
-            if mode <: Storage{StructArray}
+            if mode <: Storage{StructArray} || mode <: Storage{<:GPUStructArray}
                 throw(
                     ArgumentError("Component type $(nameof(T)) must be immutable because it uses StructArray storage"),
                 )

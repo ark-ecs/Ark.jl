@@ -1,6 +1,8 @@
 
 abstract type _AbstractWorld end
 
+abstract type _AbstractStructArray{C,CS<:NamedTuple,N} <: AbstractVector{C} end
+
 """
     Relationship
 

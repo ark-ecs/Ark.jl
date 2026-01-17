@@ -117,7 +117,10 @@ For these columns, Ark offers two storage types by default:
   - ≈10-20% runtime overhead for component operations and entity creation.
   - Slower component access with [get_components](@ref) and [set_components!](@ref).
 
-- **[GPUVector](@ref) storage** stores components using unified memory for mixed CPU/GPU operations. [GPUVector](@ref) is compatible with CUDA.jl, Metal.jl, oneAPI.jl or OpenCL.jl. As [StructArray](@ref) storage, mutable components are not allowed.
+- **[GPUVector](@ref) storage** stores components using unified memory for mixed CPU/GPU operations. [GPUVector](@ref) is compatible with CUDA.jl, Metal.jl, oneAPI.jl or OpenCL.jl. Mutable components are not allowed.
+
+- **[GPUStructArray](@ref) storage** stores components in an SoA data structure similar to  
+  [StructArrays](https://github.com/JuliaArrays/StructArrays.jl) using unified memory for mixed CPU/GPU operations. [GPUVector](@ref) is compatible with CUDA.jl, Metal.jl, oneAPI.jl or OpenCL.jl. The same limitations of [StructArray](@ref) storage apply.
 
 The storage mode can be selected per component type by using the [Storage](@ref) wrapper during world construction.
 
@@ -145,7 +148,7 @@ world = World(
 World(entities=0, comp_types=(Position, Velocity))
 ```
 
-To use the [GPUVector](@ref) storage, also the GPU backend must be specified (which can be either :CUDA, :Metal, :oneAPI or :OpenCL) depending on the GPU. To illustrate its usage and performance we provide a classical Position/Velocity example where the Position updates are offloaded to the GPU:
+To use the [GPUVector](@ref) or the [StructArray](@ref) storage, also the GPU backend must be specified (which can be either :CUDA, :Metal, :oneAPI or :OpenCL) depending on the GPU. To illustrate its usage and performance we provide a classical Position/Velocity example where the Position updates are offloaded to the GPU:
 
 ```
 using Ark
@@ -190,7 +193,7 @@ function run_world(backend; n_entities=10^6, n_iterations=1000, use_gpu_storage=
 end
 ```
 
-Performance-wise the hybrid `GPUVector` performs best on some local test hardware as you can
+Performance-wise `GPUVector` performs best in this case on some local test hardware, as you can
 see below:
 
 ```
