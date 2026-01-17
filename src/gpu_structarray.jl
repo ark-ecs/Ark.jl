@@ -3,7 +3,7 @@
     GPUStructArray
 
 A GPU-backed StructArray that stores each component field in a GPUVector.
-When passed as a storage the back-end must be specified (either :CUDA, :Metal, 
+When passed as a storage the back-end must be specified (either :CUDA, :Metal,
 :oneAPI or :OpenCL).
 
 # Examples
@@ -58,7 +58,11 @@ end
     end
 end
 
-@generated function _GPUStructArrayView_type(::Type{C}, ::Type{I}, ::Val{B}) where {C,I<:AbstractUnitRange{T},B} where {T<:Integer}
+@generated function _GPUStructArrayView_type(
+    ::Type{C},
+    ::Type{I},
+    ::Val{B},
+) where {C,I<:AbstractUnitRange{T},B} where {T<:Integer}
     names = fieldnames(C)
     types = fieldtypes(C)
     QB = Val{B}()

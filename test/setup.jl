@@ -3,7 +3,7 @@ struct TestVector{T} <: AbstractVector{T}
     v::Vector{T}
 end
 struct TestVectorView{T} <: AbstractVector{T}
-    v::SubArray{T, 1, Vector{T}, Tuple{UnitRange{Int64}}, true}
+    v::SubArray{T,1,Vector{T},Tuple{UnitRange{Int64}},true}
 end
 TestVector{T}() where T = TestVector{T}(Vector{T}())
 function TestVector{T}(::UndefInitializer, i::Integer) where T
@@ -21,7 +21,7 @@ function Ark._gpuvector_type(::Type{T}, ::Val{:CPU}) where T
     return TestVector{T}
 end
 function Base.view(tv::TestVector{T}, I::UnitRange) where T
-    TestVectorView{T}(view(tv.v,I))
+    TestVectorView{T}(view(tv.v, I))
 end
 Base.size(w::TestVectorView) = (length(w.v),)
 Base.getindex(w::TestVectorView, i::Integer) = getindex(w.v, i)
