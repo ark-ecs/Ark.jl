@@ -96,6 +96,16 @@ function Base.copyto!(gv::GPUVector, doffs::Integer, src::GPUVector, soffs::Inte
     return gv
 end
 
+function Base.unsafe_copyto!(gv::GPUVector, doffs::Integer, src::AbstractVector, soffs::Integer, n::Integer)
+    unsafe_copyto!(gv.mem, doffs, src, soffs, n)
+    return gv
+end
+
+function Base.unsafe_copyto!(gv::GPUVector, doffs::Integer, src::GPUVector, soffs::Integer, n::Integer)
+    unsafe_copyto!(gv.mem, doffs, src.mem, soffs, n)
+    return gv
+end
+
 function Base.similar(gv::GPUVector{B,T,M}, ::Type{T}, size::Dims{1}) where {B,T,M}
     return GPUVector{B,T,M}(M(undef, size), size[1])
 end
