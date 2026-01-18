@@ -147,8 +147,16 @@ function _copy_component_data_to_end!(
 ) where {C,A<:AbstractArray}
     @inbounds old_vec = s.data[old_table]
     @inbounds new_vec = s.data[new_table]
-    unsafe_copyto!(new_vec, length(new_vec) - length(old_vec) + 1, old_vec, 1, length(old_vec))
+    _copy_old_data!(new_vec, old_vec)
     return nothing
+end
+
+function _copy_old_data!(new_vec::AbstractVector, old_vec::AbstractVector)
+    copyto!(new_vec, length(new_vec) - length(old_vec) + 1, old_vec, 1, length(old_vec))
+end
+
+function _copy_old_data!(new_vec::Union{Vector,GPUVector}, old_vec::Union{Vector,GPUVector})
+    unsafe_copyto!(new_vec, length(new_vec) - length(old_vec) + 1, old_vec, 1, length(old_vec))
 end
 
 function _remove_component_data!(s::_ComponentStorage{C,A}, arch::UInt32, row::UInt32) where {C,A<:AbstractArray}
