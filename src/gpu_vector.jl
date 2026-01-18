@@ -96,11 +96,6 @@ function Base.copyto!(gv::GPUVector, doffs::Integer, src::GPUVector, soffs::Inte
     return gv
 end
 
-function Base.unsafe_copyto!(gv::GPUVector, doffs::Integer, src::AbstractVector, soffs::Integer, n::Integer)
-    unsafe_copyto!(gv.mem, doffs, src, soffs, n)
-    return gv
-end
-
 function Base.unsafe_copyto!(gv::GPUVector, doffs::Integer, src::GPUVector, soffs::Integer, n::Integer)
     unsafe_copyto!(gv.mem, doffs, src.mem, soffs, n)
     return gv
