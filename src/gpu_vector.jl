@@ -68,10 +68,10 @@ function Base.empty!(gv::GPUVector)
     return gv
 end
 
-Base.@propagate_inbounds function Base.push!(gv::GPUVector, v)
+function Base.push!(gv::GPUVector, v)
     new_len = gv.len + 1
     resize!(gv, new_len)
-    gv.mem[new_len] = v
+    @inbounds gv.mem[new_len] = v
     return gv
 end
 
