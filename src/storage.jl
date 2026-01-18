@@ -155,7 +155,11 @@ function _copy_old_data!(new_vec::AbstractVector, old_vec::AbstractVector)
     copyto!(new_vec, length(new_vec) - length(old_vec) + 1, old_vec, 1, length(old_vec))
 end
 
-function _copy_old_data!(new_vec::Union{Vector,GPUVector}, old_vec::Union{Vector,GPUVector})
+function _copy_old_data!(new_vec::Vector, old_vec::Vector)
+    unsafe_copyto!(new_vec, length(new_vec) - length(old_vec) + 1, old_vec, 1, length(old_vec))
+end
+
+function _copy_old_data!(new_vec::GPUVector, old_vec::GPUVector)
     unsafe_copyto!(new_vec, length(new_vec) - length(old_vec) + 1, old_vec, 1, length(old_vec))
 end
 
