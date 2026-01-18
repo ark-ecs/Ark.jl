@@ -147,7 +147,7 @@ function _copy_component_data_to_end!(
 ) where {C,A<:AbstractArray}
     @inbounds old_vec = s.data[old_table]
     @inbounds new_vec = s.data[new_table]
-    copyto!(new_vec, length(new_vec) - length(old_vec) + 1, old_vec, 1, length(old_vec))
+    unsafe_copyto!(new_vec, length(new_vec) - length(old_vec) + 1, old_vec, 1, length(old_vec))
     return nothing
 end
 
