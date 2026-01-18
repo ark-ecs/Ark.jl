@@ -8,8 +8,4 @@ function Ark._gpuvector_type(::Type{T}, ::Val{:oneAPI}) where T
     return oneVector{T,oneAPI.oneL0.SharedBuffer}
 end
 
-if !hasmethod(oneAPI.Adapt.adapt_structure, Tuple{Any,GPUVector})
-    oneAPI.Adapt.adapt_structure(to, w::GPUVector) = oneAPI.Adapt.adapt(to, w.mem)
-end
-
 end
