@@ -27,3 +27,13 @@ Base.size(w::TestVectorView) = (length(w.v),)
 Base.getindex(w::TestVectorView, i::Integer) = getindex(w.v, i)
 Base.setindex!(w::TestVectorView, v, i::Integer) = setindex!(w.v, v, i)
 Ark._gpuvectorview_type(v::Type{T}, k::Val{:CPU}) where T = TestVectorView{T}
+function Base.unsafe_copyto!(
+    gv::GPUVector{B,T,<:TestVector},
+    doffs::Integer,
+    src::GPUVector{B,T,<:TestVector},
+    soffs::Integer,
+    n::Integer,
+) where {B,T}
+    copyto!(gv, doffs, src, soffs, n)
+end
+
