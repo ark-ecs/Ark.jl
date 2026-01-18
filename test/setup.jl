@@ -36,4 +36,3 @@ function Base.unsafe_copyto!(
 ) where {B,T}
     copyto!(gv, doffs, src, soffs, n)
 end
-
