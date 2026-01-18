@@ -8,8 +8,4 @@ function Ark._gpuvector_type(::Type{T}, ::Val{:Metal}) where T
     return MtlVector{T,Metal.SharedStorage}
 end
 
-if !hasmethod(Metal.Adapt.adapt_structure, Tuple{Any,GPUVector})
-    Metal.Adapt.adapt_structure(to, w::GPUVector) = Metal.Adapt.adapt(to, w.mem)
-end
-
 end
