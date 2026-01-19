@@ -95,4 +95,9 @@ end
     @test length(gv) == 100
 
     @test_throws MethodError _gpuvectorview_type(Position, Val{:V}())
+
+    gv2 = GPUVector{:CPU,Int,Vector{Int}}()
+    resize!(gv2, length(gv))
+    unsafe_copyto!(gv2, 1, gv, 1, length(gv))
+    @test gv2[1:length(gv)] == gv[1:length(gv)]
 end

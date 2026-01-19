@@ -68,10 +68,10 @@ function Base.empty!(gv::GPUVector)
     return gv
 end
 
-Base.@propagate_inbounds function Base.push!(gv::GPUVector, v)
+function Base.push!(gv::GPUVector, v)
     new_len = gv.len + 1
     resize!(gv, new_len)
-    gv.mem[new_len] = v
+    @inbounds gv.mem[new_len] = v
     return gv
 end
 
@@ -88,6 +88,16 @@ end
 
 function Base.copyto!(gv::GPUVector, doffs::Integer, src::AbstractVector, soffs::Integer, n::Integer)
     copyto!(gv.mem, doffs, src, soffs, n)
+    return gv
+end
+
+function Base.copyto!(gv::GPUVector, doffs::Integer, src::GPUVector, soffs::Integer, n::Integer)
+    copyto!(gv.mem, doffs, src.mem, soffs, n)
+    return gv
+end
+
+function Base.unsafe_copyto!(gv::GPUVector, doffs::Integer, src::GPUVector, soffs::Integer, n::Integer)
+    unsafe_copyto!(gv.mem, doffs, src.mem, soffs, n)
     return gv
 end
 

@@ -9,8 +9,4 @@ function Ark._gpuvector_type(::Type{T}, ::Val{:AMDGPU}) where T
     return throw(error("Not Implemented"))
 end
 
-if !hasmethod(AMDGPU.Adapt.adapt_structure, Tuple{Any,GPUVector})
-    AMDGPU.Adapt.adapt_structure(to, w::GPUVector) = AMDGPU.Adapt.adapt(to, w.mem)
-end
-
 end

@@ -14,8 +14,4 @@ function Ark._gpuvector_type(::Type{T}, ::Val{:OpenCL}) where T
     end
 end
 
-if !hasmethod(OpenCL.Adapt.adapt_structure, Tuple{Any,GPUVector})
-    OpenCL.Adapt.adapt_structure(to, w::GPUVector) = OpenCL.Adapt.adapt(to, w.mem)
-end
-
 end
