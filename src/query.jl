@@ -214,7 +214,6 @@ end
     if q._q_lock.closed
         throw(InvalidStateException("query closed, queries can't be used multiple times", :batch_closed))
     end
-    q._q_lock.closed = true
 
     return Base.iterate(q, (1, 0))
 end
