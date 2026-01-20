@@ -11,7 +11,7 @@ struct Entity
     _id::UInt32
     _gen::UInt32
 
-    Entity(id::UInt32, gen::UInt32) = new(id, gen)
+    _Entity(id::UInt32, gen::UInt32) = new(id, gen)
 end
 
 """
@@ -24,11 +24,11 @@ function is_zero(entity::Entity)::Bool
 end
 
 function _new_entity(id::UInt32, gen::UInt32)
-    Entity(id, gen)
+    _Entity(id, gen)
 end
 
 function _new_entity(id::Int, gen::Int)
-    Entity(UInt32(id), UInt32(gen))
+    _Entity(UInt32(id), UInt32(gen))
 end
 
 function Base.show(io::IO, entity::Entity)
