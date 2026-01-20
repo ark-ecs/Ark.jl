@@ -266,6 +266,9 @@ Closes the query and unlocks the world.
 Must be called if a query is not fully iterated.
 """
 function close!(q::Q) where {Q<:Query}
+    if q._q_lock.closed == true
+        return nothing
+    end
     _unlock(q._world._lock, q._lock)
     q._q_lock.closed = true
     return nothing
