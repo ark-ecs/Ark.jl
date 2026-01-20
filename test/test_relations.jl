@@ -74,7 +74,126 @@
     @test parents == (parent4,)
 end
 
-@testset "Relations multiple" begin end
+@testset "Relations multiple" begin
+    world = World(Position, ChildOf, ChildOf2)
+
+    parent1 = new_entity!(world, ())
+    parent2 = new_entity!(world, ())
+    parent3 = new_entity!(world, ())
+
+    new_entities!(world, 50, (Position, ChildOf, ChildOf2);
+        relations=(ChildOf => parent1, ChildOf2 => parent2),
+    ) do (_, positions, children, children2)
+        for i in eachindex(positions, children, children2)
+            positions[i] = Position(i, i)
+            children[i] = ChildOf()
+            children2[i] = ChildOf2()
+        end
+    end
+
+    new_entities!(world, 30, (Position, ChildOf, ChildOf2);
+        relations=(ChildOf => parent2, ChildOf2 => parent3),
+    ) do (_, positions, children, children2)
+        for i in eachindex(positions, children, children2)
+            positions[i] = Position(i, i)
+            children[i] = ChildOf()
+            children2[i] = ChildOf2()
+        end
+    end
+
+    @test count_entities(Filter(world, (ChildOf, ChildOf2))) == 80
+
+    cnt = 0
+    for (entities, _) in Query(world, (ChildOf,); relations=(ChildOf => parent1,))
+        cnt += length(entities)
+    end
+    @test cnt == 50
+
+    cnt = 0
+    for (entities, _) in Query(world, (ChildOf2,); relations=(ChildOf2 => parent2,))
+        cnt += length(entities)
+    end
+    @test cnt == 50
+
+    cnt = 0
+    for (entities, _, _) in Query(world, (ChildOf, ChildOf2);
+        relations=(ChildOf => parent2, ChildOf2 => parent3),
+    )
+        cnt += length(entities)
+    end
+    @test cnt == 30
+
+    cnt = 0
+    for (entities, _, _) in Query(world, (ChildOf, ChildOf2);
+        relations=(ChildOf => parent1, ChildOf2 => parent3),
+    )
+        cnt += length(entities)
+    end
+    @test cnt == 0
+
+    add_counters = [0, 0]
+    remove_counters = [0, 0]
+
+    obs1 = observe!(world, OnAddRelations, (ChildOf,)) do entity
+        add_counters[1] += 1
+    end
+    obs2 = observe!(world, OnAddRelations, (ChildOf2,)) do entity
+        add_counters[2] += 1
+    end
+    obs3 = observe!(world, OnRemoveRelations, (ChildOf,)) do entity
+        remove_counters[1] += 1
+    end
+    obs4 = observe!(world, OnRemoveRelations, (ChildOf2,)) do entity
+        remove_counters[2] += 1
+    end
+
+    remove_entity!(world, parent1)
+    @test add_counters == [50, 0]
+    @test remove_counters == [50, 0]
+
+    cnt = 0
+    for (entities, _) in Query(world, (ChildOf,); relations=(ChildOf => zero_entity,))
+        cnt += length(entities)
+    end
+    @test cnt == 50
+
+    cnt = 0
+    for (entities, _) in Query(world, (ChildOf2,); relations=(ChildOf2 => parent2,))
+        cnt += length(entities)
+    end
+    @test cnt == 50
+
+    remove_entity!(world, parent2)
+    @test add_counters == [80, 50]
+    @test remove_counters == [80, 50]
+
+    cnt = 0
+    for (entities, _) in Query(world, (ChildOf,); relations=(ChildOf => zero_entity,))
+        cnt += length(entities)
+    end
+    @test cnt == 80
+
+    cnt = 0
+    for (entities, _) in Query(world, (ChildOf2,); relations=(ChildOf2 => zero_entity,))
+        cnt += length(entities)
+    end
+    @test cnt == 50
+
+    cnt = 0
+    for (entities, _) in Query(world, (ChildOf2,); relations=(ChildOf2 => parent3,))
+        cnt += length(entities)
+    end
+    @test cnt == 30
+
+    e = new_entity!(world, (Position(0, 0), ChildOf(), ChildOf2());
+        relations=(ChildOf => parent3, ChildOf2 => parent3),
+    )
+    @test get_relations(world, e, (ChildOf, ChildOf2)) == (parent3, parent3)
+
+    parent4 = new_entity!(world, ())
+    set_relations!(world, e, (ChildOf => parent4, ChildOf2 => parent4))
+    @test get_relations(world, e, (ChildOf, ChildOf2)) == (parent4, parent4)
+end
 
 @testset "Issue #477" begin
     world = World(ChildOf)
