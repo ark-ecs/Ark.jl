@@ -11,7 +11,7 @@ struct Entity
     _id::UInt32
     _gen::UInt32
 
-    _Entity(id::UInt32, gen::UInt32) = new(id, gen)
+    global _Entity(id::UInt32, gen::UInt32) = new(id, gen)
 end
 
 """
