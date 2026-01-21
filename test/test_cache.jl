@@ -81,3 +81,22 @@ end
     @test length(world._tables[2].filters) == 0
     @test length(world._tables[3].filters) == 0
 end
+
+@testset "Unregistered filter does not leak to new tables" begin
+    # Regression test for https://github.com/ark-ecs/Ark.jl/issues/499
+    world = World(Position, ChildOf)
+
+    f1 = Filter(world, (Position,); register=true)
+    f2 = Filter(world, (Position,); register=true)
+
+    unregister!(f1)
+
+    parent = new_entity!(world, ())
+    child = new_entity!(world, (Position(1.1, 1.1), ChildOf()); relations=(ChildOf => parent,))
+
+    # The new table should only have f2's id, not the unregistered f1's id (0)
+    @test !(UInt32(0) in world._tables[2].filters.ids)
+
+    # This should not throw a BoundsError
+    remove_entity!(world, parent)
+end
