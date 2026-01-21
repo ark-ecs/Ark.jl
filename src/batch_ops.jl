@@ -944,6 +944,10 @@ end
             end
         end
 
+        if should_lock
+            _unlock(world._lock, l)
+        end
+
         $(world_has_rel ?
           :(
             for entity in cleanup
@@ -953,10 +957,6 @@ end
         ) :
           (:(nothing))
         )
-
-        if should_lock
-            _unlock(world._lock, l)
-        end
 
         if !_is_cached(filter._filter) # Do not clear for cached filters!!!
             empty!(tables)
