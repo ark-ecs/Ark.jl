@@ -506,3 +506,14 @@ end
     query = Query(world, (Position, Velocity); optional=(Altitude,), without=(Health,))
     @test string(query) == "Query((Position, Velocity); optional=(Altitude), without=(Health))"
 end
+
+@testset "Query unpack optional issue #500" begin
+    world = World(Position, Velocity)
+    new_entity!(world, (Position(1, 1),))
+    q = Query(world, (Position,); optional=(Velocity,))
+    for t in q
+        @unpack (entities, (x, y), (dx, dy)) = t
+        @test dx === nothing
+        @test dy === nothing
+    end
+end
