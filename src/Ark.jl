@@ -34,7 +34,7 @@ include("observer.jl")
 include("filter.jl")
 include("query.jl")
 include("batch_ops.jl")
-!is_testing() && include("precompile.jl")
+!_is_testing() && include("precompile.jl")
 
 #include("docs.jl") # doctest setup
 
