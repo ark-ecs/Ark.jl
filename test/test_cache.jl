@@ -82,7 +82,7 @@ end
     @test length(world._tables[3].filters) == 0
 end
 
-@testset "Swap-remove from cache Issue #499" begin
+@testset "Add to unregistered filter Issue #499" begin
     world = World(Position, ChildOf)
     f1 = Filter(world, (Position,); register=true)
     f2 = Filter(world, (Position,); register=true)
