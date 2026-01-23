@@ -91,6 +91,9 @@ function _add_table!(
     table::_Table,
 ) where {W<:_AbstractWorld}
     for filter in cache.filters
+        if !_is_cached(filter)
+            continue
+        end
         if !_matches(filter, archetype)
             continue
         end
