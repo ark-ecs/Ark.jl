@@ -23,7 +23,7 @@ function _matches(indices::Vector{_ComponentRelations}, t::_Table, relations::Ve
     end
     for (comp, target) in relations
         @inbounds trg = indices[comp].targets[t.id]
-        if target._id != trg._id
+        if target != trg
             return false
         end
     end
@@ -39,7 +39,7 @@ function _matches_exact(indices::Vector{_ComponentRelations}, t::_Table, relatio
         # TODO: check for components not in the table
         # TODO: check for components that are no relations
         @inbounds trg = indices[comp].targets[t.id]
-        if target._id != trg._id
+        if target != trg
             return false
         end
     end
