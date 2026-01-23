@@ -6,6 +6,7 @@
 
 - Fixes error on batch-remove relation targets (#506, fixes #498)
 - Fixes filter matching wrong, recycled relation target (#508, fixes #497)
+- Fixes skipping filters that were unregistered (#510, fixes #499)
 
 ## [[v0.3.1]](https://github.com/ark-ecs/Ark.jl/compare/v0.3.0...v0.3.1)
 
