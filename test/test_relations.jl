@@ -236,6 +236,12 @@ end
     t2 = new_entity!(world, ())
     c2 = new_entity!(world, (ChildOf(),); relations=(ChildOf => t2,))
 
+    @test length(world._archetypes) == 2
+    @test length(world._tables) == 2
+
+    @test length(world._archetypes[2].tables) == 1
+    @test length(world._archetypes[2].free_tables) == 0
+
     matches = Entity[]
     for (entities, _) in Query(filter_t1)
         for e in entities
