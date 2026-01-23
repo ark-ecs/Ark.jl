@@ -225,3 +225,13 @@ end
     end
     @test cnt == 2
 end
+
+@testset "Cleanup error Issue #498" begin
+    world = World(Position, ChildOf)
+    observe!(world, OnRemoveEntity) do entity
+        nothing
+    end
+    parent = new_entity!(world, (Position(0.0, 0.0),))
+    child = new_entity!(world, (Position(1.1, 1.1), ChildOf()); relations=(ChildOf => parent,))
+    remove_entities!(world, Filter(world, (Position,); without=(ChildOf,)))
+end
