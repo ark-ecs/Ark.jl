@@ -233,5 +233,7 @@ end
     end
     parent = new_entity!(world, (Position(0.0, 0.0),))
     child = new_entity!(world, (Position(1.1, 1.1), ChildOf()); relations=(ChildOf => parent,))
+
+    # This raised an error due to locked world
     remove_entities!(world, Filter(world, (Position,); without=(ChildOf,)))
 end
