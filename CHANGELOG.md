@@ -1,6 +1,6 @@
 # Changelog
 
-## [[unpublished]](https://github.com/ark-ecs/Ark.jl/compare/v0.3.0...main)
+## [[unpublished]](https://github.com/ark-ecs/Ark.jl/compare/v0.3.2...main)
 
 ### Breaking changes
 
@@ -11,6 +11,14 @@
 - Adds support for user-defined storage types (#437)
 - Adds a new type GPUVector which can be used to offload work to the GPU (#470, #476)
 - Adds support for UniqueVector storage (#481)
+
+## [[v0.3.2]](https://github.com/ark-ecs/Ark.jl/compare/v0.3.1...v0.3.2)
+
+### Bugfixes
+
+- Fixes error on batch-remove relation targets (#506, fixes #498)
+- Fixes filter matching wrong, recycled relation target (#508, fixes #497)
+- Fixes skipping filters that were unregistered (#510, fixes #499)
 
 ## [[v0.3.1]](https://github.com/ark-ecs/Ark.jl/compare/v0.3.0...v0.3.1)
 
