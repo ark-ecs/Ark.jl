@@ -1388,12 +1388,6 @@ end
     end
 end
 
-function _move_entities!(world::World, old_table_index::UInt32, table_index::UInt32)
-    _check_locked(world)
-    old_table = world._tables[old_table_index]
-    _move_entities!(world, old_table_index, table_index, UInt32(length(old_table.entities)))
-end
-
 function _move_entities_cleanup!(world::World, old_table_index::UInt32, table_index::UInt32)
     old_table = world._tables[old_table_index]
     _move_entities!(world, old_table_index, table_index, UInt32(length(old_table.entities)))
