@@ -1,5 +1,11 @@
 # Changelog
 
+## [[v0.3.2]](https://github.com/ark-ecs/Ark.jl/compare/v0.3.1...v0.3.2)
+
+### Bugfixes
+
+- Fixes error on batch-remove relation targets (#506, fixes #498)
+
 ## [[v0.3.1]](https://github.com/ark-ecs/Ark.jl/compare/v0.3.0...v0.3.1)
 
 ### Bugfixes
