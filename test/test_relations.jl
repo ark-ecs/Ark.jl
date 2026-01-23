@@ -226,6 +226,26 @@ end
     @test cnt == 2
 end
 
+@testset "Filter incorrect targets Issue #497" begin
+    world = World(ChildOf)
+
+    t1 = new_entity!(world, ())
+    filter_t1 = Filter(world, (ChildOf,); relations=(ChildOf => t1,))
+    remove_entity!(world, t1)
+
+    t2 = new_entity!(world, ())
+    c2 = new_entity!(world, (ChildOf(),); relations=(ChildOf => t2,))
+
+    matches = Entity[]
+    for (entities, _) in Query(filter_t1)
+        for e in entities
+            push!(matches, e)
+        end
+    end
+
+    @test isempty(matches) == true
+end
+
 @testset "Cleanup error Issue #498" begin
     world = World(Position, ChildOf)
     observe!(world, OnRemoveEntity) do entity
