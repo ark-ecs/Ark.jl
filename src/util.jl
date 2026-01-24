@@ -83,10 +83,10 @@ function _format_type(T)
 end
 
 @generated function _shallow_copy(x::T) where T
-    n = fieldcount(T)
-    if n == 0
-        return :(x)
+    if hasmethod(copy, Tuple{T})
+        return :(copy(x))
     end
+    n = fieldcount(T)
     field_exprs = [:(getfield(x, $i)) for i in 1:n]
     return Expr(:new, T, field_exprs...)
 end
