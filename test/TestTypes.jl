@@ -14,6 +14,8 @@ struct Position
     y::Float64
 end
 
+Base.copy(pos::Position) = Position(pos.x, pos.y)
+
 struct Velocity
     dx::Float64
     dy::Float64
