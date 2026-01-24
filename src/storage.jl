@@ -121,7 +121,7 @@ end
     push!(exprs, :(@inbounds new_vec = s.data[new_table]))
 
     if CP === Val{:ref} || isbitstype(C)
-        # no copy required for immutable isbits
+        # no copy required for isbits types
         push!(exprs, :(push!(new_vec, old_vec[old_row])))
     elseif CP === Val{:copy} || all(T -> isbitstype(T), fieldtypes(C))
         # no deep copy required for types with all isbits fields
