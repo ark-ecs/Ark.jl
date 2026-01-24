@@ -792,6 +792,18 @@ end
     )
 end
 
+@testset "Corrupted copy of mutable primitive types issue #500" begin
+    world = World(String; allow_mutable=true)
+
+    e1 = new_entity!(world, ("Original Data",))
+    e2 = copy_entity!(world, e1)
+
+    val1 = get_components(world, e1, (String,))
+    val2 = get_components(world, e2, (String,))
+    
+    @test val1 == val2
+end
+
 @testset "World new_entities! with types" begin
     world = World(
         Dummy,
