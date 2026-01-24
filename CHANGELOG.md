@@ -12,6 +12,10 @@
 - Adds a new type GPUVector which can be used to offload work to the GPU (#470, #476)
 - Adds support for UniqueVector storage (#481)
 
+### Bugfixes
+
+- Fix copy on special mutable types (#515, fixes #500)
+
 ## [[v0.3.2]](https://github.com/ark-ecs/Ark.jl/compare/v0.3.1...v0.3.2)
 
 ### Bugfixes
