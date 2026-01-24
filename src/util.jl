@@ -83,12 +83,12 @@ function _format_type(T)
 end
 
 @generated function _shallow_copy(x::T) where T
-    names = fieldnames(T)
-    field_exprs = [:($(name) = x.$name) for name in names]
-
-    return quote
-        return $(Expr(:new, T, field_exprs...))
+    if T == Symbol || T == String
+        return :(x)
     end
+    n = fieldcount(T)
+    field_exprs = [:(getfield(x, $i)) for i in 1:n]
+    return Expr(:new, T, field_exprs...)
 end
 
 function _generate_component_switch(CS::Type{<:Tuple}, comp_idx_sym::Symbol, func_generator::Function)
