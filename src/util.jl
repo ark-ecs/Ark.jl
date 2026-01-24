@@ -85,6 +85,8 @@ end
 @generated function _shallow_copy(x::T) where T
     if hasmethod(copy, Tuple{T})
         return :(copy(x))
+    elseif T == Symbol || T == String
+        return :(x)
     end
     n = fieldcount(T)
     field_exprs = [:(getfield(x, $i)) for i in 1:n]
