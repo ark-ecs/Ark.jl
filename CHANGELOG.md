@@ -14,7 +14,7 @@
 
 ### Bugfixes
 
-- Fix copy on special mutable types (#515, fixes #500)
+- Fix copy on special mutable types (#515, fixes #514)
 
 ## [[v0.3.2]](https://github.com/ark-ecs/Ark.jl/compare/v0.3.1...v0.3.2)
 
