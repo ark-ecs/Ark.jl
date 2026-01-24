@@ -800,7 +800,7 @@ end
 
     val1 = get_components(world, e1, (String,))
     val2 = get_components(world, e2, (String,))
-    
+
     @test val1 == val2
 end
 
