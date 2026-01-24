@@ -792,7 +792,7 @@ end
     )
 end
 
-@testset "Corrupted copy of special mutable types issue #500" begin
+@testset "Corrupted copy of special mutable types issue #514" begin
     world = World(String; allow_mutable=true)
 
     e1 = new_entity!(world, ("Original Data",))
