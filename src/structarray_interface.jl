@@ -94,7 +94,7 @@ end
 
 @generated function Base.fill!(sa::_StructArrayView{C}, value::C) where {C}
     names = fieldnames(C)
-    fill_exprs = [:(fill!(getfield(sa, :_components).$name, getfield(c, $(QuoteNode(value))))) for name in names]
+    fill_exprs = [:(fill!(getfield(sa, :_components).$name, getfield(value, $(QuoteNode(name))))) for name in names]
     return Expr(:block, fill_exprs..., :(sa))
 end
 
