@@ -1,7 +1,7 @@
 name = "Ark"
 uuid = "56664e29-41e4-4ea5-ab0e-825499acc647"
+version = "0.3.1"
 authors = ["Martin Lange <martin_lange_@gmx.net>", "Adriano Meligrana <adriano.meligrana@centai.eu>"]
-version = "0.3.2"
 
 [deps]
 FieldViews = "ff5a1669-b1f2-423e-bbd7-b7fa0f7e0224"
@@ -15,18 +15,18 @@ AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 Metal = "dde4c033-4e86-420c-a63e-0dd931031962"
 Mooncake = "da2b9cff-9c12-43a0-ae48-6db2b0edb7d6"
+oneAPI = "8f75cd03-7ff8-4ecb-9b8f-daf728133b1b"
 OpenCL = "08131aa3-fb12-5dee-8b74-c09406e224a2"
 UniqueVectors = "2fbcfb34-fd0c-5fbb-b5d7-e826d8f5b0a9"
-oneAPI = "8f75cd03-7ff8-4ecb-9b8f-daf728133b1b"
 
 [extensions]
 ArkAMDGPUInterop = "AMDGPU"
 ArkCUDAInterop = "CUDA"
 ArkMetalInterop = "Metal"
 ArkMooncakeInterop = "Mooncake"
+ArkoneAPIInterop = "oneAPI"
 ArkOpenCLInterop = "OpenCL"
 ArkUniqueVectorsInterop = "UniqueVectors"
-ArkoneAPIInterop = "oneAPI"
 
 [compat]
 AMDGPU = "2"
