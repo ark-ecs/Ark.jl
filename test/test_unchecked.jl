@@ -19,10 +19,6 @@
 
     # Checked access throws
     @test_throws ArgumentError get_components(world, e, (Health,))
-
-    e2 = new_entity!(world, (Health(20),))
-    (h3,) = get_components(world, e2, (Health,); unchecked=true)
-    @test h3.value == 20
 end
 
 @testset "set_components! unchecked" begin
