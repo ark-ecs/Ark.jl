@@ -270,9 +270,13 @@ end
     CS = W.parameters[1]
     inline_jtable = length(CS.parameters) <= 10
     world_has_rel = _has_relations(CS)
-    
-    check_expr = Unchecked ? :() : :(if !is_alive(world, entity) throw(ArgumentError("can't remove a dead entity")) end)
-    
+
+    check_expr = Unchecked ? :() : :(
+        if !is_alive(world, entity)
+            throw(ArgumentError("can't remove a dead entity"))
+        end
+    )
+
     quote
         $check_expr
         _check_locked(world)
@@ -342,7 +346,12 @@ pos, vel = get_components(world, entity, (Position, Velocity))
 (Position(0.0, 0.0), Velocity(0.0, 0.0))
 ```
 """
-@inline Base.@constprop :aggressive function get_components(world::World, entity::Entity, comp_types::Tuple; unchecked::Bool=false)
+@inline Base.@constprop :aggressive function get_components(
+    world::World,
+    entity::Entity,
+    comp_types::Tuple;
+    unchecked::Bool=false,
+)
     return @inline _get_components(world, entity, ntuple(i -> Val(comp_types[i]), length(comp_types)), Val(unchecked))
 end
 
@@ -361,7 +370,12 @@ has = has_components(world, entity, (Position, Velocity))
 true
 ```
 """
-@inline Base.@constprop :aggressive function has_components(world::World, entity::Entity, comp_types::Tuple; unchecked::Bool=false)
+@inline Base.@constprop :aggressive function has_components(
+    world::World,
+    entity::Entity,
+    comp_types::Tuple;
+    unchecked::Bool=false,
+)
     return @inline _has_components(world, entity, ntuple(i -> Val(comp_types[i]), length(comp_types)), Val(unchecked))
 end
 
@@ -380,7 +394,12 @@ set_components!(world, entity, (Position(0, 0), Velocity(1, 1)))
 
 ```
 """
-@inline Base.@constprop :aggressive function set_components!(world::World, entity::Entity, values::Tuple; unchecked::Bool=false)
+@inline Base.@constprop :aggressive function set_components!(
+    world::World,
+    entity::Entity,
+    values::Tuple;
+    unchecked::Bool=false,
+)
     return @inline _set_components!(world, entity, Val{typeof(values)}(), values, Val(unchecked))
 end
 
@@ -400,7 +419,12 @@ parent, = get_relations(world, entity, (ChildOf,))
 (Entity(2, 0),)
 ```
 """
-@inline Base.@constprop :aggressive function get_relations(world::W, entity::Entity, comp_types::Tuple; unchecked::Bool=false) where {W<:World}
+@inline Base.@constprop :aggressive function get_relations(
+    world::W,
+    entity::Entity,
+    comp_types::Tuple;
+    unchecked::Bool=false,
+) where {W<:World}
     return @inline _get_relations(world, entity, ntuple(i -> Val(comp_types[i]), length(comp_types)), Val(unchecked))
 end
 
@@ -419,7 +443,12 @@ set_relations!(world, entity, (ChildOf => parent,))
 
 ```
 """
-@inline Base.@constprop :aggressive function set_relations!(world::W, entity::Entity, relations::Tuple; unchecked::Bool=false) where {W<:World}
+@inline Base.@constprop :aggressive function set_relations!(
+    world::W,
+    entity::Entity,
+    relations::Tuple;
+    unchecked::Bool=false,
+) where {W<:World}
     rel_types = ntuple(i -> Val(relations[i].first), length(relations))
     targets = ntuple(i -> relations[i].second, length(relations))
     return @inline _set_relations!(world, entity, rel_types, targets, Val(unchecked))
@@ -466,14 +495,19 @@ remove_components!(world, entity, (Position, Velocity))
 
 ```
 """
-@inline Base.@constprop :aggressive function remove_components!(world::World, entity::Entity, comp_types::Tuple; unchecked::Bool=false)
+@inline Base.@constprop :aggressive function remove_components!(
+    world::World,
+    entity::Entity,
+    comp_types::Tuple;
+    unchecked::Bool=false,
+)
     return @inline _exchange_components!(
         world,
         entity,
         Val{Tuple{}}(),
         (),
         ntuple(i -> Val(comp_types[i]), length(comp_types)),
-        (), (), Val(unchecked), Val(:remove)
+        (), (), Val(unchecked), Val(:remove),
     )
 end
 
@@ -517,7 +551,7 @@ exchange_components!(world, entity;
         add,
         ntuple(i -> Val(remove[i]), length(remove)),
         rel_types, targets,
-        Val(unchecked), Val(:exchange)
+        Val(unchecked), Val(:exchange),
     )
 end
 
@@ -1407,10 +1441,19 @@ function _move_entities!(world::World, old_table_index::UInt32, table_index::UIn
     return nothing
 end
 
-@inline @generated function _copy_entity!(world::W, entity::Entity, mode::Val, ::Val{Unchecked})::Entity where {W<:World,Unchecked}
+@inline @generated function _copy_entity!(
+    world::W,
+    entity::Entity,
+    mode::Val,
+    ::Val{Unchecked},
+)::Entity where {W<:World,Unchecked}
     inline_jtable = length(W.parameters[1].parameters) <= 10
     quote
-        $(!Unchecked ? :(if !is_alive(world, entity) throw(ArgumentError("can't copy a dead entity")) end) : nothing)
+        $(!Unchecked ? :(
+            if !is_alive(world, entity)
+                throw(ArgumentError("can't copy a dead entity"))
+            end
+        ) : nothing)
         _check_locked(world)
 
         index = world._entities[entity._id]
@@ -1584,7 +1627,7 @@ end
             end
         ))
     end
-    
+
     push!(exprs, :(@inbounds index = world._entities[entity._id]))
 
     for i in 1:length(types)
@@ -1610,7 +1653,13 @@ end
     end
 end
 
-@generated function _set_components!(world::World, entity::Entity, ::Val{TS}, values::Tuple, ::Val{Unchecked}) where {TS<:Tuple,Unchecked}
+@generated function _set_components!(
+    world::World,
+    entity::Entity,
+    ::Val{TS},
+    values::Tuple,
+    ::Val{Unchecked},
+) where {TS<:Tuple,Unchecked}
     types = TS.parameters
     exprs = Expr[]
     if !Unchecked
@@ -1776,7 +1825,7 @@ end
     ::TR,
     targets::Tuple{Vararg{Entity}},
     ::Val{Unchecked},
-    ::Val{FuncName}
+    ::Val{FuncName},
 ) where {W<:World,ATS<:Tuple,RTS<:Tuple,TR<:Tuple,Unchecked,FuncName}
     add_types = _to_types(ATS.parameters)
     rem_types = _to_types(RTS)

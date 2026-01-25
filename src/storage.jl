@@ -47,10 +47,6 @@ end
     @inbounds return s.data[arch][row]
 end
 
-@inline function _set_component!(s::_ComponentStorage, arch::UInt32, row::UInt32, value)
-    return _set_component!(s, arch, row, value, Val(false))
-end
-
 @inline function _set_component!(s::_ComponentStorage{C,A}, arch::UInt32, row::UInt32, value::C, ::Val{false}) where {C,A<:AbstractArray}
     @inbounds col = s.data[arch]
     if length(col) == 0
