@@ -1004,9 +1004,9 @@ end
 
     @test_throws("ArgumentError: can't set components of a dead entity",
         set_components!(world, zero_entity, (Position(1, 2), Velocity(3, 4))))
-    @test_throws("ArgumentError: can't add components to a dead entity",
+    @test_throws("ArgumentError: can't add components on a dead entity",
         add_components!(world, zero_entity, (Position(1, 2), Velocity(3, 4))))
-    @test_throws("ArgumentError: can't remove components from a dead entity",
+    @test_throws("ArgumentError: can't remove components on a dead entity",
         remove_components!(world, zero_entity, (Position, Velocity)))
     @test_throws("ArgumentError: can't check components of a dead entity",
         has_components(world, zero_entity, (Position, Velocity)))
