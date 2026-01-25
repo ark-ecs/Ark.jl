@@ -21,7 +21,7 @@ end
 
 @generated function Base.push!(sa::_AbstractStructArray{C}, c::C) where {C}
     names = fieldnames(C)
-    push_exprs = [:(push!(getfield(sa, :_components).$name, getfield(c, $(QuoteNode(name)))) for name in names]
+    push_exprs = [:(push!(getfield(sa, :_components).$name, getfield(c, $(QuoteNode(name))))) for name in names]
     return Expr(:block, push_exprs..., :(sa))
 end
 
