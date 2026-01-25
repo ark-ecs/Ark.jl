@@ -24,7 +24,7 @@ function benchmark_world_update_5(args, n)
     for e in entities
         pos, vel, a, b, c = get_components(world, e, (Position, Velocity, CompA, CompB, CompC))
         set_components!(world, e,
-            (Position(pos.x + 1, 0), Velocity(vel.dx + 1, 0), CompA(a.x + 1, 0), CompB(b.x + 1, 0), CompC(c.x + 1, 0))
+            (Position(pos.x + 1, 0), Velocity(vel.dx + 1, 0), CompA(a.x + 1, 0), CompB(b.x + 1, 0), CompC(c.x + 1, 0)),
         )
     end
 end
