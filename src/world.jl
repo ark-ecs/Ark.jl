@@ -229,12 +229,10 @@ Entity(5, 0)
     add::Tuple=(), remove::Tuple=(),
     relations::Tuple{Vararg{Pair{DataType,Entity}}}=(),
     mode::Symbol=:copy,
+    unchecked::Bool=false,
 )
-    if !is_alive(world, entity)
-        throw(ArgumentError("can't copy a dead entity"))
-    end
     if isempty(add) && isempty(remove) && isempty(relations)
-        return @inline _copy_entity!(world, entity, Val(mode))
+        return @inline _copy_entity!(world, entity, Val(mode), Val(unchecked))
     end
     rel_types = ntuple(i -> Val(relations[i].first), length(relations))
     targets = ntuple(i -> relations[i].second, length(relations))
@@ -246,6 +244,7 @@ Entity(5, 0)
         ntuple(i -> Val(remove[i]), length(remove)),
         rel_types, targets,
         Val(mode),
+        Val(unchecked),
     )
 end
 
@@ -263,14 +262,19 @@ remove_entity!(world, entity)
 
 ```
 """
-@generated function remove_entity!(world::W, entity::Entity) where {W<:World}
+@inline function remove_entity!(world::World, entity::Entity; unchecked::Bool=false)
+    return _remove_entity!(world, entity, Val(unchecked))
+end
+
+@generated function _remove_entity!(world::W, entity::Entity, ::Val{Unchecked}) where {W<:World,Unchecked}
     CS = W.parameters[1]
     inline_jtable = length(CS.parameters) <= 10
     world_has_rel = _has_relations(CS)
+    
+    check_expr = Unchecked ? :() : :(if !is_alive(world, entity) throw(ArgumentError("can't remove a dead entity")) end)
+    
     quote
-        if !is_alive(world, entity)
-            throw(ArgumentError("can't remove a dead entity"))
-        end
+        $check_expr
         _check_locked(world)
 
         @inbounds index = world._entities[entity._id]
@@ -292,7 +296,6 @@ remove_entity!(world, entity)
 
         swapped = _swap_remove!(table.entities._data, index.row)
 
-        # Only operate on storages for components present in this archetype
         for comp in archetype.components
             $(
                 inline_jtable ?
@@ -338,11 +341,8 @@ pos, vel = get_components(world, entity, (Position, Velocity))
 (Position(0.0, 0.0), Velocity(0.0, 0.0))
 ```
 """
-@inline Base.@constprop :aggressive function get_components(world::World, entity::Entity, comp_types::Tuple)
-    if !is_alive(world, entity)
-        throw(ArgumentError("can't get components of a dead entity"))
-    end
-    return @inline _get_components(world, entity, ntuple(i -> Val(comp_types[i]), length(comp_types)))
+@inline Base.@constprop :aggressive function get_components(world::World, entity::Entity, comp_types::Tuple; unchecked::Bool=false)
+    return @inline _get_components(world, entity, ntuple(i -> Val(comp_types[i]), length(comp_types)), Val(unchecked))
 end
 
 """
@@ -360,12 +360,8 @@ has = has_components(world, entity, (Position, Velocity))
 true
 ```
 """
-@inline Base.@constprop :aggressive function has_components(world::World, entity::Entity, comp_types::Tuple)
-    if !is_alive(world, entity)
-        throw(ArgumentError("can't check components of a dead entity"))
-    end
-    index = world._entities[entity._id]
-    return @inline _has_components(world, index, ntuple(i -> Val(comp_types[i]), length(comp_types)))
+@inline Base.@constprop :aggressive function has_components(world::World, entity::Entity, comp_types::Tuple; unchecked::Bool=false)
+    return @inline _has_components(world, entity, ntuple(i -> Val(comp_types[i]), length(comp_types)), Val(unchecked))
 end
 
 """
@@ -383,11 +379,8 @@ set_components!(world, entity, (Position(0, 0), Velocity(1, 1)))
 
 ```
 """
-@inline Base.@constprop :aggressive function set_components!(world::World, entity::Entity, values::Tuple)
-    if !is_alive(world, entity)
-        throw(ArgumentError("can't set components of a dead entity"))
-    end
-    return @inline _set_components!(world, entity, Val{typeof(values)}(), values)
+@inline Base.@constprop :aggressive function set_components!(world::World, entity::Entity, values::Tuple; unchecked::Bool=false)
+    return @inline _set_components!(world, entity, Val{typeof(values)}(), values, Val(unchecked))
 end
 
 """
@@ -406,11 +399,8 @@ parent, = get_relations(world, entity, (ChildOf,))
 (Entity(2, 0),)
 ```
 """
-@inline Base.@constprop :aggressive function get_relations(world::W, entity::Entity, comp_types::Tuple) where {W<:World}
-    if !is_alive(world, entity)
-        throw(ArgumentError("can't get relations of a dead entity"))
-    end
-    return @inline _get_relations(world, entity, ntuple(i -> Val(comp_types[i]), length(comp_types)))
+@inline Base.@constprop :aggressive function get_relations(world::W, entity::Entity, comp_types::Tuple; unchecked::Bool=false) where {W<:World}
+    return @inline _get_relations(world, entity, ntuple(i -> Val(comp_types[i]), length(comp_types)), Val(unchecked))
 end
 
 """
@@ -428,13 +418,10 @@ set_relations!(world, entity, (ChildOf => parent,))
 
 ```
 """
-@inline Base.@constprop :aggressive function set_relations!(world::W, entity::Entity, relations::Tuple) where {W<:World}
-    if !is_alive(world, entity)
-        throw(ArgumentError("can't set relation targets of a dead entity"))
-    end
+@inline Base.@constprop :aggressive function set_relations!(world::W, entity::Entity, relations::Tuple; unchecked::Bool=false) where {W<:World}
     rel_types = ntuple(i -> Val(relations[i].first), length(relations))
     targets = ntuple(i -> relations[i].second, length(relations))
-    return @inline _set_relations!(world, entity, rel_types, targets)
+    return @inline _set_relations!(world, entity, rel_types, targets, Val(unchecked))
 end
 
 """
@@ -456,13 +443,11 @@ add_components!(world, entity, (Health(100),))
     entity::Entity,
     values::Tuple;
     relations::Tuple{Vararg{Pair{DataType,Entity}}}=(),
+    unchecked::Bool=false,
 )
-    if !is_alive(world, entity)
-        throw(ArgumentError("can't add components to a dead entity"))
-    end
     rel_types = ntuple(i -> Val(relations[i].first), length(relations))
     targets = ntuple(i -> relations[i].second, length(relations))
-    return @inline _exchange_components!(world, entity, Val{typeof(values)}(), values, (), rel_types, targets)
+    return @inline _exchange_components!(world, entity, Val{typeof(values)}(), values, (), rel_types, targets, Val(unchecked))
 end
 
 """
@@ -479,17 +464,14 @@ remove_components!(world, entity, (Position, Velocity))
 
 ```
 """
-@inline Base.@constprop :aggressive function remove_components!(world::World, entity::Entity, comp_types::Tuple)
-    if !is_alive(world, entity)
-        throw(ArgumentError("can't remove components from a dead entity"))
-    end
+@inline Base.@constprop :aggressive function remove_components!(world::World, entity::Entity, comp_types::Tuple; unchecked::Bool=false)
     return @inline _exchange_components!(
         world,
         entity,
         Val{Tuple{}}(),
         (),
         ntuple(i -> Val(comp_types[i]), length(comp_types)),
-        (), (),
+        (), (), Val(unchecked),
     )
 end
 
@@ -522,10 +504,8 @@ exchange_components!(world, entity;
     add::Tuple=(),
     remove::Tuple=(),
     relations::Tuple{Vararg{Pair{DataType,Entity}}}=(),
+    unchecked::Bool=false,
 )
-    if !is_alive(world, entity)
-        throw(ArgumentError("can't exchange components on a dead entity"))
-    end
     rel_types = ntuple(i -> Val(relations[i].first), length(relations))
     targets = ntuple(i -> relations[i].second, length(relations))
     return @inline _exchange_components!(
@@ -535,6 +515,7 @@ exchange_components!(world, entity;
         add,
         ntuple(i -> Val(remove[i]), length(remove)),
         rel_types, targets,
+        Val(unchecked),
     )
 end
 
@@ -1424,9 +1405,10 @@ function _move_entities!(world::World, old_table_index::UInt32, table_index::UIn
     return nothing
 end
 
-@inline @generated function _copy_entity!(world::W, entity::Entity, mode::Val)::Entity where {W<:World}
+@inline @generated function _copy_entity!(world::W, entity::Entity, mode::Val, ::Val{Unchecked}=Val(false))::Entity where {W<:World,Unchecked}
     inline_jtable = length(W.parameters[1].parameters) <= 10
     quote
+        $(!Unchecked ? :(if !is_alive(world, entity) throw(ArgumentError("can't copy a dead entity")) end) : nothing)
         _check_locked(world)
 
         index = world._entities[entity._id]
@@ -1463,7 +1445,8 @@ end
     ::TR,
     targets::Tuple{Vararg{Entity}},
     mode::CP,
-)::Entity where {W<:World,ATS<:Tuple,RTS<:Tuple,TR<:Tuple,CP<:Val}
+    ::Val{Unchecked}=Val(false),
+)::Entity where {W<:World,ATS<:Tuple,RTS<:Tuple,TR<:Tuple,CP<:Val,Unchecked}
     add_types = _to_types(ATS.parameters)
     rem_types = _to_types(RTS)
     rel_types = _to_types(TR)
@@ -1551,7 +1534,7 @@ end
     end
 end
 
-@generated function _get_components(world::World, entity::Entity, ::TS) where {TS<:Tuple}
+@generated function _get_components(world::World, entity::Entity, ::TS, ::Val{Unchecked}=Val(false)) where {TS<:Tuple,Unchecked}
     types = _to_types(TS)
     if length(types) == 0
         return :(())
@@ -1566,7 +1549,7 @@ end
         val_sym = Symbol("v", i)
 
         push!(exprs, :($(stor_sym) = _get_storage(world, $T)))
-        push!(exprs, :($(val_sym) = _get_component($(stor_sym), idx.table, idx.row)))
+        push!(exprs, :($(val_sym) = _get_component($(stor_sym), idx.table, idx.row, Val(Unchecked))))
     end
 
     vals = [:($(Symbol("v", i))) for i in 1:length(types)]
@@ -1579,9 +1562,19 @@ end
     end
 end
 
-@generated function _has_components(world::World, index::_EntityIndex, ::TS) where {TS<:Tuple}
+@generated function _has_components(world::World, entity::Entity, ::TS, ::Val{Unchecked}=Val(false)) where {TS<:Tuple,Unchecked}
     types = _to_types(TS)
     exprs = []
+
+    if !Unchecked
+        push!(exprs, :(
+            if !is_alive(world, entity)
+                throw(ArgumentError("can't check components of a dead entity"))
+            end
+        ))
+    end
+    
+    push!(exprs, :(@inbounds index = world._entities[entity._id]))
 
     for i in 1:length(types)
         T = types[i]
@@ -1606,9 +1599,17 @@ end
     end
 end
 
-@generated function _set_components!(world::World, entity::Entity, ::Val{TS}, values::Tuple) where {TS<:Tuple}
+@generated function _set_components!(world::World, entity::Entity, ::Val{TS}, values::Tuple, ::Val{Unchecked}=Val(false)) where {TS<:Tuple,Unchecked}
     types = TS.parameters
-    exprs = [:(@inbounds idx = world._entities[entity._id])]
+    exprs = Expr[]
+    if !Unchecked
+        push!(exprs, :(
+            if !is_alive(world, entity)
+                throw(ArgumentError("can't set components of a dead entity"))
+            end
+        ))
+    end
+    push!(exprs, :(@inbounds idx = world._entities[entity._id]))
 
     for i in 1:length(types)
         T = types[i]
@@ -1616,7 +1617,7 @@ end
         val_expr = :(values.$i)
 
         push!(exprs, :($stor_sym = _get_storage(world, $T)))
-        push!(exprs, :(_set_component!($stor_sym, idx.table, idx.row, $val_expr)))
+        push!(exprs, :(_set_component!($stor_sym, idx.table, idx.row, $val_expr, Val(Unchecked))))
     end
 
     push!(exprs, Expr(:return, :nothing))
@@ -1628,7 +1629,7 @@ end
     end
 end
 
-@generated function _get_relations(world::World, entity::Entity, ::TS) where {TS<:Tuple}
+@generated function _get_relations(world::World, entity::Entity, ::TS, ::Val{Unchecked}=Val(false)) where {TS<:Tuple,Unchecked}
     types = _to_types(TS)
     if length(types) == 0
         return :(())
@@ -1638,6 +1639,13 @@ end
     _check_no_duplicates(types)
 
     exprs = Expr[]
+    if !Unchecked
+        push!(exprs, :(
+            if !is_alive(world, entity)
+                throw(ArgumentError("can't get relations of a dead entity"))
+            end
+        ))
+    end
     push!(exprs, :(@inbounds idx = world._entities[entity._id]))
 
     for i in 1:length(types)
@@ -1645,12 +1653,14 @@ end
         target_sym = Symbol("t", i)
 
         push!(exprs, :($(target_sym) = @inbounds _get_relations_storage(world, $T).targets[idx.table]))
-        push!(exprs, :(
-            if $(target_sym)._id == 0
-                tp = $T
-                throw(ArgumentError(lazy"entity does not have relationship component $tp"))
-            end
-        ))
+        if !Unchecked
+            push!(exprs, :(
+                if $(target_sym)._id == 0
+                    tp = $T
+                    throw(ArgumentError(lazy"entity does not have relationship component $tp"))
+                end
+            ))
+        end
     end
 
     vals = [:($(Symbol("t", i))) for i in 1:length(types)]
@@ -1668,7 +1678,8 @@ end
     entity::Entity,
     ::TR,
     targets::Tuple{Vararg{Entity}},
-) where {W<:World,TR<:Tuple}
+    ::Val{Unchecked}=Val(false),
+) where {W<:World,TR<:Tuple,Unchecked}
     rel_types = _to_types(TR)
 
     _check_no_duplicates(rel_types)
@@ -1677,7 +1688,7 @@ end
     rel_ids = tuple([_component_id(W.parameters[1], T) for T in rel_types]...)
 
     exprs = []
-    push!(exprs, :(_set_relations!(world, entity, $rel_ids, targets)))
+    push!(exprs, :(_set_relations!(world, entity, $rel_ids, targets, Val(Unchecked))))
     push!(exprs, Expr(:return, :nothing))
 
     return quote
@@ -1690,13 +1701,23 @@ end
 @inline function _set_relations!(
     world::W,
     entity::Entity,
-    relations::Tuple{Vararg{Int}},
+    ids::Tuple{Vararg{Int}},
     targets::Tuple{Vararg{Entity}},
-) where {W<:World}
+    ::Val{Unchecked}=Val(false),
+) where {W<:World,Unchecked}
+    if !Unchecked
+        if !is_alive(world, entity)
+            throw(ArgumentError("can't set relation targets of a dead entity"))
+        end
+        for i in 1:length(ids)
+            _check_relation_target(world, targets[i])
+        end
+    end
+
     index = world._entities[entity._id]
     old_table = world._tables[index.table]
     archetype = world._archetypes[old_table.archetype]
-    new_relations, changed, mask = _get_exchange_targets(world, old_table, relations, targets)
+    new_relations, changed, mask = _get_exchange_targets(world, old_table, ids, targets)
     if !changed
         empty!(new_relations)
         return nothing
@@ -1746,7 +1767,8 @@ end
     ::RTS,
     ::TR,
     targets::Tuple{Vararg{Entity}},
-) where {W<:World,ATS<:Tuple,RTS<:Tuple,TR<:Tuple}
+    ::Val{Unchecked}=Val(false),
+) where {W<:World,ATS<:Tuple,RTS<:Tuple,TR<:Tuple,Unchecked}
     add_types = _to_types(ATS.parameters)
     rem_types = _to_types(RTS)
     rel_types = _to_types(TR)
@@ -1762,7 +1784,20 @@ end
     _check_relations(rel_types)
     _check_is_subset(rel_types, add_types)
 
+    _check_relations(rel_types)
+    _check_is_subset(rel_types, add_types)
+
     exprs = []
+    if !Unchecked
+        push!(exprs, :(
+            if !is_alive(world, entity)
+                # determine specific error message based on inputs?
+                # "can't add/exchange/remove components..."
+                # Generic message:
+                throw(ArgumentError("can't exchange components on a dead entity"))
+            end
+        ))
+    end
 
     CS = W.parameters[1]
     add_ids = tuple([_component_id(CS, T) for T in add_types]...)
