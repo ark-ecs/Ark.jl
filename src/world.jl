@@ -184,6 +184,7 @@ end
         remove::Tuple=(),
         relations::Tuple=(),
         mode=:copy,
+        unchecked=false,
     )
 
 Copies an [Entity](@ref), optionally adding and/or removing components.
@@ -198,6 +199,7 @@ Mutable and non-isbits components are shallow copied by default. This can be cha
   - `remove::Tuple`: Component types to remove, like `(Position,Velocity)`.
   - `relations::Tuple`: Relationship component type => target entity pairs.
   - `mode::Tuple`: Copy mode for mutable and non-isbits components. Modes are :ref, :copy, :deepcopy.
+  - `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity passed.
 
 # Examples
 
@@ -331,10 +333,15 @@ end
 end
 
 """
-    get_components(world::World, entity::Entity, comp_types::Tuple)
+    get_components(world::World, entity::Entity, comp_types::Tuple; unchecked=false)
 
 Get the given components for an [Entity](@ref).
 Components are returned as a tuple.
+
+# Keywords
+
+- `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity
+and the presence of the components.
 
 # Example
 
@@ -356,9 +363,13 @@ pos, vel = get_components(world, entity, (Position, Velocity))
 end
 
 """
-    has_components(world::World, entity::Entity, comp_types::Tuple)::Bool
+    has_components(world::World, entity::Entity, comp_types::Tuple; unchecked=false)::Bool
 
 Returns whether an [Entity](@ref) has all given components.
+
+# Keywords
+
+- `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity
 
 # Example
 
@@ -385,6 +396,11 @@ end
 Sets the given component values for an [Entity](@ref). Types are inferred from the values.
 The entity must already have all these components.
 
+# Keywords
+
+- `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity
+and the presence of the components.
+
 # Example
 
 ```jldoctest; setup = :(using Ark; include(string(dirname(pathof(Ark)), "/docs.jl"))), output = false
@@ -404,10 +420,15 @@ set_components!(world, entity, (Position(0, 0), Velocity(1, 1)))
 end
 
 """
-    get_relations(world::World, entity::Entity, comp_types::Tuple)
+    get_relations(world::World, entity::Entity, relations::Tuple; unchecked=false)
 
 Get the relation targets for components of an [Entity](@ref).
 Targets are returned as a tuple.
+
+# Keywords
+
+- `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity
+and the presence of the relations.
 
 # Example
 
@@ -429,10 +450,15 @@ parent, = get_relations(world, entity, (ChildOf,))
 end
 
 """
-    set_relations!(world::World, entity::Entity, relations::Tuple)
+    set_relations!(world::World, entity::Entity, relations::Tuple; unchecked=false)
 
 Sets relation targets for the given components of an [Entity](@ref).
 The entity must already have all these relationship components.
+
+# Keywords
+
+- `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity
+and the presence of the relations.
 
 # Example
 
@@ -455,9 +481,13 @@ set_relations!(world, entity, (ChildOf => parent,))
 end
 
 """
-    add_components!(world::World, entity::Entity, values::Tuple; relations::Tuple)
+    add_components!(world::World, entity::Entity, values::Tuple; relations::Tuple; unchecked=false)
 
 Adds the given component values to an [Entity](@ref). Types are inferred from the values.
+
+# Keywords
+
+- `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity.
 
 # Example
 
@@ -482,9 +512,13 @@ add_components!(world, entity, (Health(100),))
 end
 
 """
-    remove_components!(world::World, entity::Entity, comp_types::Tuple)
+    remove_components!(world::World, entity::Entity, comp_types::Tuple; unchecked=false)
 
 Removes the given components from an [Entity](@ref).
+
+# Keywords
+
+- `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity.
 
 # Example
 
@@ -518,9 +552,14 @@ end
         add::Tuple=(),
         remove::Tuple=(),
         relations::Tuple=(),
+        unchecked=false
     )
 
 Adds and removes components on an [Entity](@ref). Types are inferred from the add values.
+
+# Keywords
+
+- `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity.
 
 # Example
 
