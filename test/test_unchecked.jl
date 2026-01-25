@@ -23,66 +23,78 @@ end
 @testset "set_components! unchecked" begin
     world = World(Health, Position, ChildOf)
 
-    e = new_entity!(world, (Health(10),))
-    set_components!(world, e, (Health(50),); unchecked=true)
-    (h,) = get_components(world, e, (Health,))
-    @test h.health == 50
+    for unchecked in (false, true)
+        e = new_entity!(world, (Health(10),))
+        set_components!(world, e, (Health(50),); unchecked=unchecked)
+        (h,) = get_components(world, e, (Health,))
+        @test h.health == 50
+    end
 end
 
 @testset "copy_entity! unchecked" begin
     world = World(Health, Position, ChildOf)
 
     e = new_entity!(world, (Health(10),))
-    e_copy = copy_entity!(world, e; unchecked=true)
-    @test is_alive(world, e_copy)
-    (h,) = get_components(world, e_copy, (Health,))
-    @test h.health == 10
+    for unchecked in (false, true)
+        e_copy = copy_entity!(world, e; unchecked=unchecked)
+        @test is_alive(world, e_copy)
+        (h,) = get_components(world, e_copy, (Health,))
+        @test h.health == 10
 
-    e_copy_2 = copy_entity!(world, e; add=(Position(1.0, 2.0),), unchecked=true)
-    @test is_alive(world, e_copy_2)
-    h, p = get_components(world, e_copy_2, (Health, Position))
-    @test h.health == 10
-    @test p.x == 1.0 && p.y == 2.0
+        e_copy_2 = copy_entity!(world, e; add=(Position(1.0, 2.0),), unchecked=true)
+        @test is_alive(world, e_copy_2)
+        h, p = get_components(world, e_copy_2, (Health, Position))
+        @test h.health == 10
+        @test p.x == 1.0 && p.y == 2.0
+    end
 end
 
 @testset "remove_entity! unchecked" begin
     world = World(Health, Position, ChildOf)
 
-    e = new_entity!(world, (Health(10),))
-    remove_entity!(world, e; unchecked=true)
-    @test !is_alive(world, e)
+    for unchecked in (false, true)
+        e = new_entity!(world, (Health(10),))
+        remove_entity!(world, e; unchecked=unchecked)
+        @test !is_alive(world, e)
+    end
 end
 
 @testset "has_components unchecked" begin
     world = World(Health, Position, ChildOf)
 
-    e = new_entity!(world, (Health(10),))
-    @test has_components(world, e, (Health,); unchecked=true)
-    @test !has_components(world, e, (Position,); unchecked=true)
+    for unchecked in (false, true)
+        e = new_entity!(world, (Health(10),))
+        @test has_components(world, e, (Health,); unchecked=unchecked)
+        @test !has_components(world, e, (Position,); unchecked=unchecked)
+    end
 end
 
 @testset "add/remove/exchange unchecked" begin
     world = World(Health, Position, ChildOf)
 
-    e = new_entity!(world, (Health(10),))
-    add_components!(world, e, (Position(1.0, 2.0),); unchecked=true)
-    @test has_components(world, e, (Position,))
+    for unchecked in (false, true)
+        e = new_entity!(world, (Health(10),))
+        add_components!(world, e, (Position(1.0, 2.0),); unchecked=unchecked)
+        @test has_components(world, e, (Position,))
 
-    remove_components!(world, e, (Health,); unchecked=true)
-    @test !has_components(world, e, (Health,))
+        remove_components!(world, e, (Health,); unchecked=unchecked)
+        @test !has_components(world, e, (Health,))
 
-    exchange_components!(world, e, add=(Health(30),), remove=(Position,); unchecked=true)
-    @test has_components(world, e, (Health,))
-    @test !has_components(world, e, (Position,))
+        exchange_components!(world, e, add=(Health(30),), remove=(Position,); unchecked=unchecked)
+        @test has_components(world, e, (Health,))
+        @test !has_components(world, e, (Position,))
+    end
 end
 
 @testset "Relations unchecked" begin
     world = World(Health, Position, ChildOf)
 
-    e2 = new_entity!(world, ())
-    e1 = new_entity!(world, (ChildOf(),); relations=(ChildOf => zero_entity,))
-    set_relations!(world, e1, (ChildOf => e2,); unchecked=true)
+    for unchecked in (false, true)
+        e2 = new_entity!(world, ())
+        e1 = new_entity!(world, (ChildOf(),); relations=(ChildOf => zero_entity,))
+        set_relations!(world, e1, (ChildOf => e2,); unchecked=unchecked)
 
-    (rels,) = get_relations(world, e1, (ChildOf,); unchecked=true)
-    @test rels == e2
+        (rels,) = get_relations(world, e1, (ChildOf,); unchecked=unchecked)
+        @test rels == e2
+    end
 end
