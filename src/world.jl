@@ -262,7 +262,7 @@ remove_entity!(world, entity)
 
 ```
 """
-@inline function remove_entity!(world::World, entity::Entity; unchecked::Bool=false)
+Base.@constprop :aggressive function remove_entity!(world::World, entity::Entity; unchecked::Bool=false)
     return _remove_entity!(world, entity, Val(unchecked))
 end
 
@@ -296,6 +296,7 @@ end
 
         swapped = _swap_remove!(table.entities._data, index.row)
 
+        # Only operate on storages for components present in this archetype
         for comp in archetype.components
             $(
                 inline_jtable ?
@@ -1549,7 +1550,7 @@ end
         val_sym = Symbol("v", i)
 
         push!(exprs, :($(stor_sym) = _get_storage(world, $T)))
-        push!(exprs, :($(val_sym) = _get_component($(stor_sym), idx.table, idx.row, Val(Unchecked))))
+        push!(exprs, :($(val_sym) = _get_component($(stor_sym), idx.table, idx.row, $(Val(Unchecked)))))
     end
 
     vals = [:($(Symbol("v", i))) for i in 1:length(types)]
@@ -1617,7 +1618,7 @@ end
         val_expr = :(values.$i)
 
         push!(exprs, :($stor_sym = _get_storage(world, $T)))
-        push!(exprs, :(_set_component!($stor_sym, idx.table, idx.row, $val_expr, Val(Unchecked))))
+        push!(exprs, :(_set_component!($stor_sym, idx.table, idx.row, $val_expr, $(Val(Unchecked)))))
     end
 
     push!(exprs, Expr(:return, :nothing))
@@ -1688,7 +1689,7 @@ end
     rel_ids = tuple([_component_id(W.parameters[1], T) for T in rel_types]...)
 
     exprs = []
-    push!(exprs, :(_set_relations!(world, entity, $rel_ids, targets, Val(Unchecked))))
+    push!(exprs, :(_set_relations!(world, entity, $rel_ids, targets, $(Val(Unchecked)))))
     push!(exprs, Expr(:return, :nothing))
 
     return quote
@@ -1781,9 +1782,6 @@ end
     _check_no_duplicates(rem_types)
     _check_if_intersect(add_types, rem_types)
     _check_no_duplicates(rel_types)
-    _check_relations(rel_types)
-    _check_is_subset(rel_types, add_types)
-
     _check_relations(rel_types)
     _check_is_subset(rel_types, add_types)
 
