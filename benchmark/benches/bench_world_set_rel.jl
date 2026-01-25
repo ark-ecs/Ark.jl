@@ -24,7 +24,7 @@ end
 function benchmark_world_set_rel(args, n)
     entities, world, parent = args
     for e in entities
-        set_relations!(world, e, (ChildOf => parent,); unchecked=true)
+        set_relations!(world, e, (ChildOf => parent,))
     end
 end
 

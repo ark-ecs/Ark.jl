@@ -21,7 +21,7 @@ end
 function benchmark_world_copy_entity_5(args, n::Int)
     world, template = args
     for _ in 1:n
-        copy_entity!(world, template; unchecked=true)
+        copy_entity!(world, template)
     end
 end
 

@@ -19,12 +19,12 @@ end
 function benchmark_world_posvel(args, n)
     entities, world = args
     for e in entities
-        pos, vel = get_components(world, e, (Position, Velocity); unchecked=true)
-        set_components!(world, e, (Position(pos.x + vel.dx, pos.y + vel.dy),); unchecked=true)
+        pos, vel = get_components(world, e, (Position, Velocity))
+        set_components!(world, e, (Position(pos.x + vel.dx, pos.y + vel.dy),))
     end
 end
 
-for n in (100, 1_000, 10_000, 100_000)
+for n in (100, 10_000)
     SUITE["benchmark_world_posvel n=$(n)"] =
         @be setup_world_posvel($n) benchmark_world_posvel(_, n) evals = 100 seconds = SECONDS
 end
