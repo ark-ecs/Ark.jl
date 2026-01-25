@@ -21,7 +21,7 @@ end
 function benchmark_world_set_1_soa(args, n)
     entities, world = args
     for e in entities
-        set_components!(world, e, (Position(1, 2),))
+        set_components!(world, e, (Position(1, 2),); unchecked=true)
     end
 end
 

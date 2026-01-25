@@ -24,7 +24,7 @@ end
 function benchmark_world_remove_entity_5(args, n::Int)
     world, entities = args
     for e in entities
-        remove_entity!(world, e)
+        remove_entity!(world, e; unchecked=true)
     end
 end
 

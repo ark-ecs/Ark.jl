@@ -19,8 +19,8 @@ end
 function benchmark_world_update_1(args, n)
     entities, world = args
     for e in entities
-        pos, = get_components(world, e, (Position,))
-        set_components!(world, e, (Position(pos.x + 1, pos.y),))
+        pos, = get_components(world, e, (Position,); unchecked=true)
+        set_components!(world, e, (Position(pos.x + 1, pos.y),); unchecked=true)
     end
 end
 

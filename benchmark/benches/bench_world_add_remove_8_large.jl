@@ -43,13 +43,15 @@ function benchmark_world_add_remove_8_large(args, n)
     for e in entities
         add_components!(world, e,
             (CompN{1}(0, 0), CompN{2}(0, 0), CompN{3}(0, 0), CompN{4}(0, 0),
-                CompN{5}(0, 0), CompN{6}(0, 0), CompN{7}(0, 0), CompN{8}(0, 0)),
+                CompN{5}(0, 0), CompN{6}(0, 0), CompN{7}(0, 0), CompN{8}(0, 0));
+            unchecked=true
         )
     end
     for e in entities
         remove_components!(world, e,
             (CompN{1}, CompN{2}, CompN{3}, CompN{4},
-                CompN{5}, CompN{6}, CompN{7}, CompN{8}),
+                CompN{5}, CompN{6}, CompN{7}, CompN{8});
+            unchecked=true
         )
     end
 end

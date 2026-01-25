@@ -18,7 +18,8 @@ end
 function benchmark_world_set_5(args, n)
     entities, world = args
     for e in entities
-        set_components!(world, e, (Position(1, 2), Velocity(0, 0), CompA(0, 0), CompB(0, 0), CompC(0, 0)))
+        set_components!(world, e, (Position(1, 2), Velocity(0, 0), CompA(0, 0), CompB(0, 0), CompC(0, 0));
+            unchecked=true)
     end
 end
 

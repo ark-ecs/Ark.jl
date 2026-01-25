@@ -36,10 +36,10 @@ end
 function benchmark_world_add_remove_1_large(args, n)
     entities, world = args
     for e in entities
-        add_components!(world, e, (Velocity(0, 0),))
+        add_components!(world, e, (Velocity(0, 0),); unchecked=true)
     end
     for e in entities
-        remove_components!(world, e, (Velocity,))
+        remove_components!(world, e, (Velocity,); unchecked=true)
     end
 end
 

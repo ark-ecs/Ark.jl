@@ -22,7 +22,7 @@ function benchmark_world_get_1(args, n)
     entities, world = args
     sum = 0.0
     for e in entities
-        pos, = get_components(world, e, (Position,))
+        pos, = get_components(world, e, (Position,); unchecked=true)
         sum += pos.x
     end
 end

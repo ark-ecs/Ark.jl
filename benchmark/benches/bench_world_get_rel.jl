@@ -23,7 +23,7 @@ function benchmark_world_get_rel(args, n)
     entities, world = args
     sum = 0.0
     for e in entities
-        p, = get_relations(world, e, (ChildOf,))
+        p, = get_relations(world, e, (ChildOf,); unchecked=true)
         sum += p._id
     end
 end
