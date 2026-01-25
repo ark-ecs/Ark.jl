@@ -556,10 +556,7 @@ end
     )
 
 Adds and removes components on an [Entity](@ref). Types are inferred from the add values.
-
-# Keywords
-
-- `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity.
+If `unchecked` is `true`, no check is performed about the aliveness of the entity.
 
 # Example
 
@@ -1787,7 +1784,16 @@ end
     rel_ids = tuple([_component_id(W.parameters[1], T) for T in rel_types]...)
 
     exprs = []
-    push!(exprs, :(_set_relations!(world, entity, $rel_ids, targets, $(Val(Unchecked)))))
+
+    if !Unchecked
+        push!(exprs, :(
+            if !is_alive(world, entity)
+                throw(ArgumentError("can't set relations of a dead entity"))
+            end
+        ))
+    end
+
+    push!(exprs, :(_set_relations!(world, entity, $rel_ids, targets)))
     push!(exprs, Expr(:return, :nothing))
 
     return quote
@@ -1802,14 +1808,7 @@ end
     entity::Entity,
     relations::Tuple{Vararg{Int}},
     targets::Tuple{Vararg{Entity}},
-    ::Val{Unchecked},
 ) where {W<:World,Unchecked}
-    if !Unchecked
-        if !is_alive(world, entity)
-            throw(ArgumentError("can't set relation targets of a dead entity"))
-        end
-    end
-
     index = world._entities[entity._id]
     old_table = world._tables[index.table]
     archetype = world._archetypes[old_table.archetype]
