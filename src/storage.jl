@@ -31,7 +31,12 @@ function _storage_type(::Type{Storage{GPUVector{B}}}, ::Type{C}) where {B,C}
     GPUVector{B,C,_gpuvector_type(C, Val{B}())}
 end
 
-@inline function _get_component(s::_ComponentStorage{C,A}, arch::UInt32, row::UInt32, ::Val{false}) where {C,A<:AbstractArray}
+@inline function _get_component(
+    s::_ComponentStorage{C,A},
+    arch::UInt32,
+    row::UInt32,
+    ::Val{false},
+) where {C,A<:AbstractArray}
     @inbounds col = s.data[arch]
     if length(col) == 0
         throw(ArgumentError(lazy"entity has no $C component"))
@@ -39,11 +44,22 @@ end
     return @inbounds col[row]
 end
 
-@inline function _get_component(s::_ComponentStorage{C,A}, arch::UInt32, row::UInt32, ::Val{true}) where {C,A<:AbstractArray}
+@inline function _get_component(
+    s::_ComponentStorage{C,A},
+    arch::UInt32,
+    row::UInt32,
+    ::Val{true},
+) where {C,A<:AbstractArray}
     return @inbounds s.data[arch][row]
 end
 
-@inline function _set_component!(s::_ComponentStorage{C,A}, arch::UInt32, row::UInt32, value::C, ::Val{false}) where {C,A<:AbstractArray}
+@inline function _set_component!(
+    s::_ComponentStorage{C,A},
+    arch::UInt32,
+    row::UInt32,
+    value::C,
+    ::Val{false},
+) where {C,A<:AbstractArray}
     @inbounds col = s.data[arch]
     if length(col) == 0
         throw(ArgumentError(lazy"entity has no $C component"))
@@ -51,7 +67,13 @@ end
     return @inbounds col[row] = value
 end
 
-@inline function _set_component!(s::_ComponentStorage{C,A}, arch::UInt32, row::UInt32, value::C, ::Val{true}) where {C,A<:AbstractArray}
+@inline function _set_component!(
+    s::_ComponentStorage{C,A},
+    arch::UInt32,
+    row::UInt32,
+    value::C,
+    ::Val{true},
+) where {C,A<:AbstractArray}
     return @inbounds s.data[arch][row] = value
 end
 

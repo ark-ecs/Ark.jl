@@ -340,8 +340,8 @@ Components are returned as a tuple.
 
 # Keywords
 
-- `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity
-and the presence of the components.
+  - `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity
+    and the presence of the components.
 
 # Example
 
@@ -369,7 +369,7 @@ Returns whether an [Entity](@ref) has all given components.
 
 # Keywords
 
-- `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity
+  - `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity
 
 # Example
 
@@ -398,8 +398,8 @@ The entity must already have all these components.
 
 # Keywords
 
-- `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity
-and the presence of the components.
+  - `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity
+    and the presence of the components.
 
 # Example
 
@@ -427,8 +427,8 @@ Targets are returned as a tuple.
 
 # Keywords
 
-- `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity
-and the presence of the relations.
+  - `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity
+    and the presence of the relations.
 
 # Example
 
@@ -457,8 +457,8 @@ The entity must already have all these relationship components.
 
 # Keywords
 
-- `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity
-and the presence of the relations.
+  - `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity
+    and the presence of the relations.
 
 # Example
 
@@ -487,7 +487,7 @@ Adds the given component values to an [Entity](@ref). Types are inferred from th
 
 # Keywords
 
-- `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity.
+  - `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity.
 
 # Example
 
@@ -518,7 +518,7 @@ Removes the given components from an [Entity](@ref).
 
 # Keywords
 
-- `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity.
+  - `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity.
 
 # Example
 

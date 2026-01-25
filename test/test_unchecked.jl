@@ -1,10 +1,9 @@
 
 @testset "get_components unchecked" begin
-
     world = World(Health, Position, ChildOf)
 
     e = new_entity!(world, (Health(10),))
-    
+
     # Normal access
     (h,) = get_components(world, e, (Health,))
     @test h.health == 10
@@ -68,10 +67,10 @@ end
     e = new_entity!(world, (Health(10),))
     add_components!(world, e, (Position(1.0, 2.0),); unchecked=true)
     @test has_components(world, e, (Position,))
-    
+
     remove_components!(world, e, (Health,); unchecked=true)
     @test !has_components(world, e, (Health,))
-    
+
     exchange_components!(world, e, add=(Health(30),), remove=(Position,); unchecked=true)
     @test has_components(world, e, (Health,))
     @test !has_components(world, e, (Position,))
@@ -83,7 +82,7 @@ end
     e2 = new_entity!(world, ())
     e1 = new_entity!(world, (ChildOf(),); relations=(ChildOf => zero_entity,))
     set_relations!(world, e1, (ChildOf => e2,); unchecked=true)
-    
+
     (rels,) = get_relations(world, e1, (ChildOf,); unchecked=true)
     @test rels == e2
 end
