@@ -1702,7 +1702,7 @@ end
 @inline function _set_relations!(
     world::W,
     entity::Entity,
-    ids::Tuple{Vararg{Int}},
+    relations::Tuple{Vararg{Int}},
     targets::Tuple{Vararg{Entity}},
     ::Val{Unchecked}=Val(false),
 ) where {W<:World,Unchecked}
@@ -1710,15 +1710,12 @@ end
         if !is_alive(world, entity)
             throw(ArgumentError("can't set relation targets of a dead entity"))
         end
-        for i in 1:length(ids)
-            _check_relation_target(world, targets[i])
-        end
     end
 
     index = world._entities[entity._id]
     old_table = world._tables[index.table]
     archetype = world._archetypes[old_table.archetype]
-    new_relations, changed, mask = _get_exchange_targets(world, old_table, ids, targets)
+    new_relations, changed, mask = _get_exchange_targets(world, old_table, relations, targets)
     if !changed
         empty!(new_relations)
         return nothing
