@@ -1816,7 +1816,7 @@ end
     entity::Entity,
     relations::Tuple{Vararg{Int}},
     targets::Tuple{Vararg{Entity}},
-) where {W<:World,Unchecked}
+) where {W<:World}
     index = world._entities[entity._id]
     old_table = world._tables[index.table]
     archetype = world._archetypes[old_table.archetype]

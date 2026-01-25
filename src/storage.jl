@@ -31,10 +31,6 @@ function _storage_type(::Type{Storage{GPUVector{B}}}, ::Type{C}) where {B,C}
     GPUVector{B,C,_gpuvector_type(C, Val{B}())}
 end
 
-@inline function _get_component(s::_ComponentStorage, arch::UInt32, row::UInt32)
-    return _get_component(s, arch, row, Val(false))
-end
-
 @inline function _get_component(s::_ComponentStorage{C,A}, arch::UInt32, row::UInt32, ::Val{false}) where {C,A<:AbstractArray}
     @inbounds col = s.data[arch]
     if length(col) == 0
