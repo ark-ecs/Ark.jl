@@ -42,7 +42,7 @@ function _recycle(p::_EntityPool, e::Entity)
 end
 
 function _is_alive(p::_EntityPool, e::Entity)::Bool
-    @inbounds return e._gen == p.entities[e._id]._gen
+    return @inbounds e._gen == p.entities[e._id]._gen
 end
 
 function _reset!(p::_EntityPool)
