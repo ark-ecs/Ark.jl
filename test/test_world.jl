@@ -701,6 +701,8 @@ end
     @test get_relations(world, entity2, (ChildOf,)) == (parent,)
 
     @test_throws "can't copy a dead entity" copy_entity!(world, zero_entity)
+
+    @test_throws "can't copy a dead entity" copy_entity!(world, zero_entity; add=(Dummy(),))
 end
 
 @testset "World copy_entity! with exchange" begin
