@@ -597,7 +597,9 @@ end
 Returns whether an [Entity](@ref) is alive.
 """
 function is_alive(world::World, entity::Entity)::Bool
-    @boundscheck checkbounds(world._entity_pool.entities, entity._id)
+    if entity._id > length(world._entity_pool.entities)
+        return false
+    end
     return _is_alive(world._entity_pool, entity)
 end
 
