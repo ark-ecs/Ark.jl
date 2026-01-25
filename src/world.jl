@@ -1552,6 +1552,14 @@ end
     add_mask = _Mask{M}(add_ids...)
     rem_mask = _Mask{M}(rem_ids...)
 
+    if !Unchecked
+        push!(exprs, :(
+            if !is_alive(world, entity)
+                throw(ArgumentError("can't copy a dead entity"))
+            end
+        ))
+    end
+
     world_has_rel = Val{_has_relations(CS)}()
     push!(exprs, :(index = world._entities[entity._id]))
     push!(exprs, :(old_table = world._tables[index.table]))
@@ -1788,7 +1796,7 @@ end
     if !Unchecked
         push!(exprs, :(
             if !is_alive(world, entity)
-                throw(ArgumentError("can't set relations of a dead entity"))
+                throw(ArgumentError("can't set relation targets of a dead entity"))
             end
         ))
     end

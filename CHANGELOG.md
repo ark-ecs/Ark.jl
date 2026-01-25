@@ -12,6 +12,10 @@
 - Adds a new type GPUVector which can be used to offload work to the GPU (#470, #476)
 - Adds support for UniqueVector storage (#481)
 
+### Performance
+
+- Add an unchecked keyword for many API functions to trade-off safety for speed (#521, #522)
+
 ### Bugfixes
 
 - Fix copy on special mutable types (#515, fixes #514)
