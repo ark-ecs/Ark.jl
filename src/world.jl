@@ -1791,9 +1791,6 @@ end
     if !Unchecked
         push!(exprs, :(
             if !is_alive(world, entity)
-                # determine specific error message based on inputs?
-                # "can't add/exchange/remove components..."
-                # Generic message:
                 throw(ArgumentError("can't exchange components on a dead entity"))
             end
         ))
