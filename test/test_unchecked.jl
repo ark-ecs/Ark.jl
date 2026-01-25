@@ -1,17 +1,17 @@
 
 @testset "get_components unchecked" begin
 
-    world = World(Health, Position, Relation)
+    world = World(Health, Position, ChildOf)
 
     e = new_entity!(world, (Health(10),))
     
     # Normal access
     (h,) = get_components(world, e, (Health,))
-    @test h.value == 10
+    @test h.health == 10
 
     # Unchecked access
     (h2,) = get_components(world, e, (Health,); unchecked=true)
-    @test h2.value == 10
+    @test h2.health == 10
 
     # Remove entity to make it dead
     remove_entity!(world, e)
@@ -22,26 +22,32 @@
 end
 
 @testset "set_components! unchecked" begin
-    world = World(Health, Position, Relation)
+    world = World(Health, Position, ChildOf)
 
     e = new_entity!(world, (Health(10),))
     set_components!(world, e, (Health(50),); unchecked=true)
     (h,) = get_components(world, e, (Health,))
-    @test h.value == 50
+    @test h.health == 50
 end
 
 @testset "copy_entity! unchecked" begin
-    world = World(Health, Position, Relation)
+    world = World(Health, Position, ChildOf)
 
     e = new_entity!(world, (Health(10),))
     e_copy = copy_entity!(world, e; unchecked=true)
     @test is_alive(world, e_copy)
     (h,) = get_components(world, e_copy, (Health,))
-    @test h.value == 10
+    @test h.health == 10
+
+    e_copy_2 = copy_entity!(world, e; add=(Position(1.0, 2.0),), unchecked=true)
+    @test is_alive(world, e_copy_2)
+    h, p = get_components(world, e_copy_2, (Health, Position))
+    @test h.health == 10
+    @test p.x == 1.0 && p.y == 2.0
 end
 
 @testset "remove_entity! unchecked" begin
-    world = World(Health, Position, Relation)
+    world = World(Health, Position, ChildOf)
 
     e = new_entity!(world, (Health(10),))
     remove_entity!(world, e; unchecked=true)
@@ -49,7 +55,7 @@ end
 end
 
 @testset "has_components unchecked" begin
-    world = World(Health, Position, Relation)
+    world = World(Health, Position, ChildOf)
 
     e = new_entity!(world, (Health(10),))
     @test has_components(world, e, (Health,); unchecked=true)
@@ -57,7 +63,7 @@ end
 end
 
 @testset "add/remove/exchange unchecked" begin
-    world = World(Health, Position, Relation)
+    world = World(Health, Position, ChildOf)
 
     e = new_entity!(world, (Health(10),))
     add_components!(world, e, (Position(1.0, 2.0),); unchecked=true)
@@ -72,12 +78,12 @@ end
 end
 
 @testset "Relations unchecked" begin
-    world = World(Health, Position, Relation)
+    world = World(Health, Position, ChildOf)
 
     e2 = new_entity!(world, ())
-    e1 = new_entity!(world, (Relation(),); relations=(Relation => zero_entity,))
-    set_relations!(world, e1, (Relation => e2,); unchecked=true)
+    e1 = new_entity!(world, (ChildOf(),); relations=(ChildOf => zero_entity,))
+    set_relations!(world, e1, (ChildOf => e2,); unchecked=true)
     
-    (rels,) = get_relations(world, e1, (Relation,); unchecked=true)
+    (rels,) = get_relations(world, e1, (ChildOf,); unchecked=true)
     @test rels == e2
 end
