@@ -26,6 +26,7 @@ function benchmark_world_get_rel(args, n)
         p, = get_relations(world, e, (ChildOf,))
         sum += p._id
     end
+    return sum
 end
 
 for n in (100, 10_000)
