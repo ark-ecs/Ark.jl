@@ -52,3 +52,12 @@ struct ChildOf3 <: Relationship end
 mutable struct Tick
     time::Int
 end
+
+struct Position_Mod
+    x::Float64
+    y::Float64
+end
+
+function Base.getproperty(value::Position_Mod, name::Symbol)
+    return nothing
+end
