@@ -1,69 +1,74 @@
 
 @testset "StructArray basic functionality" begin
-    a = StructArray(Position)
+    for T in (Position, Position_Mod)
+        a = StructArray(T)
 
-    @test isa(a.x, Vector{Float64})
-    @test isa(a.y, Vector{Float64})
-    @test isa(getfield(a, :_components).x, Vector{Float64})
-    @test isa(getfield(a, :_components).y, Vector{Float64})
+        @test isa(a.x, Vector{Float64})
+        @test isa(a.y, Vector{Float64})
+        @test isa(getfield(a, :_components).x, Vector{Float64})
+        @test isa(getfield(a, :_components).y, Vector{Float64})
 
-    push!(a, Position(1, 2))
+        push!(a, T(1, 2))
 
-    @test length(a) == 1
-    @test size(a) == (1,)
-    @test length(getfield(a, :_components).x) == 1
-    @test length(getfield(a, :_components).y) == 1
-    @test a[1] == Position(1, 2)
+        @test length(a) == 1
+        @test size(a) == (1,)
+        @test length(getfield(a, :_components).x) == 1
+        @test length(getfield(a, :_components).y) == 1
+        @test a[1] == T(1, 2)
 
-    a[1] = Position(3, 4)
-    @test a[1] == Position(3, 4)
+        a[1] = T(3, 4)
+        @test a[1] == T(3, 4)
 
-    push!(a, Position(5, 6))
-    @test length(a) == 2
+        push!(a, T(5, 6))
+        @test length(a) == 2
 
-    pop!(a)
-    @test length(a) == 1
+        pop!(a)
+        @test length(a) == 1
 
-    fill!(a, Position(99, 99))
-    for pos in a
-        @test pos == Position(99, 99)
+        fill!(a, T(99, 99))
+        for pos in a
+            @test pos == T(99, 99)
+        end
     end
 end
 
 @testset "StructArray iteration" begin
-    a = StructArray(Position)
+    for T in (Position, Position_Mod)
+        a = StructArray(T)
+        resize!(a, 10)
+        @test length(a) == 10
 
-    resize!(a, 10)
-    @test length(a) == 10
+        for i in 1:10
+            a[i] = T(i, i)
+        end
 
-    for i in 1:10
-        a[i] = Position(i, i)
-    end
+        count = 0
+        for i in eachindex(a)
+            @test a[i] == T(i, i)
+            count += 1
+        end
+        @test count == 10
 
-    count = 0
-    for i in eachindex(a)
-        @test a[i] == Position(i, i)
-        count += 1
-    end
-    @test count == 10
-
-    for pos in a
-        @test isa(pos, Position)
-    end
-    for (i, pos) in enumerate(a)
-        @test a[i] == Position(i, i)
+        for pos in a
+            @test isa(pos, T)
+        end
+        for (i, pos) in enumerate(a)
+            @test a[i] == T(i, i)
+        end
     end
 end
 
 @testset "StructArray misc functions" begin
-    a = StructArray(Position)
-    resize!(a, 10)
+    for T in (Position, Position_Mod)
+        a = StructArray(T)
+        resize!(a, 10)
 
-    @test Base.firstindex(a) == 1
-    @test Base.lastindex(a) == 10
+        @test Base.firstindex(a) == 1
+        @test Base.lastindex(a) == 10
 
-    @test Base.eltype(StructArray{Position}) == Position
-    @test Base.IndexStyle(StructArray{Position}) == IndexLinear()
+        @test Base.eltype(StructArray{T}) == T
+        @test Base.IndexStyle(StructArray{T}) == IndexLinear()
+    end
 end
 
 @testset "StructArray no fields" begin
@@ -74,67 +79,75 @@ end
 end
 
 @testset "StructArray unwrap" begin
-    a = StructArray(Position)
-
-    x, y = getfield(a, :_components)
-    @test isa(x, Vector{Float64})
-    @test isa(y, Vector{Float64})
+    for T in (Position, Position_Mod)
+        a = StructArray(T)
+        x, y = getfield(a, :_components)
+        @test isa(x, Vector{Float64})
+        @test isa(y, Vector{Float64})
+    end
 end
 
 @testset "StructArray type" begin
-    tp = _StructArray_type(Position)
-    @test tp == StructArray{Position,@NamedTuple{x::Vector{Float64}, y::Vector{Float64}},2}
+    for T in (Position, Position_Mod)
+        tp = _StructArray_type(T)
+        @test tp == StructArray{T,@NamedTuple{x::Vector{Float64}, y::Vector{Float64}},2}
+    end
 end
 
 @testset "Vector view" begin
-    # template for tests below to ensure that StructArray views behave like Vector views
-    a = Vector{Position}()
-    for i in 1:10
-        push!(a, Position(i, i))
+    for T in (Position, Position_Mod)
+        # template for tests below to ensure that StructArray views behave like Vector views
+        a = Vector{T}()
+        for i in 1:10
+            push!(a, T(i, i))
+        end
+
+        v = view(a, 5:10)
+        @test v[1] == T(5, 5)
+        v[1] = T(99, 99)
+        @test v[1] == T(99, 99)
+
+        @test length(v) == 6
+        @test size(v) == (6,)
+        @test firstindex(v) == 1
+        @test lastindex(v) == 6
+        @test eachindex(v) == 1:6
     end
-
-    v = view(a, 5:10)
-    @test v[1] == Position(5, 5)
-    v[1] = Position(99, 99)
-    @test v[1] == Position(99, 99)
-
-    @test length(v) == 6
-    @test size(v) == (6,)
-    @test firstindex(v) == 1
-    @test lastindex(v) == 6
-    @test eachindex(v) == 1:6
 end
 
 @testset "StructArray view" begin
-    a = StructArray(Position)
-    for i in 1:10
-        push!(a, Position(i, i))
-    end
+    for T in (Position, Position_Mod)
 
-    v = view(a, 5:10)
-    x, y = v._components
-    @test isa(x, SubArray{Float64})
-    @test isa(y, SubArray{Float64})
-    x, y = unpack(v)
-    @test isa(x, SubArray{Float64})
-    @test isa(y, SubArray{Float64})
+        a = StructArray(T)
+        for i in 1:10
+            push!(a, T(i, i))
+        end
 
-    @test v[1] == Position(5, 5)
-    v[1] = Position(99, 99)
-    @test v[1] == Position(99, 99)
+        v = view(a, 5:10)
+        x, y = v._components
+        @test isa(x, SubArray{Float64})
+        @test isa(y, SubArray{Float64})
+        x, y = unpack(v)
+        @test isa(x, SubArray{Float64})
+        @test isa(y, SubArray{Float64})
 
-    @test length(v) == 6
-    @test size(v) == (6,)
-    @test firstindex(v) == 1
-    @test lastindex(v) == 6
-    @test eachindex(v) == 1:6
+        @test v[1] == T(5, 5)
+        v[1] = T(99, 99)
+        @test v[1] == T(99, 99)
 
-    @test Base.eltype(typeof(v)) == Position
-    @test Base.IndexStyle(typeof(v)) == IndexLinear()
+        @test length(v) == 6
+        @test size(v) == (6,)
+        @test firstindex(v) == 1
+        @test lastindex(v) == 6
+        @test eachindex(v) == 1:6
 
-    fill!(v, Position(99, 99))
-    for pos in v
-        @test pos == Position(99, 99)
+        @test Base.eltype(typeof(v)) == T
+        @test Base.IndexStyle(typeof(v)) == IndexLinear()
+
+        fill!(v, T(99, 99))
+        for pos in v
+            @test pos == T(99, 99)
+        end
     end
 end
 
