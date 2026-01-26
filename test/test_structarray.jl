@@ -117,7 +117,6 @@ end
 
 @testset "StructArray view" begin
     for T in (Position, Position_Mod)
-
         a = StructArray(T)
         for i in 1:10
             push!(a, T(i, i))
