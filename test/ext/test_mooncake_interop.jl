@@ -37,11 +37,11 @@ using Random
         return sum(pos.x + pos.y for pos in all_positions)
     end
 
-    backend = AutoMooncake()
-
-    g = gradient(run_world, backend, (0.1, 0.5))
-    d_alpha, d_beta = g
-
-    @test 0.99 < (run_world((0.1 + 10e-5, 0.5)) - run_world((0.1, 0.5))) / (d_alpha * 10e-5) < 1.01
-    @test 0.99 < (run_world((0.1, 0.5 + 10e-5)) - run_world((0.1, 0.5))) / (d_beta * 10e-5) < 1.01
+    for backend in (AutoMooncake(), AutoMooncakeForward())
+        g = gradient(run_world, backend, [0.1, 0.5])
+        d_alpha, d_beta = g
+    
+        @test 0.99 < (run_world((0.1 + 10e-5, 0.5)) - run_world((0.1, 0.5))) / (d_alpha * 10e-5) < 1.01
+        @test 0.99 < (run_world((0.1, 0.5 + 10e-5)) - run_world((0.1, 0.5))) / (d_beta * 10e-5) < 1.01
+    end
 end
