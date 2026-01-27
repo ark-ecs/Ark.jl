@@ -214,7 +214,6 @@ end
     if q._q_lock.closed
         throw(InvalidStateException("query closed, queries can't be used multiple times", :batch_closed))
     end
-    q._q_lock.closed = true
 
     return Base.iterate(q, (1, 0))
 end
@@ -266,6 +265,9 @@ Closes the query and unlocks the world.
 Must be called if a query is not fully iterated.
 """
 function close!(q::Q) where {Q<:Query}
+    if q._q_lock.closed == true
+        return nothing
+    end
     _unlock(q._world._lock, q._lock)
     q._q_lock.closed = true
     return nothing
