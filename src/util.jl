@@ -82,7 +82,7 @@ function _format_type(T)
     end
 end
 
-@generated function shallow_copy(x::T) where T
+@generated function _shallow_copy(x::T) where T
     if T == Symbol || T == String
         return :(x)
     end
