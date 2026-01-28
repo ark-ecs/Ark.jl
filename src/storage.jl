@@ -125,7 +125,7 @@ end
         push!(exprs, :(push!(new_vec, old_vec[old_row])))
     elseif CP === Val{:copy} || all(T -> isbitstype(T), fieldtypes(C))
         # no deep copy required for types with all isbits fields
-        push!(exprs, :(push!(new_vec, shallow_copy(old_vec[old_row]))))
+        push!(exprs, :(push!(new_vec, _shallow_copy(old_vec[old_row]))))
     else # CP === Val{:deepcopy}
         # validity if checked before the call.
         push!(exprs, :(push!(new_vec, deepcopy(old_vec[old_row]))))
