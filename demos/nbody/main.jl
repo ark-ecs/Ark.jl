@@ -63,7 +63,7 @@ function initialize_world(n, backend)
     world = World(
         Position => Storage{T},
         Velocity => Storage{T},
-        Mass => Storage{T}
+        Mass => Storage{T},
     )
 
     for i in 1:n
