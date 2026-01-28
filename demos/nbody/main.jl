@@ -92,6 +92,7 @@ function nbody_simulation(n, dt, backend)
 
             vkernel(unpack(positions), unpack(velocities), unpack(masses),
                 n, dt, ndrange=n, workgroupsize=256)
+            KernelAbstractions.synchronize(backend)
             pkernel(unpack(positions), unpack(velocities),
                 dt, ndrange=n, workgroupsize=256)
             KernelAbstractions.synchronize(backend)
