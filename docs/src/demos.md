@@ -99,7 +99,7 @@ Dynamically adds and removes components to handle behavioral states.
 
 ## NBody
 
-A model simulating the [n-body problem](https://en.wikipedia.org/wiki/N-body_problem), where particles interacts through gravitational forces.
+A model simulating the [n-body problem](https://en.wikipedia.org/wiki/N-body_problem), where particles interact through gravitational forces.
 Exploits GPU computing for performance.
 [Source code](https://github.com/ark-ecs/Ark.jl/tree/main/demos/nbody).
 
