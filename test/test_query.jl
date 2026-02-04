@@ -32,6 +32,7 @@
                 new_entity!(world, (Altitude(1), Health(2)))
             )
             @test is_locked(world) == true
+            @test query._q_lock.closed == false
         end
         @test count == 10
         @test is_locked(world) == false
