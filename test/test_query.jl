@@ -35,6 +35,10 @@
         end
         @test count == 10
         @test is_locked(world) == false
+        @test query._q_lock.closed == true
+
+        # Should not raise
+        close!(query)
     end
 end
 
