@@ -74,5 +74,8 @@ end
             pos, = get_components(world, child, (Position,))
             @test pos == Position(i, i)
         end
+
+        reset!(world)
+        shuffle_entities!(f)
     end
 end
