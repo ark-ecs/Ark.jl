@@ -39,15 +39,6 @@ using Random
         @test values_in_order != expected_values_sorted
     end
 
-    @testset "Structure Array Shuffle" begin
-        # Model is likely a StructArray storage in TestTypes or setup?
-        # Check TestTypes.jl content? Assuming Model exists or similar.
-        # TestTypes.jl usually defines Position, Velocity etc.
-        # If Model is not defined, we skip or use Position (which might be StructArray depending on setup).
-        # In setup_default.jl: Position => Storage{StructArray} usually? 
-        # Let's assume Position is stored as StructArray based on standard Ark usage, but we can verify.
-    end
-
     @testset "Relations Shuffle" begin
         world = World(Position, ChildOf)
         
