@@ -2216,10 +2216,10 @@ function _shuffle_table!(rng::AbstractRNG, world::World, table::_Table)
     for i in len:-1:2
         j = @inline rand(rng, Random.Sampler(rng, Base.OneTo(i), Val(1)))
 
-        @inbounds entity_i = table.entities[i]
-        @inbounds entity_j = table.entities[j]
-        @inbounds table.entities[i] = entity_j
-        @inbounds table.entities[j] = entity_i
+        @inbounds entity_i = table.entities._data[i]
+        @inbounds entity_j = table.entities._data[j]
+        @inbounds table.entities._data[i] = entity_j
+        @inbounds table.entities._data[j] = entity_i
 
         @inbounds world._entities[entity_i._id] = _EntityIndex(table.id, j)
         @inbounds world._entities[entity_j._id] = _EntityIndex(table.id, i)
