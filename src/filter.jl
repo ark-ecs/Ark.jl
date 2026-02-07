@@ -347,8 +347,8 @@ end
     shuffle!(filter::Filter)
     shuffle!(rng::AbstractRNG, filter::Filter)
 
-Shuffles the entities matching the filter using a non-allocating Fisher-Yates shuffle.
-The shuffling is performed per-table (archetype) and respects entity-component relationships.
+Shuffles the entities matching the filter.
+The shuffling is performed per-table (archetype).
 """
 function Random.shuffle!(filter::F) where {F<:Filter}
     Random.shuffle!(Random.default_rng(), filter)

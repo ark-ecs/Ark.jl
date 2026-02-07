@@ -122,7 +122,7 @@ end
     new_table::UInt32,
     row::UInt32,
 ) where {C,A<:_AbstractStructArray}
-    names = fieldnames(A.parameters[1])
+    names = fieldnames(A.parameters[A <: StructArray ? 1 : 2])
     exprs_push_remove = Expr[]
     for name in names
         push!(exprs_push_remove, :(@inbounds push!(new_vec_comp.$name, old_vec_comp.$name[row])))
@@ -203,7 +203,7 @@ end
     arch::UInt32,
     row::UInt32,
 ) where {C,A<:_AbstractStructArray}
-    names = fieldnames(A.parameters[1])
+    names = fieldnames(A.parameters[A <: StructArray ? 1 : 2])
     exprs_remove = Expr[]
     for name in names
         push!(exprs_remove, :(_swap_remove!(getfield(col, :_components).$name, row)))
@@ -254,7 +254,7 @@ end
     i::Int,
     j::Int,
 ) where {C,A<:_AbstractStructArray}
-    names = fieldnames(A.parameters[1])
+    names = fieldnames(A.parameters[A <: StructArray ? 1 : 2])
     exprs_swap = Expr[]
     for name in names
         push!(exprs_swap, :(_swap_indices!(getfield(col, :_components).$name, i, j)))
