@@ -121,7 +121,7 @@ end
     old_table::UInt32,
     new_table::UInt32,
     row::UInt32,
-) where {C,A<:StructArray}
+) where {C,A<:_AbstractStructArray}
     names = fieldnames(A.parameters[1])
     exprs_push_remove = Expr[]
     for name in names
@@ -202,7 +202,7 @@ end
     s::_ComponentStorage{C,A},
     arch::UInt32,
     row::UInt32,
-) where {C,A<:StructArray}
+) where {C,A<:_AbstractStructArray}
     names = fieldnames(A.parameters[1])
     exprs_remove = Expr[]
     for name in names
@@ -253,7 +253,7 @@ end
     arch::UInt32,
     i::Int,
     j::Int,
-) where {C,A<:StructArray}
+) where {C,A<:_AbstractStructArray}
     names = fieldnames(A.parameters[1])
     exprs_swap = Expr[]
     for name in names

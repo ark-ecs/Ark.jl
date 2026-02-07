@@ -2217,15 +2217,15 @@ function _shuffle_table!(rng::AbstractRNG, world::World, table::_Table)
     for i in len:-1:2
         j = @inline rand(rng, Random.Sampler(rng, Base.OneTo(i), Val(1)))
 
-        # Swap entities in table
-        _swap_indices!(table.entities._data, i, j)
-
         # Update world entity index
         @inbounds entity_i = table.entities[i]
         @inbounds entity_j = table.entities[j]
+        @inbounds table.entities[i] = entity_j
+        @inbounds table.entities[j] = entity_i
 
-        @inbounds world._entities[entity_i._id] = _EntityIndex(table.id, i)
-        @inbounds world._entities[entity_j._id] = _EntityIndex(table.id, j)
+        # Update world entity index
+        @inbounds world._entities[entity_i._id] = _EntityIndex(table.id, j)
+        @inbounds world._entities[entity_j._id] = _EntityIndex(table.id, i)
 
         # Swap components
         for comp in archetype.components
