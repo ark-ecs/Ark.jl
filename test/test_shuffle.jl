@@ -2,7 +2,7 @@
 using Random
 
 @testset "Basic Shuffle" begin
-    world = World(Position, Velocity)
+    world = World(Position, Velocity => Storage{StructArray})
     N = 100
     ids = Vector{Entity}(undef, N)
     for i in 1:N
@@ -25,14 +25,14 @@ using Random
         pos_after[i] = p
     end
     @test pos_before == pos_after
-    
+
     values_in_order = []
     for (entities, positions, velocities) in Query(f)
         for (p, v) in zip(positions, velocities)
             push!(values_in_order, (p, v))
         end
     end
-    
+
     expected_values_sorted = [(Position(i, i), Velocity(i, i)) for i in 1:N]
     @test sort(values_in_order, by=pv->pv[1].x) == expected_values_sorted
     @test values_in_order != expected_values_sorted
@@ -40,29 +40,28 @@ end
 
 @testset "Relations Shuffle" begin
     world = World(Position, ChildOf)
-    
+
     parents = [new_entity!(world, (Position(i, i),)) for i in 1:100]
     children = [new_entity!(world, (Position(i, i), ChildOf()); relations=(ChildOf => parents[i],)) for i in 1:100]
-    
+
     f_parents = Filter(world, (Position,); without=(ChildOf,))
     shuffle_entities!(f_parents)
-    
+
     for i in 1:100
         child = children[i]
         target, = get_relations(world, child, (ChildOf,))
         @test target == parents[i]
     end
-    
+
     f_children = Filter(world, (ChildOf,))
     shuffle_entities!(f_children)
-    
+
     for i in 1:100
         child = children[i]
         target, = get_relations(world, child, (ChildOf,))
         @test target == parents[i]
-         
+
         pos, = get_components(world, child, (Position,))
         @test pos == Position(i, i)
     end
 end
-

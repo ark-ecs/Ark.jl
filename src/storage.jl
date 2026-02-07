@@ -243,7 +243,12 @@ function _activate_table_column!(rel::_ComponentRelations, table::Int, entity::E
     @inbounds rel.targets[table] = entity
 end
 
-@inline function _swap_component_data!(s::_ComponentStorage{C,A}, arch::UInt32, i::Int, j::Int) where {C,A<:AbstractArray}
+@inline function _swap_component_data!(
+    s::_ComponentStorage{C,A},
+    arch::UInt32,
+    i::Int,
+    j::Int,
+) where {C,A<:AbstractArray}
     @inbounds col = s.data[arch]
     _swap_indices!(col, i, j)
 end
