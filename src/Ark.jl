@@ -52,7 +52,7 @@ export Entity
 export is_zero
 
 export Query, Filter
-export close!, count_entities, unregister!
+export close!, count_entities, shuffle_entities!, unregister!
 
 export Entities
 

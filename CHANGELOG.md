@@ -11,6 +11,7 @@
 - Adds support for user-defined storage types (#437)
 - Adds a new type GPUVector which can be used to offload work to the GPU (#470, #476)
 - Adds support for UniqueVector storage (#481)
+- Adds support for shuffling tables based on filters (#527)
 
 ### Performance
 

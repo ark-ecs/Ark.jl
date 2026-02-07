@@ -344,17 +344,17 @@ function Base.show(io::IO, filter::Filter{W,CT,EX,OPT,REG,M}) where {W<:World,CT
 end
 
 """
-    shuffle!(filter::Filter)
-    shuffle!(rng::AbstractRNG, filter::Filter)
+    shuffle_entities!(filter::Filter)
+    shuffle_entities!(rng::AbstractRNG, filter::Filter)
 
 Shuffles the entities matching the filter.
 The shuffling is performed per-table (archetype).
 """
-function Random.shuffle!(filter::F) where {F<:Filter}
-    Random.shuffle!(Random.default_rng(), filter)
+function shuffle_entities!(filter::F) where {F<:Filter}
+    shuffle_entities!(Random.default_rng(), filter)
 end
 
-function Random.shuffle!(rng::AbstractRNG, filter::F) where {F<:Filter}
+function shuffle_entities!(rng::AbstractRNG, filter::F) where {F<:Filter}
     if _is_cached(filter._filter)
         for table_id in filter._filter.tables.ids
             table = @inbounds filter._world._tables[table_id]
