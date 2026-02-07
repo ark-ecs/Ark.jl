@@ -342,3 +342,67 @@ function Base.show(io::IO, filter::Filter{W,CT,EX,OPT,REG,M}) where {W<:World,CT
         print(io, "Filter(($required_names); ", join(kw_parts, ", "), ")")
     end
 end
+
+"""
+    shuffle!(filter::Filter)
+    shuffle!(rng::AbstractRNG, filter::Filter)
+
+Shuffles the entities matching the filter using a non-allocating Fisher-Yates shuffle.
+The shuffling is performed per-table (archetype) and respects entity-component relationships.
+"""
+function Random.shuffle!(filter::F) where {F<:Filter}
+    Random.shuffle!(Random.default_rng(), filter)
+end
+
+function Random.shuffle!(rng::AbstractRNG, filter::F) where {F<:Filter}
+    if _is_cached(filter._filter)
+        for table_id in filter._filter.tables.ids
+            table = @inbounds filter._world._tables[table_id]
+            if !isempty(table.entities)
+                _shuffle_table!(rng, filter._world, table)
+            end
+        end
+    else
+        arches, arches_hot = _get_archetypes(filter._world, filter)
+        _shuffle(rng, filter._world, filter._filter, arches, arches_hot)
+    end
+    return filter
+end
+
+function _shuffle(
+    rng::AbstractRNG,
+    world::W,
+    filter::_MaskFilter{M},
+    archetypes::Vector{_Archetype{M}},
+    archetypes_hot::Vector{_ArchetypeHot{M}},
+) where {W<:World,M}
+    for i in eachindex(archetypes)
+        archetype_hot = @inbounds archetypes_hot[i]
+        if !_matches(filter, archetype_hot)
+            continue
+        end
+
+        if !archetype_hot.has_relations
+            table = @inbounds world._tables[Int(archetype_hot.table)]
+            if isempty(table.entities)
+                continue
+            end
+            _shuffle_table!(rng, world, table)
+            continue
+        end
+
+        archetype = @inbounds archetypes[i]
+        if isempty(archetype.tables)
+            continue
+        end
+
+        tables = _get_tables(world, archetype, filter.relations)
+        for table_id in tables
+            table = @inbounds world._tables[Int(table_id)]
+            if !isempty(table.entities) && _matches(world._relations, table, filter.relations)
+                _shuffle_table!(rng, world, table)
+            end
+        end
+    end
+end
+

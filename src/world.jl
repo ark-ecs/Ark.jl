@@ -2193,3 +2193,44 @@ function _check_relation_target(world::World, target::Entity)
         throw(ArgumentError("can't use a dead entity as relation target, except for the zero entity"))
     end
 end
+
+@generated function _swap_components!(
+    world::World{CS},
+    comp::Int,
+    table::UInt32,
+    i::Int,
+    j::Int,
+) where {CS<:Tuple}
+    expr = _generate_component_switch(CS, :comp,
+        k -> :(@inbounds _swap_component_data!(world._storages[$k], table, i, j)))
+    quote
+        $expr
+        return
+    end
+end
+
+function _shuffle_table!(rng::AbstractRNG, world::World, table::_Table)
+    len = length(table)
+    archetype = world._archetypes[table.archetype]
+
+    # Iterate backwards from end of table
+    for i in len:-1:2
+        j = @inline rand(rng, Random.Sampler(rng, Base.OneTo(i), Val(1)))
+
+        # Swap entities in table
+        _swap_indices!(table.entities._data, i, j)
+
+        # Update world entity index
+        @inbounds entity_i = table.entities[i]
+        @inbounds entity_j = table.entities[j]
+
+        @inbounds world._entities[entity_i._id] = _EntityIndex(table.id, i)
+        @inbounds world._entities[entity_j._id] = _EntityIndex(table.id, j)
+
+        # Swap components
+        for comp in archetype.components
+            _swap_components!(world, comp, table.id, i, j)
+        end
+    end
+    return
+end

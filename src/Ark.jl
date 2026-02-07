@@ -4,6 +4,7 @@ using FieldViews
 using Preferences
 using StaticArrays
 using FunctionWrappers: FunctionWrapper
+using Random
 
 isdefined(@__MODULE__, :Memory) || const Memory = Vector # Compat for Julia < 1.11
 
