@@ -1,7 +1,7 @@
 name = "Ark"
 uuid = "56664e29-41e4-4ea5-ab0e-825499acc647"
-authors = ["Martin Lange <martin_lange_@gmx.net>", "Adriano Meligrana <adriano.meligrana@centai.eu>"]
 version = "0.3.2"
+authors = ["Martin Lange <martin_lange_@gmx.net>", "Adriano Meligrana <adriano.meligrana@centai.eu>"]
 
 [deps]
 FieldViews = "ff5a1669-b1f2-423e-bbd7-b7fa0f7e0224"
