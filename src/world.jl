@@ -2201,12 +2201,8 @@ end
     i::Int,
     j::Int,
 ) where {CS<:Tuple}
-    expr = _generate_component_switch(CS, :comp,
-        k -> :(@inbounds _swap_component_data!(world._storages[$k], table, i, j)))
-    quote
-        $expr
-        return
-    end
+    _generate_component_switch(CS, :comp,
+        k -> :(_swap_component_data!(world._storages.$k, table, i, j)))
 end
 
 function _shuffle_table!(rng::AbstractRNG, world::World, table::_Table)
