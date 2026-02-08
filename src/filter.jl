@@ -355,6 +355,7 @@ function shuffle_entities!(filter::F) where {F<:Filter}
 end
 
 function shuffle_entities!(rng::AbstractRNG, filter::F) where {F<:Filter}
+    _check_locked(filter._world)
     if _is_cached(filter._filter)
         for table_id in filter._filter.tables.ids
             table = @inbounds filter._world._tables[table_id]
