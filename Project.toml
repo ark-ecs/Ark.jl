@@ -1,6 +1,6 @@
 name = "Ark"
 uuid = "56664e29-41e4-4ea5-ab0e-825499acc647"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["Martin Lange <martin_lange_@gmx.net>", "Adriano Meligrana <adriano.meligrana@centai.eu>"]
 
 [deps]
@@ -8,6 +8,7 @@ FieldViews = "ff5a1669-b1f2-423e-bbd7-b7fa0f7e0224"
 FunctionWrappers = "069b7b12-0de2-55c6-9aab-29f3d0a68a2e"
 PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 Preferences = "21216c6a-2e73-6563-6e65-726566657250"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [weakdeps]
@@ -39,6 +40,7 @@ oneAPI = "2"
 OpenCL = "0.10"
 PrecompileTools = "1"
 Preferences = "1"
+Random = "1"
 StaticArrays = "1"
 UniqueVectors = "1"
 julia = "1.10"

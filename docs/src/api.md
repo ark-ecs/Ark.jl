@@ -80,6 +80,7 @@ Filter
 Filter(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)
 unregister!
 count_entities
+shuffle_entities!
 length
 Entities
 @unpack
