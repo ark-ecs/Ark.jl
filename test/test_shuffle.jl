@@ -76,6 +76,7 @@ end
         end
 
         reset!(world)
-        shuffle_entities!(f)
+        shuffle_entities!(f_parents)
+        shuffle_entities!(f_children)
     end
 end
