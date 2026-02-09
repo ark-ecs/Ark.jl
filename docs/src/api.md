@@ -116,6 +116,14 @@ observe!
 emit_event!
 ```
 
+## Utilities
+
+General helpers and utilities.
+
+```@docs
+@unchecked
+```
+
 ## Index
 
 ```@index
