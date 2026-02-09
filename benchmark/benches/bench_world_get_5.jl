@@ -36,7 +36,6 @@ function benchmark_world_get_5_unchecked(args, n)
     end
 end
 
-
 for n in (100, 10_000)
     SUITE["benchmark_world_get_5 n=$(n)"] =
         @be setup_world_get_5($n) benchmark_world_get_5(_, $n) evals = 100 seconds = SECONDS
@@ -46,4 +45,3 @@ for n in (100, 10_000)
     SUITE["benchmark_world_get_5_unchecked n=$(n)"] =
         @be setup_world_get_5($n) benchmark_world_get_5_unchecked(_, $n) evals = 100 seconds = SECONDS
 end
-
