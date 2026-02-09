@@ -184,7 +184,6 @@ end
         remove::Tuple=(),
         relations::Tuple=(),
         mode=:copy,
-        unchecked=false,
     )
 
 Copies an [Entity](@ref), optionally adding and/or removing components.
@@ -199,7 +198,6 @@ Mutable and non-isbits components are shallow copied by default. This can be cha
   - `remove::Tuple`: Component types to remove, like `(Position,Velocity)`.
   - `relations::Tuple`: Relationship component type => target entity pairs.
   - `mode::Tuple`: Copy mode for mutable and non-isbits components. Modes are :ref, :copy, :deepcopy.
-  - `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity passed.
 
 # Examples
 
@@ -231,10 +229,10 @@ Entity(5, 0)
     add::Tuple=(), remove::Tuple=(),
     relations::Tuple{Vararg{Pair{DataType,Entity}}}=(),
     mode::Symbol=:copy,
-    unchecked::Bool=false,
+    _unchecked::Bool=false,
 )
     if isempty(add) && isempty(remove) && isempty(relations)
-        return @inline _copy_entity!(world, entity, Val(mode), Val(unchecked))
+        return @inline _copy_entity!(world, entity, Val(mode), Val(_unchecked))
     end
     rel_types = ntuple(i -> Val(relations[i].first), length(relations))
     targets = ntuple(i -> relations[i].second, length(relations))
@@ -246,7 +244,7 @@ Entity(5, 0)
         ntuple(i -> Val(remove[i]), length(remove)),
         rel_types, targets,
         Val(mode),
-        Val(unchecked),
+        Val(_unchecked),
     )
 end
 
@@ -264,8 +262,8 @@ remove_entity!(world, entity)
 
 ```
 """
-Base.@constprop :aggressive function remove_entity!(world::World, entity::Entity; unchecked::Bool=false)
-    return _remove_entity!(world, entity, Val(unchecked))
+Base.@constprop :aggressive function remove_entity!(world::World, entity::Entity; _unchecked::Bool=false)
+    return _remove_entity!(world, entity, Val(_unchecked))
 end
 
 @generated function _remove_entity!(world::W, entity::Entity, ::Val{Unchecked}) where {W<:World,Unchecked}
@@ -333,15 +331,10 @@ end
 end
 
 """
-    get_components(world::World, entity::Entity, comp_types::Tuple; unchecked=false)
+    get_components(world::World, entity::Entity, comp_types::Tuple)
 
 Get the given components for an [Entity](@ref).
 Components are returned as a tuple.
-
-# Keywords
-
-  - `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity
-    and the presence of the components.
 
 # Example
 
@@ -357,19 +350,15 @@ pos, vel = get_components(world, entity, (Position, Velocity))
     world::World,
     entity::Entity,
     comp_types::Tuple;
-    unchecked::Bool=false,
+    _unchecked::Bool=false,
 )
-    return @inline _get_components(world, entity, ntuple(i -> Val(comp_types[i]), length(comp_types)), Val(unchecked))
+    return @inline _get_components(world, entity, ntuple(i -> Val(comp_types[i]), length(comp_types)), Val(_unchecked))
 end
 
 """
-    has_components(world::World, entity::Entity, comp_types::Tuple; unchecked=false)::Bool
+    has_components(world::World, entity::Entity, comp_types::Tuple)::Bool
 
 Returns whether an [Entity](@ref) has all given components.
-
-# Keywords
-
-  - `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity
 
 # Example
 
@@ -385,9 +374,9 @@ true
     world::World,
     entity::Entity,
     comp_types::Tuple;
-    unchecked::Bool=false,
+    _unchecked::Bool=false,
 )
-    return @inline _has_components(world, entity, ntuple(i -> Val(comp_types[i]), length(comp_types)), Val(unchecked))
+    return @inline _has_components(world, entity, ntuple(i -> Val(comp_types[i]), length(comp_types)), Val(_unchecked))
 end
 
 """
@@ -395,11 +384,6 @@ end
 
 Sets the given component values for an [Entity](@ref). Types are inferred from the values.
 The entity must already have all these components.
-
-# Keywords
-
-  - `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity
-    and the presence of the components.
 
 # Example
 
@@ -414,21 +398,16 @@ set_components!(world, entity, (Position(0, 0), Velocity(1, 1)))
     world::World,
     entity::Entity,
     values::Tuple;
-    unchecked::Bool=false,
+    _unchecked::Bool=false,
 )
-    return @inline _set_components!(world, entity, Val{typeof(values)}(), values, Val(unchecked))
+    return @inline _set_components!(world, entity, Val{typeof(values)}(), values, Val(_unchecked))
 end
 
 """
-    get_relations(world::World, entity::Entity, relations::Tuple; unchecked=false)
+    get_relations(world::World, entity::Entity, relations::Tuple)
 
 Get the relation targets for components of an [Entity](@ref).
 Targets are returned as a tuple.
-
-# Keywords
-
-  - `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity
-    and the presence of the relations.
 
 # Example
 
@@ -444,21 +423,16 @@ parent, = get_relations(world, entity, (ChildOf,))
     world::W,
     entity::Entity,
     comp_types::Tuple;
-    unchecked::Bool=false,
+    _unchecked::Bool=false,
 ) where {W<:World}
-    return @inline _get_relations(world, entity, ntuple(i -> Val(comp_types[i]), length(comp_types)), Val(unchecked))
+    return @inline _get_relations(world, entity, ntuple(i -> Val(comp_types[i]), length(comp_types)), Val(_unchecked))
 end
 
 """
-    set_relations!(world::World, entity::Entity, relations::Tuple; unchecked=false)
+    set_relations!(world::World, entity::Entity, relations::Tuple)
 
 Sets relation targets for the given components of an [Entity](@ref).
 The entity must already have all these relationship components.
-
-# Keywords
-
-  - `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity
-    and the presence of the relations.
 
 # Example
 
@@ -473,21 +447,17 @@ set_relations!(world, entity, (ChildOf => parent,))
     world::W,
     entity::Entity,
     relations::Tuple;
-    unchecked::Bool=false,
+    _unchecked::Bool=false,
 ) where {W<:World}
     rel_types = ntuple(i -> Val(relations[i].first), length(relations))
     targets = ntuple(i -> relations[i].second, length(relations))
-    return @inline _set_relations!(world, entity, rel_types, targets, Val(unchecked))
+    return @inline _set_relations!(world, entity, rel_types, targets, Val(_unchecked))
 end
 
 """
-    add_components!(world::World, entity::Entity, values::Tuple; relations::Tuple; unchecked=false)
+    add_components!(world::World, entity::Entity, values::Tuple; relations::Tuple)
 
 Adds the given component values to an [Entity](@ref). Types are inferred from the values.
-
-# Keywords
-
-  - `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity.
 
 # Example
 
@@ -503,22 +473,18 @@ add_components!(world, entity, (Health(100),))
     entity::Entity,
     values::Tuple;
     relations::Tuple{Vararg{Pair{DataType,Entity}}}=(),
-    unchecked::Bool=false,
+    _unchecked::Bool=false,
 )
     rel_types = ntuple(i -> Val(relations[i].first), length(relations))
     targets = ntuple(i -> relations[i].second, length(relations))
     return @inline _exchange_components!(world, entity, Val{typeof(values)}(), values, (), rel_types, targets,
-        Val(unchecked), Val(:add))
+        Val(_unchecked), Val(:add))
 end
 
 """
-    remove_components!(world::World, entity::Entity, comp_types::Tuple; unchecked=false)
+    remove_components!(world::World, entity::Entity, comp_types::Tuple)
 
 Removes the given components from an [Entity](@ref).
-
-# Keywords
-
-  - `unchecked::Bool`: If `true`, no check is performed about the aliveness of the entity.
 
 # Example
 
@@ -533,7 +499,7 @@ remove_components!(world, entity, (Position, Velocity))
     world::World,
     entity::Entity,
     comp_types::Tuple;
-    unchecked::Bool=false,
+    _unchecked::Bool=false,
 )
     return @inline _exchange_components!(
         world,
@@ -541,7 +507,7 @@ remove_components!(world, entity, (Position, Velocity))
         Val{Tuple{}}(),
         (),
         ntuple(i -> Val(comp_types[i]), length(comp_types)),
-        (), (), Val(unchecked), Val(:remove),
+        (), (), Val(_unchecked), Val(:remove),
     )
 end
 
@@ -552,11 +518,9 @@ end
         add::Tuple=(),
         remove::Tuple=(),
         relations::Tuple=(),
-        unchecked=false
     )
 
 Adds and removes components on an [Entity](@ref). Types are inferred from the add values.
-If `unchecked` is `true`, no check is performed about the aliveness of the entity.
 
 # Example
 
@@ -576,7 +540,7 @@ exchange_components!(world, entity;
     add::Tuple=(),
     remove::Tuple=(),
     relations::Tuple{Vararg{Pair{DataType,Entity}}}=(),
-    unchecked::Bool=false,
+    _unchecked::Bool=false,
 )
     rel_types = ntuple(i -> Val(relations[i].first), length(relations))
     targets = ntuple(i -> relations[i].second, length(relations))
@@ -587,7 +551,7 @@ exchange_components!(world, entity;
         add,
         ntuple(i -> Val(remove[i]), length(remove)),
         rel_types, targets,
-        Val(unchecked), Val(:exchange),
+        Val(_unchecked), Val(:exchange),
     )
 end
 

@@ -35,6 +35,7 @@ include("observer.jl")
 include("filter.jl")
 include("query.jl")
 include("batch_ops.jl")
+include("unchecked.jl")
 !_is_testing() && include("precompile.jl")
 
 #include("docs.jl") # doctest setup
@@ -61,7 +62,10 @@ export OnCreateEntity, OnRemoveEntity, OnAddComponents, OnRemoveComponents
 export OnAddRelations, OnRemoveRelations
 
 export Observer, observe!, emit_event!
+
 export unpack, @unpack
+
+export @unchecked
 
 export Relationship
 
