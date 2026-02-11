@@ -170,6 +170,35 @@ end
     end
 end
 
+@generated function _copy_component_data!(
+    s::_ComponentStorage{C,A},
+    old_table::UInt32,
+    new_table::UInt32,
+    old_row::UInt32,
+    ::CP,
+) where {C,A<:_AbstractStructArray,CP}
+    names = fieldnames(C)
+    exprs = Expr[]
+    for name in names
+        f_type = fieldtype(C, name)
+        if CP === Val{:ref} || isbitstype(f_type)
+            push!(exprs, :(@inbounds push!(new_vec_comp.$name, old_vec_comp.$name[old_row])))
+        elseif CP === Val{:copy} || all(T -> isbitstype(T), fieldtypes(f_type))
+            push!(exprs, :(@inbounds push!(new_vec_comp.$name, _shallow_copy(old_vec_comp.$name[old_row]))))
+        else # CP === Val{:deepcopy}
+            push!(exprs, :(@inbounds push!(new_vec_comp.$name, deepcopy(old_vec_comp.$name[old_row]))))
+        end
+    end
+    quote
+        @inbounds old_vec = s.data[old_table]
+        @inbounds new_vec = s.data[new_table]
+        old_vec_comp = getfield(old_vec, :_components)
+        new_vec_comp = getfield(new_vec, :_components)
+        $(exprs...)
+        return nothing
+    end
+end
+
 function _copy_component_data_to_end!(
     s::_ComponentStorage{C,A},
     old_table::UInt32,
