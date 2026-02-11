@@ -10,13 +10,14 @@ end
 A query for components. See function
 [Query](@ref Query(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)) for details.
 """
-struct Query{W<:World,TS<:Tuple,SM<:Tuple,EX,OPT,REG,N,M}
+struct Query{W<:World,TS<:Tuple,SM<:Tuple,EX,OPT,REG,N,M,QS<:Tuple}
     _filter::_MaskFilter{M}
     _archetypes::Vector{_Archetype{M}}
     _archetypes_hot::Vector{_ArchetypeHot{M}}
     _q_lock::_QueryCursor
     _world::W
     _lock::Int
+    _storages::QS
 end
 
 """
@@ -122,20 +123,24 @@ end
     required_ids = [_component_id(CS, comp_types[i]) for i in 1:length(comp_types) if optional_flags[i] === Val{false}]
     ids_tuple = tuple(required_ids...)
 
-    # TODO: skit this for cached filters
+    # TODO: skip this for cached filters
     archetypes =
         length(ids_tuple) == 0 ? :((filter._world._archetypes, filter._world._archetypes_hot)) :
         :(_get_archetypes(filter._world, $ids_tuple))
 
+    storages_types = Tuple(CS.parameters[_component_id(W.parameters[1], T)] for T in comp_types)
+    storages_expr = Expr(:tuple, [:(filter._world._storages[$(_component_id(W.parameters[1], T))]) for T in comp_types]...)
+
     return quote
         arches, hot = $(archetypes)
-        Query{$W,$TS,$storage_tuple_mode,$EX,$OPT,$REG,$(length(comp_types)),$M}(
+        Query{$W,$TS,$storage_tuple_mode,$EX,$OPT,$REG,$(length(comp_types)),$M,$storages_types}(
             filter._filter,
             arches,
             hot,
             _QueryCursor(_empty_tables, false),
             filter._world,
             _lock(filter._world._lock),
+            $storages_expr,
         )
     end
 end
@@ -274,9 +279,9 @@ function close!(q::Q) where {Q<:Query}
 end
 
 @generated function _get_columns(
-    q::Query{W,TS,SM,EX,OPT,REG,N,M},
+    q::Query{W,TS,SM,EX,OPT,REG,N,M,QS},
     table::_Table,
-) where {W<:World,TS<:Tuple,SM<:Tuple,EX,OPT,REG,N,M}
+) where {W<:World,TS<:Tuple,SM<:Tuple,EX,OPT,REG,N,M,QS}
     comp_types = TS.parameters
     storage_modes = SM.parameters
     is_optional = OPT.parameters
@@ -287,7 +292,7 @@ end
         stor_sym = Symbol("stor", i)
         col_sym = Symbol("col", i)
         vec_sym = Symbol("vec", i)
-        push!(exprs, :(@inbounds $stor_sym = _get_storage(q._world, $(comp_types[i]))))
+        push!(exprs, :(@inbounds $stor_sym = q._storages[$i]))
         push!(exprs, :(@inbounds $col_sym = $stor_sym.data[table.id]))
 
         if is_optional[i] === Val{true}
@@ -315,7 +320,7 @@ end
         push!(result_exprs, Symbol("vec", i))
     end
 
-    element_type = :(Base.eltype(Query{W,TS,SM,EX,OPT,REG,N,M}))
+    element_type = :(Base.eltype(Query{W,TS,SM,EX,OPT,REG,N,M,QS}))
 
     result_exprs = map(x -> :($x), result_exprs)
     tuple_expr = Expr(:tuple, result_exprs...)
@@ -331,8 +336,8 @@ end
 Base.IteratorSize(::Type{<:Query}) = Base.SizeUnknown()
 
 @generated function Base.eltype(
-    ::Type{Query{W,TS,SM,EX,OPT,REG,N,M}},
-) where {W<:World,TS<:Tuple,SM<:Tuple,EX,OPT,REG,N,M}
+    ::Type{Query{W,TS,SM,EX,OPT,REG,N,M,QS}},
+) where {W<:World,TS<:Tuple,SM<:Tuple,EX,OPT,REG,N,M,QS}
     comp_types = TS.parameters
     storage_modes = SM.parameters
     is_optional = OPT.parameters
@@ -365,7 +370,7 @@ Base.IteratorSize(::Type{<:Query}) = Base.SizeUnknown()
     end
 end
 
-function Base.show(io::IO, query::Query{W,CT,SM,EX}) where {W<:World,CT<:Tuple,SM<:Tuple,EX<:Val}
+function Base.show(io::IO, query::Query{W,CT,SM,EX,OPT,REG,N,M,QS}) where {W<:World,CT<:Tuple,SM<:Tuple,EX<:Val,OPT,REG,N,M,QS}
     world_types = W.parameters[2].parameters
     comp_types = CT.parameters
 
