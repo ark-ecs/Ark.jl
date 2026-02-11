@@ -128,7 +128,7 @@ end
         length(ids_tuple) == 0 ? :((filter._world._archetypes, filter._world._archetypes_hot)) :
         :(_get_archetypes(filter._world, $ids_tuple))
 
-    storages_types = [CS.parameters[_component_id(W.parameters[1], T)] for T in comp_types)]
+    storages_types = [CS.parameters[_component_id(W.parameters[1], T)] for T in comp_types]
     storage_tuple_type = Expr(:curly, :Tuple, storages_types...)
     storages_expr = Expr(:tuple, [:(filter._world._storages[$(_component_id(W.parameters[1], T))]) for T in comp_types]...)
 
