@@ -176,7 +176,7 @@ end
     new_table::UInt32,
     old_row::UInt32,
     ::CP,
-) where {C,A<:_AbstractStructArray,CP}
+) where {C,A<:_AbstractStructArray,CP<:Val}
     names = fieldnames(C)
     exprs = Expr[]
     for name in names
