@@ -38,7 +38,8 @@ The World is the central storage for [entities](@ref Entities),
 See the constructor [World](@ref World(::Union{Type,Pair}...; ::Int, ::Bool)) for details.
 """
 mutable struct World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M} <: _AbstractWorld
-    const _entities::Vector{_EntityIndex}
+    const _entity_tables::Vector{UInt32}
+    const _entity_rows::Vector{UInt32}
     const _targets::BitVector
     const _storages::CS
     const _relations::Vector{_ComponentRelations}
@@ -281,8 +282,9 @@ end
         $check_expr
         _check_locked(world)
 
-        @inbounds index = world._entities[entity._id]
-        @inbounds table = world._tables[index.table]
+        @inbounds _etable = world._entity_tables[entity._id]
+        @inbounds _erow   = world._entity_rows[entity._id]
+        @inbounds table = world._tables[_etable]
         @inbounds archetype = world._archetypes[table.archetype]
 
         has_entity_obs = _has_observers(world._event_manager, OnRemoveEntity)
@@ -298,20 +300,21 @@ end
             _unlock(world._lock, l)
         end
 
-        swapped = _swap_remove!(table.entities._data, index.row)
+        swapped = _swap_remove!(table.entities._data, _erow)
 
         # Only operate on storages for components present in this archetype
         for comp in archetype.components
             $(
                 inline_jtable ?
-                :(@inline _swap_remove_in_column_for_comp!(world, comp, index.table, index.row)) :
-                :(_swap_remove_in_column_for_comp!(world, comp, index.table, index.row))
+                :(@inline _swap_remove_in_column_for_comp!(world, comp, _etable, _erow)) :
+                :(_swap_remove_in_column_for_comp!(world, comp, _etable, _erow))
             )
         end
 
         if swapped
-            @inbounds swap_entity = table.entities[index.row]
-            @inbounds world._entities[swap_entity._id] = index
+            @inbounds swap_entity = table.entities[_erow]
+            @inbounds world._entity_tables[swap_entity._id] = _etable
+            @inbounds world._entity_rows[swap_entity._id] = _erow
         end
 
         _recycle(world._entity_pool, entity)
@@ -674,7 +677,8 @@ Accelerates re-populating the world by a factor of 2-3.
 function reset!(world::W) where {W<:World}
     _check_locked(world)
 
-    resize!(world._entities, 1)
+    resize!(world._entity_tables, 1)
+    resize!(world._entity_rows, 1)
     resize!(world._targets, 1)
     _reset!(world._entity_pool)
     _reset!(world._lock)
@@ -782,15 +786,18 @@ end
         registry = _ComponentRegistry()
         ids = $id_tuple
         graph = _Graph{$(M)}()
-        index = _EntityIndex[_EntityIndex(typemax(UInt32), 0)]
-        sizehint!(index, initial_capacity)
+        entity_tables = UInt32[typemax(UInt32)]
+        entity_rows = UInt32[0]
+        sizehint!(entity_tables, initial_capacity)
+        sizehint!(entity_rows, initial_capacity)
         targets = BitVector((false,))
         sizehint!(targets, initial_capacity)
 
         node = graph.nodes[$start_mask]
 
         World{$(storage_tuple_type),$(component_tuple_type),$(storage_mode_type),$(length(types)),$M}(
-            index,
+            entity_tables,
+            entity_rows,
             targets,
             $storage_tuple,
             $relations_vec,
@@ -1315,11 +1322,13 @@ end
 
         index = _add_entity!(table, entity)
 
-        if entity._id > length(world._entities)
-            push!(world._entities, _EntityIndex(table_index, UInt32(index)))
+        if entity._id > length(world._entity_tables)
+            push!(world._entity_tables, table_index)
+            push!(world._entity_rows, UInt32(index))
             $(world_has_rel ? :(push!(world._targets, false)) : (:(nothing)))
         else
-            @inbounds world._entities[Int(entity._id)] = _EntityIndex(table_index, UInt32(index))
+            @inbounds world._entity_tables[Int(entity._id)] = table_index
+            @inbounds world._entity_rows[Int(entity._id)] = UInt32(index)
             $(world_has_rel ? :(@inbounds world._targets[Int(entity._id)] = false) : (:(nothing)))
         end
         return entity, index
@@ -1342,11 +1351,13 @@ end
             entity = _get_entity(world._entity_pool)
             @inbounds table.entities._data[i] = entity
 
-            if entity._id > length(world._entities)
-                push!(world._entities, _EntityIndex(table_index, i))
+            if entity._id > length(world._entity_tables)
+                push!(world._entity_tables, table_index)
+                push!(world._entity_rows, UInt32(i))
                 $(world_has_rel ? :(push!(world._targets, false)) : (:(nothing)))
             else
-                @inbounds world._entities[Int(entity._id)] = _EntityIndex(table_index, i)
+                @inbounds world._entity_tables[Int(entity._id)] = table_index
+                @inbounds world._entity_rows[Int(entity._id)] = UInt32(i)
                 $(world_has_rel ? :(@inbounds world._targets[Int(entity._id)] = false) : (:(nothing)))
             end
         end
@@ -1362,7 +1373,8 @@ end
 @inline @generated function _move_entity!(
     world::W,
     entity::Entity,
-    index::_EntityIndex,
+    old_table_index::UInt32,
+    old_row::UInt32,
     old_table::_Table,
     new_table::_Table,
     table_index::UInt32,
@@ -1372,14 +1384,16 @@ end
         _check_locked(world)
 
         new_row = _add_entity!(new_table, entity)
-        swapped = _swap_remove!(old_table.entities._data, index.row)
+        swapped = _swap_remove!(old_table.entities._data, old_row)
 
         if swapped
-            @inbounds swap_entity = old_table.entities[index.row]
-            @inbounds world._entities[swap_entity._id] = index
+            @inbounds swap_entity = old_table.entities[old_row]
+            @inbounds world._entity_tables[swap_entity._id] = old_table_index
+            @inbounds world._entity_rows[swap_entity._id] = old_row
         end
 
-        @inbounds world._entities[entity._id] = _EntityIndex(table_index, UInt32(new_row))
+        @inbounds world._entity_tables[entity._id] = table_index
+        @inbounds world._entity_rows[entity._id] = UInt32(new_row)
 
         @inbounds old_archetype = world._archetypes[old_table.archetype]
         @inbounds new_archetype = world._archetypes[new_table.archetype]
@@ -1389,14 +1403,14 @@ end
             if _get_bit(new_archetype.node.mask, comp)
                 $(
                     inline_jtable ?
-                    :(@inline _move_component_data!(world, comp, index.table, table_index, index.row)) :
-                    :(_move_component_data!(world, comp, index.table, table_index, index.row))
+                    :(@inline _move_component_data!(world, comp, old_table_index, table_index, old_row)) :
+                    :(_move_component_data!(world, comp, old_table_index, table_index, old_row))
                 )
             else
                 $(
                     inline_jtable ?
-                    :(@inline _swap_remove_in_column_for_comp!(world, comp, index.table, index.row)) :
-                    :(_swap_remove_in_column_for_comp!(world, comp, index.table, index.row))
+                    :(@inline _swap_remove_in_column_for_comp!(world, comp, old_table_index, old_row)) :
+                    :(_swap_remove_in_column_for_comp!(world, comp, old_table_index, old_row))
                 )
             end
         end
@@ -1428,7 +1442,8 @@ function _move_entities!(world::World, old_table_index::UInt32, table_index::UIn
         to = old_entities + from
         entity = old_table.entities[from]
         new_table.entities._data[to] = entity
-        world._entities[entity._id] = _EntityIndex(new_table.id, to)
+        world._entity_tables[entity._id] = new_table.id
+        world._entity_rows[entity._id] = UInt32(to)
     end
     for comp in old_archetype.components
         if _get_bit(new_archetype.node.mask, comp)
@@ -1456,20 +1471,22 @@ end
         ) : nothing)
         _check_locked(world)
 
-        index = world._entities[entity._id]
-        new_entity, new_row = _create_entity!(world, index.table)
-        table = world._tables[index.table]
+        _etable = world._entity_tables[entity._id]
+        _erow   = world._entity_rows[entity._id]
+        new_entity, new_row = _create_entity!(world, _etable)
+        table = world._tables[_etable]
         archetype = world._archetypes[table.archetype]
 
         for comp in archetype.components
             $(
                 inline_jtable ?
-                :(@inline _copy_component_data!(world, comp, index.table, index.table, index.row, mode)) :
-                :(_copy_component_data!(world, comp, index.table, index.table, index.row, mode))
+                :(@inline _copy_component_data!(world, comp, _etable, _etable, _erow, mode)) :
+                :(_copy_component_data!(world, comp, _etable, _etable, _erow, mode))
             )
         end
 
-        world._entities[new_entity._id] = _EntityIndex(index.table, UInt32(new_row))
+        world._entity_tables[new_entity._id] = _etable
+        world._entity_rows[new_entity._id] = UInt32(new_row)
 
         if _has_observers(world._event_manager, OnCreateEntity)
             _fire_create_entity(world._event_manager, new_entity, archetype.node.mask)
@@ -1525,8 +1542,9 @@ end
     end
 
     world_has_rel = Val{_has_relations(CS)}()
-    push!(exprs, :(index = world._entities[entity._id]))
-    push!(exprs, :(old_table = world._tables[index.table]))
+    push!(exprs, :(_etable = world._entity_tables[entity._id]))
+    push!(exprs, :(_erow   = world._entity_rows[entity._id]))
+    push!(exprs, :(old_table = world._tables[_etable]))
     push!(exprs, :(old_archetype = world._archetypes[old_table.archetype]))
     push!(
         exprs,
@@ -1551,7 +1569,7 @@ end
                 if !_get_bit(new_archetype.mask, comp)
                     continue
                 end
-                _copy_component_data!(world, comp, index.table, new_table_index, index.row, mode)
+                _copy_component_data!(world, comp, _etable, new_table_index, _erow, mode)
             end
         ),
     )
@@ -1603,7 +1621,8 @@ end
         ))
     end
 
-    push!(exprs, :(@inbounds idx = world._entities[entity._id]))
+    push!(exprs, :(@inbounds _etable = world._entity_tables[entity._id]))
+    push!(exprs, :(@inbounds _erow   = world._entity_rows[entity._id]))
 
     for i in 1:length(types)
         T = types[i]
@@ -1611,7 +1630,7 @@ end
         val_sym = Symbol("v", i)
 
         push!(exprs, :($(stor_sym) = _get_storage(world, $T)))
-        push!(exprs, :($(val_sym) = _get_component($(stor_sym), idx.table, idx.row, $(Val(Unchecked)))))
+        push!(exprs, :($(val_sym) = _get_component($(stor_sym), _etable, _erow, $(Val(Unchecked)))))
     end
 
     vals = [:($(Symbol("v", i))) for i in 1:length(types)]
@@ -1636,7 +1655,7 @@ end
         ))
     end
 
-    push!(exprs, :(@inbounds index = world._entities[entity._id]))
+    push!(exprs, :(@inbounds _etable = world._entity_tables[entity._id]))
 
     for i in 1:length(types)
         T = types[i]
@@ -1644,7 +1663,7 @@ end
         col_sym = Symbol("col", i)
 
         push!(exprs, :($stor_sym = _get_storage(world, $T)))
-        push!(exprs, :($col_sym = $stor_sym.data[index.table]))
+        push!(exprs, :($col_sym = $stor_sym.data[_etable]))
         push!(exprs, :(
             if length($col_sym) == 0
                 return false
@@ -1677,7 +1696,8 @@ end
             end
         ))
     end
-    push!(exprs, :(@inbounds idx = world._entities[entity._id]))
+    push!(exprs, :(@inbounds _etable = world._entity_tables[entity._id]))
+    push!(exprs, :(@inbounds _erow   = world._entity_rows[entity._id]))
 
     for i in 1:length(types)
         T = types[i]
@@ -1685,7 +1705,7 @@ end
         val_expr = :(values.$i)
 
         push!(exprs, :($stor_sym = _get_storage(world, $T)))
-        push!(exprs, :(_set_component!($stor_sym, idx.table, idx.row, $val_expr, $(Val(Unchecked)))))
+        push!(exprs, :(_set_component!($stor_sym, _etable, _erow, $val_expr, $(Val(Unchecked)))))
     end
 
     push!(exprs, Expr(:return, :nothing))
@@ -1714,13 +1734,13 @@ end
             end
         ))
     end
-    push!(exprs, :(@inbounds idx = world._entities[entity._id]))
+    push!(exprs, :(@inbounds _etable = world._entity_tables[entity._id]))
 
     for i in 1:length(types)
         T = types[i]
         target_sym = Symbol("t", i)
 
-        push!(exprs, :($(target_sym) = @inbounds _get_relations_storage(world, $T).targets[idx.table]))
+        push!(exprs, :($(target_sym) = @inbounds _get_relations_storage(world, $T).targets[_etable]))
         if !Unchecked
             push!(exprs, :(
                 if $(target_sym)._id == 0
@@ -1781,8 +1801,9 @@ end
     relations::Tuple{Vararg{Int}},
     targets::Tuple{Vararg{Entity}},
 ) where {W<:World}
-    index = world._entities[entity._id]
-    old_table = world._tables[index.table]
+    _etable = world._entity_tables[entity._id]
+    _erow   = world._entity_rows[entity._id]
+    old_table = world._tables[_etable]
     archetype = world._archetypes[old_table.archetype]
     new_relations, changed, mask = _get_exchange_targets(world, old_table, relations, targets)
     if !changed
@@ -1810,7 +1831,7 @@ end
     end
 
     empty!(new_relations)
-    _move_entity!(world, entity, index, old_table, new_table, new_table.id)
+    _move_entity!(world, entity, _etable, _erow, old_table, new_table, new_table.id)
 
     if _has_observers(world._event_manager, OnAddRelations)
         _fire_set_relations(
@@ -1875,8 +1896,9 @@ end
 
     world_has_rel = Val{_has_relations(CS)}()
 
-    push!(exprs, :(@inbounds index = world._entities[entity._id]))
-    push!(exprs, :(@inbounds old_table = world._tables[index.table]))
+    push!(exprs, :(@inbounds _etable = world._entity_tables[entity._id]))
+    push!(exprs, :(@inbounds _erow   = world._entity_rows[entity._id]))
+    push!(exprs, :(@inbounds old_table = world._tables[_etable]))
     push!(
         exprs,
         :(
@@ -1923,7 +1945,7 @@ end
         )
     end
 
-    push!(exprs, :(row = _move_entity!(world, entity, index, old_table, new_table, new_table_index)))
+    push!(exprs, :(row = _move_entity!(world, entity, _etable, _erow, old_table, new_table, new_table_index)))
     for i in 1:length(add_types)
         T = add_types[i]
         stor_sym = Symbol("stor", i)
@@ -2002,8 +2024,8 @@ function _do_emit_event!(world::World, event::EventType, mask::_Mask, has_comps:
     if !is_alive(world, entity)
         throw(ArgumentError("can't emit event for a dead entity"))
     end
-    index = world._entities[entity._id]
-    table = world._tables[index.table]
+    _etable = world._entity_tables[entity._id]
+    table = world._tables[_etable]
     entity_mask = world._archetypes_hot[table.archetype].mask
 
     if !_contains_all(entity_mask, mask)
@@ -2181,8 +2203,10 @@ function _shuffle_table!(rng::AbstractRNG, world::World, table::_Table)
         @inbounds table.entities._data[i] = entity_j
         @inbounds table.entities._data[j] = entity_i
 
-        @inbounds world._entities[entity_i._id] = _EntityIndex(table.id, j)
-        @inbounds world._entities[entity_j._id] = _EntityIndex(table.id, i)
+        @inbounds world._entity_tables[entity_i._id] = table.id
+        @inbounds world._entity_rows[entity_i._id] = UInt32(j)
+        @inbounds world._entity_tables[entity_j._id] = table.id
+        @inbounds world._entity_rows[entity_j._id] = UInt32(i)
 
         for comp in archetype.components
             _swap_components!(world, comp, table.id, i, j)
