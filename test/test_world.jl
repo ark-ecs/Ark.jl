@@ -321,7 +321,8 @@ end
     push!(_get_storage(world, Velocity).data[table_index[1]], Velocity(0, 0))
     @test entity == _new_entity(2, 0)
     @test index == 1
-    @test world._entities == [_EntityIndex(typemax(UInt32), 0), _EntityIndex(table_index[1], UInt32(1))]
+    @test world._entity_tables == UInt32[typemax(UInt32), table_index[1]]
+    @test world._entity_rows == UInt32[0, 1]
 
     remove_entity!(world, entity)
     entity, index = _create_entity!(world, table_index[1])
@@ -1443,7 +1444,7 @@ end
 
     reset!(world)
 
-    @test length(world._entities) == 1
+    @test length(world._entity_tables) == 1
     @test length(world._entity_pool.entities) == 1
     @test length(world._cache.filters) == 0
     @test filter._filter.id[] == 0
