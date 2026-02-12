@@ -41,7 +41,7 @@ struct NoIsBits
     v::Vector{Int}
 end
 
-struct NoIsBits
+struct NoIsBits2
     v::Vector{Vector{Int}}
 end
 
