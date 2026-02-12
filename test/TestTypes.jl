@@ -41,6 +41,10 @@ struct NoIsBits
     v::Vector{Int}
 end
 
+struct NoIsBits2
+    v::Vector{Vector{Int}}
+end
+
 mutable struct MutableNoIsBits
     v::Vector{MutableComponent}
 end
