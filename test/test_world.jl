@@ -667,6 +667,7 @@ end
         Position,
         Velocity => Storage{StructArray},
         ChildOf,
+        NoIsBits2 => Storage{StructArray},
     )
 
     counter = 0
@@ -682,7 +683,7 @@ end
 
     parent = new_entity!(world, ())
 
-    entity = new_entity!(world, (Position(1, 2), Velocity(3, 4), ChildOf()); relations=(ChildOf => parent,))
+    entity = new_entity!(world, (Position(1, 2), Velocity(3, 4), ChildOf(), NoIsBits([[1]])); relations=(ChildOf => parent,))
     entity2 = copy_entity!(world, entity)
 
     @test counter == 2
@@ -703,6 +704,16 @@ end
     @test_throws "can't copy a dead entity" copy_entity!(world, zero_entity)
 
     @test_throws "can't copy a dead entity" copy_entity!(world, zero_entity; add=(Dummy(),))
+
+    entity3 = copy_entity!(world, entity; mode=:ref)
+    get_components(world, entity3, (NoIsBits2,))[1].v[1][1] = 2
+    @test get_components(world, entity3, (NoIsBits2,))[1].v[1][1] == 2
+    @test get_components(world, entity, (NoIsBits2,))[1].v[1][1] == 2
+    
+    entity4 = copy_entity!(world, entity; mode=:deepcopy)
+    get_components(world, entity4, (NoIsBits2,))[1].v[1][1] = 3
+    @test get_components(world, entity4, (NoIsBits2,))[1].v[1][1] == 3
+    @test get_components(world, entity, (NoIsBits2,))[1].v[1][1] == 2
 end
 
 @testset "World copy_entity! with exchange" begin
