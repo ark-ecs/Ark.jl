@@ -712,7 +712,7 @@ end
     get_components(world, entity3, (NoIsBits2,))[1].v[1][1] = 2
     @test get_components(world, entity3, (NoIsBits2,))[1].v[1][1] == 2
     @test get_components(world, entity, (NoIsBits2,))[1].v[1][1] == 2
-    
+
     entity4 = copy_entity!(world, entity; mode=:deepcopy)
     get_components(world, entity4, (NoIsBits2,))[1].v[1][1] = 3
     @test get_components(world, entity4, (NoIsBits2,))[1].v[1][1] == 3
