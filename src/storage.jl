@@ -189,7 +189,7 @@ end
             push!(exprs, :(@inbounds push!(new_vec_comp.$name, deepcopy(old_vec_comp.$name[old_row]))))
         end
     end
-    quote
+    return quote
         @inbounds old_vec = s.data[old_table]
         @inbounds new_vec = s.data[new_table]
         old_vec_comp = getfield(old_vec, :_components)
