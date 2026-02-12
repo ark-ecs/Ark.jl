@@ -683,7 +683,10 @@ end
 
     parent = new_entity!(world, ())
 
-    entity = new_entity!(world, (Position(1, 2), Velocity(3, 4), ChildOf(), NoIsBits2([[1]])); relations=(ChildOf => parent,))
+    entity = new_entity!(world,
+        (Position(1, 2), Velocity(3, 4), ChildOf(), NoIsBits2([[1]]));
+        relations=(ChildOf => parent,),
+    )
     entity2 = copy_entity!(world, entity)
 
     @test counter == 2
@@ -741,7 +744,7 @@ end
     entity = new_entity!(world, (Position(1, 2), Velocity(3, 4)))
     entity2 = copy_entity!(world, entity;
         add=(Altitude(5), ChildOf()), remove=(Position,),
-        relations=(ChildOf => parent,)
+        relations=(ChildOf => parent,),
     )
     @test counter == 1
     @test counter_rel == 1
