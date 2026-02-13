@@ -1262,6 +1262,7 @@ end
     world_has_rel = Val{_has_relations(CS)}()
 
     exprs = []
+    push!(exprs, :(_check_locked(world)))
     push!(
         exprs,
         :(
@@ -1307,8 +1308,6 @@ end
     CS = W.parameters[1]
     world_has_rel = _has_relations(CS)
     quote
-        _check_locked(world)
-
         entity = _get_entity(world._entity_pool)
         @inbounds table = world._tables[table_index]
         @inbounds archetype = world._archetypes[table.archetype]
@@ -1369,8 +1368,6 @@ end
 )::Int where {W<:World}
     inline_jtable = length(W.parameters[1].parameters) <= 10
     quote
-        _check_locked(world)
-
         new_row = _add_entity!(new_table, entity)
         swapped = _swap_remove!(old_table.entities._data, index.row)
 
@@ -1523,6 +1520,7 @@ end
             end
         ))
     end
+    push!(exprs, :(_check_locked(world)))
 
     world_has_rel = Val{_has_relations(CS)}()
     push!(exprs, :(index = world._entities[entity._id]))
@@ -1781,6 +1779,7 @@ end
     relations::Tuple{Vararg{Int}},
     targets::Tuple{Vararg{Entity}},
 ) where {W<:World}
+    _check_locked(world)
     index = world._entities[entity._id]
     old_table = world._tables[index.table]
     archetype = world._archetypes[old_table.archetype]
@@ -1860,6 +1859,7 @@ end
             end
         ))
     end
+    push!(exprs, :(_check_locked(world)))
 
     CS = W.parameters[1]
     add_ids = tuple([_component_id(CS, T) for T in add_types]...)
