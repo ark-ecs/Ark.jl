@@ -142,7 +142,7 @@ end
     old_table::UInt32,
     new_table::UInt32,
     old_row::UInt32,
-    ::CP,
+    m::CP,
 ) where {C,A<:AbstractArray,CP<:Val}
     # TODO: this can probably be optimized for StructArray storage
     # by moving per component instead of unpacking/packing.
@@ -154,7 +154,7 @@ end
         if A <: _AbstractStructArray
             # no copy required for isbits types
             return quote
-                _copy_component_data_per_field!(s, old_table, new_table, old_row, CP) 
+                _copy_component_data_per_field!(s, old_table, new_table, old_row, m) 
             end
         else
             push!(exprs, :(push!(new_vec, old_vec[old_row])))
@@ -163,7 +163,7 @@ end
         # no deep copy required for types with all isbits fields
         if A <: _AbstractStructArray
             return quote
-                _copy_component_data_per_field!(s, old_table, new_table, old_row, CP) 
+                _copy_component_data_per_field!(s, old_table, new_table, old_row, m) 
             end
         else
             push!(exprs, :(push!(new_vec, _shallow_copy(old_vec[old_row]))))
