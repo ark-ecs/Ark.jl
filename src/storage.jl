@@ -142,7 +142,7 @@ end
     old_table::UInt32,
     new_table::UInt32,
     old_row::UInt32,
-    m::CP,
+    ::CP,
 ) where {C,A<:AbstractArray,CP<:Val}
     # TODO: this can probably be optimized for StructArray storage
     # by moving per component instead of unpacking/packing.
@@ -154,7 +154,7 @@ end
         # no copy required for isbits types
         if A <: _AbstractStructArray
             return quote
-                _copy_component_data_per_field!(s, old_table, new_table, old_row, m) 
+                _copy_component_data_per_field!(s, old_table, new_table, old_row) 
             end
         else
             push!(exprs, :(push!(new_vec, old_vec[old_row])))
@@ -181,7 +181,6 @@ end
     old_table::UInt32,
     new_table::UInt32,
     old_row::UInt32,
-    ::CP,
 ) where {C,A<:_AbstractStructArray,CP<:Val}
     names = fieldnames(C)
     exprs = Expr[]
