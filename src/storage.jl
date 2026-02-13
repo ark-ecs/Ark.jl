@@ -195,7 +195,7 @@ end
         old_vec_comp = getfield(old_vec, :_components)
         new_vec_comp = getfield(new_vec, :_components)
         $(exprs...)
-        return nothing
+        return
     end
 end
 
