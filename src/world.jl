@@ -1329,8 +1329,6 @@ end
     CS = W.parameters[1]
     world_has_rel = _has_relations(CS)
     quote
-        _check_locked(world)
-
         table = world._tables[Int(table_index)]
         archetype = world._archetypes[table.archetype]
         old_length = length(table.entities)
