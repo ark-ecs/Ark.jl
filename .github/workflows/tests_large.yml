@@ -33,4 +33,4 @@ jobs:
         julia-version: ${{ matrix.version }}
         project-file: './Project.toml'
     - name: Run tests
-      run: julia -O0 --project=. run_tests.jl --large-world
+      run: julia -O0 --project=. run_tests.jl --check-bounds=yes --large-world
