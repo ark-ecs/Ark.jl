@@ -151,8 +151,8 @@ end
     push!(exprs, :(@inbounds new_vec = s.data[new_table]))
 
     if CP === Val{:ref} || isbitstype(C)
+        # no copy required for isbits types
         if A <: _AbstractStructArray
-            # no copy required for isbits types
             return quote
                 _copy_component_data_per_field!(s, old_table, new_table, old_row, m) 
             end
@@ -161,13 +161,7 @@ end
         end
     elseif CP === Val{:copy} || all(T -> isbitstype(T), fieldtypes(C))
         # no deep copy required for types with all isbits fields
-        if A <: _AbstractStructArray
-            return quote
-                _copy_component_data_per_field!(s, old_table, new_table, old_row, m) 
-            end
-        else
-            push!(exprs, :(push!(new_vec, _shallow_copy(old_vec[old_row]))))
-        end
+        push!(exprs, :(push!(new_vec, _shallow_copy(old_vec[old_row]))))
     else # CP === Val{:deepcopy}
         # validity if checked before the call.
         push!(exprs, :(push!(new_vec, deepcopy(old_vec[old_row]))))
