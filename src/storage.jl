@@ -151,11 +151,23 @@ end
     push!(exprs, :(@inbounds new_vec = s.data[new_table]))
 
     if CP === Val{:ref} || isbitstype(C)
-        # no copy required for isbits types
-        push!(exprs, :(push!(new_vec, old_vec[old_row])))
+        if A <: _AbstractStructArray
+            # no copy required for isbits types
+            return quote
+                _copy_component_data_per_field!(s, old_table, new_table, old_row, CP) 
+            end
+        else
+            push!(exprs, :(push!(new_vec, old_vec[old_row])))
+        end
     elseif CP === Val{:copy} || all(T -> isbitstype(T), fieldtypes(C))
         # no deep copy required for types with all isbits fields
-        push!(exprs, :(push!(new_vec, _shallow_copy(old_vec[old_row]))))
+        if A <: _AbstractStructArray
+            return quote
+                _copy_component_data_per_field!(s, old_table, new_table, old_row, CP) 
+            end
+        else
+            push!(exprs, :(push!(new_vec, _shallow_copy(old_vec[old_row]))))
+        end
     else # CP === Val{:deepcopy}
         # validity if checked before the call.
         push!(exprs, :(push!(new_vec, deepcopy(old_vec[old_row]))))
@@ -170,7 +182,7 @@ end
     end
 end
 
-@generated function _copy_component_data!(
+@generated function _copy_component_data_per_field!(
     s::_ComponentStorage{C,A},
     old_table::UInt32,
     new_table::UInt32,
@@ -181,12 +193,10 @@ end
     exprs = Expr[]
     for name in names
         f_type = fieldtype(C, name)
-        if CP === Val{:ref} || isbitstype(f_type)
+        if CP === Val{:ref}
             push!(exprs, :(@inbounds push!(new_vec_comp.$name, old_vec_comp.$name[old_row])))
-        elseif CP === Val{:copy} || all(T -> isbitstype(T), fieldtypes(f_type))
+        elseif CP === Val{:copy}
             push!(exprs, :(@inbounds push!(new_vec_comp.$name, _shallow_copy(old_vec_comp.$name[old_row]))))
-        else # CP === Val{:deepcopy}
-            push!(exprs, :(@inbounds push!(new_vec_comp.$name, deepcopy(old_vec_comp.$name[old_row]))))
         end
     end
     return quote
@@ -195,7 +205,7 @@ end
         old_vec_comp = getfield(old_vec, :_components)
         new_vec_comp = getfield(new_vec, :_components)
         $(exprs...)
-        return
+        return nothing
     end
 end
 
