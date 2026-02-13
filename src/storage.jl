@@ -186,12 +186,7 @@ end
     names = fieldnames(C)
     exprs = Expr[]
     for name in names
-        f_type = fieldtype(C, name)
-        if CP === Val{:ref}
-            push!(exprs, :(@inbounds push!(new_vec_comp.$name, old_vec_comp.$name[old_row])))
-        elseif CP === Val{:copy}
-            push!(exprs, :(@inbounds push!(new_vec_comp.$name, _shallow_copy(old_vec_comp.$name[old_row]))))
-        end
+        push!(exprs, :(@inbounds push!(new_vec_comp.$name, _shallow_copy(old_vec_comp.$name[old_row]))))
     end
     return quote
         @inbounds old_vec = s.data[old_table]
