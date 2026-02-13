@@ -185,7 +185,7 @@ end
     names = fieldnames(C)
     exprs = Expr[]
     for name in names
-        push!(exprs, :(@inbounds push!(new_vec_comp.$name, _shallow_copy(old_vec_comp.$name[old_row]))))
+        push!(exprs, :(@inbounds push!(new_vec_comp.$name, old_vec_comp.$name[old_row])))
     end
     return quote
         @inbounds old_vec = s.data[old_table]
