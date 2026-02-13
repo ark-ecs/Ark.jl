@@ -999,6 +999,7 @@ end
     world_has_rel = Val{_has_relations(CS)}()
 
     exprs = []
+    push!(exprs, _check_locked(world))
     push!(
         exprs,
         :(
