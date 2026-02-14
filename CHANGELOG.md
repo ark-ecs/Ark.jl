@@ -10,7 +10,7 @@
 
 - Adds support for user-defined storage types (#437)
 - Adds new types `GPUVector` and `GPUStructArray` which can be used to offload work to the GPU (#470, #476, #483)
-- Makes the locking mechanism thread-safe for parallel queries (#537)
+- Makes the locking mechanism thread-safe for parallel queries (#536, #537)
 - Adds support for shuffling tables based on filters (#527)
 - Adds support for UniqueVector storage (#481)
 
