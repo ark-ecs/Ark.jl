@@ -288,14 +288,14 @@ end
         has_entity_obs = _has_observers(world._event_manager, OnRemoveEntity)
         has_rel_obs = _has_relations(archetype) && _has_observers(world._event_manager, OnRemoveRelations)
         if has_entity_obs || has_rel_obs
-            l = _lock(world._lock)
+            _lock(world._lock)
             if has_entity_obs
                 _fire_remove_entity(world._event_manager, entity, archetype.node.mask)
             end
             if has_rel_obs
                 _fire_remove_entity_relations(world._event_manager, entity, archetype.node.mask)
             end
-            _unlock(world._lock, l)
+            _unlock(world._lock)
         end
 
         swapped = _swap_remove!(table.entities._data, index.row)
@@ -1262,6 +1262,7 @@ end
     world_has_rel = Val{_has_relations(CS)}()
 
     exprs = []
+    push!(exprs, :(_check_locked(world)))
     push!(
         exprs,
         :(
@@ -1307,8 +1308,6 @@ end
     CS = W.parameters[1]
     world_has_rel = _has_relations(CS)
     quote
-        _check_locked(world)
-
         entity = _get_entity(world._entity_pool)
         @inbounds table = world._tables[table_index]
         @inbounds archetype = world._archetypes[table.archetype]
@@ -1330,8 +1329,6 @@ end
     CS = W.parameters[1]
     world_has_rel = _has_relations(CS)
     quote
-        _check_locked(world)
-
         table = world._tables[Int(table_index)]
         archetype = world._archetypes[table.archetype]
         old_length = length(table.entities)
@@ -1369,8 +1366,6 @@ end
 )::Int where {W<:World}
     inline_jtable = length(W.parameters[1].parameters) <= 10
     quote
-        _check_locked(world)
-
         new_row = _add_entity!(new_table, entity)
         swapped = _swap_remove!(old_table.entities._data, index.row)
 
@@ -1523,6 +1518,7 @@ end
             end
         ))
     end
+    push!(exprs, :(_check_locked(world)))
 
     world_has_rel = Val{_has_relations(CS)}()
     push!(exprs, :(index = world._entities[entity._id]))
@@ -1781,6 +1777,7 @@ end
     relations::Tuple{Vararg{Int}},
     targets::Tuple{Vararg{Entity}},
 ) where {W<:World}
+    _check_locked(world)
     index = world._entities[entity._id]
     old_table = world._tables[index.table]
     archetype = world._archetypes[old_table.archetype]
@@ -1797,7 +1794,7 @@ end
     end
 
     if _has_observers(world._event_manager, OnRemoveRelations)
-        l = _lock(world._lock)
+        _lock(world._lock)
         _fire_set_relations(
             world._event_manager,
             OnRemoveRelations,
@@ -1806,7 +1803,7 @@ end
             world._archetypes_hot[new_table.archetype].mask,
             true,
         )
-        _unlock(world._lock, l)
+        _unlock(world._lock)
     end
 
     empty!(new_relations)
@@ -1860,6 +1857,7 @@ end
             end
         ))
     end
+    push!(exprs, :(_check_locked(world)))
 
     CS = W.parameters[1]
     add_ids = tuple([_component_id(CS, T) for T in add_types]...)
@@ -1899,7 +1897,7 @@ end
                     has_comp_obs = _has_observers(world._event_manager, OnRemoveComponents)
                     has_rel_obs = relations_removed && _has_observers(world._event_manager, OnRemoveRelations)
                     if has_comp_obs || has_rel_obs
-                        l = _lock(world._lock)
+                        _lock(world._lock)
                         old_mask = world._archetypes_hot[old_table.archetype].mask
                         new_mask = world._archetypes_hot[new_table.archetype].mask
                         if has_comp_obs
@@ -1916,7 +1914,7 @@ end
                                 old_mask, new_mask, true,
                             )
                         end
-                        _unlock(world._lock, l)
+                        _unlock(world._lock)
                     end
                 end
             ),

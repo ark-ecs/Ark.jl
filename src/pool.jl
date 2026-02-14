@@ -49,37 +49,3 @@ function _reset!(p::_EntityPool)
     resize!(p.entities, 1)
     p.next = 0
 end
-
-mutable struct _BitPool
-    bits::UInt64
-end
-
-function _BitPool()
-    return _BitPool(0)
-end
-
-function _get_bit(p::_BitPool)::Int
-    bits = p.bits
-    if bits == typemax(UInt64)
-        throw(
-            InvalidStateException(
-                string("run out of the maximum of 64 bits. ",
-                    "This is likely caused by unclosed queries that lock the world. ",
-                    "Make sure that all queries finish their iteration or are closed manually"),
-                :locks_exhausted,
-            ),
-        )
-    end
-    b = trailing_zeros(~bits)
-    p.bits |= bits + UInt64(1)
-    return b + 1
-end
-
-function _recycle(p::_BitPool, b::Int)
-    p.bits &= ~(UInt64(1) << (b - 1))
-    return nothing
-end
-
-function _reset!(p::_BitPool)
-    p.bits = 0
-end
