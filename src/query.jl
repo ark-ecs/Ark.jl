@@ -16,7 +16,6 @@ struct Query{W<:World,TS<:Tuple,SM<:Tuple,EX,OPT,REG,N,M}
     _archetypes_hot::Vector{_ArchetypeHot{M}}
     _q_lock::_QueryCursor
     _world::W
-    _lock::Int
 end
 
 """
@@ -128,6 +127,7 @@ end
         :(_get_archetypes(filter._world, $ids_tuple))
 
     return quote
+        _lock(filter._world._lock)
         arches, hot = $(archetypes)
         Query{$W,$TS,$storage_tuple_mode,$EX,$OPT,$REG,$(length(comp_types)),$M}(
             filter._filter,
@@ -135,7 +135,6 @@ end
             hot,
             _QueryCursor(_empty_tables, false),
             filter._world,
-            _lock(filter._world._lock),
         )
     end
 end
@@ -268,7 +267,7 @@ function close!(q::Q) where {Q<:Query}
     if q._q_lock.closed == true
         return nothing
     end
-    _unlock(q._world._lock, q._lock)
+    _unlock(q._world._lock)
     q._q_lock.closed = true
     return nothing
 end
