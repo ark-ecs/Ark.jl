@@ -1,5 +1,5 @@
 mutable struct _Lock
-    lock_counter::UInt64
+    lock_counter::Int
 end
 
 function _Lock()
