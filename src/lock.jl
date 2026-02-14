@@ -16,6 +16,7 @@ end
 function _unlock(lock::_Lock)
     @check lock.lock_counter[] > 0
     @atomic :monotonic lock.lock_counter -= 1
+    return
 end
 
 function _is_locked(lock::_Lock)::Bool
