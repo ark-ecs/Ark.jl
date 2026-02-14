@@ -131,7 +131,7 @@ end
     storages_types = [CS.parameters[_component_id(W.parameters[1], T)] for T in comp_types]
     storage_tuple_type = Expr(:curly, :Tuple, storages_types...)
     storages_expr = Expr(:tuple,
-        [:(filter._world._storages[$(_component_id(W.parameters[1], T))]) for T in comp_types]...
+        [:(filter._world._storages[$(_component_id(W.parameters[1], T))]) for T in comp_types]...,
     )
 
     return quote
@@ -374,7 +374,7 @@ Base.IteratorSize(::Type{<:Query}) = Base.SizeUnknown()
 end
 
 function Base.show(
-    io::IO, query::Query{W,CT,SM,EX,OPT,REG,N,M,QS}
+    io::IO, query::Query{W,CT,SM,EX,OPT,REG,N,M,QS},
 ) where {W<:World,CT<:Tuple,SM<:Tuple,EX<:Val,OPT,REG,N,M,QS}
     world_types = W.parameters[2].parameters
     comp_types = CT.parameters
