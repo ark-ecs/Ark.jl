@@ -9,13 +9,14 @@
 ### Features
 
 - Adds support for user-defined storage types (#437)
-- Adds a new type GPUVector which can be used to offload work to the GPU (#470, #476)
-- Adds support for UniqueVector storage (#481)
+- Adds new types `GPUVector` and `GPUStructArray` which can be used to offload work to the GPU (#470, #476, #483)
+- Makes the locking mechanism thread-safe for parallel queries (#537)
 - Adds support for shuffling tables based on filters (#527)
+- Adds support for UniqueVector storage (#481)
 
 ### Performance
 
-- Add an unchecked keyword for many API functions to trade-off safety for speed (#521, #522)
+- Add an unchecked macro to trade-off safety for speed (#521, #522, #531)
 
 ### Bugfixes
 
