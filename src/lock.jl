@@ -1,35 +1,26 @@
 mutable struct _Lock
-    const pool::_BitPool
-    lock_bits::UInt64
+    lock_counter::Int
 end
 
 function _Lock()
-    _Lock(_BitPool(), 0)
+    _Lock(0)
 end
 
 function _lock(lock::_Lock)::Int
-    l = _get_bit(lock.pool)
-    lock.lock_bits |= UInt64(1) << ((l - 1) % UInt64)
-    return l
+    @check lock.lock_counter >= 0
+    lock.lock_counter += 1
 end
 
-function _unlock(lock::_Lock, b::Int)
-    if !(((lock.lock_bits >> ((b - 1) % UInt64)) & UInt64(1)) % Bool)
-        throw(
-            InvalidStateException(
-                "unbalanced unlock. Did you close a query that was already iterated?",
-                :unbalanced_lock,
-            ),
-        )
-    end
-    lock.lock_bits &= ~(UInt64(1) << ((b - 1) % UInt64))
-    _recycle(lock.pool, b)
+function _unlock(lock::_Lock)
+    @check lock.lock_counter > 0
+    lock.lock_counter -= 1
 end
 
 function _is_locked(lock::_Lock)::Bool
-    return lock.lock_bits != 0
+    @check lock.lock_counter >= 0
+    return lock.lock_counter != 0
 end
 
 function _reset!(lock::_Lock)
-    _reset!(lock.pool)
+    return
 end

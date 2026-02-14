@@ -288,14 +288,14 @@ end
         has_entity_obs = _has_observers(world._event_manager, OnRemoveEntity)
         has_rel_obs = _has_relations(archetype) && _has_observers(world._event_manager, OnRemoveRelations)
         if has_entity_obs || has_rel_obs
-            l = _lock(world._lock)
+            _lock(world._lock)
             if has_entity_obs
                 _fire_remove_entity(world._event_manager, entity, archetype.node.mask)
             end
             if has_rel_obs
                 _fire_remove_entity_relations(world._event_manager, entity, archetype.node.mask)
             end
-            _unlock(world._lock, l)
+            _unlock(world._lock)
         end
 
         swapped = _swap_remove!(table.entities._data, index.row)
@@ -1794,7 +1794,7 @@ end
     end
 
     if _has_observers(world._event_manager, OnRemoveRelations)
-        l = _lock(world._lock)
+        _lock(world._lock)
         _fire_set_relations(
             world._event_manager,
             OnRemoveRelations,
@@ -1803,7 +1803,7 @@ end
             world._archetypes_hot[new_table.archetype].mask,
             true,
         )
-        _unlock(world._lock, l)
+        _unlock(world._lock)
     end
 
     empty!(new_relations)
@@ -1897,7 +1897,7 @@ end
                     has_comp_obs = _has_observers(world._event_manager, OnRemoveComponents)
                     has_rel_obs = relations_removed && _has_observers(world._event_manager, OnRemoveRelations)
                     if has_comp_obs || has_rel_obs
-                        l = _lock(world._lock)
+                        _lock(world._lock)
                         old_mask = world._archetypes_hot[old_table.archetype].mask
                         new_mask = world._archetypes_hot[new_table.archetype].mask
                         if has_comp_obs
@@ -1914,7 +1914,7 @@ end
                                 old_mask, new_mask, true,
                             )
                         end
-                        _unlock(world._lock, l)
+                        _unlock(world._lock)
                     end
                 end
             ),

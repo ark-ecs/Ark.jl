@@ -3,7 +3,7 @@ using Ark: _Lock, _lock, _unlock
 function setup_lock_unlock(n::Int)
     lock = _Lock()
     l = _lock(lock)
-    _unlock(lock, l)
+    _unlock(lock)
 
     return lock
 end
@@ -11,8 +11,8 @@ end
 function benchmark_lock_unlock(args, n)
     lock = args
     for i in 1:n
-        l = _lock(lock)
-        _unlock(lock, l)
+        _lock(lock)
+        _unlock(lock)
     end
     return lock
 end
