@@ -1,5 +1,5 @@
 mutable struct _Lock
-    lock_counter::Int
+    @atomic lock_counter::Int
 end
 
 function _Lock()
@@ -8,12 +8,12 @@ end
 
 function _lock(lock::_Lock)::Int
     @check lock.lock_counter >= 0
-    lock.lock_counter += 1
+    @atomic lock.lock_counter += 1
 end
 
 function _unlock(lock::_Lock)
     @check lock.lock_counter > 0
-    lock.lock_counter -= 1
+    @atomic lock.lock_counter -= 1
 end
 
 function _is_locked(lock::_Lock)::Bool
