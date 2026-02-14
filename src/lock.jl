@@ -14,7 +14,7 @@ function _lock(lock::_Lock)::Int
 end
 
 function _unlock(lock::_Lock)
-    @check lock.lock_counter[] > 0
+    @check lock.lock_counter > 0
     @atomic :monotonic lock.lock_counter -= 1
     return
 end
