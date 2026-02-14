@@ -1,4 +1,3 @@
-
 mutable struct _Counter
     @atomic counter::Int
 end
