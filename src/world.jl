@@ -1620,7 +1620,9 @@ end
     end
 end
 
-@generated function _has_components(world::World, entity::Entity, ::TS, ::Val{Unchecked}) where {TS<:Tuple,Unchecked}
+@generated function _has_components(
+    world::W, entity::Entity, ::TS, ::Val{Unchecked},
+) where {W<:World,TS<:Tuple,Unchecked}
     types = _to_types(TS)
     exprs = []
 
@@ -1632,28 +1634,40 @@ end
         ))
     end
 
-    push!(exprs, :(@inbounds index = world._entities[entity._id]))
+    if length(types) >= 3
+        CS = W.parameters[1]
+        ids = tuple([_component_id(CS, T) for T in types]...)
+        M = max(1, cld(length(CS.parameters), 64))
+        query_mask = _Mask{M}(ids...)
 
-    for i in 1:length(types)
-        T = types[i]
-        stor_sym = Symbol("stor", i)
-        col_sym = Symbol("col", i)
-
-        push!(exprs, :($stor_sym = _get_storage(world, $T)))
-        push!(exprs, :($col_sym = $stor_sym.data[index.table]))
         push!(exprs, :(
-            if length($col_sym) == 0
-                return false
-            end
+            @inbounds begin
+            index = world._entities[entity._id]
+            table = world._tables[index.table]
+            arch_hot = world._archetypes_hot[table.archetype]
+        end
         ))
+        push!(exprs, :(return _contains_all(arch_hot.mask, $query_mask)))
+    else
+        push!(exprs, :(@inbounds index = world._entities[entity._id]))
+        for i in 1:length(types)
+            T = types[i]
+            stor_sym = Symbol("stor", i)
+            col_sym = Symbol("col", i)
+
+            push!(exprs, :($stor_sym = _get_storage(world, $T)))
+            push!(exprs, :(@inbounds $col_sym = $stor_sym.data[index.table]))
+            push!(exprs, :(
+                if length($col_sym) == 0
+                    return false
+                end
+            ))
+        end
+        push!(exprs, :(return true))
     end
 
-    push!(exprs, :(return true))
-
     return quote
-        @inbounds begin
-            $(Expr(:block, exprs...))
-        end
+        $(exprs...)
     end
 end
 
