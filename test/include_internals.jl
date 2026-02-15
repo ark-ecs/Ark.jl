@@ -11,7 +11,6 @@ using Ark: _get_bit, _contains_all, _contains_any, _and, _or, _clear_bits, _acti
 using Ark: _is_zero, _is_not_zero
 using Ark: _MutableMask, _get_bit, _set_bit!, _clear_bit!, _equals, _clear_mask!
 using Ark: _EntityPool, _get_entity, _recycle, _is_alive
-using Ark: _BitPool, _get_bit
 using Ark: _Lock, _lock, _unlock, _is_locked
 using Ark: _VecMap, _get_map, _set_map!
 using Ark: _Linear_Map, _LOAD_FACTOR
