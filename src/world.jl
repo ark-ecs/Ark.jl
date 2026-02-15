@@ -1621,7 +1621,7 @@ end
 end
 
 @generated function _has_components(
-    world::W, entity::Entity, ::TS, ::Val{Unchecked}
+    world::W, entity::Entity, ::TS, ::Val{Unchecked},
 ) where {W<:World,TS<:Tuple,Unchecked}
     types = _to_types(TS)
     exprs = []
@@ -1641,10 +1641,10 @@ end
 
     push!(exprs, :(
         @inbounds begin
-            index = world._entities[entity._id]
-            table = world._tables[index.table]
-            arch_hot = world._archetypes_hot[table.archetype]
-        end          
+        index = world._entities[entity._id]
+        table = world._tables[index.table]
+        arch_hot = world._archetypes_hot[table.archetype]
+    end          
     ))
     push!(exprs, :(return _contains_all(arch_hot.mask, $query_mask)))
 
