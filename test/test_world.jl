@@ -1010,6 +1010,8 @@ end
     @test h == Health(2)
 
     @test has_components(world, e1, (Position, Velocity)) == true
+    @test has_components(world, e1, (Position, Velocity, Altitude)) == true
+    @test has_components(world, e1, (Position, Velocity, Dummy)) == false
 
     pos, vel, a, h = get_components(world, e2, (Position, Velocity, Altitude, Health))
     @test pos == Position(5, 6)
