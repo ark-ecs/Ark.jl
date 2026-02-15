@@ -45,10 +45,10 @@ Base.@propagate_inbounds @generated function Base.getindex(sa::_AbstractStructAr
     return Expr(:block, Expr(:new, C, field_exprs...))
 end
 
-Base.@propagate_inbounds @generated function Base.setindex!(sa::_AbstractStructArray{C}, c, i::Int) where {C}
+Base.@propagate_inbounds @generated function Base.setindex!(sa::_AbstractStructArray{C}, c::C, i::Int) where {C}
     names = fieldnames(C)
     set_exprs = [:(getfield(sa, :_components).$name[i] = getfield(c, $(QuoteNode(name)))) for name in names]
-    return Expr(:block, set_exprs..., :(nothing))
+    return Expr(:block, set_exprs..., :(c))
 end
 
 Base.@propagate_inbounds function Base.iterate(sa::_AbstractStructArray{C}) where {C}
@@ -89,7 +89,7 @@ end
 Base.@propagate_inbounds @generated function Base.setindex!(sa::_StructArrayView{C}, c::C, i::Int) where {C}
     names = fieldnames(C)
     set_exprs = [:(getfield(sa, :_components).$name[i] = getfield(c, $(QuoteNode(name)))) for name in names]
-    return Expr(:block, set_exprs..., :(sa))
+    return Expr(:block, set_exprs..., :(c))
 end
 
 @generated function Base.fill!(sa::_StructArrayView{C}, value::C) where {C}
