@@ -155,7 +155,7 @@ end
     end
 end
 
-@inline function _iterate(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
+function _iterate(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
     arch, tab = state
     while arch <= length(q._archetypes)
         if tab == 0
@@ -205,7 +205,7 @@ end
     return nothing
 end
 
-@inline function _iterate_registered(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
+function _iterate_registered(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
     index, _ = state
     if index <= length(q._filter.tables)
         @inbounds table_id = q._filter.tables[index]
@@ -271,7 +271,7 @@ Closes the query and unlocks the world.
 
 Must be called if a query is not fully iterated.
 """
-@inline function close!(q::Q) where {Q<:Query}
+function close!(q::Q) where {Q<:Query}
     if q._q_lock.closed == true
         return nothing
     end
