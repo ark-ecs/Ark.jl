@@ -1,7 +1,7 @@
 
 using Preferences
 
-@set_preferences!(:Ark, "THREAD_SAFE_LOCK" => "false")
+set_preferences!("Ark", "THREAD_SAFE_LOCK" => "false")
 
 using Ark
 using Test
