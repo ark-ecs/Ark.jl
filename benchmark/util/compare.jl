@@ -141,10 +141,10 @@ function table_to_html(data::Vector{CompareRow})::String
         html = "<p>✅ Benchmarks are stable!</p>" * "\n" * html
     else
         if regressed > 0
-            html = "<p>⚠️ $regressed benchmark regressions detected!</p>" * "\n" * html
+            html = "<p>⚠️ $(regressed) benchmark regressions detected!</p>" * "\n" * html
         end
         if improved > 0
-            html = "<p>🚀 $improved benchmark improvements detected!</p>" * "\n" * html
+            html = "<p>🚀 $(improved) benchmark improvements detected!</p>" * "\n" * html
         end
     end
 
@@ -199,6 +199,8 @@ function compare_multi_tables(a::Vector{Vector{Row}}, b::Vector{Vector{Row}})::V
     return data
 end
 
+thaskey(dict::Dict, key) = haskey(dict, key)
+
 function compare_tables(a::Vector{Row}, b::Vector{Row})::Vector{CompareRow}
     dict_a = Dict(@sprintf("%s %07d", x.name, x.n) => x for x in a)
     dict_b = Dict(@sprintf("%s %07d", x.name, x.n) => x for x in b)
@@ -216,13 +218,13 @@ function compare_tables(a::Vector{Row}, b::Vector{Row})::Vector{CompareRow}
 
     for bench in keys_vec
         row = CompareRow()
-        if haskey(dict_a, bench)
+        if thaskey(dict_a, bench)
             r = dict_a[bench]
             row.name = r.name
             row.n = r.n
             row.time_ns_a = r.time_ns
         end
-        if haskey(dict_b, bench)
+        if thaskey(dict_b, bench)
             r = dict_b[bench]
             row.name = r.name
             row.n = r.n
