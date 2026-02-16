@@ -1,5 +1,14 @@
+
+macro _maybe_atomic_f(expr)
+    return THREAD_SAFE_LOCK == "true" ? esc(:(@atomic $expr)) : esc(:($expr))
+end
+
+macro _maybe_atomic(expr)
+    return THREAD_SAFE_LOCK == "true" ? esc(:(@atomic :monotonic $expr)) : esc(:($expr))
+end
+
 mutable struct _Lock
-    lock_counter::Int
+    @_maybe_atomic_f _counter::Int
 end
 
 function _Lock()
@@ -7,18 +16,18 @@ function _Lock()
 end
 
 function _lock(lock::_Lock)::Int
-    @check lock.lock_counter >= 0
-    lock.lock_counter += 1
+    @check (@_maybe_atomic lock._counter) >= 0
+    @_maybe_atomic lock._counter += 1
 end
 
 function _unlock(lock::_Lock)
-    @check lock.lock_counter > 0
-    lock.lock_counter -= 1
+    @check (@_maybe_atomic lock._counter) > 0
+    @_maybe_atomic lock._counter -= 1
 end
 
 function _is_locked(lock::_Lock)::Bool
-    @check lock.lock_counter >= 0
-    return lock.lock_counter != 0
+    @check (@_maybe_atomic lock._counter) >= 0
+    return (@_maybe_atomic lock._counter) != 0
 end
 
 function _reset!(lock::_Lock)
