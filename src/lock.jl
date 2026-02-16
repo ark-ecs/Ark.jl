@@ -1,6 +1,6 @@
 
 macro maybe_atomic(expr)
-    return THREAD_SAFE_LOCK == "true" ? :(@atomic :monotonic $expr) : (:($expr))
+    return THREAD_SAFE_LOCK == "true" ? esc(:(@atomic :monotonic $expr)) : esc(:($expr))
 end
 
 mutable struct _Lock
