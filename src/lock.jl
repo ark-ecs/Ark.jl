@@ -1,4 +1,8 @@
 
+macro maybe_atomic(expr)
+    return THREAD_SAFE_LOCK == "true" ? :(@atomic :monotonic $expr) : ($expr)
+end
+
 mutable struct _Lock
     @maybe_atomic _counter::Int
 end
@@ -24,8 +28,4 @@ end
 
 function _reset!(lock::_Lock)
     return
-end
-
-macro maybe_atomic(expr)
-    return THREAD_SAFE_LOCK == "true" ? :(@atomic :monotonic $expr) : ($expr)
 end
