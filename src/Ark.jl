@@ -6,6 +6,8 @@ using StaticArrays
 using FunctionWrappers: FunctionWrapper
 using Random
 
+const THREAD_SAFE_LOCK = @load_preference("THREAD_SAFE_LOCK", default = "true")
+
 isdefined(@__MODULE__, :Memory) || const Memory = Vector # Compat for Julia < 1.11
 
 include("abstract.jl")

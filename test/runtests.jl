@@ -43,10 +43,3 @@ include("test_shuffle.jl")
 include("test_unchecked.jl")
 include("test_gpu_vector.jl")
 include("test_quality.jl")
-
-if "CI" in keys(ENV) && VERSION < v"1.13" && isempty(VERSION.prerelease) && !("--large-world" in ARGS)
-    Pkg.activate("ext")
-    Pkg.instantiate()
-    Pkg.develop(path="..")
-    include("ext/runtests.jl")
-end

@@ -1,5 +1,6 @@
+
 mutable struct _Lock
-    @atomic _counter::Int
+    @maybe_atomic _counter::Int
 end
 
 function _Lock()
@@ -7,20 +8,24 @@ function _Lock()
 end
 
 function _lock(lock::_Lock)::Int
-    @check (@atomic :monotonic lock._counter) >= 0
-    @atomic :monotonic lock._counter += 1
+    @check (@maybe_atomic lock._counter) >= 0
+    @maybe_atomic lock._counter += 1
 end
 
 function _unlock(lock::_Lock)
-    @check (@atomic :monotonic lock._counter) > 0
-    @atomic :monotonic lock._counter -= 1
+    @check (@maybe_atomic lock._counter) > 0
+    @maybe_atomic lock._counter -= 1
 end
 
 function _is_locked(lock::_Lock)::Bool
-    @check (@atomic :monotonic lock._counter) >= 0
-    return (@atomic :monotonic lock._counter) != 0
+    @check (@maybe_atomic lock._counter) >= 0
+    return (@maybe_atomic lock._counter) != 0
 end
 
 function _reset!(lock::_Lock)
     return
+end
+
+macro maybe_atomic(expr)
+    return THREAD_SAFE_LOCK == "true" ? :(@atomic :monotonic $expr) : ($expr)
 end
