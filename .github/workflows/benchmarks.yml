@@ -32,7 +32,7 @@ jobs:
     - name: Set up Julia
       uses: ./.github/actions/setup-julia
       with:
-        julia-version: '1'
+        julia-version: 'pre'
         project-file: 'benchmark/Project.toml'
         key-suffix: ${{ matrix.repetition }}
     - name: Install dependencies
@@ -100,7 +100,7 @@ jobs:
     - name: Set up Julia
       uses: ./.github/actions/setup-julia
       with:
-        julia-version: '1'
+        julia-version: 'pre'
         project-file: 'benchmark/Project.toml'
     - name: Run comparison
       run: julia benchmark/compare_benchmarks.jl | tee compare.md
