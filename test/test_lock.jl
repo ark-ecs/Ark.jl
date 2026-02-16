@@ -16,10 +16,14 @@
     @test lock._counter == 0
     @test !_is_locked(lock)
 
-    Threads.@sync begin
-        for _ in 1:10^3
-            Threads.@spawn _lock(lock)
-            Threads.@spawn _unlock(lock)
+    for _ in 1:2
+        Threads.@sync begin
+            Threads.@spawn for _ in 1:10^3
+                _lock(lock)
+            end
+            Threads.@spawn for _ in 1:10^3
+                _unlock(lock)
+            end
         end
     end
 
