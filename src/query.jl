@@ -155,7 +155,7 @@ end
     end
 end
 
-function _iterate(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
+@inline function _iterate(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
     arch, tab = state
     while arch <= length(q._archetypes)
         if tab == 0
@@ -205,7 +205,7 @@ function _iterate(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
     return nothing
 end
 
-function _iterate_registered(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
+@inline function _iterate_registered(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
     index, _ = state
     if index <= length(q._filter.tables)
         @inbounds table_id = q._filter.tables[index]
