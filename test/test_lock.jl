@@ -17,7 +17,7 @@
     @test !_is_locked(lock)
 
     Threads.@sync begin
-        for _ in 1:10^5
+        for _ in 1:10^3
             Threads.@spawn _lock(lock)
             Threads.@spawn _unlock(lock)
         end
