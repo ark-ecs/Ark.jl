@@ -31,7 +31,7 @@ It is a port of the Go ECS [Ark](https://github.com/mlange-42/ark).
 - Designed for [performance](https://ark-ecs.github.io/Ark.jl/stable/benchmarks) and highly optimized.
 - Well-[documented](https://ark-ecs.github.io/Ark.jl/stable/), type-stable [API](https://ark-ecs.github.io/Ark.jl/stable/api).
 - [Entity relationships](https://ark-ecs.github.io/Ark.jl/stable/manual/relations.html) as a first-class feature.
-- [Storage mode](https://ark-ecs.github.io/Ark.jl/stable/manual/components.html#component-storages) per component for ergonomics and SIMD, with support for user-defined storages.
+- [Storage mode](https://ark-ecs.github.io/Ark.jl/stable/manual/components.html#component-storages) per component for ergonomics and SIMD,<br>with support for user-defined storages.
 - Extensible [event system](https://ark-ecs.github.io/Ark.jl/stable/manual/events.html) with filtering and custom event types.
 - Fast [batch operations](https://ark-ecs.github.io/Ark.jl/stable/manual/batch.html) for mass manipulation.
 - Built-in [GPU storage](https://ark-ecs.github.io/Ark.jl/stable/api.html#Ark.GPUVector) integration for maximal performance.
