@@ -10,7 +10,7 @@
 
     for i in 1:10
         query = Query(world, (Position, Velocity))
-        @test Base.IteratorSize(typeof(query)) == Base.SizeUnknown()
+        @test Base.IteratorSize(typeof(query)) == Base.HasLength()
         @test query._filter.has_excluded == false
         @test length(query) == 1
         @test count_entities(query) == 10

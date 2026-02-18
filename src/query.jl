@@ -335,7 +335,7 @@ end
     end
 end
 
-Base.IteratorSize(::Type{<:Query}) = Base.SizeUnknown()
+Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
 
 @generated function Base.eltype(
     ::Type{Query{W,TS,SM,EX,OPT,REG,N,M,QS}},
