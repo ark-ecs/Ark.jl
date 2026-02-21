@@ -667,6 +667,7 @@ end
         Position,
         Velocity => Storage{StructArray},
         ChildOf,
+        NoIsBits2 => Storage{StructArray},
     )
 
     counter = 0
@@ -682,7 +683,10 @@ end
 
     parent = new_entity!(world, ())
 
-    entity = new_entity!(world, (Position(1, 2), Velocity(3, 4), ChildOf()); relations=(ChildOf => parent,))
+    entity = new_entity!(world,
+        (Position(1, 2), Velocity(3, 4), ChildOf(), NoIsBits2([[1]]));
+        relations=(ChildOf => parent,),
+    )
     entity2 = copy_entity!(world, entity)
 
     @test counter == 2
@@ -701,6 +705,18 @@ end
     @test get_relations(world, entity2, (ChildOf,)) == (parent,)
 
     @test_throws "can't copy a dead entity" copy_entity!(world, zero_entity)
+
+    @test_throws "can't copy a dead entity" copy_entity!(world, zero_entity; add=(Dummy(),))
+
+    entity3 = copy_entity!(world, entity; mode=:ref)
+    get_components(world, entity3, (NoIsBits2,))[1].v[1][1] = 2
+    @test get_components(world, entity3, (NoIsBits2,))[1].v[1][1] == 2
+    @test get_components(world, entity, (NoIsBits2,))[1].v[1][1] == 2
+
+    entity4 = copy_entity!(world, entity; mode=:deepcopy)
+    get_components(world, entity4, (NoIsBits2,))[1].v[1][1] = 3
+    @test get_components(world, entity4, (NoIsBits2,))[1].v[1][1] == 3
+    @test get_components(world, entity, (NoIsBits2,))[1].v[1][1] == 2
 end
 
 @testset "World copy_entity! with exchange" begin
@@ -726,8 +742,10 @@ end
     parent = new_entity!(world, ())
 
     entity = new_entity!(world, (Position(1, 2), Velocity(3, 4)))
-    entity2 =
-        copy_entity!(world, entity; add=(Altitude(5), ChildOf()), remove=(Position,), relations=(ChildOf => parent,))
+    entity2 = copy_entity!(world, entity;
+        add=(Altitude(5), ChildOf()), remove=(Position,),
+        relations=(ChildOf => parent,),
+    )
     @test counter == 1
     @test counter_rel == 1
 
@@ -992,6 +1010,8 @@ end
     @test h == Health(2)
 
     @test has_components(world, e1, (Position, Velocity)) == true
+    @test has_components(world, e1, (Position, Velocity, Altitude)) == true
+    @test has_components(world, e1, (Position, Velocity, Dummy)) == false
 
     pos, vel, a, h = get_components(world, e2, (Position, Velocity, Altitude, Health))
     @test pos == Position(5, 6)
@@ -1004,9 +1024,9 @@ end
 
     @test_throws("ArgumentError: can't set components of a dead entity",
         set_components!(world, zero_entity, (Position(1, 2), Velocity(3, 4))))
-    @test_throws("ArgumentError: can't add components to a dead entity",
+    @test_throws("ArgumentError: can't add components on a dead entity",
         add_components!(world, zero_entity, (Position(1, 2), Velocity(3, 4))))
-    @test_throws("ArgumentError: can't remove components from a dead entity",
+    @test_throws("ArgumentError: can't remove components on a dead entity",
         remove_components!(world, zero_entity, (Position, Velocity)))
     @test_throws("ArgumentError: can't check components of a dead entity",
         has_components(world, zero_entity, (Position, Velocity)))

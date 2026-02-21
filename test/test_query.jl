@@ -10,7 +10,7 @@
 
     for i in 1:10
         query = Query(world, (Position, Velocity))
-        @test Base.IteratorSize(typeof(query)) == Base.SizeUnknown()
+        @test Base.IteratorSize(typeof(query)) == Base.HasLength()
         @test query._filter.has_excluded == false
         @test length(query) == 1
         @test count_entities(query) == 10
@@ -32,9 +32,14 @@
                 new_entity!(world, (Altitude(1), Health(2)))
             )
             @test is_locked(world) == true
+            @test query._q_lock.closed == false
         end
         @test count == 10
         @test is_locked(world) == false
+        @test query._q_lock.closed == true
+
+        # Should not raise
+        close!(query)
     end
 end
 

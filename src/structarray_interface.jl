@@ -21,7 +21,7 @@ end
 
 @generated function Base.push!(sa::_AbstractStructArray{C}, c::C) where {C}
     names = fieldnames(C)
-    push_exprs = [:(push!(getfield(sa, :_components).$name, c.$name)) for name in names]
+    push_exprs = [:(push!(getfield(sa, :_components).$name, getfield(c, $(QuoteNode(name))))) for name in names]
     return Expr(:block, push_exprs..., :(sa))
 end
 
@@ -33,7 +33,7 @@ end
 
 @generated function Base.fill!(sa::_AbstractStructArray{C}, value::C) where {C}
     names = fieldnames(C)
-    fill_exprs = [:(fill!(getfield(sa, :_components).$name, value.$name)) for name in names]
+    fill_exprs = [:(fill!(getfield(sa, :_components).$name, getfield(value, $(QuoteNode(name))))) for name in names]
     return Expr(:block, fill_exprs..., :(sa))
 end
 
@@ -45,10 +45,10 @@ Base.@propagate_inbounds @generated function Base.getindex(sa::_AbstractStructAr
     return Expr(:block, Expr(:new, C, field_exprs...))
 end
 
-Base.@propagate_inbounds @generated function Base.setindex!(sa::_AbstractStructArray{C}, c, i::Int) where {C}
+Base.@propagate_inbounds @generated function Base.setindex!(sa::_AbstractStructArray{C}, c::C, i::Int) where {C}
     names = fieldnames(C)
-    set_exprs = [:(getfield(sa, :_components).$name[i] = c.$name) for name in names]
-    return Expr(:block, set_exprs..., :(nothing))
+    set_exprs = [:(getfield(sa, :_components).$name[i] = getfield(c, $(QuoteNode(name)))) for name in names]
+    return Expr(:block, set_exprs..., :(c))
 end
 
 Base.@propagate_inbounds function Base.iterate(sa::_AbstractStructArray{C}) where {C}
@@ -88,13 +88,13 @@ end
 
 Base.@propagate_inbounds @generated function Base.setindex!(sa::_StructArrayView{C}, c::C, i::Int) where {C}
     names = fieldnames(C)
-    set_exprs = [:(getfield(sa, :_components).$name[i] = c.$name) for name in names]
-    return Expr(:block, set_exprs..., :(sa))
+    set_exprs = [:(getfield(sa, :_components).$name[i] = getfield(c, $(QuoteNode(name)))) for name in names]
+    return Expr(:block, set_exprs..., :(c))
 end
 
 @generated function Base.fill!(sa::_StructArrayView{C}, value::C) where {C}
     names = fieldnames(C)
-    fill_exprs = [:(fill!(getfield(sa, :_components).$name, value.$name)) for name in names]
+    fill_exprs = [:(fill!(getfield(sa, :_components).$name, getfield(value, $(QuoteNode(name))))) for name in names]
     return Expr(:block, fill_exprs..., :(sa))
 end
 

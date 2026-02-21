@@ -80,6 +80,7 @@ Filter
 Filter(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)
 unregister!
 count_entities
+shuffle_entities!
 length
 Entities
 @unpack
@@ -113,6 +114,14 @@ new_event_type!
 Observer
 observe!
 emit_event!
+```
+
+## Utilities
+
+General helpers and utilities.
+
+```@docs
+@unchecked
 ```
 
 ## Index

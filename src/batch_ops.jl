@@ -561,7 +561,7 @@ end
     return quote
         _check_locked(world)
 
-        l = _lock(world._lock)
+        _lock(world._lock)
 
         arches, arches_hot = _get_archetypes(world, filter)
         tables, _ = _get_tables(world, arches, arches_hot, filter)
@@ -588,7 +588,7 @@ end
 
         empty!(batches)
 
-        _unlock(world._lock, l)
+        _unlock(world._lock)
 
         return nothing
     end
@@ -668,7 +668,7 @@ end
 
     return quote
         _check_locked(world)
-        l = _lock(world._lock)
+        _lock(world._lock)
 
         arches, arches_hot = _get_archetypes(world, filter)
         tables, _ = _get_tables(world, arches, arches_hot, filter)
@@ -696,7 +696,7 @@ end
 
         empty!(batches)
 
-        _unlock(world._lock, l)
+        _unlock(world._lock)
 
         return nothing
     end
@@ -874,9 +874,8 @@ end
         has_callback = $has_fn
         should_lock = has_entity_obs || has_rel_obs || has_callback
 
-        l::Int64 = 0
         if should_lock
-            l = _lock(world._lock)
+            _lock(world._lock)
         end
 
         $(has_fn ?
@@ -955,7 +954,7 @@ end
         )
 
         if should_lock
-            _unlock(world._lock, l)
+            _unlock(world._lock)
         end
 
         if !_is_cached(filter._filter) # Do not clear for cached filters!!!
@@ -999,6 +998,7 @@ end
     world_has_rel = Val{_has_relations(CS)}()
 
     exprs = []
+    push!(exprs, :(_check_locked(world)))
     push!(
         exprs,
         :(
@@ -1046,7 +1046,7 @@ end
             exprs,
             :(
                 begin
-                    l = _lock(world._lock)
+                    _lock(world._lock)
                     columns = _get_columns(world, $ts_val_expr, table, indices...)
                     fn(columns)
 
@@ -1057,7 +1057,7 @@ end
                     if _has_relations(table) && _has_observers(world._event_manager, OnAddRelations)
                         _fire_create_entities_relations(world._event_manager, batch)
                     end
-                    _unlock(world._lock, l)
+                    _unlock(world._lock)
                     return nothing
                 end
             ),
@@ -1070,7 +1070,7 @@ end
                     has_entity_obs = _has_observers(world._event_manager, OnCreateEntity)
                     has_rel_obs = _has_relations(table) && _has_observers(world._event_manager, OnAddRelations)
                     if has_entity_obs || has_rel_obs
-                        l = _lock(world._lock)
+                        _lock(world._lock)
                         batch = _BatchTable(table, world._archetypes[table.archetype], indices...)
                         if has_entity_obs
                             _fire_create_entities(world._event_manager, batch)
@@ -1078,7 +1078,7 @@ end
                         if has_rel_obs
                             _fire_create_entities_relations(world._event_manager, batch)
                         end
-                        _unlock(world._lock, l)
+                        _unlock(world._lock)
                     end
                     return nothing
                 end

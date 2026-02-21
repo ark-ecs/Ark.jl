@@ -31,7 +31,12 @@ function _storage_type(::Type{Storage{GPUVector{B}}}, ::Type{C}) where {B,C}
     GPUVector{B,C,_gpuvector_type(C, Val{B}())}
 end
 
-function _get_component(s::_ComponentStorage{C,A}, arch::UInt32, row::UInt32) where {C,A<:AbstractArray}
+@inline function _get_component(
+    s::_ComponentStorage{C,A},
+    arch::UInt32,
+    row::UInt32,
+    ::Val{false},
+) where {C,A<:AbstractArray}
     @inbounds col = s.data[arch]
     if length(col) == 0
         throw(ArgumentError(lazy"entity has no $C component"))
@@ -39,12 +44,37 @@ function _get_component(s::_ComponentStorage{C,A}, arch::UInt32, row::UInt32) wh
     return @inbounds col[row]
 end
 
-function _set_component!(s::_ComponentStorage{C,A}, arch::UInt32, row::UInt32, value::C) where {C,A<:AbstractArray}
+@inline function _get_component(
+    s::_ComponentStorage{C,A},
+    arch::UInt32,
+    row::UInt32,
+    ::Val{true},
+) where {C,A<:AbstractArray}
+    return @inbounds s.data[arch][row]
+end
+
+@inline function _set_component!(
+    s::_ComponentStorage{C,A},
+    arch::UInt32,
+    row::UInt32,
+    value::C,
+    ::Val{false},
+) where {C,A<:AbstractArray}
     @inbounds col = s.data[arch]
     if length(col) == 0
         throw(ArgumentError(lazy"entity has no $C component"))
     end
     return @inbounds col[row] = value
+end
+
+@inline function _set_component!(
+    s::_ComponentStorage{C,A},
+    arch::UInt32,
+    row::UInt32,
+    value::C,
+    ::Val{true},
+) where {C,A<:AbstractArray}
+    return @inbounds s.data[arch][row] = value
 end
 
 @generated function _add_column!(storage::_ComponentStorage{C,A}) where {C,A<:AbstractArray}
@@ -91,8 +121,8 @@ end
     old_table::UInt32,
     new_table::UInt32,
     row::UInt32,
-) where {C,A<:StructArray}
-    names = fieldnames(A.parameters[1])
+) where {C,A<:_AbstractStructArray}
+    names = fieldnames(A.parameters[A <: StructArray ? 1 : 2])
     exprs_push_remove = Expr[]
     for name in names
         push!(exprs_push_remove, :(@inbounds push!(new_vec_comp.$name, old_vec_comp.$name[row])))
@@ -122,7 +152,13 @@ end
 
     if CP === Val{:ref} || isbitstype(C)
         # no copy required for isbits types
-        push!(exprs, :(push!(new_vec, old_vec[old_row])))
+        if A <: _AbstractStructArray
+            return quote
+                _copy_component_data_per_field!(s, old_table, new_table, old_row)
+            end
+        else
+            push!(exprs, :(push!(new_vec, old_vec[old_row])))
+        end
     elseif CP === Val{:copy} || all(T -> isbitstype(T), fieldtypes(C))
         # no deep copy required for types with all isbits fields
         push!(exprs, :(push!(new_vec, _shallow_copy(old_vec[old_row]))))
@@ -137,6 +173,27 @@ end
         @inbounds begin
             $(Expr(:block, exprs...))
         end
+    end
+end
+
+@generated function _copy_component_data_per_field!(
+    s::_ComponentStorage{C,A},
+    old_table::UInt32,
+    new_table::UInt32,
+    old_row::UInt32,
+) where {C,A<:_AbstractStructArray}
+    names = fieldnames(C)
+    exprs = Expr[]
+    for name in names
+        push!(exprs, :(@inbounds push!(new_vec_comp.$name, old_vec_comp.$name[old_row])))
+    end
+    return quote
+        @inbounds old_vec = s.data[old_table]
+        @inbounds new_vec = s.data[new_table]
+        old_vec_comp = getfield(old_vec, :_components)
+        new_vec_comp = getfield(new_vec, :_components)
+        $(exprs...)
+        return nothing
     end
 end
 
@@ -172,8 +229,8 @@ end
     s::_ComponentStorage{C,A},
     arch::UInt32,
     row::UInt32,
-) where {C,A<:StructArray}
-    names = fieldnames(A.parameters[1])
+) where {C,A<:_AbstractStructArray}
+    names = fieldnames(A.parameters[A <: StructArray ? 1 : 2])
     exprs_remove = Expr[]
     for name in names
         push!(exprs_remove, :(_swap_remove!(getfield(col, :_components).$name, row)))
@@ -211,4 +268,31 @@ end
 
 function _activate_table_column!(rel::_ComponentRelations, table::Int, entity::Entity)
     @inbounds rel.targets[table] = entity
+end
+
+@inline function _swap_component_data!(
+    s::_ComponentStorage{C,A},
+    arch::UInt32,
+    i::Int,
+    j::Int,
+) where {C,A<:AbstractArray}
+    @inbounds col = s.data[arch]
+    _swap_indices!(col, i, j)
+end
+
+@generated function _swap_component_data!(
+    s::_ComponentStorage{C,A},
+    arch::UInt32,
+    i::Int,
+    j::Int,
+) where {C,A<:_AbstractStructArray}
+    names = fieldnames(A.parameters[A <: StructArray ? 1 : 2])
+    exprs_swap = Expr[]
+    for name in names
+        push!(exprs_swap, :(_swap_indices!(getfield(col, :_components).$name, i, j)))
+    end
+    quote
+        @inbounds col = s.data[arch]
+        $(exprs_swap...)
+    end
 end
