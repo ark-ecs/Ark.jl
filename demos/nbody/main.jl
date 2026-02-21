@@ -41,7 +41,7 @@ function nbody_simulation(n, dt, backend)
 
         fps_obs = get_resource(world, WorldObservables).fps
         fps_obs[] = "FPS: $(round(1e9 / (t1 - t0), digits=1))"
-        sleep(max(0, 1/60 - (t1 - t0) / 1e9))
+        sleep(max(0, 1 / 60 - (t1 - t0) / 1e9))
         yield()
 
         k += 1
