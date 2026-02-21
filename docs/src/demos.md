@@ -87,12 +87,24 @@ Makes massive use of entities stored in components.
 
 ## Grazers
 
-An model for the evolution of the foraging behavior of grazers.
+A model for the evolution of the foraging behavior of grazers.
 Dynamically adds and removes components to handle behavioral states.
 [Source code](https://github.com/ark-ecs/Ark.jl/tree/main/demos/grazers).
 
 ```@raw html
 <div style="text-align: center;">
 <img alt="SIR demo" src="https://raw.githubusercontent.com/ark-ecs/Ark.jl/refs/heads/gh-images/screenshots/grazers.png" />
+</div>
+```
+
+## NBody
+
+A model simulating the [n-body problem](https://en.wikipedia.org/wiki/N-body_problem), where particles interact through gravitational forces.
+Exploits GPU computing for performance.
+[Source code](https://github.com/ark-ecs/Ark.jl/tree/main/demos/nbody).
+
+```@raw html
+<div style="text-align: center;">
+<img alt="NBody demo" src="https://raw.githubusercontent.com/ark-ecs/Ark.jl/refs/heads/gh-images/screenshots/nbody.png" />
 </div>
 ```

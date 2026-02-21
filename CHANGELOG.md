@@ -22,6 +22,10 @@
 
 - Fix copy on special mutable types (#515, fixes #514)
 
+### Documentation
+
+- Adds a demo of a nbody model to show GPU computing (#523)
+
 ### Other
 
 - Closing an already closed query is a no-op instead of raising an error (#493)
