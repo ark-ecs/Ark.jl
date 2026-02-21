@@ -7,7 +7,7 @@ function initialize!(::NBodyPlot, world)
     marker_sizes = Float64[]
 
     for (entities, positions, velocities, masses) in Query(world, (Position, Velocity, Mass))
-        append!(marker_sizes, (unpack(masses).val .^ (1/3)) .* 5.0)
+        append!(marker_sizes, (unpack(masses).val .^ (1 / 3)) .* 5.0)
         update_observables!(pos_obs, vel_mag_obs, positions, velocities)
     end
 

@@ -23,7 +23,7 @@ const SOFTEN = 0.1f0
         dy = py_j - py_i
         dz = pz_j - pz_i
 
-        dist_sq = dx*dx + dy*dy + dz*dz + SOFTEN
+        dist_sq = dx * dx + dy * dy + dz * dz + SOFTEN
         inv_dist = 1.0f0 / sqrt(dist_sq)
         inv_dist3 = inv_dist * inv_dist * inv_dist
 
