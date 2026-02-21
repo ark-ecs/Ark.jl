@@ -2,6 +2,7 @@
 using Ark
 using GLMakie
 using KernelAbstractions
+using Random
 
 include("resources.jl")
 include("components.jl")
