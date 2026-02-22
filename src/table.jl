@@ -1,21 +1,17 @@
 
 struct _Table
     entities::Entities
-    relations::Memory{Pair{Int,Entity}}
+    relations::Vector{Pair{Int,Entity}}
     filters::_IdCollection
     id::UInt32
     archetype::UInt32
 end
 
 function _new_table(id::UInt32, archetype::UInt32)
-    return _Table(Entities(0), Memory{Pair{Int,Entity}}(), _IdCollection(), id, archetype)
+    return _Table(Entities(0), Pair{Int,Entity}[], _IdCollection(), id, archetype)
 end
 
-function _new_table(id::UInt32, archetype::UInt32, cap::Int, relations::AbstractVector{Pair{Int,Entity}})
-    relations_mem = Memory{Pair{Int,Entity}}(undef, length(relations))
-    for i in eachindex(relations)
-        relations_mem[i] = relations[i]
-    end
+function _new_table(id::UInt32, archetype::UInt32, cap::Int, relations::Vector{Pair{Int,Entity}})
     return _Table(Entities(cap), relations, _IdCollection(), id, archetype)
 end
 
