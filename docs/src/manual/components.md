@@ -103,7 +103,9 @@ See chapter [Batch operations](@ref) for details.
 
 Components are stored in [archetypes](@ref Architecture),
 with the values for each component type stored in a separate array-like column.
-For these columns, Ark offers two storage types by default:
+For these columns, Ark offers storage types for both CPU anf GPU computing by default.
+
+### CPU Storages
 
 - **Vector storage** stores components in a simple vector per column. This is the default.
 
@@ -117,10 +119,14 @@ For these columns, Ark offers two storage types by default:
   - ≈10-20% runtime overhead for component operations and entity creation.
   - Slower component access with [get_components](@ref) and [set_components!](@ref).
 
+### GPU Storages
+
 - **[GPUVector](@ref) storage** stores components using unified memory for mixed CPU/GPU operations. [GPUVector](@ref) is compatible with CUDA.jl, Metal.jl, oneAPI.jl or OpenCL.jl. Mutable components are not allowed.
 
 - **[GPUStructArray](@ref) storage** stores components in an SoA data structure similar to  
   [StructArrays](https://github.com/JuliaArrays/StructArrays.jl) using unified memory for mixed CPU/GPU operations. [GPUVector](@ref) is compatible with CUDA.jl, Metal.jl, oneAPI.jl or OpenCL.jl. The same limitations of [StructArray](@ref) storage apply.
+
+### Storage Selection
 
 The storage mode can be selected per component type by using the [Storage](@ref) wrapper during world construction.
 
@@ -148,66 +154,7 @@ world = World(
 World(entities=0, comp_types=(Position, Velocity))
 ```
 
-To use the [GPUVector](@ref) or the [StructArray](@ref) storage, also the GPU backend must be specified (which can be either :CUDA, :Metal, :oneAPI or :OpenCL) depending on the GPU. To illustrate its usage and performance we provide a classical Position/Velocity example where the Position updates are offloaded to the GPU:
-
-```
-using Ark
-using KernelAbstractions
-using CUDA
-
-struct Position
-    x::Float32
-    y::Float32
-end
-
-struct Velocity
-    dx::Float32
-    dy::Float32
-end
-
-@kernel function update_kernel!(positions, velocities)
-    i = @index(Global)
-    @inbounds begin
-        pos = positions[i]
-        vel = velocities[i]
-        positions[i] = Position(pos.x + sin(vel.dx), pos.y + cos(vel.dy))
-    end
-end
-
-function run_world(backend; n_entities=10^6, n_iterations=1000, use_gpu_storage=false)
-    T = backend isa CUDABackend ? GPUVector{:CUDA} : Vector
-    world = World(Position => Storage{T}, Velocity => Storage{T})
-
-    for i in 1:n_entities
-        new_entity!(world, (Position(Float32(i), Float32(i * 2)), Velocity(Float32(i), Float32(i))))
-    end
-
-    kernel = update_kernel!(backend, 256)
-    for _ in 1:n_iterations
-        for (entities, positions, velocities) in Query(world, (Position, Velocity))
-            kernel(positions, velocities; ndrange=length(positions))
-        end
-    end
-
-    return world
-end
-```
-
-Performance-wise `GPUVector` performs best in this case on some local test hardware, as you can
-see below:
-
-```
-julia> # AMD Ryzen 5 5600H
-       @time run_world(CPU()) # 1 core
-7.373623 seconds (7.53 k allocations: 141.863 MiB, 3.06% gc time)
-
-julia> @time run_world(CPU()) # 6 cores
-1.576263 seconds (32.53 k allocations: 143.663 MiB, 1.89% gc time)
-
-julia> # NVIDIA GeForce GTX 1650
-       @time run_world(CUDABackend())
-0.325847 seconds (30.17 k allocations: 85.478 MiB, 0.36% gc time)
-```
+To use the [GPUVector](@ref) or the [StructArray](@ref) storage, also the GPU backend must be specified (which can be either :CUDA, :Metal, :oneAPI or :OpenCL) depending on the GPU.
 
 ## [User-defined component storages](@id new-component-storages)
 
