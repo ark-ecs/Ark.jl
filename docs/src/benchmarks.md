@@ -22,7 +22,7 @@ of Ark would be even more emphasized.
 
 Here, we illustrate the performance of a classical Position/Velocity example where the Position updates are offloaded to the GPU:
 
-```
+```julia
 using Ark
 using KernelAbstractions
 using CUDA
