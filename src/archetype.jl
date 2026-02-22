@@ -28,7 +28,7 @@ end
 mutable struct _Archetype{M}
     const components::Memory{Int}
     const tables::_IdCollection
-    const index::Vector{Dict{UInt32,_IdCollection}}
+    const index::Memory{Dict{UInt32,_IdCollection}}
     const target_tables::Dict{UInt32,_IdCollection}
     const free_tables::Vector{UInt32}
     const node::_GraphNode{M}
@@ -41,7 +41,7 @@ function _Archetype(id::UInt32, node::_GraphNode, table::UInt32)
     _Archetype(
         Memory{Int}(),
         _IdCollection(table),
-        Vector{Dict{UInt32,_IdCollection}}(),
+        Memory{Dict{UInt32,_IdCollection}}(),
         Dict{UInt32,_IdCollection}(),
         Vector{UInt32}(),
         node,
@@ -57,11 +57,15 @@ function _Archetype(
     table::UInt32,
     relations::Vector{Int},
     components::Int...,
-)
+)   
+    index = Memory{Dict{UInt32,_IdCollection}}(undef, length(relations))
+    for i in eachindex(relations)
+        index[i] = Dict{UInt32,_IdCollection}()
+    end
     _Archetype(
         Memory{Int}(collect(Int, components)),
         _IdCollection(),
-        [Dict{UInt32,_IdCollection}() for _ in eachindex(relations)],
+        index,
         Dict{UInt32,_IdCollection}(),
         Vector{UInt32}(),
         node,
