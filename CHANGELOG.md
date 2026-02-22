@@ -1,6 +1,6 @@
 # Changelog
 
-## [[unpublished]](https://github.com/ark-ecs/Ark.jl/compare/v0.3.2...main)
+## [[v0.4.0]](https://github.com/ark-ecs/Ark.jl/compare/v0.3.2...v0.4.0)
 
 ### Breaking changes
 
