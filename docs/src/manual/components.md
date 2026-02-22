@@ -156,7 +156,7 @@ World(entities=0, comp_types=(Position, Velocity))
 
 To use the [GPUVector](@ref) or the [GPUStructArray](@ref) storage, also the GPU backend must be specified (which can be either `:CUDA`, `:Metal`, `:oneAPI` or `:OpenCL`) depending on the GPU, as shown below:
 
-```
+```julia
 using CUDA
 
 world = World(
