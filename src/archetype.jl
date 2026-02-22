@@ -57,7 +57,7 @@ function _Archetype(
     table::UInt32,
     relations::Vector{Int},
     components::Int...,
-)   
+)
     index = Memory{Dict{UInt32,_IdCollection}}(undef, length(relations))
     for i in eachindex(relations)
         index[i] = Dict{UInt32,_IdCollection}()
