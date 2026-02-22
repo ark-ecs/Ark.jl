@@ -9,7 +9,7 @@ const zero_entity::Entity = _new_entity(1, 0)
 
 const _no_entity::Entity = _new_entity(0, 0)
 
-const _empty_relations::Memory{Pair{Int,Entity}} = Memory{Pair{Int,Entity}}()
+const _empty_relations::Vector{Pair{Int,Entity}} = Vector{Pair{Int,Entity}}()
 
 struct _WorldPool{M}
     relations::Vector{Pair{Int,Entity}}
@@ -934,7 +934,7 @@ function _find_or_create_table!(
                     push!(all_relations, Pair(relations[i], targets[i]))
                 end
             else
-                all_relations = vec(old_table.relations)
+                all_relations = old_table.relations
                 requires_free = false
             end
         end
@@ -966,7 +966,7 @@ function _find_or_create_table!(
     return new_table_id, relation_removed
 end
 
-function _recycle_table!(world::World, arch::_Archetype, table_id::UInt32, relations::AbstractVector{Pair{Int,Entity}})
+function _recycle_table!(world::World, arch::_Archetype, table_id::UInt32, relations::Vector{Pair{Int,Entity}})
     if length(relations) < arch.num_relations
         throw(ArgumentError("relation targets must be fully specified"))
     end
@@ -985,7 +985,7 @@ function _recycle_table!(world::World, arch::_Archetype, table_id::UInt32, relat
     _add_table!(world._cache, world, world._archetypes_hot[arch.id], table)
 end
 
-function _create_table!(world::World, arch::_Archetype, relations::AbstractVector{Pair{Int,Entity}})::UInt32
+function _create_table!(world::World, arch::_Archetype, relations::Vector{Pair{Int,Entity}})::UInt32
     if length(relations) < arch.num_relations
         throw(ArgumentError("relation targets must be fully specified"))
     end
@@ -1104,7 +1104,7 @@ function _get_exchange_targets_unchecked(
     return new_relations, mask
 end
 
-@inline function _get_table(world::World, arch::_Archetype, relations::AbstractVector{Pair{Int,Entity}})::Tuple{_Table,Bool}
+@inline function _get_table(world::World, arch::_Archetype, relations::Vector{Pair{Int,Entity}})::Tuple{_Table,Bool}
     if length(arch.tables) == 0
         return @inbounds world._tables[1], false
     end
@@ -2158,7 +2158,7 @@ function _check_locked(world::World)
     end
 end
 
-function _check_relation_targets(world::World, relations::AbstractVector{Pair{Int,Entity}})
+function _check_relation_targets(world::World, relations::Vector{Pair{Int,Entity}})
     for rel in relations
         _check_relation_target(world, rel.second)
     end
