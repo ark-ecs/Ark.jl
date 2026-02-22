@@ -154,7 +154,16 @@ world = World(
 World(entities=0, comp_types=(Position, Velocity))
 ```
 
-To use the [GPUVector](@ref) or the [StructArray](@ref) storage, also the GPU backend must be specified (which can be either :CUDA, :Metal, :oneAPI or :OpenCL) depending on the GPU.
+To use the [GPUVector](@ref) or the [GPUStructArray](@ref) storage, also the GPU backend must be specified (which can be either `:CUDA`, `:Metal`, `:oneAPI` or `:OpenCL`) depending on the GPU, as shown below:
+
+```
+using CUDA
+
+world = World(
+    Position => Storage{GPUVector{:CUDA}},
+    Velocity => Storage{GPUStructArray{:CUDA}},
+)
+```
 
 ## [User-defined component storages](@id new-component-storages)
 
