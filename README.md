@@ -34,7 +34,7 @@ It is a port of the Go ECS [Ark](https://github.com/mlange-42/ark).
 - [Storage mode](https://ark-ecs.github.io/Ark.jl/stable/manual/components.html#component-storages) per component for ergonomics and SIMD,<br>with support for user-defined storages.
 - Extensible [event system](https://ark-ecs.github.io/Ark.jl/stable/manual/events.html) with filtering and custom event types.
 - Fast [batch operations](https://ark-ecs.github.io/Ark.jl/stable/manual/batch.html) for mass manipulation.
-- Built-in [GPU integration](https://ark-ecs.github.io/Ark.jl/stable/api.html#Ark.GPUVector) for [maximal performance](https://github.com/ark-ecs/Ark.jl/blob/ameligrana-patch-1/docs/src/benchmarks.md#cpu-vs-gpu-storage).
+- Built-in [GPU integration](https://ark-ecs.github.io/Ark.jl/stable/components.html#GPU-Storage) for [maximal performance](https://ark-ecs.github.io/Ark.jl/stable/benchmarks.html#CPU-vs.-GPU-Storage).
 - No [systems](https://ark-ecs.github.io/Ark.jl/stable/manual/systems). Just [queries](https://ark-ecs.github.io/Ark.jl/stable/manual/queries). Use your own structure.
 - Minimal [dependencies](https://github.com/ark-ecs/Ark.jl/blob/main/Project.toml), 100% [test coverage](https://app.codecov.io/github/ark-ecs/ark.jl).
 
