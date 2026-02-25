@@ -162,6 +162,41 @@ function _matches(filter::F, archetype::_ArchetypeHot) where {F<:_MaskFilter}
            (!filter.has_excluded || !_contains_any(archetype.mask, filter.exclude_mask))
 end
 
+macro _each_matching_table(world, filter, archetypes, archetypes_hot, table, action)
+    quote
+        for i in eachindex($(esc(archetypes)))
+            archetype_hot = @inbounds $(esc(archetypes_hot))[i]
+            if !_matches($(esc(filter)), archetype_hot)
+                continue
+            end
+
+            if !archetype_hot.has_relations
+                table_id = archetype_hot.table
+                let $(esc(table)) = @inbounds $(esc(world))._tables[Int(table_id)]
+                    if !isempty($(esc(table)).entities)
+                        $(esc(action))
+                    end
+                end
+                continue
+            end
+
+            archetype = @inbounds $(esc(archetypes))[i]
+            if isempty(archetype.tables)
+                continue
+            end
+
+            tables = _get_tables($(esc(world)), archetype, $(esc(filter)).relations)
+            for table_id in tables
+                let $(esc(table)) = @inbounds $(esc(world))._tables[Int(table_id)]
+                    if !isempty($(esc(table)).entities) && _matches($(esc(world))._relations, $(esc(table)), $(esc(filter)).relations)
+                         $(esc(action))
+                    end
+                end
+            end
+        end
+    end
+end
+
 """
     length(f::Filter)
 
@@ -187,36 +222,8 @@ function _length(
     archetypes_hot::Vector{_ArchetypeHot{M}},
 ) where {W<:World,M}
     count = 0
-    for i in eachindex(archetypes)
-        archetype_hot = @inbounds archetypes_hot[i]
-        if !_matches(filter, archetype_hot)
-            continue
-        end
-
-        if !archetype_hot.has_relations
-            table = @inbounds world._tables[Int(archetype_hot.table)]
-            if isempty(table.entities)
-                continue
-            end
-            count += 1
-            continue
-        end
-
-        archetype = @inbounds archetypes[i]
-        if isempty(archetype.tables)
-            continue
-        end
-
-        tables = _get_tables(world, archetype, filter.relations)
-        for table_id in tables
-            # TODO we can probably optimize here if exactly one relation in archetype and one queried.
-            table = @inbounds world._tables[Int(table_id)]
-            if !isempty(table.entities) && _matches(world._relations, table, filter.relations)
-                count += 1
-            end
-        end
-    end
-    count
+    @_each_matching_table(world, filter, archetypes, archetypes_hot, table, count += 1)
+    return count
 end
 
 function _length_registered(world::W, filter::_MaskFilter{M}) where {W<:World,M}
@@ -256,33 +263,8 @@ function _count_entities(
     archetypes_hot::Vector{_ArchetypeHot{M}},
 ) where {W<:World,M}
     count = 0
-    for i in eachindex(archetypes)
-        archetype_hot = @inbounds archetypes_hot[i]
-        if !_matches(filter, archetype_hot)
-            continue
-        end
-
-        if !archetype_hot.has_relations
-            table = @inbounds world._tables[Int(archetype_hot.table)]
-            count += length(table.entities)
-            continue
-        end
-
-        archetype = @inbounds archetypes[i]
-        if isempty(archetype.tables)
-            continue
-        end
-
-        tables = _get_tables(world, archetype, filter.relations)
-        for table_id in tables
-            # TODO we can probably optimize here if exactly one relation in archetype and one queried.
-            table = @inbounds world._tables[Int(table_id)]
-            if !isempty(table.entities) && _matches(world._relations, table, filter.relations)
-                count += length(table.entities)
-            end
-        end
-    end
-    count
+    @_each_matching_table(world, filter, archetypes, archetypes_hot, table, count += length(table.entities))
+    return count
 end
 
 function _count_entities_registered(world::W, filter::_MaskFilter{M}) where {W<:World,M}
@@ -377,32 +359,5 @@ function _shuffle(
     archetypes::Vector{_Archetype{M}},
     archetypes_hot::Vector{_ArchetypeHot{M}},
 ) where {W<:World,M}
-    for i in eachindex(archetypes)
-        archetype_hot = @inbounds archetypes_hot[i]
-        if !_matches(filter, archetype_hot)
-            continue
-        end
-
-        if !archetype_hot.has_relations
-            table = @inbounds world._tables[Int(archetype_hot.table)]
-            if isempty(table.entities)
-                continue
-            end
-            _shuffle_table!(rng, world, table)
-            continue
-        end
-
-        archetype = @inbounds archetypes[i]
-        if isempty(archetype.tables)
-            continue
-        end
-
-        tables = _get_tables(world, archetype, filter.relations)
-        for table_id in tables
-            table = @inbounds world._tables[Int(table_id)]
-            if !isempty(table.entities) && _matches(world._relations, table, filter.relations)
-                _shuffle_table!(rng, world, table)
-            end
-        end
-    end
+    @_each_matching_table(world, filter, archetypes, archetypes_hot, table, _shuffle_table!(rng, world, table))
 end
