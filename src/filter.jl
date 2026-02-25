@@ -163,38 +163,36 @@ function _matches(filter::F, archetype::_ArchetypeHot) where {F<:_MaskFilter}
 end
 
 macro _each_matching_table(world, filter, archetypes, archetypes_hot, table, action)
-    quote
-        for i in eachindex($(esc(archetypes)))
-            archetype_hot = @inbounds $(esc(archetypes_hot))[i]
-            if !_matches($(esc(filter)), archetype_hot)
+    esc(quote
+        for i in eachindex(archetypes)
+            archetype_hot = @inbounds archetypes_hot[i]
+            if !_matches(filter, archetype_hot)
                 continue
             end
 
             if !archetype_hot.has_relations
                 table_id = archetype_hot.table
-                $(esc(table)) = @inbounds $(esc(world))._tables[Int(table_id)]
-                if !isempty($(esc(table)).entities)
-                    $(esc(action))
+                table = @inbounds world._tables[Int(table_id)]
+                if !isempty(table.entities)
+                    $action
                 end
                 continue
             end
 
-            archetype = @inbounds $(esc(archetypes))[i]
+            archetype = @inbounds archetypes[i]
             if isempty(archetype.tables)
                 continue
             end
 
-            tables = _get_tables($(esc(world)), archetype, $(esc(filter)).relations)
+            tables = _get_tables(world, archetype, filter.relations)
             for table_id in tables
-                # TODO we can probably optimize here if exactly one relation in archetype and one queried.
-                $(esc(table)) = @inbounds $(esc(world))._tables[Int(table_id)]
-                if !isempty($(esc(table)).entities) &&
-                    _matches($(esc(world))._relations, $(esc(table)), $(esc(filter)).relations)
-                    $(esc(action))
+                table = @inbounds world._tables[Int(table_id)]
+                if !isempty(table.entities) && _matches(world._relations, table, filter.relations)
+                    $action
                 end
             end
         end
-    end
+    end)
 end
 
 """
