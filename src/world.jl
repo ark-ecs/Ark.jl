@@ -311,7 +311,7 @@ end
 
         if swapped
             @inbounds swap_entity = table.entities[index.row]
-            @inbounds world._entities[swap_entity._id] = index
+            _set_entity_index!(world, swap_entity, index)
         end
 
         _recycle(world._entity_pool, entity)
@@ -1234,6 +1234,25 @@ function _cleanup_archetypes(world::World, entity::Entity)
     end
 end
 
+
+@inline function _set_entity_index!(world::World, entity::Entity, index::_EntityIndex)
+    @inbounds world._entities[entity._id] = index
+end
+
+@inline @generated function _update_entity_index!(world::World{CS}, entity::Entity, table_id::UInt32, row::UInt32) where {CS}
+    world_has_rel = _has_relations(CS)
+    quote
+        if entity._id > length(world._entities)
+            push!(world._entities, _EntityIndex(table_id, row))
+            $(world_has_rel ? :(push!(world._targets, false)) : (:(nothing)))
+        else
+            @inbounds world._entities[Int(entity._id)] = _EntityIndex(table_id, row)
+            $(world_has_rel ? :(@inbounds world._targets[Int(entity._id)] = false) : (:(nothing)))
+        end
+        return nothing
+    end
+end
+
 @generated function _new_entity!(
     world::W,
     ::Val{TS},
@@ -1314,13 +1333,7 @@ end
 
         index = _add_entity!(table, entity)
 
-        if entity._id > length(world._entities)
-            push!(world._entities, _EntityIndex(table_index, UInt32(index)))
-            $(world_has_rel ? :(push!(world._targets, false)) : (:(nothing)))
-        else
-            @inbounds world._entities[Int(entity._id)] = _EntityIndex(table_index, UInt32(index))
-            $(world_has_rel ? :(@inbounds world._targets[Int(entity._id)] = false) : (:(nothing)))
-        end
+        _update_entity_index!(world, entity, table_index, UInt32(index))
         return entity, index
     end
 end
@@ -1339,13 +1352,7 @@ end
             entity = _get_entity(world._entity_pool)
             @inbounds table.entities._data[i] = entity
 
-            if entity._id > length(world._entities)
-                push!(world._entities, _EntityIndex(table_index, i))
-                $(world_has_rel ? :(push!(world._targets, false)) : (:(nothing)))
-            else
-                @inbounds world._entities[Int(entity._id)] = _EntityIndex(table_index, i)
-                $(world_has_rel ? :(@inbounds world._targets[Int(entity._id)] = false) : (:(nothing)))
-            end
+            _update_entity_index!(world, entity, table_index, UInt32(i))
         end
 
         for comp in archetype.components
@@ -1371,10 +1378,10 @@ end
 
         if swapped
             @inbounds swap_entity = old_table.entities[index.row]
-            @inbounds world._entities[swap_entity._id] = index
+            _set_entity_index!(world, swap_entity, index)
         end
 
-        @inbounds world._entities[entity._id] = _EntityIndex(table_index, UInt32(new_row))
+        _set_entity_index!(world, entity, _EntityIndex(table_index, UInt32(new_row)))
 
         @inbounds old_archetype = world._archetypes[old_table.archetype]
         @inbounds new_archetype = world._archetypes[new_table.archetype]
