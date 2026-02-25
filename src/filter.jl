@@ -188,8 +188,9 @@ macro _each_matching_table(world, filter, archetypes, archetypes_hot, table, act
             tables = _get_tables($(esc(world)), archetype, $(esc(filter)).relations)
             for table_id in tables
                 let $(esc(table)) = @inbounds $(esc(world))._tables[Int(table_id)]
-                    if !isempty($(esc(table)).entities) && _matches($(esc(world))._relations, $(esc(table)), $(esc(filter)).relations)
-                         $(esc(action))
+                    if !isempty($(esc(table)).entities) &&
+                       _matches($(esc(world))._relations, $(esc(table)), $(esc(filter)).relations)
+                        $(esc(action))
                     end
                 end
             end
