@@ -56,7 +56,6 @@ mutable struct World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M} <: _AbstractWorld
     const _cache::_Cache{M}
     const _pool::_WorldPool{M}
     const _initial_capacity::Int
-    const last_created_table::Base.RefValue{Tuple{_Mask{M}, UInt32}}
 end
 
 """
@@ -812,7 +811,6 @@ end
             _Cache{$M}(),
             _WorldPool{$M}(),
             initial_capacity,
-            Ref((_Mask{$M}(), UInt32(1))),
         )
     end
 end
