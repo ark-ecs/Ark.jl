@@ -32,7 +32,7 @@ function _find_or_create(g::_Graph, mask::_MutableMask)
 end
 
 function _find_node(g::_Graph, start::_GraphNode, add::Tuple{Vararg{Int}}, remove::Tuple{Vararg{Int}},
-    add_mask::_Mask, rem_mask::_Mask, use_map::Union{_NoUseMap,_UseMap})
+    add_mask::Union{_NoMask,_Mask}, rem_mask::Union{_NoMask,_Mask}, use_map::Union{_NoUseMap,_UseMap})
     if !_contains_all(start.mask, rem_mask)
         throw(ArgumentError("entity does not have component to remove"))
     elseif _contains_any(start.mask, add_mask)
@@ -42,7 +42,7 @@ function _find_node(g::_Graph, start::_GraphNode, add::Tuple{Vararg{Int}}, remov
 end
 
 @inline function _search_node(g::_Graph, start::_GraphNode, add::Tuple{Vararg{Int}}, remove::Tuple{Vararg{Int}},
-    add_mask::_Mask, rem_mask::_Mask, use_map::_UseMap)
+    add_mask::Union{_NoMask,_Mask}, rem_mask::Union{_NoMask,_Mask}, use_map::_UseMap)
     new_mask = _clear_bits(_or(add_mask, start.mask), rem_mask)
     if new_mask.bits == g.last_node.mask.bits
         return g.last_node
@@ -53,7 +53,7 @@ end
 end
 
 @inline function _search_node(g::_Graph, start::_GraphNode, add::Tuple{Vararg{Int}}, remove::Tuple{Vararg{Int}},
-    add_mask::_Mask, rem_mask::_Mask, use_map::_NoUseMap)
+    add_mask::Union{_NoMask,_Mask}, rem_mask::Union{_NoMask,_Mask}, use_map::_NoUseMap)
     new_mask = _clear_bits(_or(add_mask, start.mask), rem_mask)
     if new_mask.bits == g.last_node.mask.bits
         return g.last_node
