@@ -886,8 +886,8 @@ end
     remove::Tuple{Vararg{Int}},
     relations::Tuple{Vararg{Int}},
     targets::Tuple{Vararg{Entity}},
-    add_mask::_Mask,
-    rem_mask::_Mask,
+    add_mask::Union{_NoMask,_Mask},
+    rem_mask::Union{_NoMask,_Mask},
     use_map::Union{_NoUseMap,_UseMap},
     world_has_rel::Val{false},
 )::Tuple{UInt32,Bool}
