@@ -56,6 +56,7 @@ mutable struct World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M} <: _AbstractWorld
     const _cache::_Cache{M}
     const _pool::_WorldPool{M}
     const _initial_capacity::Int
+    const last_created_table::Base.RefValue{Tuple{_Mask{M}, UInt32}}
 end
 
 """
@@ -811,6 +812,7 @@ end
             _Cache{$M}(),
             _WorldPool{$M}(),
             initial_capacity,
+            Ref((_Mask{$M}(), UInt32(1))),
         )
     end
 end
@@ -833,8 +835,8 @@ end
     add::Tuple{Vararg{Int}},
     remove::Tuple{Vararg{Int}},
     relations::Tuple{Vararg{Int}},
-    add_mask::_Mask,
-    rem_mask::_Mask,
+    add_mask::Union{_NoMask,_Mask},
+    rem_mask::Union{_NoMask,_Mask},
     use_map::Union{_NoUseMap,_UseMap},
 )::Tuple{UInt32,Bool}
     node = _find_node(world._graph, start, add, remove, add_mask, rem_mask, use_map)
@@ -854,8 +856,8 @@ end
     remove::Tuple{Vararg{Int}},
     relations::Tuple{Vararg{Int}},
     targets::Tuple{Vararg{Entity}},
-    add_mask::_Mask,
-    rem_mask::_Mask,
+    add_mask::Union{_NoMask,_Mask},
+    rem_mask::Union{_NoMask,_Mask},
     use_map::Union{_NoUseMap,_UseMap},
     world_has_rel::Val{true},
 )::Tuple{UInt32,Bool}
@@ -884,21 +886,30 @@ end
     remove::Tuple{Vararg{Int}},
     relations::Tuple{Vararg{Int}},
     targets::Tuple{Vararg{Entity}},
-    add_mask::_Mask,
-    rem_mask::_Mask,
+    add_mask::Union{_NoMask,_Mask},
+    rem_mask::Union{_NoMask,_Mask},
     use_map::Union{_NoUseMap,_UseMap},
     world_has_rel::Val{false},
 )::Tuple{UInt32,Bool}
+    @inbounds old_arch_hot = world._archetypes_hot[old_table.archetype]
+    last_mask, last_table = world.last_created_table[]
+    new_mask = _clear_bits(_or(add_mask, old_arch_hot.mask), rem_mask)
+    if new_mask == last_mask
+        return last_table, false
+    end
     @inbounds old_arch = world._archetypes[old_table.archetype]
     new_arch_index, is_new = _find_or_create_archetype!(
         world, old_arch.node, add, remove, relations, add_mask, rem_mask, use_map,
     )
-    @inbounds new_arch_hot = world._archetypes_hot[new_arch_index]
     if is_new
         @inbounds new_arch = world._archetypes[new_arch_index]
-        return _create_table!(world, new_arch, _empty_relations), false
+        table_id = _create_table!(world, new_arch, _empty_relations)
+    else
+        @inbounds new_arch_hot = world._archetypes_hot[new_arch_index]
+        table_id = new_arch_hot.table
     end
-    return new_arch_hot.table, false
+    world.last_created_table[] = (new_mask, table_id)
+    return table_id, false
 end
 
 # internal for handling relations
@@ -1256,8 +1267,8 @@ end
     use_map = num_ids >= 4 ? _UseMap() : _NoUseMap()
 
     M = max(1, cld(length(CS.parameters), 64))
-    add_mask = _Mask{M}(ids...)
-    rem_mask = _Mask{M}()
+    add_mask = length(ids) == 0 ? _NoMask() : _Mask{M}(ids...)
+    rem_mask = _NoMask()
 
     world_has_rel = Val{_has_relations(CS)}()
 
@@ -1508,8 +1519,8 @@ end
     use_map = num_ids >= 4 ? _UseMap() : _NoUseMap()
 
     M = max(1, cld(length(CS.parameters), 64))
-    add_mask = _Mask{M}(add_ids...)
-    rem_mask = _Mask{M}(rem_ids...)
+    add_mask = length(add_ids) == 0 ? _NoMask() : _Mask{M}(add_ids...)
+    rem_mask = length(rem_ids) == 0 ? _NoMask() : _Mask{M}(rem_ids...)
 
     if !Unchecked
         push!(exprs, :(
@@ -1882,8 +1893,8 @@ end
     use_map = num_ids >= 4 ? _UseMap() : _NoUseMap()
 
     M = max(1, cld(length(CS.parameters), 64))
-    add_mask = _Mask{M}(add_ids...)
-    rem_mask = _Mask{M}(rem_ids...)
+    add_mask = length(add_ids) == 0 ? _NoMask() : _Mask{M}(add_ids...)
+    rem_mask = length(rem_ids) == 0 ? _NoMask() : _Mask{M}(rem_ids...)
 
     world_has_rel = Val{_has_relations(CS)}()
 
