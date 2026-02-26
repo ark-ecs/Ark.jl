@@ -17,6 +17,7 @@ struct _WorldPool{M}
     tables::Vector{UInt32}
     batches::Vector{_BatchTable{M}}
     mask::_MutableMask{M}
+    last_table::Base.RefValue{Tuple{_Mask{M}, UInt32}}
 end
 
 function _WorldPool{M}() where {M}
@@ -26,6 +27,7 @@ function _WorldPool{M}() where {M}
         Vector{UInt32}(),
         Vector{_BatchTable{M}}(),
         _MutableMask{M}(),
+        Ref((_Mask{M}(), UInt32(1))),
     )
 end
 
@@ -889,6 +891,14 @@ end
     use_map::Union{_NoUseMap,_UseMap},
     world_has_rel::Val{false},
 )::Tuple{UInt32,Bool}
+        
+    old_arch_hot = world._archetypes_hot[old_table.archetype]
+    last_mask, last_table = world._pool.last_table[]
+    new_mask = _clear_bits(_or(add_mask, old_arch_hot.mask), rem_mask)
+    if new_mask == last_mask
+        return last_table, false
+    end
+
     @inbounds old_arch = world._archetypes[old_table.archetype]
     new_arch_index, is_new = _find_or_create_archetype!(
         world, old_arch.node, add, remove, relations, add_mask, rem_mask, use_map,
@@ -896,8 +906,11 @@ end
     @inbounds new_arch_hot = world._archetypes_hot[new_arch_index]
     if is_new
         @inbounds new_arch = world._archetypes[new_arch_index]
-        return _create_table!(world, new_arch, _empty_relations), false
+        new_table_id = _create_table!(world, new_arch, _empty_relations)
+        world._pool.last_table[] = (new_mask, new_table_id)
+        return new_table_id, false
     end
+    world._pool.last_table[] = (new_mask, new_arch_hot.table)
     return new_arch_hot.table, false
 end
 
