@@ -894,7 +894,7 @@ end
     @inbounds old_arch_hot = world._archetypes_hot[old_table.archetype]
     last_mask, last_table = world.last_created_table[]
     new_mask = _clear_bits(_or(add_mask, old_arch_hot.mask), rem_mask)
-    if new_mask == last_mask
+    if new_mask.bits == last_mask.bits
         return last_table, false
     end
     @inbounds old_arch = world._archetypes[old_table.archetype]
