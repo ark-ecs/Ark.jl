@@ -886,30 +886,21 @@ end
     remove::Tuple{Vararg{Int}},
     relations::Tuple{Vararg{Int}},
     targets::Tuple{Vararg{Entity}},
-    add_mask::Union{_NoMask,_Mask},
-    rem_mask::Union{_NoMask,_Mask},
+    add_mask::_Mask,
+    rem_mask::_Mask,
     use_map::Union{_NoUseMap,_UseMap},
     world_has_rel::Val{false},
 )::Tuple{UInt32,Bool}
-    @inbounds old_arch_hot = world._archetypes_hot[old_table.archetype]
-    last_mask, last_table = world.last_created_table[]
-    new_mask = _clear_bits(_or(add_mask, old_arch_hot.mask), rem_mask)
-    if new_mask == last_mask
-        return last_table, false
-    end
     @inbounds old_arch = world._archetypes[old_table.archetype]
     new_arch_index, is_new = _find_or_create_archetype!(
         world, old_arch.node, add, remove, relations, add_mask, rem_mask, use_map,
     )
+    @inbounds new_arch_hot = world._archetypes_hot[new_arch_index]
     if is_new
         @inbounds new_arch = world._archetypes[new_arch_index]
-        table_id = _create_table!(world, new_arch, _empty_relations)
-    else
-        @inbounds new_arch_hot = world._archetypes_hot[new_arch_index]
-        table_id = new_arch_hot.table
+        return _create_table!(world, new_arch, _empty_relations), false
     end
-    world.last_created_table[] = (new_mask, table_id)
-    return table_id, false
+    return new_arch_hot.table, false
 end
 
 # internal for handling relations
