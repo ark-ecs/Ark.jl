@@ -17,7 +17,6 @@ struct _WorldPool{M}
     tables::Vector{UInt32}
     batches::Vector{_BatchTable{M}}
     mask::_MutableMask{M}
-    last_table::Base.RefValue{Tuple{_Mask{M}, UInt32}}
 end
 
 function _WorldPool{M}() where {M}
@@ -27,7 +26,6 @@ function _WorldPool{M}() where {M}
         Vector{UInt32}(),
         Vector{_BatchTable{M}}(),
         _MutableMask{M}(),
-        Ref((_Mask{M}(), UInt32(1))),
     )
 end
 
@@ -58,6 +56,7 @@ mutable struct World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M} <: _AbstractWorld
     const _cache::_Cache{M}
     const _pool::_WorldPool{M}
     const _initial_capacity::Int
+    last_created_table::Base.RefValue{Tuple{_Mask{M}, UInt32}}
 end
 
 """
@@ -813,6 +812,7 @@ end
             _Cache{$M}(),
             _WorldPool{$M}(),
             initial_capacity,
+            Ref((_Mask{$M}(), UInt32(1))),
         )
     end
 end
@@ -890,10 +890,10 @@ end
     rem_mask::_Mask,
     use_map::Union{_NoUseMap,_UseMap},
     world_has_rel::Val{false},
-)::Tuple{UInt32,Bool} 
+)::Tuple{UInt32,Bool}
     @inbounds old_arch = world._archetypes[old_table.archetype]      
     #@inbounds old_arch_hot = world._archetypes_hot[old_table.archetype]
-    last_mask, last_table = world._pool.last_table[]
+    last_mask, last_table = world.last_created_table[]
     new_mask = _clear_bits(_or(add_mask, old_arch.node.mask), rem_mask)
     #new_mask = _clear_bits(_or(add_mask, old_arch_hot.mask), rem_mask)
     if new_mask == last_mask
@@ -910,7 +910,7 @@ end
     else
         table_id = new_arch_hot.table
     end
-    world._pool.last_table[] = (new_mask, new_arch_hot.table)
+    world.last_created_table[] = (new_mask, new_arch_hot.table)
     return table_id, false
 end
 
