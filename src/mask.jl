@@ -218,3 +218,14 @@ end
     offset = ((i - 1) % UInt64) & UInt64(0x3F) # which bit within that UInt64
     return ((mask.bits[chunk+1] >> offset) & UInt64(1)) % Bool
 end
+
+struct _NoMask end
+
+_or(a::_Mask, b::_NoMask) = a
+_or(a::_NoMask, b::_Mask) = b
+
+_clear_bits(a::_Mask, b::_NoMask) = a
+
+_contains_all(a::_Mask, b::_NoMask) = true
+
+_contains_any(a::_Mask, b::_NoMask) = false
