@@ -901,11 +901,11 @@ end
     new_arch_index, is_new = _find_or_create_archetype!(
         world, old_arch.node, add, remove, relations, add_mask, rem_mask, use_map,
     )
-    @inbounds new_arch_hot = world._archetypes_hot[new_arch_index]
     if is_new
         @inbounds new_arch = world._archetypes[new_arch_index]
         table_id = _create_table!(world, new_arch, _empty_relations)
     else
+        @inbounds new_arch_hot = world._archetypes_hot[new_arch_index]
         table_id = new_arch_hot.table
     end
     world.last_created_table[] = (new_mask, table_id)
