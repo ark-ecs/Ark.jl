@@ -221,7 +221,6 @@ end
 
 struct _NoMask end
 
-_or(a::_Mask, b::_NoMask) = a
 _or(a::_NoMask, b::_Mask) = b
 
 _clear_bits(a::_Mask, b::_NoMask) = a
