@@ -26,7 +26,7 @@ function _ArchetypeHot(
 end
 
 mutable struct _Archetype{M}
-    const components::Vector{Int}
+    const components::Memory{Int}
     const tables::_IdCollection
     const index::Vector{Dict{UInt32,_IdCollection}}
     const target_tables::Dict{UInt32,_IdCollection}
@@ -39,7 +39,7 @@ end
 
 function _Archetype(id::UInt32, node::_GraphNode, table::UInt32)
     _Archetype(
-        Vector{Int}(),
+        Memory{Int}(),
         _IdCollection(table),
         Vector{Dict{UInt32,_IdCollection}}(),
         Dict{UInt32,_IdCollection}(),
@@ -59,7 +59,7 @@ function _Archetype(
     components::Int...,
 )
     _Archetype(
-        collect(Int, components),
+        Memory{Int}(collect(Int, components)),
         _IdCollection(),
         [Dict{UInt32,_IdCollection}() for _ in eachindex(relations)],
         Dict{UInt32,_IdCollection}(),

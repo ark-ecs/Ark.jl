@@ -45,7 +45,7 @@ function _contains(ids::_IdCollection, id::UInt32)
 end
 
 function _clear!(ids::_IdCollection)
-    resize!(ids.ids, 0)
+    empty!(ids.ids)
     empty!(ids.indices)
     return nothing
 end

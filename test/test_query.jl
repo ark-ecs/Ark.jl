@@ -10,7 +10,7 @@
 
     for i in 1:10
         query = Query(world, (Position, Velocity))
-        @test Base.IteratorSize(typeof(query)) == Base.SizeUnknown()
+        @test Base.IteratorSize(typeof(query)) == Base.HasLength()
         @test query._filter.has_excluded == false
         @test length(query) == 1
         @test count_entities(query) == 10
@@ -32,9 +32,14 @@
                 new_entity!(world, (Altitude(1), Health(2)))
             )
             @test is_locked(world) == true
+            @test query._q_lock.closed == false
         end
         @test count == 10
         @test is_locked(world) == false
+        @test query._q_lock.closed == true
+
+        # Should not raise
+        close!(query)
     end
 end
 
@@ -328,7 +333,7 @@ end
     world = World(
         Dummy,
         Position,
-        Velocity => StructArrayStorage,
+        Velocity => Storage{StructArray},
     )
 
     for i in 1:10
@@ -336,7 +341,7 @@ end
     end
 
     for (entities, vec) in Query(world, (Velocity,))
-        @test isa(vec, StructArrayView)
+        @test isa(vec, _StructArrayView)
         for i in eachindex(vec)
             pos = vec[i]
             vec[i] = Velocity(pos.dx + 1, pos.dy + 1)
@@ -346,8 +351,9 @@ end
     for arch in Query(world, (Position, Velocity))
         @unpack e, pos, (dx, dy) = arch
         @test isa(e, Entities)
-        @test isa(dx, SubArray{Float64})
-        @test isa(dy, SubArray{Float64})
+        T = _storage_from_component(world, Velocity) <: StructArray ? SubArray : TestVectorView
+        @test isa(dx, T{Float64})
+        @test isa(dy, T{Float64})
     end
 end
 
@@ -355,7 +361,7 @@ end
     world = World(
         Dummy,
         Position,
-        Velocity => StructArrayStorage,
+        Velocity => Storage{StructArray},
         NoIsBits,
         Int64,
     )
@@ -405,7 +411,7 @@ end
     world = World(
         Dummy,
         Position,
-        Velocity => StructArrayStorage,
+        Velocity => Storage{StructArray},
         Altitude,
         NoIsBits,
         Int64,
@@ -420,8 +426,8 @@ end
 
     @inferred Tuple{
         Entities,
-        FieldViews.FieldViewable{Position,1,Vector{Position}},
-        Ark.StructArrayView{
+        FieldViews.FieldViewable{Position,1,_storage_from_component(world, Position)},
+        _StructArrayView{
             Velocity,
             @NamedTuple{
                 dx::SubArray{Float64,1,Vector{Float64},Tuple{UnitRange{Int64}},true},
@@ -429,10 +435,13 @@ end
             },
             UnitRange{Int64},
         },
-        SubArray{Int64,1,Vector{Int64},Tuple{Base.Slice{Base.OneTo{Int64}}},true},
-        Union{Nothing,FieldViews.FieldViewable{NoIsBits,1,Vector{NoIsBits}}},
-        Union{Nothing,FieldViews.FieldViewable{Altitude,1,Vector{Altitude}}},
-        Union{Nothing,SubArray{Float64,1,Vector{Float64},Tuple{Base.Slice{Base.OneTo{Int64}}},true}},
+        SubArray{Int64,1,_storage_from_component(world, Int64),Tuple{Base.Slice{Base.OneTo{Int64}}},true},
+        Union{Nothing,FieldViews.FieldViewable{NoIsBits,1,_storage_from_component(world, NoIsBits)}},
+        Union{Nothing,FieldViews.FieldViewable{Altitude,1,_storage_from_component(world, Altitude)}},
+        Union{
+            Nothing,
+            SubArray{Float64,1,_storage_from_component(world, Float64),Tuple{Base.Slice{Base.OneTo{Int64}}},true},
+        },
     } Base.eltype(typeof(query))
 
     expected_type = Base.eltype(typeof(query))
@@ -444,7 +453,7 @@ end
 @testset "Query JET" begin
     world = World(
         Position,
-        Velocity => StructArrayStorage,
+        Velocity => Storage{StructArray},
         Altitude,
         Health,
     )

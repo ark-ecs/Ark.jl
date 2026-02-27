@@ -91,6 +91,9 @@ function _add_table!(
     table::_Table,
 ) where {W<:_AbstractWorld}
     for filter in cache.filters
+        if !_is_cached(filter)
+            continue
+        end
         if !_matches(filter, archetype)
             continue
         end
@@ -118,6 +121,6 @@ function _reset!(cache::_Cache)
         filter.id[] = UInt32(0)
     end
 
-    resize!(cache.filters, 0)
-    resize!(cache.free_indices, 0)
+    empty!(cache.filters)
+    empty!(cache.free_indices)
 end

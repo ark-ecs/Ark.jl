@@ -17,8 +17,6 @@ World
 World(::Type...)
 reset!
 is_locked
-StructArrayStorage
-VectorStorage
 Relationship
 ```
 
@@ -55,6 +53,19 @@ get_relations
 set_relations!
 ```
 
+## [Storages](@id storage-api)
+
+[Storages](@ref component-storages) define the data structures for the containers of
+[Components](@ref). The default ones are Vector, [StructArray](@ref), [GPUVector](@ref)
+and [GPUStructArray](@ref). New ones can be defined implementing the [Storage Interface](@ref new-component-storages).
+
+```@docs
+Storage
+StructArray
+GPUVector
+GPUStructArray
+```
+
 ## [Queries and Filters](@id queries-api)
 
 [Queries](@ref) are used to filter and process [Entities](@ref entities-api) with a
@@ -69,6 +80,7 @@ Filter
 Filter(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)
 unregister!
 count_entities
+shuffle_entities!
 length
 Entities
 @unpack
@@ -102,6 +114,14 @@ new_event_type!
 Observer
 observe!
 emit_event!
+```
+
+## Utilities
+
+General helpers and utilities.
+
+```@docs
+@unchecked
 ```
 
 ## Index

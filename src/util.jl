@@ -1,9 +1,16 @@
 
-function _swap_remove!(v::AbstractArray, i::UInt32)::Bool
+_swap!(v::AbstractArray, i, j) = @inbounds v[i] = v[j]
+
+@inline function _swap_indices!(v::AbstractArray, i, j)
+    @inbounds v[i], v[j] = v[j], v[i]
+    return
+end
+
+@inline function _swap_remove!(v::AbstractArray, i::UInt32)::Bool
     last_index = length(v)
     swapped = i != last_index
     if swapped
-        @inbounds v[i] = v[last_index]
+        _swap!(v, i, last_index)
     end
     pop!(v)
     return swapped
@@ -55,10 +62,17 @@ end
     end
 end
 
-const DEBUG = ("ARK_RUNNING_TESTS" in keys(ENV) && lowercase(ENV["ARK_RUNNING_TESTS"]) == "true")
+# TODO: improve the heuristic with something more robust, as of 1.12 though Julia doesn't
+# expose anything to set the flag more correctly
+function _is_testing()
+    pname = Base.active_project()
+    isnothing(pname) ? false : (contains(pname, "tmp/jl_") || contains(pname, "Temp\\jl_"))
+end
+
+const _DEBUG = _is_testing() ? "true" : @load_preference("DEBUG", default = "false")
 
 macro check(arg)
-    DEBUG ? esc(:(@assert $arg)) : nothing
+    _DEBUG == "true" ? esc(:(@assert $arg)) : nothing
 end
 
 function _format_type(T)
@@ -74,12 +88,12 @@ function _format_type(T)
 end
 
 @generated function _shallow_copy(x::T) where T
-    names = fieldnames(T)
-    field_exprs = [:($(name) = x.$name) for name in names]
-
-    return quote
-        return $(Expr(:new, T, field_exprs...))
+    if T == Symbol || T == String
+        return :(x)
     end
+    n = fieldcount(T)
+    field_exprs = [:(getfield(x, $i)) for i in 1:n]
+    return Expr(:new, T, field_exprs...)
 end
 
 function _generate_component_switch(CS::Type{<:Tuple}, comp_idx_sym::Symbol, func_generator::Function)
@@ -97,8 +111,8 @@ function _generate_component_switch(CS::Type{<:Tuple}, comp_idx_sym::Symbol, fun
 end
 
 function _generate_type_lookup(CS::Type{<:Tuple}, TargetType::Type, result_generator::Function)
-    storage_types = CS.parameters
-    for (i, S) in enumerate(storage_types)
+    _storage_types = CS.parameters
+    for (i, S) in enumerate(_storage_types)
         if S <: _ComponentStorage && S.parameters[1] === TargetType
             return result_generator(i)
         end
@@ -107,8 +121,8 @@ function _generate_type_lookup(CS::Type{<:Tuple}, TargetType::Type, result_gener
 end
 
 function _has_relations(CS::Type{<:Tuple})
-    storage_types = CS.parameters
-    for (i, S) in enumerate(storage_types)
+    _storage_types = CS.parameters
+    for (i, S) in enumerate(_storage_types)
         if S.parameters[1] <: Relationship
             return true
         end

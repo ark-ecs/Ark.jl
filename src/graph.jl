@@ -12,15 +12,17 @@ function _GraphNode(mask::_Mask{M}, archetype::UInt32) where M
     _GraphNode{M}(mask, _VecMap{_GraphNode{M},M}(), Base.RefValue{UInt32}(archetype))
 end
 
-struct _Graph{M}
-    mask::_MutableMask{M}
-    nodes::_Linear_Map{_Mask{M},_GraphNode{M}}
+mutable struct _Graph{M}
+    const mask::_MutableMask{M}
+    const nodes::_Linear_Map{_Mask{M},_GraphNode{M}}
+    last_node::_GraphNode{M}
 end
 
 function _Graph{M}() where M
-    g = _Graph{M}(_MutableMask{M}(), _Linear_Map{_Mask{M},_GraphNode{M}}())
     m = _Mask{M}()
-    get!(() -> _GraphNode(m, UInt32(1)), g.nodes, m)
+    node = _GraphNode(m, UInt32(1))
+    g = _Graph{M}(_MutableMask{M}(), _Linear_Map{_Mask{M},_GraphNode{M}}(), node)
+    get!(() -> node, g.nodes, m)
     return g
 end
 
@@ -39,15 +41,26 @@ function _find_node(g::_Graph, start::_GraphNode, add::Tuple{Vararg{Int}}, remov
     _search_node(g, start, add, remove, add_mask, rem_mask, use_map)
 end
 
-function _search_node(g::_Graph, start::_GraphNode, add::Tuple{Vararg{Int}}, remove::Tuple{Vararg{Int}},
+@inline function _search_node(g::_Graph, start::_GraphNode, add::Tuple{Vararg{Int}}, remove::Tuple{Vararg{Int}},
     add_mask::_Mask, rem_mask::_Mask, use_map::_UseMap)
     new_mask = _clear_bits(_or(add_mask, start.mask), rem_mask)
-    get(() -> _find_or_create_path(g, start, add, remove), g.nodes, new_mask)
+    if new_mask.bits == g.last_node.mask.bits
+        return g.last_node
+    end
+    node = get(() -> _find_or_create_path(g, start, add, remove), g.nodes, new_mask)
+    g.last_node = node
+    return node
 end
 
-function _search_node(g::_Graph, start::_GraphNode, add::Tuple{Vararg{Int}}, remove::Tuple{Vararg{Int}},
+@inline function _search_node(g::_Graph, start::_GraphNode, add::Tuple{Vararg{Int}}, remove::Tuple{Vararg{Int}},
     add_mask::_Mask, rem_mask::_Mask, use_map::_NoUseMap)
-    _find_or_create_path(g, start, add, remove)
+    new_mask = _clear_bits(_or(add_mask, start.mask), rem_mask)
+    if new_mask.bits == g.last_node.mask.bits
+        return g.last_node
+    end
+    node = _find_or_create_path(g, start, add, remove)
+    g.last_node = node
+    return node
 end
 
 function _find_or_create_path(g, start, add, remove)

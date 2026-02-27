@@ -99,30 +99,41 @@ For manipulating entities in batches, [add_components!](@ref), [remove_component
 come with versions that take a filter instead of a single entity as argument.
 See chapter [Batch operations](@ref) for details.
 
-## [Component storages](@id component-storages)
+## [Default component storages](@id component-storages)
 
 Components are stored in [archetypes](@ref Architecture),
 with the values for each component type stored in a separate array-like column.
-For these columns, Ark offers two storage modes:
+For these columns, Ark offers storage types for both CPU anf GPU computing by default.
 
-- **Vector storage** stores component objects in a simple vector per column. This is the default.
+### CPU Storages
 
-- **StructArray storage** stores components in an SoA data structure similar to  
+- **Vector storage** stores components in a simple vector per column. This is the default.
+
+- **[StructArray](@ref) storage** stores components in an SoA data structure similar to  
   [StructArrays](https://github.com/JuliaArrays/StructArrays.jl).  
   This allows access to field vectors in [queries](@ref Queries), enabling SIMD-accelerated,  
-  vectorized operations and increased cache-friendliness if not all of the component's fields are used.  
-  StructArray storage has some limitations:  
+  vectorized operations and increased cache-friendliness if not all of the component's fields are used.
+  [StructArray](@ref) storage has some limitations:  
   - Not allowed for mutable components.
   - Not allowed for components without fields, like labels and primitives.
   - ≈10-20% runtime overhead for component operations and entity creation.
   - Slower component access with [get_components](@ref) and [set_components!](@ref).
 
-The storage mode can be selected per component type by using [StructArrayStorage](@ref) or [VectorStorage](@ref) during world construction.
+### GPU Storages
+
+- **[GPUVector](@ref) storage** stores components using unified memory for mixed CPU/GPU operations. [GPUVector](@ref) is compatible with CUDA.jl, Metal.jl, oneAPI.jl or OpenCL.jl. Mutable components are not allowed.
+
+- **[GPUStructArray](@ref) storage** stores components in an SoA data structure similar to  
+  [StructArrays](https://github.com/JuliaArrays/StructArrays.jl) using unified memory for mixed CPU/GPU operations. [GPUVector](@ref) is compatible with CUDA.jl, Metal.jl, oneAPI.jl or OpenCL.jl. The same limitations of [StructArray](@ref) storage apply.
+
+## Storage Selection
+
+The storage mode can be selected per component type by using the [Storage](@ref) wrapper during world construction.
 
 ```jldoctest; output = false
 world = World(
-    Position => VectorStorage,
-    Velocity => StructArrayStorage,
+    Position => Storage{Vector},
+    Velocity => Storage{StructArray},
 )
 
 # output
@@ -130,15 +141,57 @@ world = World(
 World(entities=0, comp_types=(Position, Velocity))
 ```
 
-The default is `VectorStorage` if no storage mode is specified:
+The default is `Storage{Vector}` if no storage mode is specified:
 
 ```jldoctest; output = false
 world = World(
     Position,
-    Velocity => StructArrayStorage,
+    Velocity => Storage{StructArray},
 )
 
 # output
 
 World(entities=0, comp_types=(Position, Velocity))
 ```
+
+To use the [GPUVector](@ref) or the [GPUStructArray](@ref) storage, also the GPU backend must be specified (which can be either `:CUDA`, `:Metal`, `:oneAPI` or `:OpenCL`) depending on the GPU, as shown below:
+
+```julia
+using CUDA
+
+world = World(
+    Position => Storage{GPUVector{:CUDA}},
+    Velocity => Storage{GPUStructArray{:CUDA}},
+)
+```
+
+## [User-defined component storages](@id new-component-storages)
+
+New storage modes can be created by the user. The new storage must be a one-indexed subtype of `AbstractVector` and must implement its required interface along with some optional methods. A complete example of a custom type is this one:
+
+```jldoctest; output = false
+struct WrappedVector{C} <: AbstractVector{C}
+    v::Vector{C}
+end
+WrappedVector{C}() where C = WrappedVector{C}(Vector{C}())
+
+Base.size(w::WrappedVector) = size(w.v)
+Base.getindex(w::WrappedVector, i::Integer) = getindex(w.v, i)
+Base.setindex!(w::WrappedVector, v, i::Integer) = setindex!(w.v, v, i)
+Base.empty!(w::WrappedVector) = empty!(w.v)
+Base.resize!(w::WrappedVector, i::Integer) = resize!(w.v, i)
+Base.sizehint!(w::WrappedVector, i::Integer) = sizehint!(w.v, i)
+Base.pop!(w::WrappedVector) = pop!(w.v)
+
+world = World(
+    Position => Storage{WrappedVector},
+    Velocity => Storage{StructArray},
+)
+
+# output
+
+World(entities=0, comp_types=(Position, Velocity))
+```
+
+All the methods in the example need to be defined, along with the empty constructor.
+

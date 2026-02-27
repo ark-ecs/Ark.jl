@@ -1,20 +1,23 @@
 
-ENV["ARK_RUNNING_TESTS"] = true
-
 using Pkg
+using Preferences
 using Test
-using JET
+
+# TODO: re-enable when fixed on the Julia side.
+@static if VERSION < v"1.13.0-DEV"
+    Pkg.add("JET")
+    using JET
+end
+const RUN_JET = "CI" in keys(ENV) && VERSION >= v"1.12.0" && isempty(VERSION.prerelease)
 
 include("include_internals.jl")
 
+include("setup.jl")
 if "--large-world" in ARGS
     include("setup_large.jl")
 else
     include("setup_default.jl")
 end
-
-# TODO: re-enable when fixed on the Julia side.
-const RUN_JET = "CI" in keys(ENV) && VERSION >= v"1.12.0" && isempty(VERSION.prerelease)
 
 include("TestTypes.jl")
 
@@ -36,13 +39,7 @@ include("test_registry.jl")
 include("test_vec_map.jl")
 include("test_linear_map.jl")
 include("test_graph.jl")
+include("test_shuffle.jl")
+include("test_unchecked.jl")
+include("test_gpu_vector.jl")
 include("test_quality.jl")
-
-if "CI" in keys(ENV) && VERSION < v"1.13" && isempty(VERSION.prerelease) && !("--large-world" in ARGS)
-    Pkg.activate("ext")
-    Pkg.instantiate()
-    Pkg.develop(path="..")
-    include("ext/runtests.jl")
-end
-
-ENV["ARK_RUNNING_TESTS"] = false

@@ -194,13 +194,13 @@ unregister!(filter)
 ## Component field views
 
 Individual fields of components can be accessed as vectors in queries, e.g. using [@unpack](@ref).
-This is particularly useful for components that use the StructArray [storage modes](@ref component-storages),
+This is particularly useful for components that use the [StructArray storage](@ref component-storages),
 as it allows for SIMD-accelerated vectorized operations.
 
 ```jldoctest query-fields; setup = :(using Ark), output = false
 world = World(
-    Position => StructArrayStorage,
-    Velocity => StructArrayStorage,
+    Position => Storage{StructArray},
+    Velocity => Storage{StructArray},
 )
 
 # ...
@@ -215,7 +215,7 @@ end
 
 ```
 
-However, when iterating components that use StructArray storage without unpacking individual fields,
+However, when iterating components that use [StructArray storage](@ref component-storages) without unpacking individual fields,
 there is a certain overhead and SIMD optimization may not be possible.
 
 Note that it is also possible to access field vectors by the field's name:

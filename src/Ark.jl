@@ -1,13 +1,22 @@
 module Ark
 
 using FieldViews
+using Preferences
 using StaticArrays
 using FunctionWrappers: FunctionWrapper
+using Random
+
+const THREAD_SAFE_LOCK = @load_preference("THREAD_SAFE_LOCK", default = "true")
+
+isdefined(@__MODULE__, :Memory) || const Memory = Vector # Compat for Julia < 1.11
 
 include("abstract.jl")
 include("util.jl")
 include("collections.jl")
 include("structarray.jl")
+include("gpu_vector.jl")
+include("gpu_structarray.jl")
+include("structarray_interface.jl")
 include("fieldsview.jl")
 include("entity.jl")
 include("mask.jl")
@@ -28,6 +37,8 @@ include("observer.jl")
 include("filter.jl")
 include("query.jl")
 include("batch_ops.jl")
+include("unchecked.jl")
+!_is_testing() && include("precompile.jl")
 
 #include("docs.jl") # doctest setup
 
@@ -44,7 +55,7 @@ export Entity
 export is_zero
 
 export Query, Filter
-export close!, count_entities, unregister!
+export close!, count_entities, shuffle_entities!, unregister!
 
 export Entities
 
@@ -53,8 +64,13 @@ export OnCreateEntity, OnRemoveEntity, OnAddComponents, OnRemoveComponents
 export OnAddRelations, OnRemoveRelations
 
 export Observer, observe!, emit_event!
+
 export unpack, @unpack
 
-export StructArrayStorage, VectorStorage, Relationship
+export @unchecked
+
+export Relationship
+
+export Storage, StructArray, GPUStructArray, GPUVector
 
 end

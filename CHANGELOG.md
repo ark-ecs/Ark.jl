@@ -1,6 +1,52 @@
 # Changelog
 
-## [[unpublished]](https://github.com/mlange-42/Ark.jl/compare/v0.2.0...main)
+## [[unpublished]](https://github.com/ark-ecs/Ark.jl/compare/v0.4.0...main)
+
+## [[v0.4.0]](https://github.com/ark-ecs/Ark.jl/compare/v0.3.2...v0.4.0)
+
+### Breaking changes
+
+- Storage modes wrap the storage types instead of using unrelated types (#437)
+
+### Features
+
+- Adds support for user-defined storage types (#437)
+- Adds new types `GPUVector` and `GPUStructArray` which can be used to offload work to the GPU (#470, #476, #483)
+- Makes the locking mechanism thread-safe for parallel queries (#536, #537)
+- Adds support for shuffling tables based on filters (#527)
+- Adds support for UniqueVector storage (#481)
+
+### Performance
+
+- Add an unchecked macro to trade-off safety for speed (#521, #522, #531)
+
+### Bugfixes
+
+- Fix copy on special mutable types (#515, fixes #514)
+
+### Documentation
+
+- Adds a demo of a nbody model to show GPU computing (#523)
+
+### Other
+
+- Closing an already closed query is a no-op instead of raising an error (#493)
+
+## [[v0.3.2]](https://github.com/ark-ecs/Ark.jl/compare/v0.3.1...v0.3.2)
+
+### Bugfixes
+
+- Fixes error on batch-remove relation targets (#506, fixes #498)
+- Fixes filter matching wrong, recycled relation target (#508, fixes #497)
+- Fixes skipping filters that were unregistered (#510, fixes #499)
+
+## [[v0.3.1]](https://github.com/ark-ecs/Ark.jl/compare/v0.3.0...v0.3.1)
+
+### Bugfixes
+
+- Fixes recycling relation tables, which caused missed entities (#484, fixes #477)
+
+## [[v0.3.0]](https://github.com/ark-ecs/Ark.jl/compare/v0.2.0...v0.3.0)
 
 ### Breaking changes
 
@@ -15,17 +61,27 @@
 - Adds batch entity removal (#396, #402)
 - Adds batch-setting entity relation targets (#406)
 - Adds batched versions of adding, removing and exchanging components (#408)
-- Makes Ark compatible with Mooncake (#405)
+- Makes Ark compatible with [Mooncake.jl](https://github.com/chalk-lab/Mooncake.jl) (#405)
 
 ### Performance
 
-- Uses a hash table for some component transitions (#348)
+- Uses a hash table for some component transitions, with up t0 30% speedup (#348)
+- Uses `push!` instead of `resize!`+`setindex!` for moving and creating components (#439)
+- Caches the last component transition, with 15-35% speedup (#448)
 
 ### Documentation
 
 - Adds a chapter on Ark's architecture to the user manual (#391, #394)
 
-## [[v0.2.0]](https://github.com/mlange-42/Ark.jl/compare/v0.1.1...v0.2.0)
+### Bugfixes
+
+- Fixes missing swaps in archetypes when removing components (#432, fixes #430)
+
+### Other
+
+- Ark.jl moved from the personal account of its initiator to the [ark-ecs](https://github.com/ark-ecs) organization
+
+## [[v0.2.0]](https://github.com/ark-ecs/Ark.jl/compare/v0.1.1...v0.2.0)
 
 ### Breaking changes
 
@@ -65,12 +121,12 @@
 - Checks for duplicate components on query construction (#255)
 - Improves string representations of all exposed types (#275)
 
-## [[v0.1.1]](https://github.com/mlange-42/Ark.jl/compare/v0.1.0...v0.1.1)
+## [[v0.1.1]](https://github.com/ark-ecs/Ark.jl/compare/v0.1.0...v0.1.1)
 
 ### Bugfixes
 
 - Fix broken archetype pre-selection in queries (#301)
 
-## [[v0.1.0]](https://github.com/mlange-42/Ark.jl/tree/v0.1.0)
+## [[v0.1.0]](https://github.com/ark-ecs/Ark.jl/tree/v0.1.0)
 
 Initial release of Ark.jl.

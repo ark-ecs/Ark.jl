@@ -131,8 +131,8 @@ end
 
 mutable struct _EventManager{W<:_AbstractWorld,M}
     const observers::Vector{Vector{Observer{W,M}}}
-    const comps::Vector{Tuple{_Mask{M},Bool}}
-    const with::Vector{Tuple{_Mask{M},Bool}}
+    const comps::Memory{Tuple{_Mask{M},Bool}}
+    const with::Memory{Tuple{_Mask{M},Bool}}
     num_observers::Int
     max_event_type::Int
 end
@@ -141,8 +141,8 @@ function _EventManager{W,M}() where {W<:_AbstractWorld,M}
     len = typemax(UInt8)
     _EventManager{W,M}(
         [Vector{Observer{W,M}}() for _ in 1:len],
-        [(_Mask{M}(), false) for _ in 1:len],
-        [(_Mask{M}(), false) for _ in 1:len],
+        Memory{Tuple{_Mask{M},Bool}}([(_Mask{M}(), false) for _ in 1:len]),
+        Memory{Tuple{_Mask{M},Bool}}([(_Mask{M}(), false) for _ in 1:len]),
         0, 0,
     )
 end
@@ -237,7 +237,7 @@ function _reset!(m::_EventManager{W,M}) where {W<:_AbstractWorld,M}
         for obs in m.observers[e]
             obs._id.id = 0
         end
-        resize!(m.observers[e], 0)
+        empty!(m.observers[e])
         m.comps[e] = (_Mask{M}(), false)
         m.with[e] = (_Mask{M}(), false)
     end

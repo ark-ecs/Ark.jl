@@ -11,7 +11,7 @@ end
 @testset "World creation 2" begin
     world = World(
         Position,
-        Velocity => StructArrayStorage,
+        Velocity => Storage{StructArray},
         Altitude,
         ChildOf,
     )
@@ -24,12 +24,13 @@ end
         "ArgumentError: Component type Health not found in the World",
         _component_id(params, Health))
 
-    @test isa(_get_storage(world, Position), _ComponentStorage{Position,Vector{Position}})
-    @test isa(_get_storage(world, Position).data[1], Vector{Position})
-    @test isa(_get_storage(world, Velocity), _ComponentStorage{Velocity,_StructArray_type(Velocity)})
-    @test isa(_get_storage(world, Velocity).data[1], _StructArray{Velocity})
-    @test isa(_get_storage(world, Altitude), _ComponentStorage{Altitude,Vector{Altitude}})
-    @test isa(_get_storage(world, Altitude).data[1], Vector{Altitude})
+    @test isa(_get_storage(world, Position), _ComponentStorage{Position,_storage_from_component(world, Position)})
+    @test isa(_get_storage(world, Position).data[1], _storage_from_component(world, Position))
+    velocity_storage_type = _storage_from_component(world, Velocity)
+    @test isa(_get_storage(world, Velocity), _ComponentStorage{Velocity,velocity_storage_type})
+    @test isa(_get_storage(world, Velocity).data[1], velocity_storage_type)
+    @test isa(_get_storage(world, Altitude), _ComponentStorage{Altitude,_storage_from_component(world, Altitude)})
+    @test isa(_get_storage(world, Altitude).data[1], _storage_from_component(world, Altitude))
 
     @test length(_get_relations_storage(world, Position).archetypes) == 0
     @test length(_get_relations_storage(world, Position).targets) == 0
@@ -60,11 +61,11 @@ end
     world = World(
         Dummy,
         Position,
-        Velocity => StructArrayStorage,
+        Velocity => Storage{StructArray},
     )
 
-    @test isa(_get_storage(world, Position), _ComponentStorage{Position,Vector{Position}})
-    @test isa(_get_storage(world, Velocity), _ComponentStorage{Velocity,_StructArray_type(Velocity)})
+    @test isa(_get_storage(world, Position), _ComponentStorage{Position,_storage_from_component(world, Position)})
+    @test isa(_get_storage(world, Velocity), _ComponentStorage{Velocity,_storage_from_component(world, Velocity)})
 end
 
 """
@@ -73,7 +74,7 @@ end
         # TODO: type instability here. Add benchmarks for world creation.
         @test_opt World(
             Position,
-            Velocity => StructArrayStorage,
+            Velocity => Storage{StructArray},
         )
     end
 end
@@ -85,20 +86,20 @@ end
         World(Position, Velocity, Velocity))
 
     @test_throws(
-        "ArgumentError: can't use VectorStorage as component as it is not a concrete type",
-        World(Position, Velocity, VectorStorage))
+        "ArgumentError: can't use Relationship as component as it is not a concrete type",
+        World(Position, Velocity, Relationship))
 
     @test_throws(
-        "ArgumentError: Health is not a valid storage mode, must be StructArrayStorage or VectorStorage",
+        "ArgumentError: Health is not a valid storage mode, must be Storage{T<:AbstractVector}",
         World(Position, Velocity, Altitude => Health))
 
     @test_throws(
-        "ArgumentError: can't use StructArrayStorage for Int64 because it has no fields",
-        World(Int64 => StructArrayStorage))
+        ArgumentError,
+        World(Int64 => Storage{StructArray}))
 
     @test_throws(
-        "ArgumentError: can't use StructArrayStorage for LabelComponent because it has no fields",
-        World(LabelComponent => StructArrayStorage))
+        ArgumentError,
+        World(LabelComponent => Storage{StructArray}))
 end
 
 @testset "World creation large" begin
@@ -121,11 +122,11 @@ end
     table1 = _find_or_create_table!(
         world,
         world._tables[1],
-        (1,),
+        (offset_ID + 1,),
         (),
         (),
         (),
-        _Mask{M_mask}(1),
+        _Mask{M_mask}(offset_ID + 1),
         _Mask{M_mask}(),
         _NoUseMap(),
         Val(false),
@@ -137,11 +138,11 @@ end
     table2 = _find_or_create_table!(
         world,
         world._tables[1],
-        (1, 2),
+        (offset_ID + 1, offset_ID + 2),
         (),
         (),
         (),
-        _Mask{M_mask}(1),
+        _Mask{M_mask}(offset_ID + 1, offset_ID + 2),
         _Mask{M_mask}(),
         _NoUseMap(),
         Val(false),
@@ -153,21 +154,17 @@ end
     table3 = _find_or_create_table!(
         world,
         world._tables[1],
-        (1,),
+        (offset_ID + 1,),
         (),
         (),
         (),
-        _Mask{M_mask}(1),
+        _Mask{M_mask}(offset_ID + 1),
         _Mask{M_mask}(),
         _NoUseMap(),
         Val(false),
     )
     @test table3 == table1
     @test length(world._tables) == 3
-
-    entity, _ = _create_entity!(world, table1[1])
-    _move_entity!(world, entity, table2[1])
-    remove_entity!(world, entity)
 end
 
 @testset "World Component Registration" begin
@@ -179,7 +176,7 @@ end
     @test isa(id_int, Int)
     @test world._registry.types[id_int] == Int
     @test length(world._storages) == N_fake + 2
-    @test world._storages[id_int] isa _ComponentStorage{Int,Vector{Int}}
+    @test world._storages[id_int] isa _ComponentStorage{Int,_storage_from_component(world, Int)}
     @test length(world._storages[id_int].data) == 1
 
     # Register Position component
@@ -187,7 +184,7 @@ end
     @test isa(id_pos, Int)
     @test world._registry.types[id_pos] == Position
     @test length(world._storages) == N_fake + 2
-    @test world._storages[id_pos] isa _ComponentStorage{Position,Vector{Position}}
+    @test world._storages[id_pos] isa _ComponentStorage{Position,_storage_from_component(world, Position)}
     @test length(world._storages[id_pos].data) == 1
 
     # Re-register Int component (should not add new storage)
@@ -204,7 +201,7 @@ end
     _ = World(Position, MutableComponent; allow_mutable=true)
 
     @test_throws("ArgumentError: Component type MutableComponent must be immutable because it uses StructArray storage",
-        World(Position, MutableComponent => StructArrayStorage))
+        World(Position, MutableComponent => Storage{StructArray}))
 end
 
 @testset "_get_storage Tests" begin
@@ -212,11 +209,11 @@ end
     params = typeof(world).parameters[1]
 
     storage1 = _get_storage(world, Int)
-    @test storage1 isa _ComponentStorage{Int,Vector{Int}}
+    @test storage1 isa _ComponentStorage{Int,_storage_from_component(world, Int)}
 
     id = _component_id(params, Int)
     storage2 = _get_storage(world, Int)
-    @test storage2 isa _ComponentStorage{Int,Vector{Int}}
+    @test storage2 isa _ComponentStorage{Int,_storage_from_component(world, Int)}
 
     @test storage1 === storage2
 
@@ -294,8 +291,8 @@ end
     pos_storage = _get_storage(world, Position)
     vel_storage = _get_storage(world, Velocity)
 
-    @test isa(pos_storage, _ComponentStorage{Position,Vector{Position}})
-    @test isa(vel_storage, _ComponentStorage{Velocity,Vector{Velocity}})
+    @test isa(pos_storage, _ComponentStorage{Position,_storage_from_component(world, Position)})
+    @test isa(vel_storage, _ComponentStorage{Velocity,_storage_from_component(world, Velocity)})
     @test length(pos_storage.data) == 3
     @test length(vel_storage.data) == 3
 end
@@ -320,12 +317,16 @@ end
     @test table_index == (2, false)
 
     entity, index = _create_entity!(world, table_index[1])
+    push!(_get_storage(world, Position).data[table_index[1]], Position(0, 0))
+    push!(_get_storage(world, Velocity).data[table_index[1]], Velocity(0, 0))
     @test entity == _new_entity(2, 0)
     @test index == 1
     @test world._entities == [_EntityIndex(typemax(UInt32), 0), _EntityIndex(table_index[1], UInt32(1))]
 
     remove_entity!(world, entity)
     entity, index = _create_entity!(world, table_index[1])
+    push!(_get_storage(world, Position).data[table_index[1]], Position(0, 0))
+    push!(_get_storage(world, Velocity).data[table_index[1]], Velocity(0, 0))
     @test entity == _new_entity(2, 1)
 
     pos_storage = _get_storage(world, Position)
@@ -339,7 +340,7 @@ end
     world = World(
         Dummy,
         Position,
-        Velocity => StructArrayStorage,
+        Velocity => Storage{StructArray},
     )
 
     e1 = new_entity!(world, (Position(1, 2), Velocity(3, 4)))
@@ -370,7 +371,7 @@ end
     @testset "World get/set components JET" begin
         world = World(
             Position,
-            Velocity => StructArrayStorage,
+            Velocity => Storage{StructArray},
         )
         e1 = new_entity!(world, (Position(1, 2), Velocity(3, 4)))
 
@@ -383,7 +384,7 @@ end
     world = World(
         Dummy,
         Position,
-        Velocity => StructArrayStorage,
+        Velocity => Storage{StructArray},
     )
 
     entity = new_entity!(world, ())
@@ -413,7 +414,7 @@ end
     @testset "World new_entity! JET" begin
         world = World(
             Position,
-            Velocity => StructArrayStorage,
+            Velocity => Storage{StructArray},
         )
 
         using FunctionWrappers
@@ -433,7 +434,7 @@ end
         Dummy,
         Position,
         ChildOf,
-        Velocity => StructArrayStorage,
+        Velocity => Storage{StructArray},
     )
 
     parent1 = new_entity!(world, ())
@@ -664,8 +665,9 @@ end
     world = World(
         Dummy,
         Position,
-        Velocity => StructArrayStorage,
+        Velocity => Storage{StructArray},
         ChildOf,
+        NoIsBits2 => Storage{StructArray},
     )
 
     counter = 0
@@ -681,7 +683,10 @@ end
 
     parent = new_entity!(world, ())
 
-    entity = new_entity!(world, (Position(1, 2), Velocity(3, 4), ChildOf()); relations=(ChildOf => parent,))
+    entity = new_entity!(world,
+        (Position(1, 2), Velocity(3, 4), ChildOf(), NoIsBits2([[1]]));
+        relations=(ChildOf => parent,),
+    )
     entity2 = copy_entity!(world, entity)
 
     @test counter == 2
@@ -700,13 +705,25 @@ end
     @test get_relations(world, entity2, (ChildOf,)) == (parent,)
 
     @test_throws "can't copy a dead entity" copy_entity!(world, zero_entity)
+
+    @test_throws "can't copy a dead entity" copy_entity!(world, zero_entity; add=(Dummy(),))
+
+    entity3 = copy_entity!(world, entity; mode=:ref)
+    get_components(world, entity3, (NoIsBits2,))[1].v[1][1] = 2
+    @test get_components(world, entity3, (NoIsBits2,))[1].v[1][1] == 2
+    @test get_components(world, entity, (NoIsBits2,))[1].v[1][1] == 2
+
+    entity4 = copy_entity!(world, entity; mode=:deepcopy)
+    get_components(world, entity4, (NoIsBits2,))[1].v[1][1] = 3
+    @test get_components(world, entity4, (NoIsBits2,))[1].v[1][1] == 3
+    @test get_components(world, entity, (NoIsBits2,))[1].v[1][1] == 2
 end
 
 @testset "World copy_entity! with exchange" begin
     world = World(
         Dummy,
         Position,
-        Velocity => StructArrayStorage,
+        Velocity => Storage{StructArray},
         Altitude,
         ChildOf,
     )
@@ -725,8 +742,10 @@ end
     parent = new_entity!(world, ())
 
     entity = new_entity!(world, (Position(1, 2), Velocity(3, 4)))
-    entity2 =
-        copy_entity!(world, entity; add=(Altitude(5), ChildOf()), remove=(Position,), relations=(ChildOf => parent,))
+    entity2 = copy_entity!(world, entity;
+        add=(Altitude(5), ChildOf()), remove=(Position,),
+        relations=(ChildOf => parent,),
+    )
     @test counter == 1
     @test counter_rel == 1
 
@@ -742,7 +761,7 @@ end
     world = World(
         Dummy,
         Position,
-        Velocity => StructArrayStorage,
+        Velocity => Storage{StructArray},
         NoIsBits,
         MutableComponent,
         MutableNoIsBits;
@@ -791,11 +810,23 @@ end
     )
 end
 
+@testset "Corrupted copy of special mutable types issue #514" begin
+    world = World(String; allow_mutable=true)
+
+    e1 = new_entity!(world, ("Original Data",))
+    e2 = copy_entity!(world, e1)
+
+    val1 = get_components(world, e1, (String,))
+    val2 = get_components(world, e2, (String,))
+
+    @test val1 == val2
+end
+
 @testset "World new_entities! with types" begin
     world = World(
         Dummy,
         Position,
-        Velocity => StructArrayStorage,
+        Velocity => Storage{StructArray},
         Altitude,
     )
 
@@ -842,7 +873,7 @@ end
     world = World(
         Dummy,
         Position,
-        Velocity => StructArrayStorage,
+        Velocity => Storage{StructArray},
         Altitude,
     )
 
@@ -862,7 +893,7 @@ end
         @test length(pos_col) == 100
         @test length(vel_col) == 100
         @test pos_col isa FieldViewable
-        @test vel_col isa StructArrayView
+        @test vel_col isa _StructArrayView
         for i in eachindex(ent)
             @test is_alive(world, ent[i]) == true
             @test pos_col[i] == Position(99, 99)
@@ -940,7 +971,7 @@ end
     @testset "World new_entities! JET" begin
         world = World(
             Position,
-            Velocity => StructArrayStorage,
+            Velocity => Storage{StructArray},
         )
         using FunctionWrappers
         excluded = Set([
@@ -959,7 +990,7 @@ end
     world = World(
         Dummy,
         Position,
-        Velocity => StructArrayStorage,
+        Velocity => Storage{StructArray},
         Altitude,
         Health,
     )
@@ -979,6 +1010,8 @@ end
     @test h == Health(2)
 
     @test has_components(world, e1, (Position, Velocity)) == true
+    @test has_components(world, e1, (Position, Velocity, Altitude)) == true
+    @test has_components(world, e1, (Position, Velocity, Dummy)) == false
 
     pos, vel, a, h = get_components(world, e2, (Position, Velocity, Altitude, Health))
     @test pos == Position(5, 6)
@@ -991,12 +1024,42 @@ end
 
     @test_throws("ArgumentError: can't set components of a dead entity",
         set_components!(world, zero_entity, (Position(1, 2), Velocity(3, 4))))
-    @test_throws("ArgumentError: can't add components to a dead entity",
+    @test_throws("ArgumentError: can't add components on a dead entity",
         add_components!(world, zero_entity, (Position(1, 2), Velocity(3, 4))))
-    @test_throws("ArgumentError: can't remove components from a dead entity",
+    @test_throws("ArgumentError: can't remove components on a dead entity",
         remove_components!(world, zero_entity, (Position, Velocity)))
     @test_throws("ArgumentError: can't check components of a dead entity",
         has_components(world, zero_entity, (Position, Velocity)))
+end
+
+@testset "Issue #430" begin
+    world = World(Position, Velocity)
+
+    entity1 = new_entity!(world, (Position(1.0, 2.0), Velocity(3.0, 4.0)))
+    entity2 = new_entity!(world, (Position(5.0, 6.0), Velocity(7.0, 8.0)))
+
+    @test get_components(world, entity1, (Position, Velocity)) == (Position(1.0, 2.0), Velocity(3.0, 4.0))
+    @test get_components(world, entity2, (Position, Velocity)) == (Position(5.0, 6.0), Velocity(7.0, 8.0))
+
+    remove_components!(world, entity1, (Position,))
+
+    @test get_components(world, entity1, (Velocity,)) == (Velocity(3.0, 4.0),)
+    @test get_components(world, entity2, (Position, Velocity)) == (Position(5.0, 6.0), Velocity(7.0, 8.0))
+
+    remove_components!(world, entity1, (Velocity,))
+
+    @test get_components(world, entity1, ()) == ()
+    @test get_components(world, entity2, (Position, Velocity)) == (Position(5.0, 6.0), Velocity(7.0, 8.0))
+
+    remove_components!(world, entity2, (Position,))
+
+    @test get_components(world, entity1, ()) == ()
+    @test get_components(world, entity2, (Velocity,)) == (Velocity(7.0, 8.0),)
+
+    remove_components!(world, entity2, (Velocity,))
+
+    @test get_components(world, entity1, ()) == ()
+    @test get_components(world, entity2, ()) == ()
 end
 
 @testset "World add/remove components with relations" begin
@@ -1050,7 +1113,7 @@ end
 @testset "World add/remove components batch" begin
     world = World(
         Dummy,
-        Position => StructArrayStorage,
+        Position => Storage{StructArray},
         Velocity,
         Altitude,
         Health,
@@ -1096,7 +1159,7 @@ end
         world = World(
             Dummy,
             Position,
-            Velocity => StructArrayStorage,
+            Velocity => Storage{StructArray},
         )
         using FunctionWrappers
         excluded = Set([
@@ -1151,10 +1214,10 @@ end
 @testset "World exchange components batch" begin
     world = World(
         Dummy,
-        Position => StructArrayStorage,
+        Position => Storage{StructArray},
         Velocity,
         Altitude,
-        Health => StructArrayStorage,
+        Health => Storage{StructArray},
     )
 
     new_entities!(world, 10, (Position(1, 1), Altitude(100)))

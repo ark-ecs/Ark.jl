@@ -561,7 +561,7 @@ end
     return quote
         _check_locked(world)
 
-        l = _lock(world._lock)
+        _lock(world._lock)
 
         arches, arches_hot = _get_archetypes(world, filter)
         tables, _ = _get_tables(world, arches, arches_hot, filter)
@@ -579,16 +579,16 @@ end
             )
         end
         if !_is_cached(filter._filter) # Do not clear for cached filters!!!
-            resize!(tables, 0)
+            empty!(tables)
         end
 
         for batch in batches
             _set_relations_table!(fn, world, batch, $rel_ids, targets, $has_fn)
         end
 
-        resize!(batches, 0)
+        empty!(batches)
 
-        _unlock(world._lock, l)
+        _unlock(world._lock)
 
         return nothing
     end
@@ -604,7 +604,7 @@ function _set_relations_table!(
 ) where {Fn,W<:World}
     new_relations, changed, mask = _get_exchange_targets(world, batch.table, relations, targets)
     if !changed
-        resize!(new_relations, 0)
+        empty!(new_relations)
         return nothing
     end
 
@@ -613,7 +613,7 @@ function _set_relations_table!(
         new_table_id = _create_table!(world, batch.archetype, copy(new_relations))
         new_table = world._tables[new_table_id]
     end
-    resize!(new_relations, 0)
+    empty!(new_relations)
 
     if _has_observers(world._event_manager, OnRemoveRelations)
         _fire_set_relations(world._event_manager, OnRemoveRelations, batch, mask)
@@ -668,7 +668,7 @@ end
 
     return quote
         _check_locked(world)
-        l = _lock(world._lock)
+        _lock(world._lock)
 
         arches, arches_hot = _get_archetypes(world, filter)
         tables, _ = _get_tables(world, arches, arches_hot, filter)
@@ -686,7 +686,7 @@ end
             )
         end
         if !_is_cached(filter._filter) # Do not clear for cached filters!!!
-            resize!(tables, 0)
+            empty!(tables)
         end
 
         for batch in batches
@@ -694,9 +694,9 @@ end
                 Val{$ATS}(), add, Val{$RTS}(), Val{$TR}(), targets, Val{$DEF}(), Val{$HFN}(), Val{$REM}())
         end
 
-        resize!(batches, 0)
+        empty!(batches)
 
-        _unlock(world._lock, l)
+        _unlock(world._lock)
 
         return nothing
     end
@@ -874,9 +874,8 @@ end
         has_callback = $has_fn
         should_lock = has_entity_obs || has_rel_obs || has_callback
 
-        l::Int64 = 0
         if should_lock
-            l = _lock(world._lock)
+            _lock(world._lock)
         end
 
         $(has_fn ?
@@ -921,10 +920,6 @@ end
             end
         end
 
-        if should_lock
-            _unlock(world._lock, l)
-        end
-
         cleanup = world._pool.entities
         for table_id in tables
             table = world._tables[table_id]
@@ -942,7 +937,7 @@ end
                 )
                 _recycle(world._entity_pool, entity)
             end
-            resize!(table, 0)
+            empty!(table)
             for comp in world._archetypes[table.archetype].components
                 _clear_component_data!(world, comp, table.id)
             end
@@ -958,10 +953,14 @@ end
           (:(nothing))
         )
 
-        if !_is_cached(filter._filter) # Do not clear for cached filters!!!
-            resize!(tables, 0)
+        if should_lock
+            _unlock(world._lock)
         end
-        resize!(cleanup, 0)
+
+        if !_is_cached(filter._filter) # Do not clear for cached filters!!!
+            empty!(tables)
+        end
+        empty!(cleanup)
 
         return nothing
     end
@@ -999,6 +998,7 @@ end
     world_has_rel = Val{_has_relations(CS)}()
 
     exprs = []
+    push!(exprs, :(_check_locked(world)))
     push!(
         exprs,
         :(
@@ -1046,7 +1046,7 @@ end
             exprs,
             :(
                 begin
-                    l = _lock(world._lock)
+                    _lock(world._lock)
                     columns = _get_columns(world, $ts_val_expr, table, indices...)
                     fn(columns)
 
@@ -1057,7 +1057,7 @@ end
                     if _has_relations(table) && _has_observers(world._event_manager, OnAddRelations)
                         _fire_create_entities_relations(world._event_manager, batch)
                     end
-                    _unlock(world._lock, l)
+                    _unlock(world._lock)
                     return nothing
                 end
             ),
@@ -1070,7 +1070,7 @@ end
                     has_entity_obs = _has_observers(world._event_manager, OnCreateEntity)
                     has_rel_obs = _has_relations(table) && _has_observers(world._event_manager, OnAddRelations)
                     if has_entity_obs || has_rel_obs
-                        l = _lock(world._lock)
+                        _lock(world._lock)
                         batch = _BatchTable(table, world._archetypes[table.archetype], indices...)
                         if has_entity_obs
                             _fire_create_entities(world._event_manager, batch)
@@ -1078,7 +1078,7 @@ end
                         if has_rel_obs
                             _fire_create_entities_relations(world._event_manager, batch)
                         end
-                        _unlock(world._lock, l)
+                        _unlock(world._lock)
                     end
                     return nothing
                 end
@@ -1110,7 +1110,7 @@ end
     ]
 
     exprs = Expr[]
-    push!(exprs, :(entities = view(table.entities, start_idx:end_idx)))
+    push!(exprs, :(entities = view(table.entities, Int(start_idx):Int(end_idx))))
     for i in 1:length(comp_types)
         stor_sym = Symbol("stor", i)
         col_sym = Symbol("col", i)
@@ -1118,10 +1118,13 @@ end
         push!(exprs, :(@inbounds $stor_sym = _get_storage(world, $(comp_types[i]))))
         push!(exprs, :(@inbounds $col_sym = $stor_sym.data[Int(table.id)]))
 
-        if storage_modes[i] == VectorStorage && fieldcount(comp_types[i]) > 0
-            push!(exprs, :($vec_sym = FieldViewable(view($col_sym, start_idx:end_idx))))
+        if storage_modes[i].parameters[1] <: GPUVector
+            push!(exprs, :($vec_sym = view(($col_sym).mem, Int(start_idx):Int(end_idx))))
+        elseif storage_modes[i] == Storage{StructArray} || storage_modes[i].parameters[1] <: GPUStructArray ||
+               fieldcount(comp_types[i]) == 0
+            push!(exprs, :($vec_sym = view($col_sym, Int(start_idx):Int(end_idx))))
         else
-            push!(exprs, :($vec_sym = view($col_sym, start_idx:end_idx)))
+            push!(exprs, :($vec_sym = FieldViewable(view($col_sym, Int(start_idx):Int(end_idx)))))
         end
     end
     result_exprs = [:entities]

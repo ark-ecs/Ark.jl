@@ -3,7 +3,7 @@
 This folder contains several stand-alone demos for Ark.jl.
 
 For an overview of the available demos, including screenshots,
-see the [Demos](https://mlange-42.github.io/Ark.jl/stable/demos.html)
+see the [Demos](https://ark-ecs.github.io/Ark.jl/stable/demos.html)
 page in the user manual.
 
 ## Usage
@@ -11,7 +11,7 @@ page in the user manual.
 First, clone the repository and `cd` into it:
 
 ```
-git clone https://github.com/mlange-42/Ark.jl.git
+git clone https://github.com/ark-ecs/Ark.jl.git
 cd Ark.jl
 ```
 

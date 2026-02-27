@@ -81,3 +81,15 @@ end
     @test length(world._tables[2].filters) == 0
     @test length(world._tables[3].filters) == 0
 end
+
+@testset "Add to unregistered filter Issue #499" begin
+    world = World(Position, ChildOf)
+    f1 = Filter(world, (Position,); register=true)
+    f2 = Filter(world, (Position,); register=true)
+    unregister!(f1)
+    parent = new_entity!(world, ())
+    child = new_entity!(world, (Position(1.1, 1.1), ChildOf()); relations=(ChildOf => parent,))
+
+    # Raised BoundsError: attempt to access 2-element Vector{Ark._MaskFilter{1}} at index [0]
+    remove_entity!(world, parent)
+end
