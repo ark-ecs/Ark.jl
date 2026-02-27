@@ -1,6 +1,6 @@
 
-mutable struct _LastTable
-    mask::_Mask
+mutable struct _LastTable{M}
+    mask::_Mask{M}
     id::UInt32
 end
 
