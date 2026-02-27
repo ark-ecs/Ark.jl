@@ -46,6 +46,7 @@ mutable struct World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M} <: _AbstractWorld
     const _archetypes_hot::Vector{_ArchetypeHot{M}}
     const _relation_archetypes::Vector{UInt32}
     const _tables::Vector{_Table}
+    const _last_table::_LastTable
     const _index::_ComponentIndex{M}
     const _registry::_ComponentRegistry
     const _entity_pool::_EntityPool
@@ -56,7 +57,6 @@ mutable struct World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M} <: _AbstractWorld
     const _cache::_Cache{M}
     const _pool::_WorldPool{M}
     const _initial_capacity::Int
-    const last_created_table::Base.RefValue{Tuple{_Mask{M}, UInt32}}
 end
 
 """
@@ -892,10 +892,10 @@ end
     world_has_rel::Val{false},
 )::Tuple{UInt32,Bool}
     @inbounds old_arch_hot = world._archetypes_hot[old_table.archetype]
-    last_mask, last_table = world.last_created_table[]
+    last_mask = world._last_table.mask
     new_mask = _clear_bits(_or(add_mask, old_arch_hot.mask), rem_mask)
     if new_mask.bits == last_mask.bits
-        return last_table, false
+        return world._last_table.id, false
     end
     @inbounds old_arch = world._archetypes[old_table.archetype]
     new_arch_index, is_new = _find_or_create_archetype!(
@@ -908,7 +908,8 @@ end
         @inbounds new_arch_hot = world._archetypes_hot[new_arch_index]
         table_id = new_arch_hot.table
     end
-    world.last_created_table[] = (new_mask, table_id)
+    world._last_table.mask = new_mask
+    world._last_table.id = table_id
     return table_id, false
 end
 
