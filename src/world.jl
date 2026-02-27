@@ -46,7 +46,7 @@ mutable struct World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M} <: _AbstractWorld
     const _archetypes_hot::Vector{_ArchetypeHot{M}}
     const _relation_archetypes::Vector{UInt32}
     const _tables::Vector{_Table}
-    const _last_table::_LastTable
+    const _last_table::_LastTable{M}
     const _index::_ComponentIndex{M}
     const _registry::_ComponentRegistry
     const _entity_pool::_EntityPool
@@ -799,6 +799,7 @@ end
             [_ArchetypeHot(node, UInt32(1))],
             Vector{UInt32}(),
             [_new_table(UInt32(1), UInt32(1))],
+            _LastTable{$M}(_Mask{$M}(), UInt32(1)),
             _ComponentIndex{$(M)}($(length(types))),
             registry,
             _EntityPool(UInt32(1024)),
