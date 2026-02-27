@@ -4,6 +4,8 @@ using Mooncake
 using Enzyme
 using Random
 
+Enzyme.Compiler.VERBOSE_ERRORS[] = true
+
 function run_world(args)
     alpha, beta = args
     world = World(Position, Velocity)
