@@ -1,4 +1,9 @@
 
+mutable struct _LastTable
+    mask::_Mask
+    id::UInt32
+end
+
 struct _Table
     entities::Entities
     relations::Vector{Pair{Int,Entity}}
