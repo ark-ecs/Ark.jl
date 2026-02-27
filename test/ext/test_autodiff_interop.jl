@@ -46,3 +46,4 @@ for backend in (AutoMooncake(), AutoMooncakeForward(), AutoEnzyme())
             @test 0.99 < (run_world((0.1, 0.5 + 10e-5)) - run_world((0.1, 0.5))) / (d_beta * 10e-5) < 1.01
         end
     end
+end
