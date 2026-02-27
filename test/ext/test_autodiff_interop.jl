@@ -39,7 +39,7 @@ end
 
 for backend in (AutoMooncake(), AutoMooncakeForward(), AutoEnzyme())
     @testset "Compute gradients through $backend" begin
-        g = gradient(run_world, backend, [0.1, 0.5])
+        g = DifferentiationInterface.gradient(run_world, backend, [0.1, 0.5])
         d_alpha, d_beta = g
     
         @test 0.99 < (run_world((0.1 + 10e-5, 0.5)) - run_world((0.1, 0.5))) / (d_alpha * 10e-5) < 1.01
