@@ -898,7 +898,7 @@ end
 @inline function _find_or_create_table!(
     world::World{CS,CT,ST,N,M},
     old_table::_Table,
-    add::Tuple, remove::Tuple, relations::Tuple,
+    add::Tuple, remove::Tuple, relations::Tuple, targets::Tuple,
     add_mask::_Mask{M}, rem_mask::_Mask{M},
     use_map::Union{_NoUseMap,_UseMap},
     world_has_rel::Val{false},
