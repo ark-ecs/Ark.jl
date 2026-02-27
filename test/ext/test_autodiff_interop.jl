@@ -39,11 +39,10 @@ end
 
 for backend in (AutoMooncake(), AutoMooncakeForward(), AutoEnzyme())
     @testset "Compute gradients through $backend" begin
-            g = gradient(run_world, backend, [0.1, 0.5])
-            d_alpha, d_beta = g
+        g = gradient(run_world, backend, [0.1, 0.5])
+        d_alpha, d_beta = g
     
-            @test 0.99 < (run_world((0.1 + 10e-5, 0.5)) - run_world((0.1, 0.5))) / (d_alpha * 10e-5) < 1.01
-            @test 0.99 < (run_world((0.1, 0.5 + 10e-5)) - run_world((0.1, 0.5))) / (d_beta * 10e-5) < 1.01
-        end
+        @test 0.99 < (run_world((0.1 + 10e-5, 0.5)) - run_world((0.1, 0.5))) / (d_alpha * 10e-5) < 1.01
+        @test 0.99 < (run_world((0.1, 0.5 + 10e-5)) - run_world((0.1, 0.5))) / (d_beta * 10e-5) < 1.01
     end
 end
