@@ -44,7 +44,7 @@ jobs:
     - name: Rename file
       run: mv bench.csv bench_current_${{ matrix.repetition }}.csv
     - name: Archive results
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: bench_current_${{ matrix.repetition }}
         path: bench_current_${{ matrix.repetition }}.csv
@@ -68,7 +68,7 @@ jobs:
       run: mv bench.csv bench_main_${{ matrix.repetition }}.csv
     - name: Archive results
       if: github.event_name == 'pull_request'
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: bench_main_${{ matrix.repetition }}
         path: bench_main_${{ matrix.repetition }}.csv
@@ -106,17 +106,17 @@ jobs:
     - name: Run comparison
       run: julia benchmark/compare_benchmarks.jl | tee compare.md
     - name: Archive results CSV
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: compare
         path: compare.csv
     - name: Archive results MD
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: compare_md
         path: compare.md
     - name: Archive results HTML
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: compare_html
         path: compare.html
