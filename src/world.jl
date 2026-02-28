@@ -893,10 +893,14 @@ end
     world_has_rel::Val{false},
 )::Tuple{UInt32,Bool}
     @inbounds old_arch_hot = world._archetypes_hot[old_table.archetype]
-    last_mask = world._last_table.mask
+    last_table = world._last_table
+    last_mask = last_table.mask
     new_mask = _clear_bits(_or(add_mask, old_arch_hot.mask), rem_mask)
     if new_mask.bits == last_mask.bits
-        return world._last_table.id, false
+        return last_table.id, false
+    else
+        last_table.mask = new_mask
+        last_table.id = table_id
     end
     @inbounds old_arch = world._archetypes[old_table.archetype]
     new_arch_index, is_new = _find_or_create_archetype!(
@@ -909,8 +913,6 @@ end
         @inbounds new_arch_hot = world._archetypes_hot[new_arch_index]
         table_id = new_arch_hot.table
     end
-    world._last_table.mask = new_mask
-    world._last_table.id = table_id
     return table_id, false
 end
 
