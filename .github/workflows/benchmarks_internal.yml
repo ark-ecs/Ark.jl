@@ -81,22 +81,22 @@ jobs:
     - benchmark
     steps:
     - uses: actions/checkout@v6
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: bench_main_1
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: bench_main_2
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: bench_main_3
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: bench_current_1
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: bench_current_2
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: bench_current_3
     - name: Set up Julia
