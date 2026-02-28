@@ -36,7 +36,7 @@ jobs:
         mv bench_aos_light.svg bench_aos/bench_aos_light.svg
         mv bench_aos_dark.svg bench_aos/bench_aos_dark.svg
     - name: Archive results
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: bench_aos
         path: bench_aos
