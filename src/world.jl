@@ -813,7 +813,6 @@ end
             _Cache{$M}(),
             _WorldPool{$M}(),
             initial_capacity,
-            Ref((_Mask{$M}(), UInt32(1))),
         )
     end
 end
