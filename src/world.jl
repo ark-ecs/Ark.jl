@@ -46,6 +46,7 @@ mutable struct World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M} <: _AbstractWorld
     const _archetypes_hot::Vector{_ArchetypeHot{M}}
     const _relation_archetypes::Vector{UInt32}
     const _tables::Vector{_Table}
+    const _last_table::_LastTable{M}
     const _index::_ComponentIndex{M}
     const _registry::_ComponentRegistry
     const _entity_pool::_EntityPool
@@ -798,6 +799,7 @@ end
             [_ArchetypeHot(node, UInt32(1))],
             Vector{UInt32}(),
             [_new_table(UInt32(1), UInt32(1))],
+            _LastTable{$M}(_Mask{$M}(), UInt32(1)),
             _ComponentIndex{$(M)}($(length(types))),
             registry,
             _EntityPool(UInt32(1024)),
@@ -889,16 +891,27 @@ end
     use_map::Union{_NoUseMap,_UseMap},
     world_has_rel::Val{false},
 )::Tuple{UInt32,Bool}
+    @inbounds old_arch_hot = world._archetypes_hot[old_table.archetype]
+    last_table = world._last_table
+    last_mask = last_table.mask
+    new_mask = _clear_bits(_or(add_mask, old_arch_hot.mask), rem_mask)
+    if new_mask.bits == last_mask.bits
+        return last_table.id, false
+    end
     @inbounds old_arch = world._archetypes[old_table.archetype]
     new_arch_index, is_new = _find_or_create_archetype!(
         world, old_arch.node, add, remove, relations, add_mask, rem_mask, use_map,
     )
-    @inbounds new_arch_hot = world._archetypes_hot[new_arch_index]
     if is_new
         @inbounds new_arch = world._archetypes[new_arch_index]
-        return _create_table!(world, new_arch, _empty_relations), false
+        table_id = _create_table!(world, new_arch, _empty_relations)
+    else
+        @inbounds new_arch_hot = world._archetypes_hot[new_arch_index]
+        table_id = new_arch_hot.table
     end
-    return new_arch_hot.table, false
+    last_table.mask = new_mask
+    last_table.id = table_id
+    return table_id, false
 end
 
 # internal for handling relations
