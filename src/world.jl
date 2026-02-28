@@ -879,7 +879,7 @@ end
     return _find_or_create_table!(world, old_table, new_arch_hot, new_arch, relations, targets, !isempty(remove))
 end
 
-function _resolve_table_cold!(
+@noinline function _resolve_table_cold!(
     world, old_table, add, remove, relations, add_mask, rem_mask, use_map
 )::UInt32
     @inbounds old_arch = world._archetypes[old_table.archetype]
