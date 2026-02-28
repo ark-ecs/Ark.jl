@@ -813,6 +813,7 @@ end
             _Cache{$M}(),
             _WorldPool{$M}(),
             initial_capacity,
+            Ref((_Mask{$M}(), UInt32(1))),
         )
     end
 end
@@ -879,44 +880,37 @@ end
     return _find_or_create_table!(world, old_table, new_arch_hot, new_arch, relations, targets, !isempty(remove))
 end
 
-@noinline function _resolve_table_cold!(
-    world, old_table, add, remove, relations, add_mask, rem_mask, use_map
-)::UInt32
+@inline function _find_or_create_table!(
+    world::World,
+    old_table::_Table,
+    add::Tuple{Vararg{Int}},
+    remove::Tuple{Vararg{Int}},
+    relations::Tuple{Vararg{Int}},
+    targets::Tuple{Vararg{Entity}},
+    add_mask::_Mask,
+    rem_mask::_Mask,
+    use_map::Union{_NoUseMap,_UseMap},
+    world_has_rel::Val{false},
+)::Tuple{UInt32,Bool}
+    @inbounds old_arch_hot = world._archetypes_hot[old_table.archetype]
+    last_mask = world._last_table.mask
+    new_mask = _clear_bits(_or(add_mask, old_arch_hot.mask), rem_mask)
+    if new_mask.bits == last_mask.bits
+        return world._last_table.id, false
+    end
     @inbounds old_arch = world._archetypes[old_table.archetype]
     new_arch_index, is_new = _find_or_create_archetype!(
         world, old_arch.node, add, remove, relations, add_mask, rem_mask, use_map,
     )
     if is_new
         @inbounds new_arch = world._archetypes[new_arch_index]
-        return _create_table!(world, new_arch, _empty_relations)
+        table_id = _create_table!(world, new_arch, _empty_relations)
     else
         @inbounds new_arch_hot = world._archetypes_hot[new_arch_index]
-        return new_arch_hot.table
+        table_id = new_arch_hot.table
     end
-end
-
-@inline function _find_or_create_table!(
-    world::World{CS,CT,ST,N,M},
-    old_table::_Table,
-    add::Tuple, remove::Tuple, relations::Tuple, targets::Tuple,
-    add_mask::_Mask{M}, rem_mask::_Mask{M},
-    use_map::Union{_NoUseMap,_UseMap},
-    world_has_rel::Val{false},
-)::Tuple{UInt32,Bool} where {CS,CT,ST,N,M}
-    @inbounds old_arch_hot = world._archetypes_hot[old_table.archetype]
-    last = world._last_table
-    new_mask = _clear_bits(_or(add_mask, old_arch_hot.mask), rem_mask)
-
-    if new_mask.bits == last.mask.bits
-        return last.id, false
-    end
-
-    table_id = _resolve_table_cold!(
-        world, old_table, add, remove, relations, add_mask, rem_mask, use_map
-    )
-
-    last.mask = new_mask
-    last.id = table_id
+    world._last_table.mask = new_mask
+    world._last_table.id = table_id
     return table_id, false
 end
 
