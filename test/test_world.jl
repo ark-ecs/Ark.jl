@@ -1048,7 +1048,7 @@ end
 
     @test_throws(
         "ArgumentError: entity does not have component to remove",
-        remove_components!(world, e1, (Position,),
+        remove_components!(world, e1, (Position,)),
     )
 end
 
