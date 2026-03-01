@@ -1032,6 +1032,26 @@ end
         has_components(world, zero_entity, (Position, Velocity)))
 end
 
+@testset "Issue #561" begin
+    world = World(Position)
+
+    e1 = new_entity!(world, (Position(1.0, 1.0),))
+
+    @test_throws(
+        "ArgumentError: entity already has component to add",
+        add_components!(world, e1, (Position(2.0, 2.0),)),
+    )
+
+    world = World(Position)
+
+    e1 = new_entity!(world, ())
+
+    @test_throws(
+        "ArgumentError: entity does not have component to remove",
+        remove_components!(world, e1, (Position,),
+    )
+end
+
 @testset "Issue #430" begin
     world = World(Position, Velocity)
 
