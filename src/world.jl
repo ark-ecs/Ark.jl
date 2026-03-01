@@ -892,9 +892,15 @@ end
     world_has_rel::Val{false},
 )::Tuple{UInt32,Bool}
     @inbounds old_arch_hot = world._archetypes_hot[old_table.archetype]
+    old_mask = old_arch_hot.mask
+    if !_contains_all(old_mask, rem_mask)
+        throw(ArgumentError("entity does not have component to remove"))
+    elseif _contains_any(old_mask, add_mask)
+        throw(ArgumentError("entity already has component to add"))
+    end
     last_table = world._last_table
     last_mask = last_table.mask
-    new_mask = _clear_bits(_or(add_mask, old_arch_hot.mask), rem_mask)
+    new_mask = _clear_bits(_or(add_mask, old_mask), rem_mask)
     if new_mask.bits == last_mask.bits
         return last_table.id, false
     end
