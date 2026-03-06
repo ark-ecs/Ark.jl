@@ -34,6 +34,13 @@ end
 @testset "Issue #563" begin
     world = World(Dummy)
     e = new_entity!(world, (Dummy(),))
+
+    filter = Filter(world, (Dummy,); register=true)
+    @test isempty(collect(Query(filter))) == false
+
+    filter = Filter(world, (Dummy,); register=false)
+    @test isempty(collect(Query(filter))) == false
+
     remove_entity!(world, e)
 
     filter = Filter(world, (Dummy,); register=true)
