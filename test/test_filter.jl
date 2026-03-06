@@ -31,6 +31,25 @@ end
     @test count_entities(filter2) == 20
 end
 
+@testset "Issue #563" begin
+    world = World(Dummy)
+    e = new_entity!(world, (Dummy(),))
+
+    filter = Filter(world, (Dummy,); register=true)
+    @test isempty(collect(Query(filter))) == false
+
+    filter = Filter(world, (Dummy,); register=false)
+    @test isempty(collect(Query(filter))) == false
+
+    remove_entity!(world, e)
+
+    filter = Filter(world, (Dummy,); register=true)
+    @test isempty(collect(Query(filter))) == true
+
+    filter = Filter(world, (Dummy,); register=false)
+    @test isempty(collect(Query(filter))) == true
+end
+
 @testset "Filter show" begin
     world = World(
         Position,

@@ -207,11 +207,15 @@ end
 
 @inline function _iterate_registered(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
     index, _ = state
-    if index <= length(q._filter.tables)
+    while index <= length(q._filter.tables)
         @inbounds table_id = q._filter.tables[index]
         @inbounds table = q._world._tables[table_id]
-        result = _get_columns(q, table)
-        return result, (index + 1, 0)
+        if !isempty(table.entities)
+            result = _get_columns(q, table)
+            return result, (index + 1, 0)
+        else
+            index += 1
+        end
     end
     close!(q)
     return nothing
