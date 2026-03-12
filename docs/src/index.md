@@ -32,7 +32,7 @@ It is a port of the Go ECS [Ark](https://github.com/mlange-42/ark).
 - [Storage mode](@ref component-storages) per component for ergonomics and SIMD,<br>with support for user-defined storages.
 - Extensible [event system](@ref "Event system") with filtering and custom event types.
 - Fast [batch operations](@ref "Batch operations") for mass manipulation.
-- Built-in [GPU integration](@ref gpu-storages) for [maximal performance](@ref "cpu-vs.-gpu-storage").
+- Built-in [GPU integration](@ref GPU-Storages) for [maximal performance](@ref CPU-vs.-GPU-Storage).
 - No [systems](@ref Systems). Just [queries](@ref Queries). Use your own structure.
 - Minimal [dependencies](https://github.com/ark-ecs/Ark.jl/blob/main/Project.toml), 100% [test coverage](https://app.codecov.io/github/ark-ecs/ark.jl).
 
