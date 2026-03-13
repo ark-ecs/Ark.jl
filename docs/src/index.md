@@ -29,7 +29,8 @@ It is a port of the Go ECS [Ark](https://github.com/mlange-42/ark).
 - Designed for [performance](@ref Benchmarks) and highly optimized.
 - Well-documented, type-stable [API](@ref).
 - [Entity relationships](@ref) as a first-class feature.
-- [Storage mode](@ref component-storages) per component for ergonomics and SIMD,<br>with support for user-defined storages.
+- [Storage mode](@ref component-storages) per component for ergonomics and SIMD, 
+  with support for user-defined storages.
 - Extensible [event system](@ref "Event system") with filtering and custom event types.
 - Fast [batch operations](@ref "Batch operations") for mass manipulation.
 - Built-in [GPU integration](@ref GPU-Storages) for [maximal performance](@ref CPU-vs.-GPU-Storage).
