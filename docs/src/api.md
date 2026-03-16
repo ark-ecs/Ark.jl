@@ -107,7 +107,7 @@ like entity creation and removal and component addition and removal.
 Further, custom events can be defined and emitted.
 
 ```@docs
-EventType
+Event
 EventRegistry
 EventRegistry()
 new_event_type!

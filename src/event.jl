@@ -1,6 +1,6 @@
 
 """
-    EventType
+    Event
 
 Type for built-in and custom events.
 See [EventRegistry](@ref) for creating custom event types.
@@ -16,24 +16,25 @@ See [EventRegistry](@ref) for creating custom event types.
   - `OnRemoveRelations`: Event emitted before relation targets are removed from an entity.
     Includes removing entities, removing components as well as setting relation targets.
 """
-struct EventType
-    _id::UInt8
+struct Event
+    _id::Int
     _symbol::Symbol
 
-    EventType(id::UInt8, symbol::Symbol) = new(id, symbol)
+    Event(id::Int, symbol::Symbol) = new(id, symbol)
 end
 
-function Base.show(io::IO, evt::EventType)
-    print(io, "EventType(:$(evt._symbol))")
+function Base.show(io::IO, evt::Event)
+    print(io, "Event(:$(evt._symbol))")
 end
 
-const OnCreateEntity::EventType = EventType(UInt8(1), :OnCreateEntity)
-const OnRemoveEntity::EventType = EventType(UInt8(2), :OnRemoveEntity)
-const OnAddComponents::EventType = EventType(UInt8(3), :OnAddComponents)
-const OnRemoveComponents::EventType = EventType(UInt8(4), :OnRemoveComponents)
-const OnAddRelations::EventType = EventType(UInt8(5), :OnAddRelations)
-const OnRemoveRelations::EventType = EventType(UInt8(6), :OnRemoveRelations)
-const _custom_events::EventType = EventType(UInt8(7), :custom_event)
+const OnCreateEntity::Event = Event(1, :OnCreateEntity)
+const OnRemoveEntity::Event = Event(2, :OnRemoveEntity)
+const OnAddComponents::Event = Event(3, :OnAddComponents)
+const OnRemoveComponents::Event = Event(4, :OnRemoveComponents)
+const OnAddRelations::Event = Event(5, :OnAddRelations)
+const OnRemoveRelations::Event = Event(6, :OnRemoveRelations)
+
+const _EVENT_MANAGER_INITIAL_CAPACITY = 6
 
 """
     EventRegistry
@@ -41,7 +42,7 @@ const _custom_events::EventType = EventType(UInt8(7), :custom_event)
 Serves for creating custom event types.
 """
 mutable struct EventRegistry
-    _event_types::Dict{Symbol,UInt8}
+    _event_types::Dict{Symbol,Int}
 end
 
 """
@@ -50,7 +51,7 @@ end
 Creates a new [EventRegistry](@ref).
 """
 function EventRegistry()
-    reg = EventRegistry(Dict{Symbol,UInt8}())
+    reg = EventRegistry(Dict{Symbol,Int}())
     new_event_type!(reg, :OnCreateEntity)
     new_event_type!(reg, :OnRemoveEntity)
     new_event_type!(reg, :OnAddComponents)
@@ -70,7 +71,7 @@ end
 """
     new_event_type!(reg::EventRegistry, symbol::Symbol)
 
-Creates a new custom [EventType](@ref).
+Creates a new custom [Event](@ref).
 Custom event types are best stored in global constants.
 
 The symbol is only used for printing.
@@ -83,24 +84,16 @@ const OnGameOver = new_event_type!(registry, :OnGameOver)
 
 # output
 
-EventType(:OnGameOver)
+Event(:OnGameOver)
 ```
 """
 function new_event_type!(reg::EventRegistry, symbol::Symbol)
-    if length(reg._event_types) == typemax(UInt8)
-        throw(
-            InvalidStateException(
-                "reached maximum number of $(length(reg._event_types)) event types",
-                :events_exhausted,
-            ),
-        )
-    end
     if haskey(reg._event_types, symbol)
         throw(ArgumentError("there is already an event with symbol :$symbol"))
     end
     id = length(reg._event_types) + 1
     reg._event_types[symbol] = id
-    return EventType(UInt8(id), symbol)
+    return Event(id, symbol)
 end
 
 mutable struct _ObserverID
@@ -113,12 +106,12 @@ end
 Observer for reacting on built-in and custom events.
 
 See [observe!](@ref) for details.
-See [EventType](@ref) for built-in, and [EventRegistry](@ref) for custom event types.
+See [Event](@ref) for built-in, and [EventRegistry](@ref) for custom event types.
 """
 struct Observer{W<:_AbstractWorld,M}
     _world::W
     _id::_ObserverID
-    _event::EventType
+    _event::Event
     _comps::_Mask{M}
     _with::_Mask{M}
     _without::_Mask{M}
@@ -131,24 +124,47 @@ end
 
 mutable struct _EventManager{W<:_AbstractWorld,M}
     const observers::Vector{Vector{Observer{W,M}}}
-    const comps::Memory{Tuple{_Mask{M},Bool}}
-    const with::Memory{Tuple{_Mask{M},Bool}}
+    const comps::Vector{Tuple{_Mask{M},Bool}}
+    const with::Vector{Tuple{_Mask{M},Bool}}
     num_observers::Int
     max_event_type::Int
 end
 
 function _EventManager{W,M}() where {W<:_AbstractWorld,M}
-    len = typemax(UInt8)
+    len = _EVENT_MANAGER_INITIAL_CAPACITY
     _EventManager{W,M}(
         [Vector{Observer{W,M}}() for _ in 1:len],
-        Memory{Tuple{_Mask{M},Bool}}([(_Mask{M}(), false) for _ in 1:len]),
-        Memory{Tuple{_Mask{M},Bool}}([(_Mask{M}(), false) for _ in 1:len]),
+        [( _Mask{M}(), false) for _ in 1:len],
+        [( _Mask{M}(), false) for _ in 1:len],
         0, 0,
     )
 end
 
-@inline function _has_observers(m::_EventManager, event::EventType)
-    return m.num_observers > 0 && length(m.observers[event._id]) > 0
+function _ensure_capacity!(m::_EventManager{W,M}, id::Int) where {W<:_AbstractWorld,M}
+    cap = length(m.observers)
+    if id <= cap
+        return
+    end
+    
+    resize!(m.observers, id)
+    @inbounds for i in (cap+1):id
+        m.observers[i] = Vector{Observer{W,M}}()
+    end
+    
+    resize!(m.comps, id)
+    @inbounds for i in (cap+1):id
+        m.comps[i] = (_Mask{M}(), false)
+    end
+    
+    resize!(m.with, id)
+    @inbounds for i in (cap+1):id
+        m.with[i] = (_Mask{M}(), false)
+    end
+end
+
+@inline function _has_observers(m::_EventManager, event::Event)
+    e = event._id
+    return m.num_observers > 0 && e <= length(m.observers) && length(m.observers[e]) > 0
 end
 
 function _add_observer!(m::_EventManager, o::Observer)
@@ -158,6 +174,7 @@ function _add_observer!(m::_EventManager, o::Observer)
     m.num_observers += 1
 
     e = o._event._id
+    _ensure_capacity!(m, e)
     push!(m.observers[e], o)
     o._id.id = UInt32(length(m.observers[e]))
 
@@ -359,7 +376,7 @@ end
 
 function _fire_add(
     m::_EventManager{W,M},
-    event::EventType,
+    event::Event,
     entity::Entity,
     old_mask::_Mask{M},
     new_mask::_Mask{M},
@@ -397,7 +414,7 @@ end
 
 function _fire_add(
     m::_EventManager{W,M},
-    event::EventType,
+    event::Event,
     table::_BatchTable,
     old_mask::_Mask{M},
     new_mask::_Mask{M},
@@ -435,7 +452,7 @@ end
 
 function _fire_remove(
     m::_EventManager{W,M},
-    event::EventType,
+    event::Event,
     entity::Entity,
     old_mask::_Mask{M},
     new_mask::_Mask{M},
@@ -473,7 +490,7 @@ end
 
 function _fire_remove(
     m::_EventManager{W,M},
-    event::EventType,
+    event::Event,
     table::_BatchTable,
     old_mask::_Mask{M},
     new_mask::_Mask{M},
@@ -511,7 +528,7 @@ end
 
 function _fire_set_relations(
     m::_EventManager{W,M},
-    event::EventType,
+    event::Event,
     entity::Entity,
     mask::_MutableMask{M},
     entity_mask::_Mask{M},
@@ -522,7 +539,7 @@ end
 
 function _fire_set_relations(
     m::_EventManager{W,M},
-    event::EventType,
+    event::Event,
     table::_BatchTable{M},
     mask::_MutableMask{M},
 ) where {W<:_AbstractWorld,M}
@@ -531,7 +548,7 @@ end
 
 function _fire_custom_event(
     m::_EventManager{W,M},
-    event::EventType,
+    event::Event,
     entity::Entity,
     mask::_Mask{M},
     entity_mask::_Mask{M},
@@ -541,7 +558,7 @@ end
 
 @inline function _do_fire_comps(
     m::_EventManager{W,M},
-    event::EventType,
+    event::Event,
     entity::Entity,
     mask::MK,
     entity_mask::_Mask{M},
@@ -578,7 +595,7 @@ end
 
 @inline function _do_fire_comps(
     m::_EventManager{W,M},
-    event::EventType,
+    event::Event,
     table::_BatchTable{M},
     mask::MK,
 ) where {W<:_AbstractWorld,MK<:_AbstractMask{M}} where {M}
@@ -614,7 +631,7 @@ end
 
 @inline function _do_fire_no_comps(
     m::_EventManager{W,M},
-    event::EventType,
+    event::Event,
     entity::Entity,
     mask::_Mask{M},
     early_out::Bool,

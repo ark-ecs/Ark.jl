@@ -2,6 +2,14 @@
 
 ## [[unpublished]](https://github.com/ark-ecs/Ark.jl/compare/v0.4.0...main)
 
+### Breaking changes
+
+- `EventType` is renamed to `Event`
+
+### Features
+
+- Adds support for adding an arbitrary number of events, before it was capped to 64
+
 ## [[v0.4.0]](https://github.com/ark-ecs/Ark.jl/compare/v0.3.2...v0.4.0)
 
 ### Breaking changes

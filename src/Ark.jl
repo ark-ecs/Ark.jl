@@ -59,7 +59,7 @@ export close!, count_entities, shuffle_entities!, unregister!
 
 export Entities
 
-export EventType, EventRegistry, new_event_type!
+export Event, EventRegistry, new_event_type!
 export OnCreateEntity, OnRemoveEntity, OnAddComponents, OnRemoveComponents
 export OnAddRelations, OnRemoveRelations
 
