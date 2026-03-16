@@ -134,8 +134,8 @@ function _EventManager{W,M}() where {W<:_AbstractWorld,M}
     len = _EVENT_MANAGER_INITIAL_CAPACITY
     _EventManager{W,M}(
         [Vector{Observer{W,M}}() for _ in 1:len],
-        [( _Mask{M}(), false) for _ in 1:len],
-        [( _Mask{M}(), false) for _ in 1:len],
+        [(_Mask{M}(), false) for _ in 1:len],
+        [(_Mask{M}(), false) for _ in 1:len],
         0, 0,
     )
 end
@@ -145,17 +145,17 @@ function _ensure_capacity!(m::_EventManager{W,M}, id::Int) where {W<:_AbstractWo
     if id <= cap
         return
     end
-    
+
     resize!(m.observers, id)
     @inbounds for i in (cap+1):id
         m.observers[i] = Vector{Observer{W,M}}()
     end
-    
+
     resize!(m.comps, id)
     @inbounds for i in (cap+1):id
         m.comps[i] = (_Mask{M}(), false)
     end
-    
+
     resize!(m.with, id)
     @inbounds for i in (cap+1):id
         m.with[i] = (_Mask{M}(), false)
