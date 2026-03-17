@@ -560,24 +560,11 @@ end
     has_fn = HFN == Val{true}
     return quote
         _check_locked(world)
-
         _lock(world._lock)
 
-        arches, arches_hot = _get_archetypes(world, filter)
-        tables, _ = _get_tables(world, arches, arches_hot, filter)
-        batches = world._pool.batches
+        tables, _ = _get_batch_tables(world, filter)
+        batches = _populate_batch_pool!(world, tables)
 
-        for table_id in tables
-            old_table = world._tables[table_id]
-            if isempty(old_table)
-                continue
-            end
-            # TODO: use a simplified data structure?
-            push!(
-                batches,
-                _BatchTable(old_table, world._archetypes[old_table.archetype], UInt32(1), UInt32(length(old_table))),
-            )
-        end
         if !_is_cached(filter._filter) # Do not clear for cached filters!!!
             empty!(tables)
         end
@@ -670,21 +657,9 @@ end
         _check_locked(world)
         _lock(world._lock)
 
-        arches, arches_hot = _get_archetypes(world, filter)
-        tables, _ = _get_tables(world, arches, arches_hot, filter)
-        batches = world._pool.batches
+        tables, _ = _get_batch_tables(world, filter)
+        batches = _populate_batch_pool!(world, tables)
 
-        for table_id in tables
-            old_table = world._tables[table_id]
-            if isempty(old_table)
-                continue
-            end
-            # TODO: use a simplified data structure?
-            push!(
-                batches,
-                _BatchTable(old_table, world._archetypes[old_table.archetype], UInt32(1), UInt32(length(old_table))),
-            )
-        end
         if !_is_cached(filter._filter) # Do not clear for cached filters!!!
             empty!(tables)
         end
@@ -866,8 +841,7 @@ end
     quote
         _check_locked(world)
 
-        arches, arches_hot = _get_archetypes(world, filter)
-        tables, any_relations = _get_tables(world, arches, arches_hot, filter)
+        tables, any_relations = _get_batch_tables(world, filter)
 
         has_entity_obs = _has_observers(world._event_manager, OnRemoveEntity)
         has_rel_obs = any_relations && _has_observers(world._event_manager, OnRemoveRelations)
@@ -1139,4 +1113,21 @@ end
             $(Expr(:block, exprs...))
         end
     end
+end
+function _get_batch_tables(world::World, filter::Filter)
+    arches, arches_hot = _get_archetypes(world, filter)
+    return _get_tables(world, arches, arches_hot, filter)
+end
+
+function _populate_batch_pool!(world::World, tables::Vector{UInt32})
+    batches = world._pool.batches
+    for table_id in tables
+        table = world._tables[table_id]
+        if isempty(table)
+            continue
+        end
+        # TODO: use a simplified data structure?
+        push!(batches, _BatchTable(table, world._archetypes[table.archetype], UInt32(1), UInt32(length(table))))
+    end
+    return batches
 end
