@@ -100,7 +100,7 @@ end
 
     @test obs1._id.id == 2
     @test obs1._event._id == 3
-    @test length(world._event_manager.observers) == Ark._EVENT_MANAGER_INITIAL_CAPACITY
+    @test length(world._event_manager.observers) == _EVENT_MANAGER_INITIAL_CAPACITY
     @test length(world._event_manager.observers[OnAddComponents._id]) == 2
     @test length(world._event_manager.observers[OnRemoveComponents._id]) == 0
     @test _has_observers(world._event_manager, OnAddComponents) == true
