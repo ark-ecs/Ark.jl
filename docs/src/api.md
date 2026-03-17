@@ -78,7 +78,7 @@ Query(::Filter)
 close!(::Query)
 Filter
 Filter(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)
-unregister!
+unregister!(::Filter)
 count_entities
 shuffle_entities!
 length
@@ -113,6 +113,8 @@ EventRegistry()
 new_event_type!
 Observer
 observe!
+register!(::Observer)
+unregister!(::Observer)
 emit_event!
 ```
 

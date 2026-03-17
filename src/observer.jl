@@ -123,24 +123,29 @@ end
             fn,
         )
         if register
-            observe!(world, obs)
+            register!(obs)
         end
         obs
     end
 end
 
 """
-    observe!(world::World, observer::Observer; unregister::Bool=false)
+    register!(observer::Observer)
 
-Registers or un-registers the given [Observer](@ref).
+Registers the given [Observer](@ref).
 Note that observers created with [observe!](@ref) are automatically registered by default.
 """
-function observe!(world::World, observer::Observer; unregister::Bool=false)
-    if unregister
-        _remove_observer!(world._event_manager, observer)
-    else
-        _add_observer!(world._event_manager, observer)
-    end
+function register!(observer::Observer)
+    _add_observer!(observer._world._event_manager, observer)
+end
+
+"""
+    unregister!(observer::Observer)
+
+Un-registers the given [Observer](@ref).
+"""
+function unregister!(observer::Observer)
+    _remove_observer!(observer._world._event_manager, observer)
 end
 
 function Base.show(io::IO, obs::Observer{W}) where {W<:_AbstractWorld}

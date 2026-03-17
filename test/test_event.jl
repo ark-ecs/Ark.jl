@@ -113,9 +113,9 @@ end
     @test obs2._id.id == 3
     @test length(world._event_manager.observers[OnAddComponents._id]) == 3
 
-    @test_throws "InvalidStateException: observer is already registered" observe!(world, obs1)
+    @test_throws "InvalidStateException: observer is already registered" register!(obs1)
 
-    observe!(world, obs1, unregister=true)
+    unregister!(obs1)
     @test obs1._id.id == 0
     @test obs2._id.id == 2
     @test length(world._event_manager.observers[OnAddComponents._id]) == 2
@@ -123,9 +123,9 @@ end
     obs2 = observe!(world, OnAddComponents, (); with=(Position,)) do entity
         println(entity)
     end
-    observe!(world, obs2, unregister=true)
+    unregister!(obs2)
 
-    @test_throws "InvalidStateException: observer is not registered" observe!(world, obs1, unregister=true)
+    @test_throws "InvalidStateException: observer is not registered" unregister!(obs1)
 
     obs3 = observe!(world, OnAddComponents, (); register=false) do entity
         println(entity)
@@ -148,9 +148,9 @@ end
         println(entity)
     end
     @test length(world._event_manager.observers[OnRemoveComponents._id]) == 3
-    observe!(world, obs4, unregister=true)
-    observe!(world, obs6, unregister=true)
-    observe!(world, obs5, unregister=true)
+    unregister!(obs4)
+    unregister!(obs6)
+    unregister!(obs5)
     @test _has_observers(world._event_manager, OnRemoveComponents) == false
 end
 
@@ -183,7 +183,7 @@ end
     new_entity!(world, (Position(0, 0),))
     @test counter == 1
 
-    observe!(world, obs; unregister=true)
+    unregister!(obs)
 
     observe!(world, OnCreateEntity, (); with=(Position,)) do entity
     end
@@ -200,7 +200,7 @@ end
     new_entity!(world, (Altitude(0),))
     @test counter == 3
 
-    observe!(world, obs; unregister=true)
+    unregister!(obs)
 
     obs = observe!(world, OnCreateEntity; with=(Position, Velocity), without=(Altitude,)) do entity
         counter += 1
@@ -267,7 +267,7 @@ end
     new_entity!(world, (ChildOf(),); relations=(ChildOf => parent,))
     @test counter == 1
 
-    observe!(world, obs; unregister=true)
+    unregister!(obs)
 
     observe!(world, OnAddRelations, (); with=(Position,)) do entity
     end
@@ -284,7 +284,7 @@ end
     new_entity!(world, (Altitude(0), ChildOf()); relations=(ChildOf => parent,))
     @test counter == 3
 
-    observe!(world, obs; unregister=true)
+    unregister!(obs)
 
     obs = observe!(world, OnAddRelations; with=(Position, Velocity), without=(Altitude,)) do entity
         counter += 1
@@ -323,7 +323,7 @@ end
     end
     @test counter == 30
 
-    observe!(world, obs; unregister=true)
+    unregister!(obs)
 
     observe!(world, OnCreateEntity, (); with=(Position,)) do entity
     end
@@ -340,7 +340,7 @@ end
     new_entities!(world, 10, (Altitude(0),))
     @test counter == 50
 
-    observe!(world, obs; unregister=true)
+    unregister!(obs)
 
     obs = observe!(world, OnCreateEntity; with=(Position, Velocity), without=(Altitude,)) do entity
         counter += 1
@@ -371,7 +371,7 @@ end
     remove_entities!(world, Filter(world, ()))
     @test counter == 10
 
-    observe!(world, obs; unregister=true)
+    unregister!(obs)
 
     observe!(world, OnRemoveEntity, (); with=(Position,)) do entity
     end
@@ -392,7 +392,7 @@ end
     remove_entities!(world, Filter(world, ()))
     @test counter == 30
 
-    observe!(world, obs; unregister=true)
+    unregister!(obs)
 
     obs = observe!(world, OnRemoveEntity; with=(Position, Velocity), without=(Altitude,)) do entity
         counter += 1
@@ -431,7 +431,7 @@ end
     end
     @test counter == 30
 
-    observe!(world, obs; unregister=true)
+    unregister!(obs)
 
     observe!(world, OnAddRelations, (); with=(Position,)) do entity
     end
@@ -448,7 +448,7 @@ end
     new_entities!(world, 10, (Altitude(0), ChildOf()); relations=(ChildOf => parent,))
     @test counter == 50
 
-    observe!(world, obs; unregister=true)
+    unregister!(obs)
 
     obs = observe!(world, OnAddRelations; with=(Position, Velocity), without=(Altitude,)) do entity
         counter += 1
@@ -524,7 +524,7 @@ end
     remove_entities!(world, filter)
     @test counter == 20
 
-    observe!(world, obs; unregister=true)
+    unregister!(obs)
 
     observe!(world, OnRemoveRelations, (); with=(Position,)) do entity
     end
@@ -545,7 +545,7 @@ end
     remove_entities!(world, filter)
     @test counter == 40
 
-    observe!(world, obs; unregister=true)
+    unregister!(obs)
 
     obs = observe!(world, OnRemoveRelations; with=(Position, Velocity), without=(Altitude,)) do entity
         counter += 1
@@ -611,7 +611,7 @@ end
     remove_entity!(world, new_entity!(world, (Position(0, 0),)))
     @test counter == 1
 
-    observe!(world, obs; unregister=true)
+    unregister!(obs)
 
     obs = observe!(world, OnRemoveEntity; with=(Position, Velocity)) do entity
         counter += 1
@@ -626,7 +626,7 @@ end
     remove_entity!(world, new_entity!(world, (Altitude(0),)))
     @test counter == 3
 
-    observe!(world, obs; unregister=true)
+    unregister!(obs)
 
     obs = observe!(world, OnRemoveEntity; with=(Position, Velocity), without=(Altitude,)) do entity
         counter += 1
@@ -654,7 +654,7 @@ end
     remove_entity!(world, new_entity!(world, (Position(0, 0), ChildOf()); relations=(ChildOf => parent,)))
     @test counter == 1
 
-    observe!(world, obs; unregister=true)
+    unregister!(obs)
 
     obs = observe!(world, OnRemoveRelations; with=(Position, Velocity)) do entity
         counter += 1
@@ -675,7 +675,7 @@ end
     remove_entity!(world, new_entity!(world, (Altitude(0), ChildOf()); relations=(ChildOf => parent,)))
     @test counter == 3
 
-    observe!(world, obs; unregister=true)
+    unregister!(obs)
 
     obs = observe!(world, OnRemoveRelations; with=(Position, Velocity), without=(Altitude,)) do entity
         counter += 1
@@ -724,8 +724,8 @@ end
     @test counter_add == 1
     @test counter_rem == 1
 
-    observe!(world, obs_add; unregister=true)
-    observe!(world, obs_rem; unregister=true)
+    unregister!(obs_add)
+    unregister!(obs_rem)
 
     obs_add = observe!(world, OnAddComponents, (Position, Velocity)) do entity
         counter_add += 1
@@ -1222,7 +1222,7 @@ end
     emit_event!(world, OnUpdateComponents, e, (Position,))
     @test counter == 2
 
-    observe!(world, obs; unregister=true)
+    unregister!(obs)
 
     obs = observe!(world, OnUpdateComponents, (Position, Velocity)) do entity
         counter += 1

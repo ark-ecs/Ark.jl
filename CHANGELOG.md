@@ -4,6 +4,7 @@
 
 ### Breaking changes
 
+- `observe!(world, observer; unregister=true)` has been removed in favour of `register!(observer)` and `unregister!(observer)` (#574)
 - `EventType` is renamed to `Event` (#573)
 
 ### Features
