@@ -149,7 +149,7 @@ end
 end
 
 """
-    unregister!(world::World, filter::Filter)
+    unregister!(filter::Filter)
 
 Un-registers a [Filter](@ref).
 """
