@@ -187,7 +187,7 @@ end
     new_entity!(world, (Position(0, 0),))
     @test counter == 1
 
-    unregister!(world, obs)
+    unregister!(obs)
 
     observe!(world, OnCreateEntity, (); with=(Position,)) do entity
     end
@@ -204,7 +204,7 @@ end
     new_entity!(world, (Altitude(0),))
     @test counter == 3
 
-    unregister!(world, obs)
+    unregister!(obs)
 
     obs = observe!(world, OnCreateEntity; with=(Position, Velocity), without=(Altitude,)) do entity
         counter += 1
