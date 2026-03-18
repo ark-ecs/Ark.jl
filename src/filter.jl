@@ -227,11 +227,9 @@ end
 
 function _length_registered(world::W, filter::_MaskFilter{M}) where {W<:World,M}
     count = 0
-    for table_id in filter.tables.ids
+    @simd for table_id in filter.tables.ids
         table = @inbounds world._tables[table_id]
-        if !isempty(table.entities)
-            count += 1
-        end
+        count += (!isempty(table.entities)) % Int
     end
     return count
 end
@@ -268,7 +266,7 @@ end
 
 function _count_entities_registered(world::W, filter::_MaskFilter{M}) where {W<:World,M}
     count = 0
-    for table_id in filter.tables.ids
+    @simd for table_id in filter.tables.ids
         table = @inbounds world._tables[table_id]
         count += length(table.entities)
     end
