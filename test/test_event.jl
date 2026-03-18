@@ -13,14 +13,10 @@
     @test_throws "there is already an event with symbol :Event1" new_event_type!(reg, :Event1)
 
     cnt = 0
-    while true
-        e = new_event_type!(reg, Symbol(string(cnt)))
-        if e._id == typemax(UInt8)
-            break
-        end
+    for _ in 1:10
+        new_event_type!(reg, Symbol(string(cnt)))
         cnt += 1
     end
-    @test_throws "InvalidStateException: reached maximum number of 255 event types" new_event_type!(reg, :Invalid)
 
     @test OnCreateEntity._id == 1
     @test OnRemoveEntity._id == 2
@@ -29,7 +25,7 @@
     @test OnAddRelations._id == 5
     @test OnRemoveRelations._id == 6
 
-    @test string(OnCreateEntity) == "EventType(:OnCreateEntity)"
+    @test string(OnCreateEntity) == "Event(:OnCreateEntity)"
 end
 
 @testset "Observer creation" begin
@@ -104,7 +100,7 @@ end
 
     @test obs1._id.id == 2
     @test obs1._event._id == 3
-    @test length(world._event_manager.observers) == typemax(UInt8)
+    @test length(world._event_manager.observers) == _EVENT_MANAGER_INITIAL_CAPACITY
     @test length(world._event_manager.observers[OnAddComponents._id]) == 2
     @test length(world._event_manager.observers[OnRemoveComponents._id]) == 0
     @test _has_observers(world._event_manager, OnAddComponents) == true
@@ -1184,7 +1180,7 @@ end
     world = World(Dummy, Position, Velocity)
 
     counter = 0
-    fn = (event::EventType, entity::Entity) -> begin
+    fn = (event::Event, entity::Entity) -> begin
         counter += 1
     end
     obs_add = observe!(world, OnCreateEntity) do entity

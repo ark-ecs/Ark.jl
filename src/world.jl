@@ -628,13 +628,13 @@ function is_locked(world::World)::Bool
 end
 
 """
-    emit_event!(world::World, event::EventType, entity::Entity, components::Tuple=())
+    emit_event!(world::World, event::Event, entity::Entity, components::Tuple=())
 
-Emits a custom event for the given [EventType](@ref), [Entity](@ref) and optional components.
+Emits a custom event for the given [Event](@ref), [Entity](@ref) and optional components.
 The entity must have the given components. The entity can be the reserved [zero_entity](@ref).
 
   - `world::World`: The [World](@ref) to emit the event.
-  - `event::EventType`: The [EventType](@ref) to emit.
+  - `event::Event`: The [Event](@ref) to emit.
   - `entity::Entity`: The [Entity](@ref) to emit the event for.
   - `components::Tuple=()`: The component types to emit the event for. Optional.
 
@@ -649,11 +649,11 @@ emit_event!(world, OnCollisionDetected, entity, (Position, Velocity))
 """
 @inline Base.@constprop :aggressive function emit_event!(
     world::W,
-    event::EventType,
+    event::Event,
     entity::Entity,
     components::Tuple=(),
 ) where {W<:World}
-    if event._id < _custom_events._id
+    if event._id <= _EVENT_MANAGER_INITIAL_CAPACITY
         throw(ArgumentError("only custom events can be emitted manually"))
     end
     if !_has_observers(world._event_manager, event)
@@ -2008,7 +2008,7 @@ end
     end
 end
 
-@generated function _emit_event!(world::W, event::EventType, entity::Entity, ::CT) where {W<:World,CT<:Tuple}
+@generated function _emit_event!(world::W, event::Event, entity::Entity, ::CT) where {W<:World,CT<:Tuple}
     comp_types = [x.parameters[1] for x in CT.parameters]
 
     CS = W.parameters[1]
@@ -2022,7 +2022,7 @@ end
     end
 end
 
-function _do_emit_event!(world::World, event::EventType, mask::_Mask, has_comps::Bool, entity::Entity)
+function _do_emit_event!(world::World, event::Event, mask::_Mask, has_comps::Bool, entity::Entity)
     if is_zero(entity)
         if has_comps
             throw(ArgumentError("can't emit event with components for the zero entity"))

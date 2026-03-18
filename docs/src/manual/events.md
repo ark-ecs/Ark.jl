@@ -60,7 +60,7 @@ Velocity(1.0, 1.0)
 
 ## Event types
 
-Observers are specific for different [event types](@ref EventType), and each observer can react only to one type.
+Observers are specific for different [event types](@ref Event), and each observer can react only to one type.
 See [below](@ref combining-types) for how to react on multiple different types.
 
 - **`OnCreateEntity`**: Emitted after a new entity is created.  
@@ -81,7 +81,7 @@ Below is a combination of observers to react on component addition as well as re
 The callback is set up to be able to distinguish between these event types (if needed).
 
 ```jldoctest; output=false
-fn = (event::EventType, entity::Entity) -> begin
+fn = (event::Event, entity::Entity) -> begin
     if event == OnAddComponents
         println("Position added")
     elseif event == OnRemoveComponents
@@ -220,7 +220,7 @@ const OnTimerElapsed      = new_event_type!(registry, :OnTimerElapsed)
 
 # output
 
-EventType(:OnTimerElapsed)
+Event(:OnTimerElapsed)
 ```
 
 Ideally, custom event types are stored as global variables of the applications.

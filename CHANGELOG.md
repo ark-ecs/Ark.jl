@@ -5,6 +5,11 @@
 ### Breaking changes
 
 - `observe!(world, observer; unregister=true)` has been removed in favour of `register!(observer)` and `unregister!(observer)` (#574)
+- `EventType` is renamed to `Event` (#573)
+
+### Features
+
+- Adds support for adding an arbitrary number of events, before it was capped to 64 (#573)
 
 ## [[v0.4.0]](https://github.com/ark-ecs/Ark.jl/compare/v0.3.2...v0.4.0)
 

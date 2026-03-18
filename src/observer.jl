@@ -3,7 +3,7 @@
     observe!(
         fn::Function,
         world::World,
-        event::EventType,
+        event::Event,
         components::Tuple=();
         with::Tuple=(),
         without::Tuple=(),
@@ -13,13 +13,13 @@
 
 Creates an [Observer](@ref) and (optionally, default) registers it.
 
-See [EventType](@ref) for built-in, and [EventRegistry](@ref) for custom event types.
+See [Event](@ref) for built-in, and [EventRegistry](@ref) for custom event types.
 
 # Arguments
 
   - `fn::Function`: A callback function to execute when a matching event is received. Can be used via a `do` block.
   - `world::World`: The [World](@ref) to observe.
-  - `event::EventType`: The [EventType](@ref) to observe.
+  - `event::Event`: The [Event](@ref) to observe.
   - `components::Tuple=()`: The component types to observe. Must be empty for `OnCreateEntity` and `OnRemoveEntity`.
   - `with::Tuple=()`: Components the entity must have.
   - `without::Tuple=()`: Components the entity must not have.
@@ -41,7 +41,7 @@ Observer(:OnAddComponents, (Position, Velocity); with=(Altitude))
 Base.@constprop :aggressive function observe!(
     fn::Function,
     world::W,
-    event::EventType,
+    event::Event,
     components::Tuple=();
     with::Tuple=(),
     without::Tuple=(),
@@ -59,7 +59,7 @@ end
 
 @generated function _Observer_from_types(
     world::W,
-    event::EventType,
+    event::Event,
     fn::FunctionWrapper{Nothing,Tuple{Entity}},
     ::CT,
     ::WT,
