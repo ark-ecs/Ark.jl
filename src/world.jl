@@ -1438,7 +1438,7 @@ function _move_entities!(world::World, old_table_index::UInt32, table_index::UIn
         _ensure_column_size_for_comp!(world, comp, table_index, total_entities)
     end
 
-    @simd @inbounds for from in 1:num_entities
+    @inbounds @simd for from in 1:num_entities
         to = old_entities + from
         entity = old_table.entities[from]
         new_table.entities._data[to] = entity
