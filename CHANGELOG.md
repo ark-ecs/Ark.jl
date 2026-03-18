@@ -13,7 +13,7 @@
 
 ### Performance
 
-- Many batch operations are now times are up to 3x faster thanks to simd (#575)
+- Many batch operations are up to 3x faster thanks to simd (#575)
 - Many single entity operations are now 10-20% faster thanks to table caching in transitions (#555)
 
 ## [[v0.4.0]](https://github.com/ark-ecs/Ark.jl/compare/v0.3.2...v0.4.0)
