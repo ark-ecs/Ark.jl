@@ -1043,8 +1043,7 @@ function _create_archetype!(world::World, node::_GraphNode, table::UInt32)::UInt
         end
     end
 
-    arch =
-        _Archetype(UInt32(length(world._archetypes) + 1), node, table, relations, components...)
+    arch = _Archetype(UInt32(length(world._archetypes) + 1), node, table, relations, components)
     push!(world._archetypes, arch)
     arch_hot = _ArchetypeHot(node, table, relations)
     push!(world._archetypes_hot, arch_hot)
