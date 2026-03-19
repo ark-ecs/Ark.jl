@@ -56,10 +56,10 @@ function _Archetype(
     node::_GraphNode,
     table::UInt32,
     relations::Vector{Int},
-    components::Int...,
+    components::Vector{Int},
 )
     _Archetype(
-        Memory{Int}(collect(Int, components)),
+        Memory{Int}(components),
         _IdCollection(),
         [Dict{UInt32,_IdCollection}() for _ in eachindex(relations)],
         Dict{UInt32,_IdCollection}(),
