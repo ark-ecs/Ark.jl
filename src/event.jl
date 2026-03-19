@@ -102,7 +102,6 @@ end
 
 @static if Sys.ARCH == :x86_64
     struct _ObserverCallback
-        ptr::Ptr{Cvoid}
         handle::Base.CFunction
     end
 
@@ -112,16 +111,14 @@ end
             nothing
         end
         handle = @cfunction($callback, Cvoid, (Entity,))
-        ptr = GC.@preserve handle begin
-            Base.unsafe_convert(Ptr{Cvoid}, handle)
-        end
-        return _ObserverCallback(ptr, handle)
+        return _ObserverCallback(handle)
     end
 
     @inline function (cb::_ObserverCallback)(entity::Entity)
         handle = cb.handle
         GC.@preserve handle begin
-            ccall(cb.ptr, Cvoid, (Entity,), entity)
+            ptr = Base.unsafe_convert(Ptr{Cvoid}, handle)
+            ccall(ptr, Cvoid, (Entity,), entity)
         end
         return nothing
     end
