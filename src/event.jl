@@ -116,7 +116,7 @@ end
         return _ObserverCallback(handle)
     end
 
-    function (cb::_ObserverCallback)(entity::Entity)
+    @noinline function (cb::_ObserverCallback)(entity::Entity)
         handle = cb.handle
         GC.@preserve handle begin
             ptr = Base.unsafe_convert(Ptr{Cvoid}, handle)
