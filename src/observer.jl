@@ -50,7 +50,7 @@ Base.@constprop :aggressive function observe!(
 ) where {W<:World}
     _Observer_from_types(
         world, event,
-        FunctionWrapper{Nothing,Tuple{Entity}}(fn),
+        _ObserverCallback(fn),
         ntuple(i -> Val(components[i]), length(components)),
         ntuple(i -> Val(with[i]), length(with)),
         ntuple(i -> Val(without[i]), length(without)),
@@ -60,7 +60,7 @@ end
 @generated function _Observer_from_types(
     world::W,
     event::Event,
-    fn::FunctionWrapper{Nothing,Tuple{Entity}},
+    fn::_ObserverCallback,
     ::CT,
     ::WT,
     ::WO,

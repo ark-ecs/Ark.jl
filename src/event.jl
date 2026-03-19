@@ -100,6 +100,35 @@ mutable struct _ObserverID
     id::UInt32
 end
 
+@static if Sys.ARCH == :x86_64
+    struct _ObserverCallback
+        ptr::Ptr{Cvoid}
+        handle::Base.CFunction
+    end
+
+    @inline function _ObserverCallback(fn::F) where {F<:Function}
+        callback = entity::Entity -> begin
+            fn(entity)
+            nothing
+        end
+        handle = @cfunction($callback, Cvoid, (Entity,))
+        ptr = GC.@preserve handle begin
+            Base.unsafe_convert(Ptr{Cvoid}, handle)
+        end
+        return _ObserverCallback(ptr, handle)
+    end
+
+    @inline function (cb::_ObserverCallback)(entity::Entity)
+        handle = cb.handle
+        GC.@preserve handle begin
+            ccall(cb.ptr, Cvoid, (Entity,), entity)
+        end
+        return nothing
+    end
+else
+    const _ObserverCallback = FunctionWrapper{Nothing,Tuple{Entity}}
+end
+
 """
     Observer
 
@@ -119,7 +148,7 @@ struct Observer{W<:_AbstractWorld,M}
     _has_with::Bool
     _has_without::Bool
     _is_exclusive::Bool
-    _fn::FunctionWrapper{Nothing,Tuple{Entity}}
+    _fn::_ObserverCallback
 end
 
 mutable struct _EventManager{W<:_AbstractWorld,M}

@@ -1,9 +1,9 @@
 module Ark
 
 using FieldViews
+using FunctionWrappers: FunctionWrapper
 using Preferences
 using StaticArrays
-using FunctionWrappers: FunctionWrapper
 using Random
 
 const THREAD_SAFE_LOCK = @load_preference("THREAD_SAFE_LOCK", default = "true")
