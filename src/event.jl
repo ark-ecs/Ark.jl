@@ -106,9 +106,11 @@ end
     end
 
     function _ObserverCallback(fn::F) where {F<:Function}
-        callback = entity::Entity -> begin
-            fn(entity)
-            nothing
+        callback = let f = fn
+            entity::Entity -> begin
+                f(entity)
+                nothing
+            end
         end
         handle = @cfunction($callback, Cvoid, (Entity,))
         return _ObserverCallback(handle)
