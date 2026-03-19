@@ -105,7 +105,7 @@ end
         handle::Base.CFunction
     end
 
-    @inline function _ObserverCallback(fn::F) where {F<:Function}
+    function _ObserverCallback(fn::F) where {F<:Function}
         callback = entity::Entity -> begin
             fn(entity)
             nothing
@@ -114,7 +114,7 @@ end
         return _ObserverCallback(handle)
     end
 
-    @inline function (cb::_ObserverCallback)(entity::Entity)
+    function (cb::_ObserverCallback)(entity::Entity)
         handle = cb.handle
         GC.@preserve handle begin
             ptr = Base.unsafe_convert(Ptr{Cvoid}, handle)
