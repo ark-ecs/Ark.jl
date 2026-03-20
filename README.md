@@ -104,6 +104,10 @@ for i in 1:10
 end
 ```
 
+## Contributing
+
+Contributions are welcome! If you encounter any issues, have suggestions for improvements, or would like to add new features, feel free to open an issue or submit a pull request.
+
 ## Cite as
 
 Lange, M. & Meligrana, A. (2025): Ark.jl – An archetype-based Entity Component System for Julia. DOI: [10.5281/zenodo.17512271](https://doi.org/10.5281/zenodo.17512271), GitHub repository: https://github.com/ark-ecs/Ark.jl
