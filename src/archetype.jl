@@ -81,19 +81,11 @@ function _add_table!(indices::Vector{_ComponentRelations}, arch::_Archetype, t::
     for (comp, target) in t.relations
         idx = indices[comp].archetypes[arch.id]
         dict = arch.index[idx]
-        if haskey(dict, target._id)
-            _add_id!(dict[target._id], t.id)
-        else
-            dict[target._id] = _IdCollection(t.id)
-        end
+        _add_id!(get!(() -> _IdCollection(), dict, target._id), t.id)
 
-        if haskey(arch.target_tables, target._id)
-            tables = arch.target_tables[target._id]
-            if !_contains(tables, t.id)
-                _add_id!(tables, t.id)
-            end
-        else
-            arch.target_tables[target._id] = _IdCollection(t.id)
+        target_tables = get!(() -> _IdCollection(), arch.target_tables, target._id)
+        if !_contains(target_tables, t.id)
+            _add_id!(target_tables, t.id)
         end
     end
 end
