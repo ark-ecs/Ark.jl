@@ -11,10 +11,9 @@ function _ComponentRegistry()
 end
 
 @inline function _get_id!(registry::_ComponentRegistry, ::Type{C})::Int where C
-    if haskey(registry.components, C)
-        return registry.components[C]
+    return get(registry.components, C) do
+        throw(ArgumentError(lazy"component type $C is not registered"))
     end
-    throw(ArgumentError(lazy"component type $C is not registered"))
 end
 
 @inline function _is_relation(registry::_ComponentRegistry, comp_id::Int)::Bool

@@ -19,6 +19,8 @@ function _IdCollection(ids::UInt32...)
     return _IdCollection(vec, indices)
 end
 
+const _empty_id_collection = _IdCollection()
+
 function _add_id!(ids::_IdCollection, id::UInt32)
     push!(ids.ids, id)
     ids.indices[id] = length(ids.ids)
@@ -26,10 +28,10 @@ function _add_id!(ids::_IdCollection, id::UInt32)
 end
 
 function _remove_id!(ids::_IdCollection, id::UInt32)
-    if !haskey(ids.indices, id)
+    idx = get(ids.indices, id, -1)
+    if idx == -1
         return false
     end
-    idx = ids.indices[id]
     last = length(ids.ids)
     if idx != last
         ids.ids[idx], ids.ids[last] = ids.ids[last], ids.ids[idx]
