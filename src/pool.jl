@@ -31,6 +31,16 @@ function _get_new_entity(p::_EntityPool)::Entity
     return e
 end
 
+function _get_new_entities!(p::_EntityPool, n::Integer)
+    old_len = length(p.entities)
+    new_len = old_len + n
+    resize!(p.entities, new_len)
+    for i in (old_len+1):new_len
+        @inbounds p.entities[i] = _new_entity(i % UInt32, UInt32(0))
+    end
+    return
+end
+
 function _recycle(p::_EntityPool, e::Entity)
     if e._id < 2
         throw(ArgumentError("can't recycle the reserved zero entity"))

@@ -1353,16 +1353,39 @@ end
         new_length = old_length + n
 
         resize!(table, new_length)
-        for i in (old_length+1):new_length
-            entity = _get_entity(world._entity_pool)
-            @inbounds table.entities._data[i] = entity
 
-            if entity._id > length(world._entities)
-                push!(world._entities, _EntityIndex(table_index, i))
-                $(world_has_rel ? :(push!(world._targets, false)) : (:(nothing)))
-            else
-                @inbounds world._entities[Int(entity._id)] = _EntityIndex(table_index, i)
-                $(world_has_rel ? :(@inbounds world._targets[Int(entity._id)] = false) : (:(nothing)))
+        pool = world._entity_pool
+        entities = table.entities._data
+
+        i = old_length + 1
+        # Pop from free list
+        @inbounds while i <= new_length && pool.next != 0
+            entity = _get_entity(pool)
+            entities[i] = entity
+            id = Int(entity._id)
+            world._entities[id] = _EntityIndex(table_index, UInt32(i))
+            $(world_has_rel ? :(world._targets[id] = false) : (:(nothing)))
+            i += 1
+        end
+
+        # Bulk-allocate the rest
+        if i <= new_length
+            rem = new_length - i + 1
+            old_pool_len = length(pool.entities)
+            @check old_pool_len == length(world._entities)
+            _get_new_entities!(pool, rem)
+
+            new_pool_len = length(pool.entities)
+            resize!(world._entities, new_pool_len)
+            $(world_has_rel ? :(resize!(world._targets, new_pool_len)) : nothing)
+            $(world_has_rel ? :(view(world._targets, (old_pool_len+1):new_pool_len) .= false) : nothing)
+
+            @inbounds @simd for j in 1:rem
+                id = old_pool_len + j
+                entity = pool.entities[id]
+                entities[i] = entity
+                world._entities[id] = _EntityIndex(table_index, UInt32(i))
+                i += 1
             end
         end
 
