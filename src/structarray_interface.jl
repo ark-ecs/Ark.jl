@@ -38,7 +38,7 @@ end
 end
 
 @generated function Base.unsafe_copyto!(
-    dest::_AbstractStructArray{C}, doffs::Integer, src::_AbstractStructArray{C}, soffs::Integer, n::Integer
+    dest::_AbstractStructArray{C}, doffs::Integer, src::_AbstractStructArray{C}, soffs::Integer, n::Integer,
 ) where {C}
     names = fieldnames(C)
     copy_exprs = [
