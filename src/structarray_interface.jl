@@ -37,6 +37,17 @@ end
     return Expr(:block, fill_exprs..., :(sa))
 end
 
+@generated function Base.unsafe_copyto!(
+    dest::_AbstractStructArray{C}, doffs::Integer, src::_AbstractStructArray{C}, soffs::Integer, n::Integer
+) where {C}
+    names = fieldnames(C)
+    copy_exprs = [
+        :(unsafe_copyto!(getfield(dest, :_components).$name, doffs, getfield(src, :_components).$name, soffs, n))
+        for name in names
+    ]
+    return Expr(:block, copy_exprs..., :(dest))
+end
+
 Base.view(sa::_AbstractStructArray, ::Colon) = view(sa, 1:length(sa))
 
 Base.@propagate_inbounds @generated function Base.getindex(sa::_AbstractStructArray{C}, i::Int) where {C}
