@@ -1139,11 +1139,13 @@ end
 
     @inbounds rel_idx = world._relations[rel_comp].archetypes[arch.id]
     index = arch.index[rel_idx]
-    if !haskey(index, target_id)
+
+    tables = get(index, target_id, _empty_id_collection)
+
+    if isempty(tables)
         return @inbounds world._tables[1], false
     end
 
-    @inbounds tables = index[target_id]
     if arch.num_relations == 1
         return @inbounds world._tables[tables.ids[1]], true
     end
@@ -1169,11 +1171,9 @@ function _get_tables(world::World, arch::_Archetype, relations::Vector{Pair{Int,
 
     @inbounds rel_idx = world._relations[rel_comp].archetypes[arch.id]
     @inbounds index = arch.index[rel_idx]
-    if !haskey(index, target_id)
-        return _empty_tables
-    end
 
-    return @inbounds index[target_id].ids
+    tables = get(index, target_id, _empty_id_collection)
+    return tables.ids
 end
 
 function _get_archetypes(world::World, ids::Tuple{Vararg{Int}})
