@@ -220,6 +220,10 @@ function _copy_old_data!(new_vec::GPUVector, old_vec::GPUVector)
     unsafe_copyto!(new_vec, length(new_vec) - length(old_vec) + 1, old_vec, 1, length(old_vec))
 end
 
+function _copy_old_data!(new_vec::_AbstractStructArray, old_vec::_AbstractStructArray)
+    unsafe_copyto!(new_vec, length(new_vec) - length(old_vec) + 1, old_vec, 1, length(old_vec))
+end
+
 function _remove_component_data!(s::_ComponentStorage{C,A}, arch::UInt32, row::UInt32) where {C,A<:AbstractArray}
     @inbounds col = s.data[arch]
     _swap_remove!(col, row)
