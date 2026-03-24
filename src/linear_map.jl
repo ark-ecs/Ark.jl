@@ -54,7 +54,7 @@ function _grow!(d::_Linear_Map{K,V}) where {K,V}
     d.max_load = floor(Int, new_cap * _LOAD_FACTOR)
 end
 
-macro _value_loop(return_val)
+macro _get_value_loop(return_val)
     return esc(quote
         mask = d.mask
         h = hash(key)
@@ -75,10 +75,8 @@ macro _get_zero_index_loop()
     return esc(quote
         mask = d.mask
         idx = (h & mask) + 1
-        @inbounds h2_idx = d.occupied[idx]
-        @inbounds while h2_idx != 0x00
+        @inbounds while d.occupied[idx] != 0x00
             idx = (idx & mask) + 1
-            h2_idx = d.occupied[idx]
         end
     end)
 end
@@ -90,27 +88,27 @@ function Base.empty!(d::_Linear_Map)
 end
 
 @inline function Base.haskey(d::_Linear_Map, key)
-    @_value_loop(true)
+    @_get_value_loop(true)
     return false
 end
 
 @inline function Base.getindex(d::_Linear_Map, key)
-    @_value_loop(d.vals[idx])
+    @_get_value_loop(d.vals[idx])
     throw(KeyError(key))
 end
 
 @inline function Base.get(f::Union{Function,Type}, d::_Linear_Map, key)
-    @_value_loop(d.vals[idx])
+    @_get_value_loop(d.vals[idx])
     return f()
 end
 
 @inline function Base.get(d::_Linear_Map, key, default)
-    @_value_loop(d.vals[idx])
+    @_get_value_loop(d.vals[idx])
     return default
 end
 
 @inline function Base.get!(f::Union{Function,Type}, d::_Linear_Map, key)
-    @_value_loop(d.vals[idx])
+    @_get_value_loop(d.vals[idx])
     if d.count >= d.max_load
         _grow!(d)
         @_get_zero_index_loop()
@@ -126,35 +124,18 @@ end
 end
 
 @inline function Base.setindex!(d::_Linear_Map, val, key)
-    mask = d.mask
-    h = hash(key)
-    idx = (h & mask) + 1
-    h2 = (h >> _RSHIFT) % UInt8 | 0x01
-
-    @inbounds while d.occupied[idx] != 0x00
-        if d.occupied[idx] == h2 && d.keys[idx] == key
-            d.vals[idx] = val
-            return d
-        end
-        idx = (idx & mask) + 1
-    end
-
+    @_get_value_loop(d.vals[idx] = val)
     if d.count >= d.max_load
         _grow!(d)
-        mask = d.mask
-        idx = (h & mask) + 1
-        @inbounds while d.occupied[idx] != 0x00
-            idx = (idx & mask) + 1
-        end
+        @_get_zero_index_loop()
     end
-
     @inbounds begin
         d.keys[idx] = key
         d.vals[idx] = val
         d.occupied[idx] = h2
         d.count += 1
     end
-    return d
+    return val
 end
 
 function _reinsert!(d::_Linear_Map{K,V}, key::K, val::V, h2::UInt8) where {K,V}
