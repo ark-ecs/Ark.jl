@@ -54,7 +54,7 @@ function _grow!(d::_Linear_Map{K,V}) where {K,V}
     d.max_load = floor(Int, new_cap * _LOAD_FACTOR)
 end
 
-macro _get_value_loop()
+macro _value_loop(return_val)
     return esc(quote
         mask = d.mask
         h = hash(key)
@@ -63,24 +63,7 @@ macro _get_value_loop()
         @inbounds h2_idx = d.occupied[idx]
         @inbounds while h2_idx != 0x00
             if h2 == h2_idx && d.keys[idx] == key
-                return d.vals[idx]
-            end
-            idx = (idx & mask) + 1
-            h2_idx = d.occupied[idx]
-        end
-    end)
-end
-
-macro _has_value_loop()
-    return esc(quote
-        mask = d.mask
-        h = hash(key)
-        idx = (h & mask) + 1
-        h2 = (h >> _RSHIFT) % UInt8 | 0x01
-        @inbounds h2_idx = d.occupied[idx]
-        @inbounds while h2_idx != 0x00
-            if h2 == h2_idx && d.keys[idx] == key
-                return true
+                return $return_val
             end
             idx = (idx & mask) + 1
             h2_idx = d.occupied[idx]
@@ -106,28 +89,28 @@ function Base.empty!(d::_Linear_Map)
     return d
 end
 
-function Base.haskey(d::_Linear_Map, key)
-    @_has_value_loop
+@inline function Base.haskey(d::_Linear_Map, key)
+    @_value_loop(true)
     return false
 end
 
-function Base.getindex(d::_Linear_Map, key)
-    @_get_value_loop()
+@inline function Base.getindex(d::_Linear_Map, key)
+    @_value_loop(d.vals[idx])
     throw(KeyError(key))
 end
 
-function Base.get(f::Union{Function,Type}, d::_Linear_Map, key)
-    @_get_value_loop()
+@inline function Base.get(f::Union{Function,Type}, d::_Linear_Map, key)
+    @_value_loop(d.vals[idx])
     return f()
 end
 
-function Base.get(d::_Linear_Map, key, default)
-    @_get_value_loop()
+@inline function Base.get(d::_Linear_Map, key, default)
+    @_value_loop(d.vals[idx])
     return default
 end
 
-function Base.get!(f::Union{Function,Type}, d::_Linear_Map, key)
-    @_get_value_loop()
+@inline function Base.get!(f::Union{Function,Type}, d::_Linear_Map, key)
+    @_value_loop(d.vals[idx])
     if d.count >= d.max_load
         _grow!(d)
         @_get_zero_index_loop()
@@ -142,7 +125,7 @@ function Base.get!(f::Union{Function,Type}, d::_Linear_Map, key)
     return val
 end
 
-function Base.setindex!(d::_Linear_Map, val, key)
+@inline function Base.setindex!(d::_Linear_Map, val, key)
     mask = d.mask
     h = hash(key)
     idx = (h & mask) + 1
@@ -217,24 +200,6 @@ function Base.delete!(d::_Linear_Map, key)
     return d
 end
 
-@inline function _next_occupied(d::_Linear_Map, i::Int)
-    n = length(d.keys)
-    @inbounds while i <= n && d.occupied[i] == 0x00
-        i += 1
-    end
-    return i
-end
-
-function Base.iterate(d::_Linear_Map{K,V}, i::Int=1) where {K,V}
-    i = _next_occupied(d, i)
-    i > length(d.keys) && return nothing
-    @inbounds return (d.keys[i] => d.vals[i], i + 1)
-end
-
-Base.IteratorSize(::Type{<:_Linear_Map}) = Base.HasLength()
-Base.eltype(::Type{_Linear_Map{K,V}}) where {K,V} = Pair{K,V}
-Base.length(d::_Linear_Map) = d.count
-
 struct _Linear_Map_Keys{K,V}
     d::_Linear_Map{K,V}
 end
@@ -246,25 +211,41 @@ end
 Base.keys(d::_Linear_Map{K,V}) where {K,V} = _Linear_Map_Keys(d)
 Base.values(d::_Linear_Map{K,V}) where {K,V} = _Linear_Map_Values(d)
 
+macro _iterate_loop(return_val)
+    return esc(quote
+        @inbounds while i <= length(d.occupied)
+            if d.occupied[i] != 0x00
+                return ($return_val, i + 1)
+            else
+                i += 1
+            end
+        end
+        return nothing
+    end)
+end
+
+function Base.iterate(d::_Linear_Map{K,V}, i::Int=1) where {K,V}
+    @_iterate_loop(d.keys[i] => d.vals[i])
+end
+
 function Base.iterate(it::_Linear_Map_Keys{K,V}, i::Int=1) where {K,V}
     d = it.d
-    i = _next_occupied(d, i)
-    i > length(d.keys) && return nothing
-    @inbounds return (d.keys[i], i + 1)
+    @_iterate_loop(d.keys[i])
 end
 
 function Base.iterate(it::_Linear_Map_Values{K,V}, i::Int=1) where {K,V}
     d = it.d
-    i = _next_occupied(d, i)
-    i > length(d.keys) && return nothing
-    @inbounds return (d.vals[i], i + 1)
+    @_iterate_loop(d.vals[i])
 end
 
+Base.length(d::_Linear_Map) = d.count
 Base.length(it::_Linear_Map_Keys) = length(it.d)
 Base.length(it::_Linear_Map_Values) = length(it.d)
 
+Base.IteratorSize(::Type{<:_Linear_Map}) = Base.HasLength()
 Base.IteratorSize(::Type{<:_Linear_Map_Keys}) = Base.HasLength()
 Base.IteratorSize(::Type{<:_Linear_Map_Values}) = Base.HasLength()
 
+Base.eltype(::Type{_Linear_Map{K,V}}) where {K,V} = Pair{K,V}
 Base.eltype(::Type{_Linear_Map_Keys{K,V}}) where {K,V} = K
 Base.eltype(::Type{_Linear_Map_Values{K,V}}) where {K,V} = V
