@@ -217,4 +217,54 @@ function Base.delete!(d::_Linear_Map, key)
     return d
 end
 
+@inline function _next_occupied(d::_Linear_Map, i::Int)
+    n = length(d.keys)
+    @inbounds while i <= n && d.occupied[i] == 0x00
+        i += 1
+    end
+    return i
+end
+
+function Base.iterate(d::_Linear_Map{K,V}, i::Int=1) where {K,V}
+    i = _next_occupied(d, i)
+    i > length(d.keys) && return nothing
+    @inbounds return (d.keys[i] => d.vals[i], i + 1)
+end
+
+Base.IteratorSize(::Type{<:_Linear_Map}) = Base.HasLength()
+Base.eltype(::Type{_Linear_Map{K,V}}) where {K,V} = Pair{K,V}
 Base.length(d::_Linear_Map) = d.count
+
+struct _Linear_Map_Keys{K,V}
+    d::_Linear_Map{K,V}
+end
+
+struct _Linear_Map_Values{K,V}
+    d::_Linear_Map{K,V}
+end
+
+Base.keys(d::_Linear_Map{K,V}) where {K,V} = _Linear_Map_Keys(d)
+Base.values(d::_Linear_Map{K,V}) where {K,V} = _Linear_Map_Values(d)
+
+function Base.iterate(it::_Linear_Map_Keys{K,V}, i::Int=1) where {K,V}
+    d = it.d
+    i = _next_occupied(d, i)
+    i > length(d.keys) && return nothing
+    @inbounds return (d.keys[i], i + 1)
+end
+
+function Base.iterate(it::_Linear_Map_Values{K,V}, i::Int=1) where {K,V}
+    d = it.d
+    i = _next_occupied(d, i)
+    i > length(d.keys) && return nothing
+    @inbounds return (d.vals[i], i + 1)
+end
+
+Base.length(it::_Linear_Map_Keys) = length(it.d)
+Base.length(it::_Linear_Map_Values) = length(it.d)
+
+Base.IteratorSize(::Type{<:_Linear_Map_Keys}) = Base.HasLength()
+Base.IteratorSize(::Type{<:_Linear_Map_Values}) = Base.HasLength()
+
+Base.eltype(::Type{_Linear_Map_Keys{K,V}}) where {K,V} = K
+Base.eltype(::Type{_Linear_Map_Values{K,V}}) where {K,V} = V
