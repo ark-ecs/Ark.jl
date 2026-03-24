@@ -71,6 +71,23 @@ macro _get_value_loop()
     end)
 end
 
+macro _has_value_loop()
+    return esc(quote
+        mask = d.mask
+        h = hash(key)
+        idx = (h & mask) + 1
+        h2 = (h >> _RSHIFT) % UInt8 | 0x01
+        @inbounds h2_idx = d.occupied[idx]
+        @inbounds while h2_idx != 0x00
+            if h2 == h2_idx && d.keys[idx] == key
+                return true
+            end
+            idx = (idx & mask) + 1
+            h2_idx = d.occupied[idx]
+        end
+    end)
+end
+
 macro _get_zero_index_loop()
     return esc(quote
         mask = d.mask
@@ -83,6 +100,17 @@ macro _get_zero_index_loop()
     end)
 end
 
+function Base.empty!(d::_Linear_Map)
+    d.count = 0
+    d.occupied .= 0x00
+    return d
+end
+
+function Base.haskey(d::_Linear_Map, key)
+    @_has_value_loop
+    return false
+end
+
 function Base.getindex(d::_Linear_Map, key)
     @_get_value_loop()
     throw(KeyError(key))
@@ -91,6 +119,11 @@ end
 function Base.get(f::Union{Function,Type}, d::_Linear_Map, key)
     @_get_value_loop()
     return f()
+end
+
+function Base.get(d::_Linear_Map, key, default)
+    @_get_value_loop()
+    return default
 end
 
 function Base.get!(f::Union{Function,Type}, d::_Linear_Map, key)
@@ -107,6 +140,81 @@ function Base.get!(f::Union{Function,Type}, d::_Linear_Map, key)
         d.count += 1
     end
     return val
+end
+
+function Base.setindex!(d::_Linear_Map, val, key)
+    mask = d.mask
+    h = hash(key)
+    idx = (h & mask) + 1
+    h2 = (h >> _RSHIFT) % UInt8 | 0x01
+
+    @inbounds while d.occupied[idx] != 0x00
+        if d.occupied[idx] == h2 && d.keys[idx] == key
+            d.vals[idx] = val
+            return d
+        end
+        idx = (idx & mask) + 1
+    end
+
+    if d.count >= d.max_load
+        _grow!(d)
+        mask = d.mask
+        idx = (h & mask) + 1
+        @inbounds while d.occupied[idx] != 0x00
+            idx = (idx & mask) + 1
+        end
+    end
+
+    @inbounds begin
+        d.keys[idx] = key
+        d.vals[idx] = val
+        d.occupied[idx] = h2
+        d.count += 1
+    end
+    return d
+end
+
+function _reinsert!(d::_Linear_Map{K,V}, key::K, val::V, h2::UInt8) where {K,V}
+    mask = d.mask
+    idx = (hash(key) & mask) + 1
+    @inbounds while d.occupied[idx] != 0x00
+        idx = (idx & mask) + 1
+    end
+    @inbounds begin
+        d.keys[idx] = key
+        d.vals[idx] = val
+        d.occupied[idx] = h2
+    end
+end
+
+function Base.delete!(d::_Linear_Map, key)
+    mask = d.mask
+    h = hash(key)
+    idx = (h & mask) + 1
+    h2 = (h >> _RSHIFT) % UInt8 | 0x01
+
+    @inbounds while d.occupied[idx] != 0x00
+        if d.occupied[idx] == h2 && d.keys[idx] == key
+            d.occupied[idx] = 0x00
+            d.count -= 1
+
+            # Reinsert the rest of the cluster so probing remains valid
+            next = (idx & mask) + 1
+            while d.occupied[next] != 0x00
+                k = d.keys[next]
+                v = d.vals[next]
+                h2_next = d.occupied[next]
+                d.occupied[next] = 0x00
+                _reinsert!(d, k, v, h2_next)
+                next = (next & mask) + 1
+            end
+
+            return d
+        end
+        idx = (idx & mask) + 1
+    end
+
+    return d
 end
 
 Base.length(d::_Linear_Map) = d.count
