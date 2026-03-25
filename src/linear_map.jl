@@ -2,21 +2,31 @@
 const _LOAD_FACTOR = 0.75
 const _RSHIFT = sizeof(UInt) * 7
 
-mutable struct _Linear_Map{K,V}
+struct NoZero end
+
+mutable struct _Linear_Map{K,V,ZK,ZV,ZKT,ZVT}
     keys::Memory{K}
     vals::Memory{V}
     occupied::Memory{UInt8}
     count::Int
     mask::Int
     max_load::Int
-    function _Linear_Map{K,V}(initial_size::Int=2) where {K,V}
+    zero_key::ZKT
+    zero_value::ZVT
+    function _Linear_Map{K,V}(
+        initial_size::Int=2; zero_key=NoZero(), zero_value=NoZero(),
+    ) where {K,V}
         # Force power of 2 size
         sz = nextpow(2, initial_size)
         keys = Memory{K}(undef, sz)
         vals = Memory{V}(undef, sz)
         occupied = zeros(UInt8, sz)
         max_load = floor(Int, sz * _LOAD_FACTOR)
-        new{K,V}(keys, vals, occupied, 0, sz - 1, max_load)
+        ZK = isbitstype(K) || zero_key == NoZero()
+        ZV = isbitstype(V) || zero_value == NoZero()
+        ZKT = typeof(zero_key)
+        ZVT = typeof(zero_value)
+        new{K,V,ZK,ZV,ZKT,ZVT}(keys, vals, occupied, 0, sz - 1, max_load, zero_key, zero_value)
     end
 end
 
@@ -151,6 +161,18 @@ function _reinsert!(d::_Linear_Map, mask, start_idx::Int)
     end
 end
 
+put_zero_key!(d::_Linear_Map{K,V,true}, idx) where {K,V} = nothing
+function put_zero_key!(d::_Linear_Map{K,V,false}, idx) where {K,V}
+    @inbounds d.keys[idx] = d.zero_key
+    return
+end
+
+put_zero_val!(d::_Linear_Map{K,V,ZK,true}, idx) where {K,V,ZK} = nothing
+function put_zero_val!(d::_Linear_Map{K,V,ZK,false}, idx) where {K,V,ZK}
+    @inbounds d.vals[idx] = d.zero_value
+    return
+end
+
 function Base.delete!(d::_Linear_Map, key)
     mask = d.mask
     h = hash(key)
@@ -160,6 +182,8 @@ function Base.delete!(d::_Linear_Map, key)
     @inbounds while d.occupied[idx] != 0x00
         if d.occupied[idx] == h2 && d.keys[idx] == key
             d.occupied[idx] = 0x00
+            put_zero_key!(d, idx)
+            put_zero_val!(d, idx)
             d.count -= 1
             _reinsert!(d, mask, idx)
             break
