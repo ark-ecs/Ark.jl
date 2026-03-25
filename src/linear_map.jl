@@ -136,7 +136,7 @@ end
 
 put_zero_keys!(d::_Linear_Map{K,V,true}) where {K,V} = nothing
 function put_zero_keys!(d::_Linear_Map{K,V,false}) where {K,V}
-    d.keys[idx] .= d.zero_key
+    d.keys .= d.zero_key
     return
 end
 
