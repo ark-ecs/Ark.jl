@@ -134,9 +134,23 @@ macro _remove_key(old_val)
     end)
 end
 
+put_zero_keys!(d::_Linear_Map{K,V,true}) where {K,V} = nothing
+function put_zero_keys!(d::_Linear_Map{K,V,false}) where {K,V}
+    d.keys[idx] .= d.zero_key
+    return
+end
+
+put_zero_vals!(d::_Linear_Map{K,V,ZK,true}) where {K,V,ZK} = nothing
+function put_zero_vals!(d::_Linear_Map{K,V,ZK,false}) where {K,V,ZK}
+    d.vals .= d.zero_value
+    return
+end
+
 function Base.empty!(d::_Linear_Map)
     d.count = 0
     d.occupied .= 0x00
+    put_zero_keys!(d)
+    put_zero_vals!(d)
     return d
 end
 
