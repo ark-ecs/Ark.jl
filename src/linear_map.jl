@@ -106,6 +106,29 @@ macro _set_new_key()
     end)
 end
 
+macro _remove_key(old_val)
+    return esc(quote
+        local old_val
+        mask = d.mask
+        h = hash(key)
+        idx = (h & mask) % Int + 1
+        h2 = (h >> _RSHIFT) % UInt8 | 0x01
+
+        @inbounds while d.occupied[idx] != 0x00
+            if d.occupied[idx] == h2 && d.keys[idx] == key
+                d.occupied[idx] = 0x00
+                put_zero_key!(d, idx)
+                $old_val
+                put_zero_val!(d, idx)
+                d.count -= 1
+                _reinsert!(d, mask, idx)
+                break
+            end
+            idx = (idx & mask) + 1
+        end
+    end)
+end
+
 function Base.empty!(d::_Linear_Map)
     d.count = 0
     d.occupied .= 0x00
@@ -174,24 +197,13 @@ function put_zero_val!(d::_Linear_Map{K,V,ZK,false}, idx) where {K,V,ZK}
 end
 
 function Base.delete!(d::_Linear_Map, key)
-    mask = d.mask
-    h = hash(key)
-    idx = (h & mask) % Int + 1
-    h2 = (h >> _RSHIFT) % UInt8 | 0x01
-
-    @inbounds while d.occupied[idx] != 0x00
-        if d.occupied[idx] == h2 && d.keys[idx] == key
-            d.occupied[idx] = 0x00
-            put_zero_key!(d, idx)
-            put_zero_val!(d, idx)
-            d.count -= 1
-            _reinsert!(d, mask, idx)
-            break
-        end
-        idx = (idx & mask) + 1
-    end
-
+    @_remove_key(nothing)
     return d
+end
+
+function Base.pop!(d::_Linear_Map, key)
+    @_remove_key(old_val = d.vals[idx])
+    return old_val
 end
 
 struct _Linear_Map_Keys{K,V}
