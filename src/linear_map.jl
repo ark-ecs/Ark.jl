@@ -81,6 +81,21 @@ macro _get_zero_index_loop()
     end)
 end
 
+macro _set_new_key()
+    return esc(quote
+        if d.count >= d.max_load
+            _grow!(d)
+            @_get_zero_index_loop()
+        end
+        @inbounds begin
+            d.keys[idx] = key
+            d.vals[idx] = val
+            d.occupied[idx] = h2
+            d.count += 1
+        end
+    end)
+end
+
 function Base.empty!(d::_Linear_Map)
     d.count = 0
     d.occupied .= 0x00
@@ -109,32 +124,14 @@ end
 
 @inline function Base.get!(f::Union{Function,Type}, d::_Linear_Map, key)
     @_get_value_loop(d.vals[idx])
-    if d.count >= d.max_load
-        _grow!(d)
-        @_get_zero_index_loop()
-    end
     val = f()
-    @inbounds begin
-        d.keys[idx] = key
-        d.vals[idx] = val
-        d.occupied[idx] = h2
-        d.count += 1
-    end
+    @_set_new_key()
     return val
 end
 
 @inline function Base.setindex!(d::_Linear_Map, val, key)
     @_get_value_loop(d.vals[idx] = val)
-    if d.count >= d.max_load
-        _grow!(d)
-        @_get_zero_index_loop()
-    end
-    @inbounds begin
-        d.keys[idx] = key
-        d.vals[idx] = val
-        d.occupied[idx] = h2
-        d.count += 1
-    end
+    @_set_new_key()
     return val
 end
 
