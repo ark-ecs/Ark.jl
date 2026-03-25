@@ -58,7 +58,7 @@ macro _get_value_loop(return_val)
     return esc(quote
         mask = d.mask
         h = hash(key)
-        idx = (h & mask) + 1
+        idx = (h & mask) % Int + 1
         h2 = (h >> _RSHIFT) % UInt8 | 0x01
         @inbounds h2_idx = d.occupied[idx]
         @inbounds while h2_idx != 0x00
@@ -74,7 +74,7 @@ end
 macro _get_zero_index_loop()
     return esc(quote
         mask = d.mask
-        idx = (h & mask) + 1
+        idx = (h & mask) % Int + 1
         @inbounds while d.occupied[idx] != 0x00
             idx = (idx & mask) + 1
         end
@@ -140,7 +140,7 @@ end
 
 function _reinsert!(d::_Linear_Map{K,V}, key::K, val::V, h2::UInt8) where {K,V}
     mask = d.mask
-    idx = (hash(key) & mask) + 1
+    idx = (hash(key) & mask) % Int + 1
     @inbounds while d.occupied[idx] != 0x00
         idx = (idx & mask) + 1
     end
@@ -154,7 +154,7 @@ end
 function Base.delete!(d::_Linear_Map, key)
     mask = d.mask
     h = hash(key)
-    idx = (h & mask) + 1
+    idx = (h & mask) % Int + 1
     h2 = (h >> _RSHIFT) % UInt8 | 0x01
 
     @inbounds while d.occupied[idx] != 0x00
