@@ -106,31 +106,24 @@ macro _set_new_key()
     end)
 end
 
-macro _remove_key(old_val)
-    local_expr = old_val != :nothing ? :(local old_val) : (:nothing)
-    found_expr = old_val != :nothing ? :(if !found throw(KeyError(key)) end) : (:nothing)
+macro _remove_key(return_val)
     return esc(quote
         found = false
-        $local_expr
         mask = d.mask
         h = hash(key)
         idx = (h & mask) % Int + 1
         h2 = (h >> _RSHIFT) % UInt8 | 0x01
         @inbounds h2_idx = d.occupied[idx]
-
         @inbounds while h2_idx != 0x00
             if h2_idx == h2 && d.keys[idx] == key
-                $old_val
+                old_val = $return_val
                 _backshift_delete!(d, idx)
                 d.count -= 1
-                found = true
-                break
+                return old_val
             end
             idx = (idx & mask) + 1
             h2_idx = d.occupied[idx]
         end
-
-        $found_expr
     end)
 end
 
@@ -234,13 +227,13 @@ function put_zero_val!(d::_Linear_Map{K,V,ZK,false}, idx) where {K,V,ZK}
 end
 
 function Base.delete!(d::_Linear_Map, key)
-    @_remove_key(nothing)
+    @_remove_key(d)
     return d
 end
 
 function Base.pop!(d::_Linear_Map, key)
-    @_remove_key(old_val = d.vals[idx])
-    return old_val
+    @_remove_key(d.vals[idx])
+    throw(KeyError(key))
 end
 
 struct _Linear_Map_Keys{K,V}
