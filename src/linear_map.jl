@@ -108,26 +108,29 @@ end
 
 macro _remove_key(old_val)
     local_expr = old_val != :nothing ? :(local old_val) : (:nothing)
+    found_expr = old_val != :nothing ? :(if !found throw(KeyError(key)) end) : (:nothing)
     return esc(quote
+        found = false
         $local_expr
         mask = d.mask
         h = hash(key)
         idx = (h & mask) % Int + 1
         h2 = (h >> _RSHIFT) % UInt8 | 0x01
         @inbounds h2_idx = d.occupied[idx]
+
         @inbounds while h2_idx != 0x00
             if h2_idx == h2 && d.keys[idx] == key
-                d.occupied[idx] = 0x00
-                put_zero_key!(d, idx)
                 $old_val
-                put_zero_val!(d, idx)
+                _backshift_delete!(d, idx)
                 d.count -= 1
-                _reinsert!(d, mask, idx)
+                found = true
                 break
             end
             idx = (idx & mask) + 1
             h2_idx = d.occupied[idx]
         end
+
+        $found_expr
     end)
 end
 
@@ -168,24 +171,41 @@ end
     @_set_new_key()
 end
 
-function _reinsert!(d::_Linear_Map, mask, start_idx::Int)
-    next = (start_idx & mask) + 1
-    @inbounds while d.occupied[next] != 0x00
-        key = d.keys[next]
-        val = d.vals[next]
-        h2 = d.occupied[next]
-        d.occupied[next] = 0x00
-        put_zero_key!(d, next)
-        put_zero_val!(d, next)
-        idx = (hash(key) & mask) % Int + 1
-        while d.occupied[idx] != 0x00
-            idx = (idx & mask) + 1
+@inline function _should_shift(home::Int, hole::Int, slot::Int, mask::Int)
+    # convert 1-based table indices to 0-based ring positions
+    home0 = home - 1
+    hole0 = hole - 1
+    slot0 = slot - 1
+
+    # move `slot` into `hole` iff `hole` lies on this key's probe path
+    return ((slot0 - home0) & mask) > ((hole0 - home0) & mask)
+end
+
+function _backshift_delete!(d::_Linear_Map, hole::Int)
+    keys = d.keys
+    vals = d.vals
+    occ  = d.occupied
+    mask = d.mask
+
+    next = (hole & mask) + 1
+
+    @inbounds while occ[next] != 0x00
+        home = (hash(keys[next]) & mask) % Int + 1
+
+        if _should_shift(home, hole, next, mask)
+            keys[hole] = keys[next]
+            vals[hole] = vals[next]
+            occ[hole]  = occ[next]
+            hole = next
         end
-        d.keys[idx] = key
-        d.vals[idx] = val
-        d.occupied[idx] = h2
+
         next = (next & mask) + 1
     end
+
+    occ[hole] = 0x00
+    put_zero_key!(d, hole)
+    put_zero_val!(d, hole)
+    return nothing
 end
 
 put_zero_key!(d::_Linear_Map{K,V,true}, idx) where {K,V} = nothing
