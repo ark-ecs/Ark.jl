@@ -11,8 +11,8 @@ mutable struct _Linear_Map{K,V,ZK,ZV,ZKT,ZVT}
     count::Int
     mask::Int
     max_load::Int
-    zero_key::ZKT
-    zero_value::ZVT
+    const zero_key::ZKT
+    const zero_value::ZVT
     function _Linear_Map{K,V}(
         initial_size::Int=2; zero_key=NoZero(), zero_value=NoZero(),
     ) where {K,V}
@@ -136,13 +136,17 @@ end
 
 put_zero_keys!(d::_Linear_Map{K,V,true}) where {K,V} = nothing
 function put_zero_keys!(d::_Linear_Map{K,V,false}) where {K,V}
-    d.keys .= d.zero_key
+    for i in eachindex(d.keys)
+        d.keys[i] = d.zero_key
+    end
     return
 end
 
 put_zero_vals!(d::_Linear_Map{K,V,ZK,true}) where {K,V,ZK} = nothing
 function put_zero_vals!(d::_Linear_Map{K,V,ZK,false}) where {K,V,ZK}
-    d.vals .= d.zero_value
+    for i in eachindex(d.vals)
+        d.vals[i] = d.zero_value
+    end
     return
 end
 
