@@ -132,7 +132,6 @@ function put_zero_keys!(d::_Linear_Map{K,V,false}) where {K,V}
     for i in eachindex(d.keys)
         d.keys[i] = d.zero_key
     end
-    return
 end
 
 put_zero_vals!(d::_Linear_Map{K,V,ZK,true}) where {K,V,ZK} = nothing
@@ -140,7 +139,6 @@ function put_zero_vals!(d::_Linear_Map{K,V,ZK,false}) where {K,V,ZK}
     for i in eachindex(d.vals)
         d.vals[i] = d.zero_value
     end
-    return
 end
 
 function Base.empty!(d::_Linear_Map)
@@ -182,33 +180,23 @@ function Base.setindex!(d::_Linear_Map, val, key)
     @_set_new_key()
 end
 
-function _should_shift(home::Int, hole::Int, slot::Int, mask::Int)
-    # move `slot` into `hole` iff `hole` lies on this key's probe path
-    return ((slot - home) & mask) > ((hole - home) & mask)
-end
-
 function _backshift_delete!(d::_Linear_Map, hole::Int)
-    keys = d.keys
-    vals = d.vals
-    occ  = d.occupied
     mask = d.mask
-
     next = (hole & mask) + 1
 
-    @inbounds while occ[next] != 0x00
-        home = (hash(keys[next]) & mask) % Int + 1
-
-        if _should_shift(home, hole, next, mask)
-            keys[hole] = keys[next]
-            vals[hole] = vals[next]
-            occ[hole]  = occ[next]
+    @inbounds while d.occupied[next] != 0x00
+        home = (hash(d.keys[next]) & mask) % Int + 1
+        # move `next` into `hole` iff `hole` lies on this key's probe path
+        if ((next - home) & mask) > ((hole - home) & mask)
+            d.keys[hole] = d.keys[next]
+            d.vals[hole] = d.vals[next]
+            d.occupied[hole]  = d.occupied[next]
             hole = next
         end
-
         next = (next & mask) + 1
     end
 
-    occ[hole] = 0x00
+    d.occupied[hole] = 0x00
     put_zero_key!(d, hole)
     put_zero_val!(d, hole)
     return nothing
@@ -217,13 +205,11 @@ end
 put_zero_key!(d::_Linear_Map{K,V,true}, idx) where {K,V} = nothing
 function put_zero_key!(d::_Linear_Map{K,V,false}, idx) where {K,V}
     @inbounds d.keys[idx] = d.zero_key
-    return
 end
 
 put_zero_val!(d::_Linear_Map{K,V,ZK,true}, idx) where {K,V,ZK} = nothing
 function put_zero_val!(d::_Linear_Map{K,V,ZK,false}, idx) where {K,V,ZK}
     @inbounds d.vals[idx] = d.zero_value
-    return
 end
 
 function Base.delete!(d::_Linear_Map, key)
