@@ -1,5 +1,5 @@
 
-const _LOAD_FACTOR = 0.75
+const _LOAD_FACTOR = 2/3
 const _RSHIFT = sizeof(UInt) * 7
 
 struct NoZero end
