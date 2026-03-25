@@ -186,7 +186,7 @@ function _backshift_delete!(d::_Linear_Map, hole::Int)
 
     @inbounds while d.occupied[next] != 0x00
         home = (hash(d.keys[next]) & mask) % Int + 1
-        # move `next` into `hole` iff `hole` lies on this key's probe path
+        # move next into hole iff hole lies on this key probe path
         if ((next - home) & mask) > ((hole - home) & mask)
             d.keys[hole] = d.keys[next]
             d.vals[hole] = d.vals[next]
@@ -196,7 +196,7 @@ function _backshift_delete!(d::_Linear_Map, hole::Int)
         next = (next & mask) + 1
     end
 
-    d.occupied[hole] = 0x00
+    @inbounds d.occupied[hole] = 0x00
     put_zero_key!(d, hole)
     put_zero_val!(d, hole)
     return nothing
