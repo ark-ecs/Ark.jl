@@ -107,8 +107,9 @@ macro _set_new_key()
 end
 
 macro _remove_key(old_val)
+    local_expr = old_val != :nothing ? :(local old_val) : (:nothing)
     return esc(quote
-        local old_val
+        $local_expr
         mask = d.mask
         h = hash(key)
         idx = (h & mask) % Int + 1
