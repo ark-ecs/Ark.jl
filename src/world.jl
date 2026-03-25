@@ -11,6 +11,8 @@ const _no_entity::Entity = _new_entity(0, 0)
 
 const _empty_relations::Vector{Pair{Int,Entity}} = Vector{Pair{Int,Entity}}()
 
+struct NoResource end
+
 struct _WorldPool{M}
     relations::Vector{Pair{Int,Entity}}
     entities::Vector{Entity}
@@ -52,7 +54,7 @@ mutable struct World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M} <: _AbstractWorld
     const _entity_pool::_EntityPool
     const _lock::_Lock
     const _graph::_Graph{M}
-    const _resources::Dict{DataType,Any}
+    const _resources::_Linear_Map{DataType,Any,false,false,DataType,NoResource}
     const _event_manager::_EventManager{World{CS,CT,ST,N,M},M}
     const _cache::_Cache{M}
     const _pool::_WorldPool{M}
@@ -805,7 +807,7 @@ end
             _EntityPool(UInt32(1024)),
             _Lock(),
             graph,
-            Dict{DataType,Any}(),
+            _Linear_Map{DataType,Any}(; zero_key=NoResource, zero_value=NoResource()),
             _EventManager{
                 World{$(storage_tuple_type),$(component_tuple_type),$(storage_mode_type),$(length(types)),$M},
                 $(M),
