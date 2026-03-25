@@ -1,7 +1,7 @@
 
 struct _IdCollection
     ids::Vector{UInt32}
-    indices::_Linear_Map{UInt32,Int}
+    indices::_Linear_Map{UInt32,Int,true,true,NoZero,NoZero}
 end
 
 function _IdCollection()
