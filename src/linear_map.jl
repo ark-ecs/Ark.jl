@@ -175,6 +175,8 @@ function _reinsert!(d::_Linear_Map, mask, start_idx::Int)
         val = d.vals[next]
         h2 = d.occupied[next]
         d.occupied[next] = 0x00
+        put_zero_key!(d, next)
+        put_zero_val!(d, next)
         idx = (hash(key) & mask) % Int + 1
         while d.occupied[idx] != 0x00
             idx = (idx & mask) + 1
