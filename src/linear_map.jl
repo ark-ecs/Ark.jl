@@ -114,9 +114,9 @@ macro _remove_key(old_val)
         h = hash(key)
         idx = (h & mask) % Int + 1
         h2 = (h >> _RSHIFT) % UInt8 | 0x01
-
-        @inbounds while d.occupied[idx] != 0x00
-            if d.occupied[idx] == h2 && d.keys[idx] == key
+        @inbounds h2_idx = d.occupied[idx]
+        @inbounds while h2_idx != 0x00
+            if h2_idx == h2 && d.keys[idx] == key
                 d.occupied[idx] = 0x00
                 put_zero_key!(d, idx)
                 $old_val
@@ -126,6 +126,7 @@ macro _remove_key(old_val)
                 break
             end
             idx = (idx & mask) + 1
+            h2_idx = d.occupied[idx]
         end
     end)
 end
