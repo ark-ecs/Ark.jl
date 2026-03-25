@@ -133,16 +133,21 @@ end
     @_set_new_key()
 end
 
-function _reinsert!(d::_Linear_Map{K,V}, key::K, val::V, h2::UInt8) where {K,V}
-    mask = d.mask
-    idx = (hash(key) & mask) % Int + 1
-    @inbounds while d.occupied[idx] != 0x00
-        idx = (idx & mask) + 1
-    end
-    @inbounds begin
+function _reinsert!(d::_Linear_Map, mask, start_idx::Int)
+    next = (start_idx & mask) + 1
+    @inbounds while d.occupied[next] != 0x00
+        key = d.keys[next]
+        val = d.vals[next]
+        h2 = d.occupied[next]
+        d.occupied[next] = 0x00
+        idx = (hash(key) & mask) % Int + 1
+        while d.occupied[idx] != 0x00
+            idx = (idx & mask) + 1
+        end
         d.keys[idx] = key
         d.vals[idx] = val
         d.occupied[idx] = h2
+        next = (next & mask) + 1
     end
 end
 
@@ -156,19 +161,8 @@ function Base.delete!(d::_Linear_Map, key)
         if d.occupied[idx] == h2 && d.keys[idx] == key
             d.occupied[idx] = 0x00
             d.count -= 1
-
-            # Reinsert the rest of the cluster so probing remains valid
-            next = (idx & mask) + 1
-            while d.occupied[next] != 0x00
-                k = d.keys[next]
-                v = d.vals[next]
-                h2_next = d.occupied[next]
-                d.occupied[next] = 0x00
-                _reinsert!(d, k, v, h2_next)
-                next = (next & mask) + 1
-            end
-
-            return d
+            _reinsert!(d, mask, idx)
+            break
         end
         idx = (idx & mask) + 1
     end
