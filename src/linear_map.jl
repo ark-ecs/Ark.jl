@@ -158,45 +158,40 @@ function Base.empty!(d::_Linear_Map)
     return d
 end
 
-@inline function Base.haskey(d::_Linear_Map, key)
+function Base.haskey(d::_Linear_Map, key)
     @_get_value_loop(true)
     return false
 end
 
-@inline function Base.getindex(d::_Linear_Map, key)
+function Base.getindex(d::_Linear_Map, key)
     @_get_value_loop(d.vals[idx])
     throw(KeyError(key))
 end
 
-@inline function Base.get(f::Union{Function,Type}, d::_Linear_Map, key)
+function Base.get(f::Union{Function,Type}, d::_Linear_Map, key)
     @_get_value_loop(d.vals[idx])
     return f()
 end
 
-@inline function Base.get(d::_Linear_Map, key, default)
+function Base.get(d::_Linear_Map, key, default)
     @_get_value_loop(d.vals[idx])
     return default
 end
 
-@inline function Base.get!(f::Union{Function,Type}, d::_Linear_Map, key)
+function Base.get!(f::Union{Function,Type}, d::_Linear_Map, key)
     @_get_value_loop(d.vals[idx])
     val = f()
     @_set_new_key()
 end
 
-@inline function Base.setindex!(d::_Linear_Map, val, key)
+function Base.setindex!(d::_Linear_Map, val, key)
     @_get_value_loop(d.vals[idx] = val)
     @_set_new_key()
 end
 
-@inline function _should_shift(home::Int, hole::Int, slot::Int, mask::Int)
-    # convert 1-based table indices to 0-based ring positions
-    home0 = home - 1
-    hole0 = hole - 1
-    slot0 = slot - 1
-
+function _should_shift(home::Int, hole::Int, slot::Int, mask::Int)
     # move `slot` into `hole` iff `hole` lies on this key's probe path
-    return ((slot0 - home0) & mask) > ((hole0 - home0) & mask)
+    return ((slot - home) & mask) > ((hole - home) & mask)
 end
 
 function _backshift_delete!(d::_Linear_Map, hole::Int)
