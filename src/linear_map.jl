@@ -54,6 +54,15 @@ function _grow!(d::_Linear_Map{K,V}) where {K,V}
     d.max_load = floor(Int, new_cap * _LOAD_FACTOR)
 end
 
+function _get_zero_index_loop(d, h)
+    mask = d.mask
+    idx = (h & mask) % Int + 1
+    @inbounds while d.occupied[idx] != 0x00
+        idx = (idx & mask) + 1
+    end
+    return idx
+end
+
 macro _get_value_loop(return_val)
     return esc(quote
         mask = d.mask
@@ -71,21 +80,11 @@ macro _get_value_loop(return_val)
     end)
 end
 
-macro _get_zero_index_loop()
-    return esc(quote
-        mask = d.mask
-        idx = (h & mask) % Int + 1
-        @inbounds while d.occupied[idx] != 0x00
-            idx = (idx & mask) + 1
-        end
-    end)
-end
-
 macro _set_new_key()
     return esc(quote
         if d.count >= d.max_load
             _grow!(d)
-            @_get_zero_index_loop()
+            idx = _get_zero_index_loop(d, h)
         end
         @inbounds begin
             d.keys[idx] = key
@@ -93,6 +92,7 @@ macro _set_new_key()
             d.occupied[idx] = h2
             d.count += 1
         end
+        return val
     end)
 end
 
@@ -126,13 +126,11 @@ end
     @_get_value_loop(d.vals[idx])
     val = f()
     @_set_new_key()
-    return val
 end
 
 @inline function Base.setindex!(d::_Linear_Map, val, key)
     @_get_value_loop(d.vals[idx] = val)
     @_set_new_key()
-    return val
 end
 
 function _reinsert!(d::_Linear_Map{K,V}, key::K, val::V, h2::UInt8) where {K,V}
