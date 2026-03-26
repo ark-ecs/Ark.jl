@@ -233,7 +233,7 @@ end
 end
 
 @testset "_Linear_Map empty! and reuse" begin
-    d = _Linear_Map{String,String}(4; zero_key = "<empty-key>", zero_value = "<empty-val>")
+    d = _Linear_Map{String,String}(4; zero_key="<empty-key>", zero_value="<empty-val>")
     d["a"] = "A"
     d["b"] = "B"
 
