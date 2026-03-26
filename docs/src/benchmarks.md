@@ -46,7 +46,7 @@ end
     end
 end
 
-function run_world(backend; n_entities=10^6, n_iterations=1000, use_gpu_storage=false)
+function run_world(backend; n_entities=10^6, n_iterations=1000)
     T = backend isa CUDABackend ? GPUVector{:CUDA} : Vector
     world = World(Position => Storage{T}, Velocity => Storage{T})
 
