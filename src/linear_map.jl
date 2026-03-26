@@ -184,9 +184,9 @@ function _backshift_delete!(d::_Linear_Map, hole::Int)
     next = (hole & mask) + 1
 
     @inbounds while d.occupied[next] != 0x00
-        home = (hash(d.keys[next]) & mask) % Int + 1
+        start = (hash(d.keys[next]) & mask) % Int + 1
         # move next into hole iff hole lies on this key probe path
-        if ((next - home) & mask) > ((hole - home) & mask)
+        if ((next - start) & mask) > ((hole - start) & mask)
             d.keys[hole] = d.keys[next]
             d.vals[hole] = d.vals[next]
             d.occupied[hole]  = d.occupied[next]
@@ -267,6 +267,6 @@ Base.IteratorSize(::Type{<:_Linear_Map}) = Base.HasLength()
 Base.IteratorSize(::Type{<:_Linear_Map_Keys}) = Base.HasLength()
 Base.IteratorSize(::Type{<:_Linear_Map_Values}) = Base.HasLength()
 
-Base.eltype(::Type{_Linear_Map{K,V}}) where {K,V} = Pair{K,V}
-Base.eltype(::Type{_Linear_Map_Keys{K,V}}) where {K,V} = K
-Base.eltype(::Type{_Linear_Map_Values{K,V}}) where {K,V} = V
+Base.eltype(::Type{<:_Linear_Map{K,V}}) where {K,V} = Pair{K,V}
+Base.eltype(::Type{<:_Linear_Map_Keys{K,V}}) where {K,V} = K
+Base.eltype(::Type{<:_Linear_Map_Values{K,V}}) where {K,V} = V
