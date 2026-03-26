@@ -43,7 +43,7 @@ function _grow!(d::_Linear_Map{K,V}) where {K,V}
     new_mask = new_cap - 1
     new_keys = Memory{K}(undef, new_cap)
     new_vals = Memory{V}(undef, new_cap)
-    new_occupied = Memory{UInt8}(undef, sz)
+    new_occupied = Memory{UInt8}(undef, new_cap)
     fill!(new_occupied, 0x00)
 
     @inbounds for i in 1:old_cap
