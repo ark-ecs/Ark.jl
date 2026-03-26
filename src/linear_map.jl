@@ -186,7 +186,7 @@ end
 function _backshift_delete!(d::_Linear_Map, hole::Int)
     mask = d.mask
     next = (hole & mask) + 1
-    next_occ = d.occupied[next]
+    @inbounds next_occ = d.occupied[next]
     @inbounds while next_occ != 0x00
         next_key = d.keys[next]
         start = (hash(next_key) & mask) % Int + 1
