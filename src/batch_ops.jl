@@ -64,13 +64,13 @@ Base.@constprop :aggressive function new_entities!(
     if components isa Tuple{Vararg{DataType}}
         rel_types = ntuple(i -> Val(relations[i].first), length(relations))
         targets = ntuple(i -> relations[i].second, length(relations))
-        return _new_entities!(fn, world, UInt32(n),
+        return _new_entities!(fn, world, n,
             ntuple(i -> Val(components[i]), length(components)), (),
             rel_types, targets, Val(false), Val(true))
     else
         rel_types = ntuple(i -> Val(relations[i].first), length(relations))
         targets = ntuple(i -> relations[i].second, length(relations))
-        return _new_entities!(fn, world, UInt32(n),
+        return _new_entities!(fn, world, n,
             Val{typeof(components)}(), components,
             rel_types, targets, Val(true), Val(true))
     end
@@ -87,7 +87,7 @@ Base.@constprop :aggressive function new_entities!(
     end
     rel_types = ntuple(i -> Val(relations[i].first), length(relations))
     targets = ntuple(i -> relations[i].second, length(relations))
-    return _new_entities!(world, UInt32(n),
+    return _new_entities!(world, n,
         Val{typeof(components)}(), components,
         rel_types, targets, Val(true), Val(false)) do tuple
     end
@@ -575,7 +575,7 @@ end
             # TODO: use a simplified data structure?
             push!(
                 batches,
-                _BatchTable(old_table, world._archetypes[old_table.archetype], UInt32(1), UInt32(length(old_table))),
+                _BatchTable(old_table, world._archetypes[old_table.archetype], 1, length(old_table)),
             )
         end
         if !_is_cached(filter._filter) # Do not clear for cached filters!!!
@@ -629,10 +629,8 @@ function _set_relations_table!(
         _fire_set_relations(
             world._event_manager,
             OnAddRelations,
-            _BatchTable(
                 new_table, world._archetypes[new_table.archetype],
-                UInt32(start_idx), UInt32(length(new_table)),
-            ),
+                start_idx, length(new_table),
             mask,
         )
     end
@@ -682,7 +680,7 @@ end
             # TODO: use a simplified data structure?
             push!(
                 batches,
-                _BatchTable(old_table, world._archetypes[old_table.archetype], UInt32(1), UInt32(length(old_table))),
+                _BatchTable(old_table, world._archetypes[old_table.archetype], 1, length(old_table)),
             )
         end
         if !_is_cached(filter._filter) # Do not clear for cached filters!!!
@@ -808,7 +806,7 @@ end
                 :(
                     begin
                         columns =
-                            _get_columns(world, $ts_val_expr, new_table, UInt32(start_idx), UInt32(length(new_table)))
+                            _get_columns(world, $ts_val_expr, new_table, start_idx, length(new_table))
                         fn(columns)
                     end
                 ),
@@ -828,7 +826,7 @@ end
                         old_mask = world._archetypes_hot[batch.table.archetype].mask
                         batch_table = _BatchTable(
                             new_table, new_archetype,
-                            UInt32(start_idx), UInt32(length(new_table)),
+                            start_idx, length(new_table),
                         )
                         if has_comp_obs
                             _fire_add(
@@ -969,7 +967,7 @@ end
 @generated function _new_entities!(
     fn::F,
     world::W,
-    n::UInt32,
+    n::Int,
     ::TS,
     values::Tuple,
     ::TR,
@@ -1029,7 +1027,7 @@ end
 
             push!(body_exprs.args, :($stor_sym = _get_storage(world, $T)))
             push!(body_exprs.args, :(@inbounds $col_sym = $stor_sym.data[table_idx]))
-            push!(body_exprs.args, :(fill!(view($col_sym, Int(indices[1]):Int(indices[2])), $val_expr)))
+            push!(body_exprs.args, :(fill!(view($col_sym, indices[1]:indices[2]), $val_expr)))
         end
         push!(exprs, :(
             if !isempty(values)
@@ -1097,8 +1095,8 @@ end
     world::W,
     ::Val{TS},
     table::_Table,
-    start_idx::UInt32,
-    end_idx::UInt32,
+    start_idx::Int,
+    end_idx::Int,
 ) where {W<:World,TS<:Tuple}
     CS = W.parameters[1]
     comp_types = TS.parameters
