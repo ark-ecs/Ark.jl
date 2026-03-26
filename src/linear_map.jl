@@ -1,6 +1,6 @@
 
 const _LOAD_FACTOR = 0.75
-const _RSHIFT = sizeof(UInt) * 7
+const _RSHIFT = 8*sizeof(UInt) - 8
 
 struct NoZero end
 
@@ -47,7 +47,7 @@ function _grow!(d::_Linear_Map{K,V}) where {K,V}
         if h2 != 0x00
             k = old_keys[i]
             v = old_vals[i]
-            idx = (hash(k) & new_mask) + 1
+            idx = (hash(k) & new_mask) % Int + 1
             while new_occupied[idx] != 0x00
                 idx = (idx & new_mask) + 1
             end
@@ -108,7 +108,6 @@ end
 
 macro _remove_key(return_val)
     return esc(quote
-        found = false
         mask = d.mask
         h = hash(key)
         idx = (h & mask) % Int + 1
