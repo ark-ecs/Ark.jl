@@ -16,14 +16,17 @@ mutable struct _Linear_Map{K,V,ZK,ZV,ZKT,ZVT}
     function _Linear_Map{K,V}(
         initial_size::Int=2; zero_key=NoZero(), zero_value=NoZero(),
     ) where {K,V}
+        @assert zero_key isa NoZero || zero_key isa K
+        @assert zero_value isa NoZero || zero_value isa V
         # Force power of 2 size
         sz = nextpow(2, initial_size)
         keys = Memory{K}(undef, sz)
         vals = Memory{V}(undef, sz)
-        occupied = zeros(UInt8, sz)
+        occupied = Memory{UInt8}(undef, sz)
+        fill!(occupied, 0x00)
         max_load = floor(Int, sz * _LOAD_FACTOR)
-        ZK = isbitstype(K) || zero_key == NoZero()
-        ZV = isbitstype(V) || zero_value == NoZero()
+        ZK = isbitstype(K) || (zero_key isa NoZero)
+        ZV = isbitstype(V) || (zero_value isa NoZero)
         ZKT = typeof(zero_key)
         ZVT = typeof(zero_value)
         new{K,V,ZK,ZV,ZKT,ZVT}(keys, vals, occupied, 0, sz - 1, max_load, zero_key, zero_value)
@@ -40,7 +43,8 @@ function _grow!(d::_Linear_Map{K,V}) where {K,V}
     new_mask = new_cap - 1
     new_keys = Memory{K}(undef, new_cap)
     new_vals = Memory{V}(undef, new_cap)
-    new_occupied = zeros(UInt8, new_cap)
+    new_occupied = Memory{UInt8}(undef, new_cap)
+    fill!(new_occupied, 0x00)
 
     @inbounds for i in 1:old_cap
         h2 = old_occupied[i]
@@ -81,7 +85,7 @@ macro _get_value_loop(return_val)
         h2 = (h >> _RSHIFT) % UInt8 | 0x01
         @inbounds h2_idx = d.occupied[idx]
         @inbounds while h2_idx != 0x00
-            if h2 == h2_idx && d.keys[idx] == key
+            if h2 == h2_idx && isequal(d.keys[idx], key)
                 return $return_val
             end
             idx = (idx & mask) + 1
@@ -114,7 +118,7 @@ macro _remove_key(return_val)
         h2 = (h >> _RSHIFT) % UInt8 | 0x01
         @inbounds h2_idx = d.occupied[idx]
         @inbounds while h2_idx != 0x00
-            if h2_idx == h2 && d.keys[idx] == key
+            if h2_idx == h2 && isequal(d.keys[idx], key)
                 old_val = $return_val
                 _backshift_delete!(d, idx)
                 d.count -= 1
@@ -182,17 +186,19 @@ end
 function _backshift_delete!(d::_Linear_Map, hole::Int)
     mask = d.mask
     next = (hole & mask) + 1
-
-    @inbounds while d.occupied[next] != 0x00
-        start = (hash(d.keys[next]) & mask) % Int + 1
+    @inbounds next_occ = d.occupied[next]
+    @inbounds while next_occ != 0x00
+        next_key = d.keys[next]
+        start = (hash(next_key) & mask) % Int + 1
         # move next into hole iff hole lies on this key probe path
         if ((next - start) & mask) > ((hole - start) & mask)
-            d.keys[hole] = d.keys[next]
+            d.keys[hole] = next_key
             d.vals[hole] = d.vals[next]
-            d.occupied[hole] = d.occupied[next]
+            d.occupied[hole] = next_occ
             hole = next
         end
         next = (next & mask) + 1
+        next_occ = d.occupied[next]
     end
 
     @inbounds d.occupied[hole] = 0x00
