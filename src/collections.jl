@@ -1,16 +1,16 @@
 
 struct _IdCollection
     ids::Vector{UInt32}
-    indices::Dict{UInt32,Int}
+    indices::_Linear_Map{UInt32,Int,true,true,NoZero,NoZero}
 end
 
 function _IdCollection()
-    return _IdCollection(Vector{UInt32}(), Dict{UInt32,Int}())
+    return _IdCollection(Vector{UInt32}(), _Linear_Map{UInt32,Int}())
 end
 
 function _IdCollection(ids::UInt32...)
     vec = collect(UInt32, ids)
-    indices = Dict{UInt32,Int}()
+    indices = _Linear_Map{UInt32,Int}()
 
     for (i, id) in enumerate(ids)
         indices[id] = i

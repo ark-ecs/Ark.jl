@@ -28,8 +28,8 @@ end
 mutable struct _Archetype{M}
     const components::Memory{Int}
     const tables::_IdCollection
-    const index::Vector{Dict{UInt32,_IdCollection}}
-    const target_tables::Dict{UInt32,_IdCollection}
+    const index::Vector{_Linear_Map{UInt32,_IdCollection,true,false,NoZero,_IdCollection}}
+    const target_tables::_Linear_Map{UInt32,_IdCollection,true,false,NoZero,_IdCollection}
     const free_tables::Vector{UInt32}
     const node::_GraphNode{M}
     const num_relations::UInt32
@@ -41,8 +41,8 @@ function _Archetype(id::UInt32, node::_GraphNode, table::UInt32)
     _Archetype(
         Memory{Int}(),
         _IdCollection(table),
-        Vector{Dict{UInt32,_IdCollection}}(),
-        Dict{UInt32,_IdCollection}(),
+        Vector{_Linear_Map{UInt32,_IdCollection,true,false,NoZero,_IdCollection}}(),
+        _Linear_Map{UInt32,_IdCollection}(; zero_value=_empty_id_collection),
         Vector{UInt32}(),
         node,
         UInt32(0),
@@ -61,8 +61,8 @@ function _Archetype(
     _Archetype(
         Memory{Int}(components),
         _IdCollection(),
-        [Dict{UInt32,_IdCollection}() for _ in eachindex(relations)],
-        Dict{UInt32,_IdCollection}(),
+        [_Linear_Map{UInt32,_IdCollection}(; zero_value=_empty_id_collection) for _ in eachindex(relations)],
+        _Linear_Map{UInt32,_IdCollection}(; zero_value=_empty_id_collection),
         Vector{UInt32}(),
         node,
         UInt32(length(relations)),

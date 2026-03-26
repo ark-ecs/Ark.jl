@@ -14,7 +14,7 @@ end
 
 mutable struct _Graph{M}
     const mask::_MutableMask{M}
-    const nodes::_Linear_Map{_Mask{M},_GraphNode{M}}
+    const nodes::_Linear_Map{_Mask{M},_GraphNode{M},true,true,NoZero,NoZero}
     last_node::_GraphNode{M}
 end
 
