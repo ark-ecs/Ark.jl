@@ -148,6 +148,6 @@ end
 struct _BatchTable{M}
     table::_Table
     archetype::_Archetype{M}
-    start_idx::UInt32
-    end_idx::UInt32
+    start_idx::Int
+    end_idx::Int
 end

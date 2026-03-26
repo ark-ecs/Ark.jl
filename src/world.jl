@@ -1221,9 +1221,7 @@ function _cleanup_archetypes(world::World, entity::Entity)
 
                 if _has_observers(world._event_manager, OnRemoveRelations)
                     _fire_set_relations(world._event_manager, OnRemoveRelations,
-                        _BatchTable(table, archetype,
-                            UInt32(1), UInt32(length(table)),
-                        ),
+                        _BatchTable(table, archetype, 1, length(table)),
                         mask)
                 end
 
@@ -1239,9 +1237,7 @@ function _cleanup_archetypes(world::World, entity::Entity)
 
                 if _has_observers(world._event_manager, OnAddRelations)
                     _fire_set_relations(world._event_manager, OnAddRelations,
-                        _BatchTable(new_table, archetype,
-                            UInt32(start_index), UInt32(length(new_table)),
-                        ),
+                        _BatchTable(new_table, archetype, start_index, length(new_table)),
                         mask,
                     )
                 end
@@ -1345,7 +1341,7 @@ end
     end
 end
 
-@generated function _create_entities!(world::W, table_index::UInt32, n::UInt32)::Tuple{UInt32,UInt32} where {W<:World}
+@generated function _create_entities!(world::W, table_index::UInt32, n::Int)::Tuple{Int,Int} where {W<:World}
     CS = W.parameters[1]
     world_has_rel = _has_relations(CS)
     quote
@@ -1395,7 +1391,7 @@ end
             _ensure_column_size_for_comp!(world, comp, table_index, new_length)
         end
 
-        return (old_length + 1) % UInt32, new_length % UInt32
+        return old_length + 1, new_length
     end
 end
 
@@ -1445,10 +1441,10 @@ end
 
 function _move_entities_cleanup!(world::World, old_table_index::UInt32, table_index::UInt32)
     old_table = world._tables[old_table_index]
-    _move_entities!(world, old_table_index, table_index, UInt32(length(old_table.entities)))
+    _move_entities!(world, old_table_index, table_index, length(old_table.entities))
 end
 
-function _move_entities!(world::World, old_table_index::UInt32, table_index::UInt32, num_entities::UInt32)
+function _move_entities!(world::World, old_table_index::UInt32, table_index::UInt32, num_entities::Int)
     old_table = world._tables[old_table_index]
     new_table = world._tables[table_index]
     old_archetype = world._archetypes[old_table.archetype]
