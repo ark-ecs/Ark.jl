@@ -121,10 +121,10 @@ end
 
 @testset "_Linear_Map get/get! with Type" begin
     d1 = _Linear_Map{Int,Int}(4)
-    @test get(Int, d1, 10) == 0
+    @test get(() -> 0, d1, 10) == 0
     @test !haskey(d1, 10)
 
-    @test get!(Int, d1, 10) == 0
+    @test get!(() -> 0, d1, 10) == 0
     @test haskey(d1, 10)
     @test d1[10] == 0
 
