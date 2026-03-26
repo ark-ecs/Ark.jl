@@ -1221,9 +1221,7 @@ function _cleanup_archetypes(world::World, entity::Entity)
 
                 if _has_observers(world._event_manager, OnRemoveRelations)
                     _fire_set_relations(world._event_manager, OnRemoveRelations,
-                        _BatchTable(table, archetype,
-                            UInt32(1), UInt32(length(table)),
-                        ),
+                        _BatchTable(table, archetype, 1, length(table)),
                         mask)
                 end
 
@@ -1239,9 +1237,7 @@ function _cleanup_archetypes(world::World, entity::Entity)
 
                 if _has_observers(world._event_manager, OnAddRelations)
                     _fire_set_relations(world._event_manager, OnAddRelations,
-                        _BatchTable(new_table, archetype,
-                            UInt32(start_index), UInt32(length(new_table)),
-                        ),
+                        _BatchTable(new_table, archetype, start_index, length(new_table)),
                         mask,
                     )
                 end
