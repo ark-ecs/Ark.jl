@@ -629,8 +629,10 @@ function _set_relations_table!(
         _fire_set_relations(
             world._event_manager,
             OnAddRelations,
+            _BatchTable(
                 new_table, world._archetypes[new_table.archetype],
                 start_idx, length(new_table),
+            ),
             mask,
         )
     end
