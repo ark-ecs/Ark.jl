@@ -1,6 +1,6 @@
 
 const _LOAD_FACTOR = 0.75
-const _RSHIFT = 8*sizeof(UInt) - 8
+const _RSHIFT = 8 * sizeof(UInt) - 8
 
 struct NoZero end
 
@@ -189,7 +189,7 @@ function _backshift_delete!(d::_Linear_Map, hole::Int)
         if ((next - start) & mask) > ((hole - start) & mask)
             d.keys[hole] = d.keys[next]
             d.vals[hole] = d.vals[next]
-            d.occupied[hole]  = d.occupied[next]
+            d.occupied[hole] = d.occupied[next]
             hole = next
         end
         next = (next & mask) + 1
