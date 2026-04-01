@@ -42,60 +42,60 @@ struct _EntityHandleRel{W<:World}
 	entity::Entity
 end
 
-Base.getindex(world::World, entity::Entity) = EntityHandle(world, entity)
+@inline Base.getindex(world::World, entity::Entity) = EntityHandle(world, entity)
 
-function Base.getindex(entityhandle::EntityHandle, comp::Type)
-    return get_components(entityhandle.world, entityhandle.entity, (comp,))[1]
+@inline Base.@constprop :aggressive function Base.getindex(entityhandle::EntityHandle, ::Type{T}) where {T}
+    return get_components(entityhandle.world, entityhandle.entity, (T,))[1]
 end
 
-function Base.getindex(entityhandle::EntityHandle, comps::Tuple{Vararg{Type}})
+@inline Base.@constprop :aggressive function Base.getindex(entityhandle::EntityHandle, comps::Tuple)
     return get_components(entityhandle.world, entityhandle.entity, comps)
 end
 
-function Base.setindex!(entityhandle::EntityHandle, value, comp::Type)
+@inline Base.@constprop :aggressive function Base.setindex!(entityhandle::EntityHandle, value, ::Type{T}) where {T}
     set_components!(entityhandle.world, entityhandle.entity, (value,))[1]
 end
 
-function Base.setindex!(entityhandle::EntityHandle, values::Tuple, comps::Tuple{Vararg{Type}})
+@inline Base.@constprop :aggressive function Base.setindex!(entityhandle::EntityHandle, values::Tuple, comps::Tuple)
     set_components!(entityhandle.world, entityhandle.entity, values)
 end
 
-function Base.in(comp::Type, entityhandle::EntityHandle)
-    return has_components(entityhandle.world, entityhandle.entity, (comp,))
+@inline Base.@constprop :aggressive function Base.in(::Type{T}, entityhandle::EntityHandle) where {T}
+    return has_components(entityhandle.world, entityhandle.entity, (T,))
 end
 
-function Base.in(comps::Tuple{Vararg{Type}}, entityhandle::EntityHandle)
+@inline Base.@constprop :aggressive function Base.in(comps::Tuple, entityhandle::EntityHandle)
     return has_components(entityhandle.world, entityhandle.entity, comps)
 end
 
-function _unchecked_getindex(entityhandle::EntityHandle, comp::Type)
-    return get_components(entityhandle.world, entityhandle.entity, (comp,); _unchecked=true)[1]
+@inline Base.@constprop :aggressive function _unchecked_getindex(entityhandle::EntityHandle, ::Type{T}) where {T}
+    return get_components(entityhandle.world, entityhandle.entity, (T,); _unchecked=true)[1]
 end
 
-function _unchecked_getindex(entityhandle::EntityHandle, comps::Tuple{Vararg{Type}})
+@inline Base.@constprop :aggressive function _unchecked_getindex(entityhandle::EntityHandle, comps::Tuple)
     return get_components(entityhandle.world, entityhandle.entity, comps; _unchecked=true)
 end
 
-function _unchecked_setindex!(entityhandle::EntityHandle, value, comp::Type)
+@inline Base.@constprop :aggressive function _unchecked_setindex!(entityhandle::EntityHandle, value, ::Type{T}) where {T}
     set_components!(entityhandle.world, entityhandle.entity, (value,); _unchecked=true)
 end
 
-function _unchecked_setindex!(entityhandle::EntityHandle, values::Tuple, comps::Tuple{Vararg{Type}})
+@inline Base.@constprop :aggressive function _unchecked_setindex!(entityhandle::EntityHandle, values::Tuple, comps::Tuple)
     set_components!(entityhandle.world, entityhandle.entity, values; _unchecked=true)
 end
 
-function _unchecked_in(comp::Type, entityhandle::EntityHandle)
-    return has_components(entityhandle.world, entityhandle.entity, (comp,); _unchecked=true)
+@inline Base.@constprop :aggressive function _unchecked_in(::Type{T}, entityhandle::EntityHandle) where {T}
+    return has_components(entityhandle.world, entityhandle.entity, (T,); _unchecked=true)
 end
 
-function _unchecked_in(comps::Tuple{Vararg{Type}}, entityhandle::EntityHandle)
+@inline Base.@constprop :aggressive function _unchecked_in(comps::Tuple, entityhandle::EntityHandle)
     return has_components(entityhandle.world, entityhandle.entity, comps; _unchecked=true)
 end
 
-function add_components!(
+@inline Base.@constprop :aggressive function add_components!(
     entityhandle::EntityHandle,
     values::Tuple;
-    relations::Tuple{Vararg{Pair{DataType,Entity}}}=(),
+    relations::Tuple=(),
     _unchecked::Bool=false,
 )
 	world = entityhandle.world
@@ -103,7 +103,7 @@ function add_components!(
     return add_components!(world, entity, values; relations, _unchecked)
 end
 
-function remove_components!(
+@inline Base.@constprop :aggressive function remove_components!(
 	entityhandle::EntityHandle,
     comp_types::Tuple;
     _unchecked::Bool=false,
@@ -120,36 +120,36 @@ Base.@constprop :aggressive function Base.getproperty(entityhandle::EntityHandle
     return getfield(entityhandle, name)
 end
 
-function Base.getindex(entityhandle::_EntityHandleRel, comp::Type)
-    return get_relations(entityhandle.world, entityhandle.entity, (comp,))[1]
+@inline Base.@constprop :aggressive function Base.getindex(entityhandle::_EntityHandleRel, ::Type{T}) where {T}
+    return get_relations(entityhandle.world, entityhandle.entity, (T,))[1]
 end
 
-function Base.getindex(entityhandle::_EntityHandleRel, comps::Tuple{Vararg{Type}})
+@inline Base.@constprop :aggressive function Base.getindex(entityhandle::_EntityHandleRel, comps::Tuple)
     return get_relations(entityhandle.world, entityhandle.entity, comps)
 end
 
-function Base.setindex!(entityhandle::_EntityHandleRel, target::Entity, comp::Type)
-    set_relations!(entityhandle.world, entityhandle.entity, (comp => target,))[1]
+@inline Base.@constprop :aggressive function Base.setindex!(entityhandle::_EntityHandleRel, target::Entity, ::Type{T}) where {T}
+    set_relations!(entityhandle.world, entityhandle.entity, (T => target,))[1]
 end
 
-function Base.setindex!(entityhandle::_EntityHandleRel, targets::Tuple{Vararg{Entity}}, comps::Tuple{Vararg{Type}})
+@inline Base.@constprop :aggressive function Base.setindex!(entityhandle::_EntityHandleRel, targets::Tuple, comps::Tuple)
     relations = ntuple(i -> comps[i] => targets[i], length(comps))
     set_relations!(entityhandle.world, entityhandle.entity, relations)
 end
 
-function _unchecked_getindex(entityhandle::_EntityHandleRel, comp::Type)
-    return get_relations(entityhandle.world, entityhandle.entity, (comp,); _unchecked=true)[1]
+@inline Base.@constprop :aggressive function _unchecked_getindex(entityhandle::_EntityHandleRel, ::Type{T}) where {T}
+    return get_relations(entityhandle.world, entityhandle.entity, (T,); _unchecked=true)[1]
 end
 
-function _unchecked_getindex(entityhandle::_EntityHandleRel, comps::Tuple{Vararg{Type}})
+@inline Base.@constprop :aggressive function _unchecked_getindex(entityhandle::_EntityHandleRel, comps::Tuple)
     return get_relations(entityhandle.world, entityhandle.entity, comps; _unchecked=true)
 end
 
-function _unchecked_setindex!(entityhandle::_EntityHandleRel, target::Entity, comp::Type)
-    set_relations!(entityhandle.world, entityhandle.entity, (comp => target,); _unchecked=true)[1]
+@inline Base.@constprop :aggressive function _unchecked_setindex!(entityhandle::_EntityHandleRel, target::Entity, ::Type{T}) where {T}
+    set_relations!(entityhandle.world, entityhandle.entity, (T => target,); _unchecked=true)[1]
 end
 
-function _unchecked_setindex!(entityhandle::_EntityHandleRel, targets::Tuple{Vararg{Entity}}, comps::Tuple{Vararg{Type}})
+@inline Base.@constprop :aggressive function _unchecked_setindex!(entityhandle::_EntityHandleRel, targets::Tuple, comps::Tuple)
     relations = ntuple(i -> comps[i] => targets[i], length(comps))
     set_relations!(entityhandle.world, entityhandle.entity, relations; _unchecked=true)
 end
