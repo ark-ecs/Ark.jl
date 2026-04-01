@@ -14,7 +14,7 @@ function benchmark_world_has_1(args, n)
     entities, world = args
     sum = 0
     for e in entities
-        sum += (has_components(world, e, (Position,))) % Int
+        sum += (Position in world[e]) % Int
     end
     return sum
 end

@@ -9,7 +9,7 @@ function setup_world_set_5(n_entities::Int)
     end
 
     for e in entities
-        set_components!(world, e, (Position(1, 2), Velocity(0, 0), CompA(0, 0), CompB(0, 0), CompC(0, 0)))
+        world[e][(Position, Velocity, CompA, CompB, CompC)] = (Position(1, 2), Velocity(0, 0), CompA(0, 0), CompB(0, 0), CompC(0, 0))
     end
 
     return (entities, world)
@@ -18,7 +18,7 @@ end
 function benchmark_world_set_5(args, n)
     entities, world = args
     for e in entities
-        set_components!(world, e, (Position(1, 2), Velocity(0, 0), CompA(0, 0), CompB(0, 0), CompC(0, 0)))
+        world[e][(Position, Velocity, CompA, CompB, CompC)] = (Position(1, 2), Velocity(0, 0), CompA(0, 0), CompB(0, 0), CompC(0, 0))
     end
 end
 

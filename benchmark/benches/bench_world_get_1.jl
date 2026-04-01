@@ -10,7 +10,7 @@ function setup_world_get_1(n_entities::Int)
 
     sum = 0.0
     for e in entities
-        pos, = get_components(world, e, (Position,))
+        pos = world[e][Position]
         sum += pos.x
     end
     sum
@@ -22,7 +22,7 @@ function benchmark_world_get_1(args, n)
     entities, world = args
     sum = 0.0
     for e in entities
-        pos, = get_components(world, e, (Position,))
+        pos = world[e][Position]
         sum += pos.x
     end
 end

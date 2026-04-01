@@ -197,8 +197,8 @@ Mutable and non-isbits components are shallow copied by default. This can be cha
 
   - `world`: The `World` instance to query.
   - `entity::Entity`: The entity to copy.
-  - `add::Tuple`: Components to add, like `with=(Health(0),)`.
-  - `remove::Tuple`: Component types to remove, like `(Position,Velocity)`.
+  - `add::Tuple`: Components to add, like `add=(Health(0),)`.
+  - `remove::Tuple`: Component types to remove, like `remove=(Position,Velocity)`.
   - `relations::Tuple`: Relationship component type => target entity pairs.
   - `mode::Tuple`: Copy mode for mutable and non-isbits components. Modes are :ref, :copy, :deepcopy.
 
@@ -1737,7 +1737,7 @@ end
         push!(exprs, :(_set_component!($stor_sym, idx.table, idx.row, $val_expr, $(Val(Unchecked)))))
     end
 
-    push!(exprs, Expr(:return, :nothing))
+    push!(exprs, Expr(:return, :values))
 
     return quote
         @inbounds begin
@@ -1815,7 +1815,7 @@ end
     end
 
     push!(exprs, :(_set_relations!(world, entity, $rel_ids, targets)))
-    push!(exprs, Expr(:return, :nothing))
+    push!(exprs, Expr(:return, :targets))
 
     return quote
         @inbounds begin
@@ -1873,7 +1873,7 @@ end
         )
     end
 
-    return nothing
+    return targets
 end
 
 @generated function _exchange_components!(
