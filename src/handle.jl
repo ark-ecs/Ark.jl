@@ -29,8 +29,13 @@ we.rel[ChildOf] = parent_entity
 parent_entity = we.rel[ChildOf]
 
 # output
-
 ```
+
+!!! note
+
+    Storing the handles inside containers is not recommended since it would take up more memory than necessary. Store
+	directly the entities instead. Handles are provided only to allow to use a more appealing syntax for access and
+    modification of components and relationships.
 """
 struct EntityHandle{W<:World}
 	world::W
