@@ -191,11 +191,18 @@ macro unpack(expr)
     @assert expr.head == :(=) "Expected assignment"
     lhs, rhs = expr.args
     @assert lhs.head == :tuple "Left-hand side must be a tuple"
+
     n = length(lhs.args)
-    rhs_exprs = [:(($rhs)[$i]) for i in 1:n]
+    tmp = gensym(:unpack_rhs)
+
+    rhs_exprs = Any[:($tmp[1])]
     for i in 2:n
-        rhs_exprs[i] = :(unpack(($rhs)[$i]))
+        push!(rhs_exprs, :(Ark.unpack($tmp[$i])))
     end
     new_rhs = Expr(:tuple, rhs_exprs...)
-    return Expr(:(=), esc(lhs), esc(new_rhs))
+
+    return quote
+        $tmp = $(esc(rhs))
+        $(esc(lhs)) = $new_rhs
+    end
 end
