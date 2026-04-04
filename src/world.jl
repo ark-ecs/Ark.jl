@@ -15,6 +15,7 @@ struct NoResource end
 
 struct _WorldPool{M}
     relations::Vector{Pair{Int,Entity}}
+    cleanup_relations::Vector{Pair{Int,Entity}}
     entities::Vector{Entity}
     tables::Vector{UInt32}
     batches::Vector{_BatchTable{M}}
@@ -23,6 +24,7 @@ end
 
 function _WorldPool{M}() where {M}
     return _WorldPool(
+        Vector{Pair{Int,Entity}}(),
         Vector{Pair{Int,Entity}}(),
         Vector{Entity}(),
         Vector{UInt32}(),
@@ -1196,7 +1198,8 @@ function _get_archetypes(world::World, ids::Tuple{Vararg{Int}})
 end
 
 function _cleanup_archetypes(world::World, entity::Entity)
-    relations = Pair{Int,Entity}[]
+    relations = world._pool.cleanup_relations
+    empty!(relations)
     for arch in world._relation_archetypes
         archetype = world._archetypes[arch]
         if !haskey(archetype.target_tables, entity._id)
