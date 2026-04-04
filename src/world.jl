@@ -806,7 +806,7 @@ end
             _LastTable{$M}(_Mask{$M}(), UInt32(1)),
             _ComponentIndex{$(M)}($(length(types))),
             registry,
-            _EntityPool(UInt32(1024)),
+            _EntityPool(max(UInt32(initial_capacity), UInt32(1024))),
             _Lock(),
             graph,
             _Linear_Map{DataType,Any}(; zero_key=NoResource, zero_value=NoResource()),
