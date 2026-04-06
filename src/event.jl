@@ -163,7 +163,9 @@ function _ensure_capacity!(m::_EventManager{W,M}, id::Int) where {W<:_AbstractWo
 end
 
 @inline function _has_observers(m::_EventManager, event::Event)
-    return m.num_observers > 0 && length(m.observers[event._id]) > 0
+    return m.num_observers > 0 &&
+           event._id <= length(m.observers) &&
+           !isempty(@inbounds m.observers[event._id])
 end
 
 function _add_observer!(m::_EventManager, o::Observer)
