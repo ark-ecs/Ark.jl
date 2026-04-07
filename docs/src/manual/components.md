@@ -50,11 +50,28 @@ end
 (Position(0.0, 0.0), Velocity(0.0, 0.0))
 ```
 
-Similarly, the components of an entity can be overwritten by new values via [set_components!](@ref),
-which is particularly useful for immutable components (which are the default):
+Alternatively, you can get and check for components via indexing on an entity handle:
+
+```jldoctest; output = false
+we = world[entity]
+pos = we[Position]
+pos, vel = we[(Position, Velocity)]
+
+has_pos = Position in we
+has_pos_vel = (Position, Velocity) in we
+
+# output
+
+```
+
+Similarly, the components of an entity can be overwritten by new values via [set_components!](@ref) or by indexing:
 
 ```jldoctest; output = false
 set_components!(world, entity, (Position(0, 0), Velocity(1,1)))
+# or via handle
+we = world[entity]
+we[Position] = Position(0, 0)
+we[(Position, Velocity)] = (Position(0, 0), Velocity(1, 1))
 
 # output
 

@@ -11,11 +11,11 @@ function setup_world_set_rel(n_entities::Int)
     end
 
     for e in entities
-        set_relations!(world, e, (ChildOf => parent2,))
+        world[e].rel[ChildOf] = parent2
     end
 
     for e in entities
-        set_relations!(world, e, (ChildOf => parent1,))
+        world[e].rel[ChildOf] = parent1
     end
 
     return (entities, world, parent2)
@@ -24,7 +24,7 @@ end
 function benchmark_world_set_rel(args, n)
     entities, world, parent = args
     for e in entities
-        set_relations!(world, e, (ChildOf => parent,))
+        world[e].rel[ChildOf] = parent
     end
 end
 

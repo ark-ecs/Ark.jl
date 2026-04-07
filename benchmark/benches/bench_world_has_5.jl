@@ -14,7 +14,7 @@ function benchmark_world_has_5(args, n)
     entities, world = args
     sum = 0
     for e in entities
-        sum += (has_components(world, e, (Position, Velocity, CompA, CompB, CompC))) % Int
+        sum += ((Position, Velocity, CompA, CompB, CompC) in world[e]) % Int
     end
     return sum
 end

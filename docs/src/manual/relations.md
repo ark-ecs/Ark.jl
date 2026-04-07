@@ -121,7 +121,7 @@ The same applies for [exchange_components!](@ref),
 ## Get and set relations
 
 We can also change the target entity of an already assigned relation component.
-This is done via [set_relations!](@ref):
+This is done via [set_relations!](@ref) or by indexing with an entity handle:
 
 ```jldoctest; output=false
 entity = new_entity!(world, 
@@ -129,6 +129,9 @@ entity = new_entity!(world,
                      relations=(ChildOf => parent,))
 
 set_relations!(world, entity, (ChildOf => parent2,))
+# or via handle
+we = world[entity]
+we.rel[ChildOf] = parent2
 
 # output
 
@@ -136,7 +139,7 @@ set_relations!(world, entity, (ChildOf => parent2,))
 
 This also works for changing the targets of multiple relations in one function call.
 
-Target entities can be retrieved with [get_relations](@ref):
+Target entities can be retrieved with [get_relations](@ref) or by indexing:
 
 ```jldoctest; output=false
 entity = new_entity!(world, 
@@ -144,13 +147,16 @@ entity = new_entity!(world,
                      relations=(ChildOf => parent,))
 
 parent_entity, = get_relations(world, entity, (ChildOf,))
+# or via handle
+we = world[entity]
+parent_entity = we.rel[ChildOf]
 
 # output
 
 (Entity(3, 0),)
 ```
 
-Note that [get_relations](@ref) always returns a tuple of entities.
+Note that [get_relations](@ref) always returns a tuple of entities, while indexing `we.rel[RelationComponent]` returns the single target entity directly.
 
 As with other operations, relation targets can be set in batches. See chapter [Batch operations](@ref) for details.
 
