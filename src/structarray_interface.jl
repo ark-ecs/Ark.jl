@@ -88,7 +88,6 @@ end
 
 struct _StructArrayView{C,CS<:NamedTuple,I} <: AbstractArray{C,1}
     _components::CS
-    _indices::I
 end
 
 Base.@propagate_inbounds @generated function Base.getindex(sa::_StructArrayView{C}, i::Int) where {C}
@@ -106,7 +105,7 @@ end
 @generated function Base.getproperty(sa::_StructArrayView{C}, name::Symbol) where {C}
     names = fieldnames(C)
     cases = [
-        :(name === $(QuoteNode(n)) && return view(getfield(sa, :_components).$n, getfield(sa, :_indices))) for n in names
+        :(name === $(QuoteNode(n)) && return getfield(sa, :_components).$n) for n in names
     ]
     return Expr(:block, cases..., :(throw(ErrorException(lazy"type $C has no field $name"))))
 end
@@ -127,8 +126,8 @@ Base.@propagate_inbounds function Base.iterate(sa::_StructArrayView{C}, i::Int) 
     return sa[i], i + 1
 end
 
-Base.size(sa::_StructArrayView) = (length(sa._indices),)
-Base.length(sa::_StructArrayView) = length(sa._indices)
+Base.size(sa::_StructArrayView) = (length(sa),)
+Base.length(sa::_StructArrayView) = length(first(getfield(sa, :_components)))
 Base.eltype(::Type{<:_StructArrayView{C}}) where {C} = C
 Base.IndexStyle(::Type{<:_StructArrayView}) = IndexLinear()
 Base.eachindex(sa::_StructArrayView) = 1:length(sa)
