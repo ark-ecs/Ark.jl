@@ -103,6 +103,15 @@ Base.@propagate_inbounds @generated function Base.setindex!(sa::_StructArrayView
     return Expr(:block, set_exprs..., :(c))
 end
 
+@generated function Base.getproperty(sa::_StructArrayView{C}, name::Symbol) where {C}
+    names = fieldnames(C)
+    cases = [
+        :(name === $(QuoteNode(n)) && return getfield(sa, :_components).$n) for n in component_names
+    ]
+    return Expr(:block, cases..., :(throw(ErrorException(lazy"type $C has no field $name"))))
+end
+
+
 @generated function Base.fill!(sa::_StructArrayView{C}, value::C) where {C}
     names = fieldnames(C)
     fill_exprs = [:(fill!(getfield(sa, :_components).$name, getfield(value, $(QuoteNode(name))))) for name in names]
@@ -160,7 +169,7 @@ end
 Unpacks the components (i.e. field vectors) of a `StructArray` column returned from a [Query](@ref).
 See also [@unpack](@ref).
 """
-unpack(a::_StructArrayView) = a._components
+unpack(a::_StructArrayView) = getfield(a, :_components)
 
 """
     @unpack ...
