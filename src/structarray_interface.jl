@@ -111,7 +111,6 @@ end
     return Expr(:block, cases..., :(throw(ErrorException(lazy"type $C has no field $name"))))
 end
 
-
 @generated function Base.fill!(sa::_StructArrayView{C}, value::C) where {C}
     names = fieldnames(C)
     fill_exprs = [:(fill!(getfield(sa, :_components).$name, getfield(value, $(QuoteNode(name))))) for name in names]
