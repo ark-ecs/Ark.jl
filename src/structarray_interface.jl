@@ -106,7 +106,7 @@ end
 @generated function Base.getproperty(sa::_StructArrayView{C}, name::Symbol) where {C}
     names = fieldnames(C)
     cases = [
-        :(name === $(QuoteNode(n)) && return getfield(sa, :_components).$n) for n in component_names
+        :(name === $(QuoteNode(n)) && return view(getfield(sa, :_components).$n, getfield(sa, :_indices))) for n in names
     ]
     return Expr(:block, cases..., :(throw(ErrorException(lazy"type $C has no field $name"))))
 end
