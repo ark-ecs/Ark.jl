@@ -86,7 +86,7 @@ function Base.firstindex(sa::_AbstractStructArray)
     return 1
 end
 
-struct _StructArrayView{C,CS<:NamedTuple,I} <: AbstractArray{C,1}
+struct _StructArrayView{C,CS<:NamedTuple} <: AbstractArray{C,1}
     _components::CS
 end
 

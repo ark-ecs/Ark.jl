@@ -433,7 +433,6 @@ end
                 dx::SubArray{Float64,1,Vector{Float64},Tuple{UnitRange{Int64}},true},
                 dy::SubArray{Float64,1,Vector{Float64},Tuple{UnitRange{Int64}},true},
             },
-            UnitRange{Int64},
         },
         SubArray{Int64,1,_storage_from_component(world, Int64),Tuple{Base.Slice{Base.OneTo{Int64}}},true},
         Union{Nothing,FieldViews.FieldViewable{NoIsBits,1,_storage_from_component(world, NoIsBits)}},
