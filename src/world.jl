@@ -2229,18 +2229,24 @@ function _shuffle_table!(rng::AbstractRNG, world::World, table::_Table)
 
     for i in len:-1:2
         j = @inline rand(rng, Random.Sampler(rng, Base.OneTo(i), Val(1)))
+        _swap_rows!(world, archetype, table, i, j)
+    end
+    return
+end
 
-        @inbounds entity_i = table.entities._data[i]
-        @inbounds entity_j = table.entities._data[j]
-        @inbounds table.entities._data[i] = entity_j
-        @inbounds table.entities._data[j] = entity_i
+@inline function _swap_rows!(world, archetype, table, i, j)
+    @inbounds begin
+    entity_i = table.entities._data[i]
+    entity_j = table.entities._data[j]
+    table.entities._data[i] = entity_j
+    table.entities._data[j] = entity_i
 
-        @inbounds world._entities[entity_i._id] = _EntityIndex(table.id, j)
-        @inbounds world._entities[entity_j._id] = _EntityIndex(table.id, i)
+    world._entities[entity_i._id] = _EntityIndex(table.id, j)
+    world._entities[entity_j._id] = _EntityIndex(table.id, i)
 
-        for comp in archetype.components
-            _swap_components!(world, comp, table.id, i, j)
-        end
+    for comp in archetype.components
+         _swap_components!(world, comp, table.id, i, j)
+    end
     end
     return
 end
