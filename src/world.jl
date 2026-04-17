@@ -2245,7 +2245,7 @@ end
         world._entities[entity_j._id] = _EntityIndex(table.id, i)
     
         for comp in archetype.components
-             _swap_components!(world, comp, table.id, i, j)
+            _swap_components!(world, comp, table.id, i, j)
         end
     end
     return
