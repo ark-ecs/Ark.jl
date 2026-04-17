@@ -2234,7 +2234,7 @@ function _shuffle_table!(rng::AbstractRNG, world::World, table::_Table)
     return
 end
 
-@inline function _swap_rows!(world::World, archetype::_Archetype, table::UInt32, i::Int, j::Int)
+@inline function _swap_rows!(world::World, archetype::_Archetype, table::_Table, i::Int, j::Int)
     @inbounds begin
         entity_i = table.entities._data[i]
         entity_j = table.entities._data[j]
