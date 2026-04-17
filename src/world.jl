@@ -2236,17 +2236,17 @@ end
 
 @inline function _swap_rows!(world, archetype, table, i, j)
     @inbounds begin
-    entity_i = table.entities._data[i]
-    entity_j = table.entities._data[j]
-    table.entities._data[i] = entity_j
-    table.entities._data[j] = entity_i
-
-    world._entities[entity_i._id] = _EntityIndex(table.id, j)
-    world._entities[entity_j._id] = _EntityIndex(table.id, i)
-
-    for comp in archetype.components
-         _swap_components!(world, comp, table.id, i, j)
-    end
+        entity_i = table.entities._data[i]
+        entity_j = table.entities._data[j]
+        table.entities._data[i] = entity_j
+        table.entities._data[j] = entity_i
+    
+        world._entities[entity_i._id] = _EntityIndex(table.id, j)
+        world._entities[entity_j._id] = _EntityIndex(table.id, i)
+    
+        for comp in archetype.components
+             _swap_components!(world, comp, table.id, i, j)
+        end
     end
     return
 end
