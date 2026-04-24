@@ -1091,7 +1091,7 @@ end
             throw(ArgumentError("entity does not have the requested relationship component"))
         end
 
-        if target == trg
+        if target._id == trg._id
             continue
         end
         _set_bit!(mask, rel)
