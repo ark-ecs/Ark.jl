@@ -45,8 +45,9 @@ Removes some checks performed by these functions: `has_components`, `get_compone
 `get_relations`, `set_relations!`, `new_entity`, `remove_entity!`, `copy_entity!`.
 
 In particular, these checks are skipped:
- - aliveness of the entity and its relation targets;
- - presence of components on which the functions operate.
+
+  - aliveness of the entity and its relation targets;
+  - presence of components on which the functions operate.
 
 !!! warning
 
