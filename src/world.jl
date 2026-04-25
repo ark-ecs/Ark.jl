@@ -160,11 +160,12 @@ Base.@constprop :aggressive function new_entity!(
     world::World,
     values::Tuple;
     relations::Tuple{Vararg{Pair{DataType,Entity}}}=(),
+    _unchecked=false,
 )
     rel_types = ntuple(i -> Val(relations[i].first), length(relations))
     targets = ntuple(i -> relations[i].second, length(relations))
 
-    entity, table_id = _new_entity!(world, Val{typeof(values)}(), values, rel_types, targets)
+    entity, table_id = _new_entity!(world, Val{typeof(values)}(), values, rel_types, targets, Val(_unchecked))
 
     has_entity_obs = _has_observers(world._event_manager, OnCreateEntity)
     has_rel_obs = !isempty(relations) && _has_observers(world._event_manager, OnAddRelations)
@@ -1090,7 +1091,7 @@ end
             throw(ArgumentError("entity does not have the requested relationship component"))
         end
 
-        if target._id == trg._id
+        if target == trg
             continue
         end
         _set_bit!(mask, rel)
@@ -1118,7 +1119,7 @@ function _get_exchange_targets_unchecked(
         @inbounds index = comp_relations.archetypes[old_table.archetype]
         @inbounds new_relations[index] = Pair(rel, trg)
 
-        if target._id != trg._id
+        if target != trg
             _set_bit!(mask, rel)
         end
     end
@@ -1259,7 +1260,8 @@ end
     values::Tuple,
     ::TR,
     targets::Tuple{Vararg{Entity}},
-) where {W<:World,TS<:Tuple,TR<:Tuple}
+    ::Val{Unchecked},
+) where {W<:World,TS<:Tuple,TR<:Tuple,Unchecked}
     types = _to_types(TS.parameters)
     rel_types = _to_types(TR)
 
@@ -1282,6 +1284,9 @@ end
 
     exprs = []
     push!(exprs, :(_check_locked(world)))
+    if !Unchecked && length(TR.parameters) > 0
+        push!(exprs, :(_check_relation_targets(world, targets)))
+    end
     push!(
         exprs,
         :(
@@ -1815,6 +1820,9 @@ end
                 throw(ArgumentError("can't set relation targets of a dead entity"))
             end
         ))
+        if length(TR.parameters) > 0
+            push!(exprs, :(_check_relation_targets(world, targets)))
+        end
     end
 
     push!(exprs, :(_set_relations!(world, entity, $rel_ids, targets)))
@@ -2197,6 +2205,12 @@ function _check_locked(world::World)
                 :locked_world,
             ),
         )
+    end
+end
+
+function _check_relation_targets(world::World, relations::Tuple{Vararg{Entity}})
+    for rel in relations
+        _check_relation_target(world, rel)
     end
 end
 
