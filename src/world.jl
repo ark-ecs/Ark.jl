@@ -1091,7 +1091,7 @@ end
             throw(ArgumentError("entity does not have the requested relationship component"))
         end
 
-        if target._id == trg._id
+        if target == trg
             continue
         end
         _set_bit!(mask, rel)
@@ -1119,7 +1119,7 @@ function _get_exchange_targets_unchecked(
         @inbounds index = comp_relations.archetypes[old_table.archetype]
         @inbounds new_relations[index] = Pair(rel, trg)
 
-        if target._id != trg._id
+        if target != trg
             _set_bit!(mask, rel)
         end
     end
@@ -1283,10 +1283,10 @@ end
     world_has_rel = Val{_has_relations(CS)}()
 
     exprs = []
-    push!(exprs, :(_check_locked(world)))
-    if !Unchecked && length(TR.parameters) > 0
+    if !Unchecked
         push!(exprs, :(_check_relation_targets(world, targets)))
     end
+    push!(exprs, :(_check_locked(world)))
     push!(
         exprs,
         :(
@@ -1564,6 +1564,7 @@ end
                 throw(ArgumentError("can't copy a dead entity"))
             end
         ))
+        push!(exprs, :(_check_relation_targets(world, targets)))
     end
     push!(exprs, :(_check_locked(world)))
 
@@ -1820,9 +1821,7 @@ end
                 throw(ArgumentError("can't set relation targets of a dead entity"))
             end
         ))
-        if length(TR.parameters) > 0
-            push!(exprs, :(_check_relation_targets(world, targets)))
-        end
+        push!(exprs, :(_check_relation_targets(world, targets)))
     end
 
     push!(exprs, :(_set_relations!(world, entity, $rel_ids, targets)))
@@ -1920,6 +1919,7 @@ end
                 throw(ArgumentError("can't $FuncName components on a dead entity"))
             end
         ))
+        push!(exprs, :(_check_relation_targets(world, targets)))
     end
     push!(exprs, :(_check_locked(world)))
 
