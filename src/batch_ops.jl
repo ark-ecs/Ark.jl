@@ -559,8 +559,9 @@ end
 
     has_fn = HFN == Val{true}
     return quote
-        _check_locked(world)
+        _check_relation_targets(world, targets)
 
+        _check_locked(world)
         _lock(world._lock)
 
         arches, arches_hot = _get_archetypes(world, filter)
@@ -667,6 +668,7 @@ end
     _check_is_subset(rel_types, add_types)
 
     return quote
+        _check_relation_targets(world, targets)
         _check_locked(world)
         _lock(world._lock)
 
@@ -998,6 +1000,7 @@ end
     world_has_rel = Val{_has_relations(CS)}()
 
     exprs = []
+    push!(exprs, :(_check_relation_targets(world, targets)))
     push!(exprs, :(_check_locked(world)))
     push!(
         exprs,

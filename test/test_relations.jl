@@ -195,7 +195,7 @@ end
     @test get_relations(world, e, (ChildOf, ChildOf2)) == (parent4, parent4)
 end
 
-@testset "set_relations! rejects stale entity with recycled id" begin
+@testset "Relation rejected for stale entity with recycled id" begin
     world = World(Position, ChildOf)
 
     old_parent = new_entity!(world, (Position(0.0, 0.0),))
@@ -212,6 +212,15 @@ end
     set_relations!(world, child, (ChildOf => new_parent,))
     @test get_relations(world, child, (ChildOf,)) == (new_parent,)
     @test_throws ArgumentError set_relations!(world, child, (ChildOf => old_parent,))
+
+    world = World(Position, ChildOf)
+
+    old_parent = new_entity!(world, (Position(0.0, 0.0),))
+    remove_entity!(world, old_parent)
+    new_parent = new_entity!(world, (Position(1.0, 1.0),))
+
+    new_entity!(world, (ChildOf(),); relations=(ChildOf => new_parent,))
+    @test_throws ArgumentError new_entity!(world, (ChildOf(),); relations=(ChildOf => old_parent,))
 end
 
 @testset "Issue #477" begin

@@ -160,11 +160,12 @@ Base.@constprop :aggressive function new_entity!(
     world::World,
     values::Tuple;
     relations::Tuple{Vararg{Pair{DataType,Entity}}}=(),
+    _unchecked=false,
 )
     rel_types = ntuple(i -> Val(relations[i].first), length(relations))
     targets = ntuple(i -> relations[i].second, length(relations))
 
-    entity, table_id = _new_entity!(world, Val{typeof(values)}(), values, rel_types, targets)
+    entity, table_id = _new_entity!(world, Val{typeof(values)}(), values, rel_types, targets, Val(_unchecked))
 
     has_entity_obs = _has_observers(world._event_manager, OnCreateEntity)
     has_rel_obs = !isempty(relations) && _has_observers(world._event_manager, OnAddRelations)
@@ -1085,7 +1086,6 @@ end
     changed = false
     mask = _clear_mask!(world._pool.mask)
     for (rel, trg) in zip(relations, targets)
-        _check_relation_target(world, trg)
         @inbounds target = world._relations[rel].targets[old_table.id]
         if target._id == 0
             throw(ArgumentError("entity does not have the requested relationship component"))
@@ -1260,7 +1260,8 @@ end
     values::Tuple,
     ::TR,
     targets::Tuple{Vararg{Entity}},
-) where {W<:World,TS<:Tuple,TR<:Tuple}
+    ::Val{Unchecked},
+) where {W<:World,TS<:Tuple,TR<:Tuple,Unchecked}
     types = _to_types(TS.parameters)
     rel_types = _to_types(TR)
 
@@ -1282,6 +1283,9 @@ end
     world_has_rel = Val{_has_relations(CS)}()
 
     exprs = []
+    if !Unchecked
+        push!(exprs, :(_check_relation_targets(world, targets)))
+    end
     push!(exprs, :(_check_locked(world)))
     push!(
         exprs,
@@ -1560,6 +1564,7 @@ end
                 throw(ArgumentError("can't copy a dead entity"))
             end
         ))
+        push!(exprs, :(_check_relation_targets(world, targets)))
     end
     push!(exprs, :(_check_locked(world)))
 
@@ -1816,6 +1821,7 @@ end
                 throw(ArgumentError("can't set relation targets of a dead entity"))
             end
         ))
+        push!(exprs, :(_check_relation_targets(world, targets)))
     end
 
     push!(exprs, :(_set_relations!(world, entity, $rel_ids, targets)))
@@ -1913,6 +1919,7 @@ end
                 throw(ArgumentError("can't $FuncName components on a dead entity"))
             end
         ))
+        push!(exprs, :(_check_relation_targets(world, targets)))
     end
     push!(exprs, :(_check_locked(world)))
 
@@ -2198,6 +2205,12 @@ function _check_locked(world::World)
                 :locked_world,
             ),
         )
+    end
+end
+
+function _check_relation_targets(world::World, relations::Tuple{Vararg{Entity}})
+    for rel in relations
+        _check_relation_target(world, rel)
     end
 end
 
