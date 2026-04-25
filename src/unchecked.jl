@@ -4,7 +4,7 @@ function _add_unchecked!(expr)
     fn_uncheck = (
         :has_components, :get_components, :set_components!, :add_components!,
         :remove_components!, :exchange_components!, :get_relations, :set_relations!,
-        :remove_entity!, :copy_entity!,
+        :remove_entity!, :copy_entity!, :new_entity!
     )
 
     exprs = [expr]
@@ -42,10 +42,11 @@ end
 
 Removes some checks performed by these functions: `has_components`, `get_components`,
 `set_components!`, `add_components!`, `remove_components!`, `exchange_components!`,
-`get_relations`, `set_relations!`, `remove_entity!`, `copy_entity!`.
+`get_relations`, `set_relations!`, `new_entity`, `remove_entity!`, `copy_entity!`.
 
-In particular, checks about the aliveness of the entity and presence of components
-on which the functions operate are skipped.
+In particular, these checks are skipped:
+- aliveness of the entity and its relation targets;
+- presence of components on which the functions operate.
 
 !!! warning
 
