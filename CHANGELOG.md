@@ -18,7 +18,7 @@
 
 ### Bugfixes
 
-- Fix bugs related to relationship being accepted even for stale entities (#605, #604)
+- Fix bugs related to relationship being accepted even for stale entities with recycled ids (#605, #604)
 
 ## [[v0.4.0]](https://github.com/ark-ecs/Ark.jl/compare/v0.3.2...v0.4.0)
 
