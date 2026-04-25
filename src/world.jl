@@ -1085,7 +1085,6 @@ end
     changed = false
     mask = _clear_mask!(world._pool.mask)
     for (rel, trg) in zip(relations, targets)
-        _check_relation_target(world, trg)
         @inbounds target = world._relations[rel].targets[old_table.id]
         if target._id == 0
             throw(ArgumentError("entity does not have the requested relationship component"))
