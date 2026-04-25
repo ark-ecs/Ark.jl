@@ -1091,7 +1091,7 @@ end
             throw(ArgumentError("entity does not have the requested relationship component"))
         end
 
-        if target == trg
+        if target._id == trg._id
             continue
         end
         _set_bit!(mask, rel)
@@ -1119,7 +1119,7 @@ function _get_exchange_targets_unchecked(
         @inbounds index = comp_relations.archetypes[old_table.archetype]
         @inbounds new_relations[index] = Pair(rel, trg)
 
-        if target != trg
+        if target._id != trg._id
             _set_bit!(mask, rel)
         end
     end
