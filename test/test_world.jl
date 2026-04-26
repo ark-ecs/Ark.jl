@@ -887,6 +887,7 @@ end
     end
     new_entities!(world, 0, (Position(99, 99), Velocity(99, 99)))
     new_entities!(world, 0, ())
+    @test_throws("ArgumentError: can't add a negative number of entities.", new_entities!(world, -1, ()))
 
     new_entities!(world, 100, (Position(99, 99), Velocity(99, 99))) do (ent, pos_col, vel_col)
         @test length(ent) == 100
