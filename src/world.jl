@@ -1229,6 +1229,15 @@ function _cleanup_archetypes(world::World, entity::Entity)
                         mask)
                 end
 
+                # Replace any dead entity references (other than zero_entity) with zero_entity.
+                # This can happen when batch-removing entities that are relation targets of each other.
+                for i in eachindex(new_relations)
+                    rel = new_relations[i]
+                    if !is_zero(rel.second) && !is_alive(world, rel.second)
+                        new_relations[i] = Pair(rel.first, zero_entity)
+                    end
+                end
+
                 new_table, found = _get_table(world, archetype, new_relations)
                 if !found
                     new_table_id = _create_table!(world, archetype, copy(new_relations))
