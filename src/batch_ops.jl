@@ -59,7 +59,7 @@ Base.@constprop :aggressive function new_entities!(
     relations::Tuple{Vararg{Pair{DataType,Entity}}}=(),
 ) where {F}
     if n < 0
-        throw(ArgumentError("can't add a negative number of entities"))
+        throw(ArgumentError("can't add a negative number of entities."))
     elseif n == 0
         return
     end
