@@ -84,7 +84,9 @@ Base.@constprop :aggressive function new_entities!(
     components::Tuple;
     relations::Tuple{Vararg{Pair{DataType,Entity}}}=(),
 )
-    if n == 0
+    if n < 0
+        throw(ArgumentError("can't add a negative number of entities."))
+    elseif n == 0
         return
     end
     rel_types = ntuple(i -> Val(relations[i].first), length(relations))
