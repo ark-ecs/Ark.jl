@@ -69,7 +69,7 @@ end
     vec_types = [:(_gpuvectorview_type($t, $QB)) for t in types]
     nt_type = :(NamedTuple{$names,Tuple{$(vec_types...)}})
     return quote
-        _StructArrayView{C,$nt_type,I}
+        _StructArrayView{C,$nt_type}
     end
 end
 
@@ -84,6 +84,6 @@ end
     view_exprs = [:($name = view(getfield(sa, :_components).$name.mem, idx)) for name in names]
     nt_type = :(NamedTuple{$names,Tuple{$(vec_types...)}})
     return quote
-        _StructArrayView{C,$nt_type,I}((; $(view_exprs...)), idx)
+        _StructArrayView{C,$nt_type}((; $(view_exprs...)))
     end
 end

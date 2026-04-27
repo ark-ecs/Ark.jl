@@ -1314,6 +1314,18 @@ end
         emit_event!(world, OnUpdateComponents, e, (Position, Altitude)))
 end
 
+@testset "custom event without registered observers does not throw" begin
+    world = World()
+
+    # Make num_observers > 0 without extending storage to custom event ids
+    observe!(_ -> nothing, world, OnCreateEntity)
+
+    registry = EventRegistry()
+    evt = new_event_type!(registry, :MyEvent)
+
+    @test emit_event!(world, evt, zero_entity) === nothing
+end
+
 @testset "Observer show" begin
     world = World(
         Position,

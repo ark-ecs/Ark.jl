@@ -123,9 +123,12 @@ end
         end
 
         v = view(a, 5:10)
-        x, y = v._components
+        x, y = getfield(v, :_components)
         @test isa(x, SubArray{Float64})
         @test isa(y, SubArray{Float64})
+        @test v.x === x
+        @test v.y === y
+        @test_throws ErrorException("type $T has no field z") v.z
         x, y = unpack(v)
         @test isa(x, SubArray{Float64})
         @test isa(y, SubArray{Float64})

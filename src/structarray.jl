@@ -50,7 +50,7 @@ end
         Tuple{$(map(t -> :(SubArray{$t,1,Vector{$t},Tuple{I},true}), types)...)},
     })
     return quote
-        _StructArrayView{C,$nt_type,I}
+        _StructArrayView{C,$nt_type}
     end
 end
 
@@ -64,6 +64,6 @@ end
     subarray_types = [:(SubArray{$(eltype(vt)),1,$vt,Tuple{I},true}) for vt in vec_types]
     nt_type = :(NamedTuple{$names,Tuple{$(subarray_types...)}})
     return quote
-        _StructArrayView{C,$nt_type,I}((; $(view_exprs...)), idx)
+        _StructArrayView{C,$nt_type}((; $(view_exprs...)))
     end
 end

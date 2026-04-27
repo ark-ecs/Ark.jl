@@ -195,6 +195,34 @@ end
     @test get_relations(world, e, (ChildOf, ChildOf2)) == (parent4, parent4)
 end
 
+@testset "Relation rejected for stale entity with recycled id" begin
+    world = World(Position, ChildOf)
+
+    old_parent = new_entity!(world, (Position(0.0, 0.0),))
+    child = new_entity!(world, (ChildOf(),); relations=(ChildOf => old_parent,))
+
+    remove_entity!(world, old_parent)
+    @test !is_alive(world, old_parent)
+
+    new_parent = new_entity!(world, (Position(1.0, 1.0),))
+    @test old_parent._id == new_parent._id
+    @test old_parent != new_parent
+    @test is_alive(world, new_parent)
+
+    set_relations!(world, child, (ChildOf => new_parent,))
+    @test get_relations(world, child, (ChildOf,)) == (new_parent,)
+    @test_throws ArgumentError set_relations!(world, child, (ChildOf => old_parent,))
+
+    world = World(Position, ChildOf)
+
+    old_parent = new_entity!(world, (Position(0.0, 0.0),))
+    remove_entity!(world, old_parent)
+    new_parent = new_entity!(world, (Position(1.0, 1.0),))
+
+    new_entity!(world, (ChildOf(),); relations=(ChildOf => new_parent,))
+    @test_throws ArgumentError new_entity!(world, (ChildOf(),); relations=(ChildOf => old_parent,))
+end
+
 @testset "Issue #477" begin
     world = World(ChildOf)
 
@@ -262,4 +290,26 @@ end
 
     # This raised an error due to locked world
     remove_entities!(world, Filter(world, (Position,); without=(ChildOf,)))
+end
+
+@testset "Remove entities Issue #606" begin
+    struct Tag end
+    struct R1 <: Relationship end
+    struct R2 <: Relationship end
+
+    world = World(Tag, R1, R2)
+
+    p1 = new_entity!(world, (Tag(),))
+    p2 = new_entity!(world, (Tag(),))
+
+    child = new_entity!(world, (R1(), R2()); relations=(R1 => p1, R2 => p2))
+    @test get_relations(world, child, (R1, R2)) == (p1, p2)
+
+    # Before the fix in PR #611, this panicked with:
+    # "ArgumentError: can't use a dead entity as relation target, except for the zero entity"
+    remove_entities!(world, Filter(world, (Tag,)))
+
+    @test is_alive(world, p1) == false
+    @test is_alive(world, p2) == false
+    @test get_relations(world, child, (R1, R2)) == (zero_entity, zero_entity)
 end

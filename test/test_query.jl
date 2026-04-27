@@ -433,7 +433,6 @@ end
                 dx::SubArray{Float64,1,Vector{Float64},Tuple{UnitRange{Int64}},true},
                 dy::SubArray{Float64,1,Vector{Float64},Tuple{UnitRange{Int64}},true},
             },
-            UnitRange{Int64},
         },
         SubArray{Int64,1,_storage_from_component(world, Int64),Tuple{Base.Slice{Base.OneTo{Int64}}},true},
         Union{Nothing,FieldViews.FieldViewable{NoIsBits,1,_storage_from_component(world, NoIsBits)}},
@@ -492,6 +491,27 @@ end
         for _ in query
         end
     )
+end
+
+@testset "Single eval of rhs for unpack" begin
+    world = World(Position => Storage{StructArray})
+    new_entity!(world, (Position(1.0, 2.0),))
+
+    calls = Ref(0)
+    function onebatch(world)
+        calls[] += 1
+        q = Query(world, (Position,))
+        cols = first(q)
+        close!(q)
+        return cols
+    end
+
+    @unpack entities, (x, y) = onebatch(world)
+
+    @test calls[] == 1
+    @test collect(entities)[1] isa Entity
+    @test collect(x) == [1]
+    @test collect(y) == [2]
 end
 
 @testset "Query show" begin

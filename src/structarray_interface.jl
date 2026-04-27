@@ -86,9 +86,8 @@ function Base.firstindex(sa::_AbstractStructArray)
     return 1
 end
 
-struct _StructArrayView{C,CS<:NamedTuple,I} <: AbstractArray{C,1}
+struct _StructArrayView{C,CS<:NamedTuple} <: AbstractArray{C,1}
     _components::CS
-    _indices::I
 end
 
 Base.@propagate_inbounds @generated function Base.getindex(sa::_StructArrayView{C}, i::Int) where {C}
@@ -101,6 +100,14 @@ Base.@propagate_inbounds @generated function Base.setindex!(sa::_StructArrayView
     names = fieldnames(C)
     set_exprs = [:(getfield(sa, :_components).$name[i] = getfield(c, $(QuoteNode(name)))) for name in names]
     return Expr(:block, set_exprs..., :(c))
+end
+
+@generated function Base.getproperty(sa::_StructArrayView{C}, name::Symbol) where {C}
+    names = fieldnames(C)
+    cases = [
+        :(name === $(QuoteNode(n)) && return getfield(sa, :_components).$n) for n in names
+    ]
+    return Expr(:block, cases..., :(throw(ErrorException(lazy"type $C has no field $name"))))
 end
 
 @generated function Base.fill!(sa::_StructArrayView{C}, value::C) where {C}
@@ -119,8 +126,8 @@ Base.@propagate_inbounds function Base.iterate(sa::_StructArrayView{C}, i::Int) 
     return sa[i], i + 1
 end
 
-Base.size(sa::_StructArrayView) = (length(sa._indices),)
-Base.length(sa::_StructArrayView) = length(sa._indices)
+Base.size(sa::_StructArrayView) = (length(sa),)
+Base.length(sa::_StructArrayView) = length(first(getfield(sa, :_components)))
 Base.eltype(::Type{<:_StructArrayView{C}}) where {C} = C
 Base.IndexStyle(::Type{<:_StructArrayView}) = IndexLinear()
 Base.eachindex(sa::_StructArrayView) = 1:length(sa)
@@ -160,7 +167,7 @@ end
 Unpacks the components (i.e. field vectors) of a `StructArray` column returned from a [Query](@ref).
 See also [@unpack](@ref).
 """
-unpack(a::_StructArrayView) = a._components
+unpack(a::_StructArrayView) = getfield(a, :_components)
 
 """
     @unpack ...
@@ -191,11 +198,18 @@ macro unpack(expr)
     @assert expr.head == :(=) "Expected assignment"
     lhs, rhs = expr.args
     @assert lhs.head == :tuple "Left-hand side must be a tuple"
+
     n = length(lhs.args)
-    rhs_exprs = [:(($rhs)[$i]) for i in 1:n]
+    tmp = gensym(:unpack_rhs)
+
+    rhs_exprs = Any[:($tmp[1])]
     for i in 2:n
-        rhs_exprs[i] = :(unpack(($rhs)[$i]))
+        push!(rhs_exprs, :(Ark.unpack($tmp[$i])))
     end
     new_rhs = Expr(:tuple, rhs_exprs...)
-    return Expr(:(=), esc(lhs), esc(new_rhs))
+
+    return quote
+        $tmp = $(esc(rhs))
+        $(esc(lhs)) = $new_rhs
+    end
 end

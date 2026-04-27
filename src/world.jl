@@ -15,6 +15,7 @@ struct NoResource end
 
 struct _WorldPool{M}
     relations::Vector{Pair{Int,Entity}}
+    cleanup_relations::Vector{Pair{Int,Entity}}
     entities::Vector{Entity}
     tables::Vector{UInt32}
     batches::Vector{_BatchTable{M}}
@@ -23,6 +24,7 @@ end
 
 function _WorldPool{M}() where {M}
     return _WorldPool(
+        Vector{Pair{Int,Entity}}(),
         Vector{Pair{Int,Entity}}(),
         Vector{Entity}(),
         Vector{UInt32}(),
@@ -158,11 +160,12 @@ Base.@constprop :aggressive function new_entity!(
     world::World,
     values::Tuple;
     relations::Tuple{Vararg{Pair{DataType,Entity}}}=(),
+    _unchecked=false,
 )
     rel_types = ntuple(i -> Val(relations[i].first), length(relations))
     targets = ntuple(i -> relations[i].second, length(relations))
 
-    entity, table_id = _new_entity!(world, Val{typeof(values)}(), values, rel_types, targets)
+    entity, table_id = _new_entity!(world, Val{typeof(values)}(), values, rel_types, targets, Val(_unchecked))
 
     has_entity_obs = _has_observers(world._event_manager, OnCreateEntity)
     has_rel_obs = !isempty(relations) && _has_observers(world._event_manager, OnAddRelations)
@@ -804,7 +807,7 @@ end
             _LastTable{$M}(_Mask{$M}(), UInt32(1)),
             _ComponentIndex{$(M)}($(length(types))),
             registry,
-            _EntityPool(UInt32(1024)),
+            _EntityPool(max(UInt32(initial_capacity), UInt32(1024))),
             _Lock(),
             graph,
             _Linear_Map{DataType,Any}(; zero_key=NoResource, zero_value=NoResource()),
@@ -1196,7 +1199,8 @@ function _get_archetypes(world::World, ids::Tuple{Vararg{Int}})
 end
 
 function _cleanup_archetypes(world::World, entity::Entity)
-    relations = Pair{Int,Entity}[]
+    relations = world._pool.cleanup_relations
+    empty!(relations)
     for arch in world._relation_archetypes
         archetype = world._archetypes[arch]
         if !haskey(archetype.target_tables, entity._id)
@@ -1212,6 +1216,9 @@ function _cleanup_archetypes(world::World, entity::Entity)
                 if rel.second._id == entity._id
                     push!(relations, Pair(rel.first, zero_entity))
                     has_target = true
+                elseif !is_alive(world, rel.second)
+                    # There may be further targets that were removed
+                    push!(relations, Pair(rel.first, zero_entity))
                 end
             end
             @check has_target == true
@@ -1256,7 +1263,8 @@ end
     values::Tuple,
     ::TR,
     targets::Tuple{Vararg{Entity}},
-) where {W<:World,TS<:Tuple,TR<:Tuple}
+    ::Val{Unchecked},
+) where {W<:World,TS<:Tuple,TR<:Tuple,Unchecked}
     types = _to_types(TS.parameters)
     rel_types = _to_types(TR)
 
@@ -1278,6 +1286,9 @@ end
     world_has_rel = Val{_has_relations(CS)}()
 
     exprs = []
+    if !Unchecked
+        push!(exprs, :(_check_relation_targets(world, targets)))
+    end
     push!(exprs, :(_check_locked(world)))
     push!(
         exprs,
@@ -1556,6 +1567,7 @@ end
                 throw(ArgumentError("can't copy a dead entity"))
             end
         ))
+        push!(exprs, :(_check_relation_targets(world, targets)))
     end
     push!(exprs, :(_check_locked(world)))
 
@@ -1624,6 +1636,8 @@ end
 
 @generated function _get_components(world::World, entity::Entity, ::TS, ::Val{Unchecked}) where {TS<:Tuple,Unchecked}
     types = _to_types(TS)
+    _check_no_duplicates(types)
+
     if length(types) == 0
         return :(())
     end
@@ -1663,6 +1677,8 @@ end
     world::W, entity::Entity, ::TS, ::Val{Unchecked},
 ) where {W<:World,TS<:Tuple,Unchecked}
     types = _to_types(TS)
+    _check_no_duplicates(types)
+
     exprs = []
 
     if !Unchecked
@@ -1717,7 +1733,9 @@ end
     values::Tuple,
     ::Val{Unchecked},
 ) where {TS<:Tuple,Unchecked}
-    types = TS.parameters
+    types = _to_types(TS.parameters)
+    _check_no_duplicates(types)
+
     exprs = Expr[]
     if !Unchecked
         push!(exprs, :(
@@ -1812,6 +1830,7 @@ end
                 throw(ArgumentError("can't set relation targets of a dead entity"))
             end
         ))
+        push!(exprs, :(_check_relation_targets(world, targets)))
     end
 
     push!(exprs, :(_set_relations!(world, entity, $rel_ids, targets)))
@@ -1909,6 +1928,7 @@ end
                 throw(ArgumentError("can't $FuncName components on a dead entity"))
             end
         ))
+        push!(exprs, :(_check_relation_targets(world, targets)))
     end
     push!(exprs, :(_check_locked(world)))
 
@@ -2197,6 +2217,12 @@ function _check_locked(world::World)
     end
 end
 
+function _check_relation_targets(world::World, relations::Tuple{Vararg{Entity}})
+    for rel in relations
+        _check_relation_target(world, rel)
+    end
+end
+
 function _check_relation_targets(world::World, relations::Vector{Pair{Int,Entity}})
     for rel in relations
         _check_relation_target(world, rel.second)
@@ -2226,14 +2252,20 @@ function _shuffle_table!(rng::AbstractRNG, world::World, table::_Table)
 
     for i in len:-1:2
         j = @inline rand(rng, Random.Sampler(rng, Base.OneTo(i), Val(1)))
+        _swap_rows!(world, archetype, table, i, j)
+    end
+    return
+end
 
-        @inbounds entity_i = table.entities._data[i]
-        @inbounds entity_j = table.entities._data[j]
-        @inbounds table.entities._data[i] = entity_j
-        @inbounds table.entities._data[j] = entity_i
+@inline function _swap_rows!(world::World, archetype::_Archetype, table::_Table, i::Int, j::Int)
+    @inbounds begin
+        entity_i = table.entities._data[i]
+        entity_j = table.entities._data[j]
+        table.entities._data[i] = entity_j
+        table.entities._data[j] = entity_i
 
-        @inbounds world._entities[entity_i._id] = _EntityIndex(table.id, j)
-        @inbounds world._entities[entity_j._id] = _EntityIndex(table.id, i)
+        world._entities[entity_i._id] = _EntityIndex(table.id, j)
+        world._entities[entity_j._id] = _EntityIndex(table.id, i)
 
         for comp in archetype.components
             _swap_components!(world, comp, table.id, i, j)
