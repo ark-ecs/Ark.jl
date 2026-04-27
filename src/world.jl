@@ -1633,6 +1633,8 @@ end
 
 @generated function _get_components(world::World, entity::Entity, ::TS, ::Val{Unchecked}) where {TS<:Tuple,Unchecked}
     types = _to_types(TS)
+    _check_no_duplicates(types)
+
     if length(types) == 0
         return :(())
     end
@@ -1672,6 +1674,8 @@ end
     world::W, entity::Entity, ::TS, ::Val{Unchecked},
 ) where {W<:World,TS<:Tuple,Unchecked}
     types = _to_types(TS)
+    _check_no_duplicates(types)
+
     exprs = []
 
     if !Unchecked
@@ -1726,7 +1730,9 @@ end
     values::Tuple,
     ::Val{Unchecked},
 ) where {TS<:Tuple,Unchecked}
-    types = TS.parameters
+    types = _to_types(TS.parameters)
+    _check_no_duplicates(types)
+
     exprs = Expr[]
     if !Unchecked
         push!(exprs, :(
