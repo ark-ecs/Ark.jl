@@ -62,6 +62,7 @@ has_pos_vel = (Position, Velocity) in we
 
 # output
 
+true
 ```
 
 Similarly, the components of an entity can be overwritten by new values via [set_components!](@ref) or by indexing:
@@ -75,6 +76,7 @@ we[(Position, Velocity)] = (Position(0, 0), Velocity(1, 1))
 
 # output
 
+(Position(0.0, 0.0), Velocity(1.0, 1.0))
 ```
 
 ## Adding and removing components

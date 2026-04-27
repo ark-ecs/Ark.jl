@@ -20,9 +20,9 @@ function _add_unchecked!(expr)
         :remove_entity!, :copy_entity!, :new_entity!,
     )
     fn_uncheck_base = (
-        getindex = :(Ark._unchecked_getindex),
-        setindex! = :(Ark._unchecked_setindex!),
-        in = :(Ark._unchecked_in),
+        getindex=:(Ark._unchecked_getindex),
+        (setindex!)=:(Ark._unchecked_setindex!),
+        in=:(Ark._unchecked_in),
     )
 
     exprs = [expr]
@@ -36,10 +36,10 @@ function _add_unchecked!(expr)
             ref_ex = ex.args[1]
             ex.head = :call
             ex.args = [
-                fn_uncheck_base.setindex!, 
+                fn_uncheck_base.setindex!,
                 ref_ex.args[1],
                 ex.args[2],
-                ref_ex.args[2:end]...
+                ref_ex.args[2:end]...,
             ]
         elseif ex.head == :call
             fn = ex.args[1]
@@ -59,7 +59,8 @@ function _add_unchecked!(expr)
             end
 
             is_fn = fn isa Symbol && fn in keys(fn_uncheck_base)
-            is_fn_base = fn isa Expr && fn.head == :. && fn.args[1] == :Base && fn.args[2].value in keys(fn_uncheck_base)
+            is_fn_base =
+                fn isa Expr && fn.head == :. && fn.args[1] == :Base && fn.args[2].value in keys(fn_uncheck_base)
             if is_fn
                 ex.args[1] = fn_uncheck_base[ex.args[1]]
             elseif is_fn_base

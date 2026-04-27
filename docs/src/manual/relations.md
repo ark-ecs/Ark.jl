@@ -135,6 +135,7 @@ we.rel[ChildOf] = parent2
 
 # output
 
+Entity(4, 0)
 ```
 
 This also works for changing the targets of multiple relations in one function call.
@@ -153,7 +154,7 @@ parent_entity = we.rel[ChildOf]
 
 # output
 
-(Entity(3, 0),)
+Entity(3, 0)
 ```
 
 Note that [get_relations](@ref) always returns a tuple of entities, while indexing `we.rel[RelationComponent]` returns the single target entity directly.

@@ -18,7 +18,7 @@ pos, vel = we[(Position, Velocity)]
 
 # Set components
 we[Position] = Position(0, 0)
-we[(Position, Velocity)] = (Position(0, 0), Velocity(1,1))
+we[(Position, Velocity)] = (Position(0, 0), Velocity(1, 1))
 
 # Check components
 has_pos = Position in we
@@ -29,22 +29,23 @@ we.rel[ChildOf] = parent_entity
 parent_entity = we.rel[ChildOf]
 
 # output
+
 ```
 
 !!! note
 
     Storing the handles inside containers is not recommended since it would take up more memory than necessary. Store
-	directly the entities instead. Handles are provided only to allow to use a more appealing syntax for access and
+    directly the entities instead. Handles are provided only to allow to use a more appealing syntax for access and
     modification of components and relationships.
 """
 struct EntityHandle{W<:World}
-	world::W
-	entity::Entity
+    world::W
+    entity::Entity
 end
 
 struct _EntityHandleRel{W<:World}
-	world::W
-	entity::Entity
+    world::W
+    entity::Entity
 end
 
 @inline Base.getindex(world::World, entity::Entity) = EntityHandle(world, entity)
@@ -81,11 +82,19 @@ end
     return get_components(entityhandle.world, entityhandle.entity, comps; _unchecked=true)
 end
 
-@inline Base.@constprop :aggressive function _unchecked_setindex!(entityhandle::EntityHandle, value, ::Type{T}) where {T}
+@inline Base.@constprop :aggressive function _unchecked_setindex!(
+    entityhandle::EntityHandle,
+    value,
+    ::Type{T},
+) where {T}
     set_components!(entityhandle.world, entityhandle.entity, (value,); _unchecked=true)
 end
 
-@inline Base.@constprop :aggressive function _unchecked_setindex!(entityhandle::EntityHandle, values::Tuple, comps::Tuple)
+@inline Base.@constprop :aggressive function _unchecked_setindex!(
+    entityhandle::EntityHandle,
+    values::Tuple,
+    comps::Tuple,
+)
     set_components!(entityhandle.world, entityhandle.entity, values; _unchecked=true)
 end
 
@@ -103,18 +112,18 @@ end
     relations::Tuple=(),
     _unchecked::Bool=false,
 )
-	world = entityhandle.world
-	entity = entityhandle.entity
+    world = entityhandle.world
+    entity = entityhandle.entity
     return add_components!(world, entity, values; relations, _unchecked)
 end
 
 @inline Base.@constprop :aggressive function remove_components!(
-	entityhandle::EntityHandle,
+    entityhandle::EntityHandle,
     comp_types::Tuple;
     _unchecked::Bool=false,
 )
-	world = entityhandle.world
-	entity = entityhandle.entity
+    world = entityhandle.world
+    entity = entityhandle.entity
     return remove_components!(world, entity, comp_types; _unchecked)
 end
 
@@ -133,11 +142,19 @@ end
     return get_relations(entityhandle.world, entityhandle.entity, comps)
 end
 
-@inline Base.@constprop :aggressive function Base.setindex!(entityhandle::_EntityHandleRel, target::Entity, ::Type{T}) where {T}
+@inline Base.@constprop :aggressive function Base.setindex!(
+    entityhandle::_EntityHandleRel,
+    target::Entity,
+    ::Type{T},
+) where {T}
     set_relations!(entityhandle.world, entityhandle.entity, (T => target,))[1]
 end
 
-@inline Base.@constprop :aggressive function Base.setindex!(entityhandle::_EntityHandleRel, targets::Tuple, comps::Tuple)
+@inline Base.@constprop :aggressive function Base.setindex!(
+    entityhandle::_EntityHandleRel,
+    targets::Tuple,
+    comps::Tuple,
+)
     relations = ntuple(i -> comps[i] => targets[i], length(comps))
     set_relations!(entityhandle.world, entityhandle.entity, relations)
 end
@@ -150,11 +167,19 @@ end
     return get_relations(entityhandle.world, entityhandle.entity, comps; _unchecked=true)
 end
 
-@inline Base.@constprop :aggressive function _unchecked_setindex!(entityhandle::_EntityHandleRel, target::Entity, ::Type{T}) where {T}
+@inline Base.@constprop :aggressive function _unchecked_setindex!(
+    entityhandle::_EntityHandleRel,
+    target::Entity,
+    ::Type{T},
+) where {T}
     set_relations!(entityhandle.world, entityhandle.entity, (T => target,); _unchecked=true)[1]
 end
 
-@inline Base.@constprop :aggressive function _unchecked_setindex!(entityhandle::_EntityHandleRel, targets::Tuple, comps::Tuple)
+@inline Base.@constprop :aggressive function _unchecked_setindex!(
+    entityhandle::_EntityHandleRel,
+    targets::Tuple,
+    comps::Tuple,
+)
     relations = ntuple(i -> comps[i] => targets[i], length(comps))
     set_relations!(entityhandle.world, entityhandle.entity, relations; _unchecked=true)
 end
