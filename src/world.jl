@@ -1216,6 +1216,9 @@ function _cleanup_archetypes(world::World, entity::Entity)
                 if rel.second._id == entity._id
                     push!(relations, Pair(rel.first, zero_entity))
                     has_target = true
+                elseif !is_alive(world, rel.second)
+                    # There may be further targets that were removed
+                    push!(relations, Pair(rel.first, zero_entity))
                 end
             end
             @check has_target == true
