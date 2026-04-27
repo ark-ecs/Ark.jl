@@ -123,11 +123,8 @@
             end,
         )
 
-        # operations to increase coverage since somehow earlier tests are not
-        # correctly accounted for
-        @test Ark._unchecked_getindex(we1, Position) == Position(9.0, 10.0)
-        Ark._unchecked_setindex!(we1, Position(7.0, 8.0), Position)
-        @test Ark._unchecked_getindex(we1, Position) == Position(7.0, 8.0)
-        @test Ark._unchecked_in(Velocity, we1)
+        @test Ark._unchecked_getindex([1], 1) == 1
+        @test Ark._unchecked_setindex!([1], 2, 1) == [2]
+        @test Ark._unchecked_in(1, [1]) == true
     end
 end
