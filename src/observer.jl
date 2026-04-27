@@ -23,8 +23,8 @@ See [Event](@ref) for built-in, and [EventRegistry](@ref) for custom event types
   - `components::Tuple=()`: The component types to observe. Must be empty for `OnCreateEntity` and `OnRemoveEntity`.
   - `with::Tuple=()`: Components the entity must have.
   - `without::Tuple=()`: Components the entity must not have.
-  - `exclusive::Bool=false`: Makes the observer exclusive for entities that have exactly the components given be `with`.
-  - `register::Bool=true`: Whether the observer is registered immediately. Alternatively, register later with [observe!](@ref observe!(::World, ::Observer; ::Bool))
+  - `exclusive::Bool=false`: Makes the observer exclusive for entities that have exactly the components given by `with`.
+  - `register::Bool=true`: Whether the observer is registered immediately. Alternatively, register later with [register!](@ref register!(::Observer)).
 
 # Example
 
@@ -70,6 +70,11 @@ end
     comp_types = _to_types(CT)
     with_types = _to_types(WT)
     without_types = _to_types(WO)
+
+    _check_no_duplicates(comp_types)
+    _check_no_duplicates(with_types)
+    _check_no_duplicates(without_types)
+    _check_if_intersect(with_types, without_types)
 
     if EX === Val{true} && !isempty(without_types)
         throw(ArgumentError("cannot use 'exclusive' together with 'without'"))
