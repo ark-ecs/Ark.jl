@@ -1730,7 +1730,7 @@ end
     values::Tuple,
     ::Val{Unchecked},
 ) where {TS<:Tuple,Unchecked}
-    types = TS.parameters
+    types = _to_types(TS.parameters)
     _check_no_duplicates(types)
 
     exprs = Expr[]
