@@ -12,10 +12,11 @@ function _EntityPool(cap::UInt32)
 end
 
 function _get_entity(p::_EntityPool)::Entity
-    if p.next == 0
+    next = p.next
+    if next == 0
         return _get_new_entity(p)
     end
-    curr = p.next
+    curr = next
     temp = p.entities[curr]
 
     p.next = temp._id

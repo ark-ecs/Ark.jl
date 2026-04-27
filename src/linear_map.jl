@@ -132,15 +132,17 @@ end
 
 put_zero_keys!(d::_Linear_Map{K,V,true}) where {K,V} = nothing
 function put_zero_keys!(d::_Linear_Map{K,V,false}) where {K,V}
-    for i in eachindex(d.keys)
-        d.keys[i] = d.zero_key
+    keys = d.keys
+    for i in eachindex(keys)
+        keys[i] = d.zero_key
     end
 end
 
 put_zero_vals!(d::_Linear_Map{K,V,ZK,true}) where {K,V,ZK} = nothing
 function put_zero_vals!(d::_Linear_Map{K,V,ZK,false}) where {K,V,ZK}
-    for i in eachindex(d.vals)
-        d.vals[i] = d.zero_value
+    vals = d.vals
+    for i in eachindex(vals)
+        vals[i] = d.zero_value
     end
 end
 
@@ -185,23 +187,26 @@ end
 
 function _backshift_delete!(d::_Linear_Map, hole::Int)
     mask = d.mask
+    keys = d.keys
+    vals = d.vals
+    occupied = d.occupied
     next = (hole & mask) + 1
-    @inbounds next_occ = d.occupied[next]
+    @inbounds next_occ = occupied[next]
     @inbounds while next_occ != 0x00
-        next_key = d.keys[next]
+        next_key = keys[next]
         start = (hash(next_key) & mask) % Int + 1
         # move next into hole iff hole lies on this key probe path
         if ((next - start) & mask) > ((hole - start) & mask)
-            d.keys[hole] = next_key
-            d.vals[hole] = d.vals[next]
-            d.occupied[hole] = next_occ
+            keys[hole] = next_key
+            vals[hole] = vals[next]
+            occupied[hole] = next_occ
             hole = next
         end
         next = (next & mask) + 1
-        next_occ = d.occupied[next]
+        next_occ = occupied[next]
     end
 
-    @inbounds d.occupied[hole] = 0x00
+    @inbounds occupied[hole] = 0x00
     put_zero_key!(d, hole)
     put_zero_val!(d, hole)
     return nothing
