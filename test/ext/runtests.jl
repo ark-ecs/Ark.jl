@@ -8,4 +8,4 @@ using Test
 
 include("../TestTypes.jl")
 
-include("test_mooncake_interop.jl")
+include("test_autodiff_interop.jl")
