@@ -291,3 +291,18 @@ end
     # This raised an error due to locked world
     remove_entities!(world, Filter(world, (Position,); without=(ChildOf,)))
 end
+
+@testset "Remove entities Issue #606" begin
+    struct Tag end
+    struct R1 <: Relationship end
+    struct R2 <: Relationship end
+
+    w = World(Tag, R1, R2)
+
+    p1 = new_entity!(w, (Tag(),))
+    p2 = new_entity!(w, (Tag(),))
+
+    child = new_entity!(w, (R1(), R2()); relations=(R1 => p1, R2 => p2))
+
+    remove_entities!(w, Filter(w, (Tag,)))
+end
