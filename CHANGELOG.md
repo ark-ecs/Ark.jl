@@ -18,7 +18,8 @@
 
 ### Bugfixes
 
-- Fix bugs related to relationship being accepted even for stale entities with recycled ids (#605, #604)
+- Fixes bugs related to relationship being accepted even for stale entities with recycled ids (#605, #604)
+- Fixes a bug where removing multiple relation targets of the same entity caused an error (#611, fixes #606)
 
 ## [[v0.4.0]](https://github.com/ark-ecs/Ark.jl/compare/v0.3.2...v0.4.0)
 

@@ -291,3 +291,25 @@ end
     # This raised an error due to locked world
     remove_entities!(world, Filter(world, (Position,); without=(ChildOf,)))
 end
+
+@testset "Remove entities Issue #606" begin
+    struct Tag end
+    struct R1 <: Relationship end
+    struct R2 <: Relationship end
+
+    world = World(Tag, R1, R2)
+
+    p1 = new_entity!(world, (Tag(),))
+    p2 = new_entity!(world, (Tag(),))
+
+    child = new_entity!(world, (R1(), R2()); relations=(R1 => p1, R2 => p2))
+    @test get_relations(world, child, (R1, R2)) == (p1, p2)
+
+    # Before the fix in PR #611, this panicked with:
+    # "ArgumentError: can't use a dead entity as relation target, except for the zero entity"
+    remove_entities!(world, Filter(world, (Tag,)))
+
+    @test is_alive(world, p1) == false
+    @test is_alive(world, p2) == false
+    @test get_relations(world, child, (R1, R2)) == (zero_entity, zero_entity)
+end
