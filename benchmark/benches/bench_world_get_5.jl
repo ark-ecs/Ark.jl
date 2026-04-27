@@ -10,7 +10,7 @@ function setup_world_get_5(n_entities::Int)
 
     sum = 0.0
     for e in entities
-        pos, vel, a, b, c = get_components(world, e, (Position, Velocity, CompA, CompB, CompC))
+        pos, vel, a, b, c = world[e][(Position, Velocity, CompA, CompB, CompC)]
         sum += pos.x + vel.dx + a.x + b.x + c.x
     end
     sum
@@ -22,7 +22,7 @@ function benchmark_world_get_5(args, n)
     entities, world = args
     sum = 0.0
     for e in entities
-        pos, vel, a, b, c = get_components(world, e, (Position, Velocity, CompA, CompB, CompC))
+        pos, vel, a, b, c = world[e][(Position, Velocity, CompA, CompB, CompC)]
         sum += pos.x + vel.dx + a.x + b.x + c.x
     end
 end
@@ -31,7 +31,7 @@ function benchmark_world_get_5_unchecked(args, n)
     entities, world = args
     sum = 0.0
     @unchecked for e in entities
-        pos, vel, a, b, c = get_components(world, e, (Position, Velocity, CompA, CompB, CompC))
+        pos, vel, a, b, c = world[e][(Position, Velocity, CompA, CompB, CompC)]
         sum += pos.x + vel.dx + a.x + b.x + c.x
     end
 end

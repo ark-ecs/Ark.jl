@@ -28,6 +28,7 @@ can be attached to an entity.
 
 ```@docs
 Entity
+EntityHandle
 zero_entity
 new_entity!
 new_entities!

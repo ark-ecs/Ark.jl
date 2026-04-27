@@ -37,6 +37,7 @@ include("observer.jl")
 include("filter.jl")
 include("query.jl")
 include("batch_ops.jl")
+include("handle.jl")
 include("unchecked.jl")
 !_is_testing() && include("precompile.jl")
 
@@ -51,7 +52,7 @@ export exchange_components!
 export get_relations, set_relations!
 export get_resource, has_resource, add_resource!, set_resource!, remove_resource!
 
-export Entity
+export Entity, EntityHandle
 export is_zero
 
 export Query, Filter

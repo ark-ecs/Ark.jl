@@ -11,7 +11,7 @@ function setup_world_get_rel(n_entities::Int)
 
     sum = 0.0
     for e in entities
-        p, = get_relations(world, e, (ChildOf,))
+        p = world[e].rel[ChildOf]
         sum += p._id
     end
     sum
