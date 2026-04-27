@@ -25,11 +25,12 @@ has_pos = Position in we
 has_pos_vel = (Position, Velocity) in we
 
 # Relationships
-we.rel[ChildOf] = parent_entity
-parent_entity = we.rel[ChildOf]
+we.rel[ChildOf] = parent
+parent = we.rel[ChildOf]
 
 # output
 
+Entity(2, 0)
 ```
 
 !!! note

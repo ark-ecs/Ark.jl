@@ -398,6 +398,7 @@ set_components!(world, entity, (Position(0, 0), Velocity(1, 1)))
 
 # output
 
+(Position(0.0, 0.0), Velocity(1.0, 1.0))
 ```
 """
 @inline Base.@constprop :aggressive function set_components!(
@@ -447,6 +448,7 @@ set_relations!(world, entity, (ChildOf => parent,))
 
 # output
 
+(Entity(2, 0),)
 ```
 """
 @inline Base.@constprop :aggressive function set_relations!(
