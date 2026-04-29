@@ -55,6 +55,15 @@ end
             @test [b.x for b in bs] == [1.0, 2.0]
         end
 
+        remove_entity!(world, e2)
+        sort_entities!(filter)
+
+        for (entities, as, bs) in Query(filter)
+            @test collect(entities) == [e3]
+            @test [a.x for a in as] == [2.0]
+            @test [b.x for b in bs] == [2.0]
+        end
+
         world = World(Position, Velocity, Health)
 
         xs = [3.0, -2.0, 5.0, 1.0, 4.0]
