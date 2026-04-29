@@ -36,6 +36,8 @@ include("world.jl")
 include("observer.jl")
 include("filter.jl")
 include("query.jl")
+include("shuffle.jl")
+include("sort.jl")
 include("batch_ops.jl")
 include("handle.jl")
 include("unchecked.jl")
@@ -56,7 +58,8 @@ export Entity, EntityHandle
 export is_zero
 
 export Query, Filter
-export close!, count_entities, shuffle_entities!, unregister!
+export close!, unregister!
+export count_entities, shuffle_entities!, sort_entities!
 
 export Entities
 

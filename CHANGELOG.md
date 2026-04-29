@@ -9,6 +9,7 @@
 
 ### Features
 
+- Adds support for sorting tables based on filters (#600, #615)
 - Adds support for adding an arbitrary number of events, before it was capped to 64 (#573)
 
 ### Performance
