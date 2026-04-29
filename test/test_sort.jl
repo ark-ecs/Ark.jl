@@ -34,7 +34,7 @@ end
         archetype = world._archetypes[table.archetype]
         sortable_entities = _SortableEntities(world, archetype, table)
         @test IndexStyle(typeof(sortable_entities)) == IndexLinear()
-        @test size(sortable_entities) == (2,)
+        @test size(sortable_entities) == (0,)
         @test firstindex(sortable_entities) == 1
 
         filter = Filter(world, (A, B))
