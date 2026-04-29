@@ -82,7 +82,7 @@ end
 
 function _sort_table_entities!(world::World, table::_Table; kwargs...)
     if length(table) <= 1
-    	return
+        return
     end
 
     @inbounds archetype = world._archetypes[table.archetype]
