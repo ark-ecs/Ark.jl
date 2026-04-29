@@ -30,6 +30,8 @@ end
         # swap-removes e3 into the first row, so rows are now unsorted
         remove_entity!(world, e1)
 
+        filter = Filter(world, (A, B))
+
         for (entities, as, bs) in Query(filter)
             @test collect(entities) == [e3, e2]
             @test [a.x for a in as] == [2.0, 1.0]

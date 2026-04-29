@@ -37,6 +37,7 @@ remove_entities!
 copy_entity!
 is_alive
 is_zero
+isless(::Entity,::Entity)
 ```
 
 ## [Components](@id components-api)
