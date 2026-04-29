@@ -9,8 +9,10 @@ Base.IndexStyle(::Type{<:_SortableEntities}) = IndexLinear()
 Base.eltype(::Type{<:_SortableEntities}) = Entity
 Base.size(v::_SortableEntities) = (length(v),)
 Base.length(v::_SortableEntities) = length(v.table.entities)
-Base.firstindex(v::_SortableEntities) = 1
 Base.lastindex(v::_SortableEntities) = length(v)
+function Base.firstindex(v::_SortableEntities)
+    return 1
+end
 
 @inline function Base.getindex(v::_SortableEntities, i::Int)
     return @inbounds v.table.entities._data[i]
