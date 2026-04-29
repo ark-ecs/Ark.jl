@@ -19,6 +19,23 @@ function _healths(world, entities)
     return [world[e][Health].health for e in entities]
 end
 
+    world = filter._world
+    _check_locked(world)
+
+    _lock(world._lock)
+    if _is_cached(filter._filter)
+        for table_id in filter._filter.tables.ids
+            table = @inbounds world._tables[table_id]
+            if !isempty(table.entities)
+                _sort_table_entities!(world, table; kwargs...)
+            end
+        end
+    else
+        arches, arches_hot = _get_archetypes(world, filter)
+        _sort_entities!(world, filter._filter, arches, arches_hot; kwargs...)
+    end
+    _unlock(world._lock)
+
 @testset "sort_entities!" begin
     @testset "basic sort" begin
         world = World(A, B)
@@ -29,6 +46,13 @@ end
 
         # swap-removes e3 into the first row, so rows are now unsorted
         remove_entity!(world, e1)
+
+        table = first(world._tables)
+        archetype = world._archetypes[table.archetype]
+        sortable_entities = _SortableEntities(world, archetype, table)
+        @test IndexStyle(typeof(sortable_entities)) == IndexLinear()
+        @test size(sortable_entities) == (2,)
+        @test firstindex(sortable_entities) == 1
 
         filter = Filter(world, (A, B))
 
