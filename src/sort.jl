@@ -39,6 +39,9 @@ per-table (archetype).
 
 Accepts the same keyword arguments as `sort!`. The `by` and `lt`
 functions operate on `Entity` values.
+
+By default, the comparisons operates on the id of the entities
+if no `by` function is specified.
 """
 function sort_entities!(filter::Filter; kwargs...)
     world = filter._world

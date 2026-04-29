@@ -21,6 +21,31 @@ end
 
 @testset "sort_entities!" begin
     @testset "basic sort" begin
+        world = World(A, B)
+
+        e1 = new_entity!(world, (A(0.0), B(0.0)))
+        e2 = new_entity!(world, (A(1.0), B(1.0)))
+        e3 = new_entity!(world, (A(2.0), B(2.0)))
+
+        # swap-removes e3 into the first row, so rows are now unsorted
+        remove_entity!(world, e1)
+
+        for (entities, as, bs) in Query(filter)
+            @test collect(entities) == [e3, e2]
+            @test [a.x for a in as] == [2.0, 1.0]
+            @test [b.x for b in bs] == [2.0, 1.0]
+        end
+
+        filter = Filter(world, (A, B))
+
+        @test sort_entities!(filter) === filter
+
+        for (entities, as, bs) in Query(filter)
+            @test collect(entities) == [e2, e3]
+            @test [a.x for a in as] == [1.0, 2.0]
+            @test [b.x for b in bs] == [1.0, 2.0]
+        end
+
         world = World(Position, Velocity, Health)
 
         xs = [3.0, -2.0, 5.0, 1.0, 4.0]
