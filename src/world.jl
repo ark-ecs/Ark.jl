@@ -2248,17 +2248,6 @@ end
         k -> :(_swap_component_data!(world._storages.$k, table, i, j)))
 end
 
-function _shuffle_table!(rng::AbstractRNG, world::World, table::_Table)
-    len = length(table)
-    archetype = world._archetypes[table.archetype]
-
-    for i in len:-1:2
-        j = @inline rand(rng, Random.Sampler(rng, Base.OneTo(i), Val(1)))
-        _swap_rows!(world, archetype, table, i, j)
-    end
-    return
-end
-
 @inline function _swap_rows!(world::World, archetype::_Archetype, table::_Table, i::Int, j::Int)
     @inbounds begin
         entity_i = table.entities._data[i]

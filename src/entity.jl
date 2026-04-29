@@ -23,6 +23,13 @@ function is_zero(entity::Entity)::Bool
     return entity._id == 1
 end
 
+"""
+    Base.isless(a::Entity, b::Entity)
+
+Test whether the id of `a` is smaller than the id of `b`.
+"""
+Base.isless(a::Entity, b::Entity) = isless(a._id, b._id)
+
 function _new_entity(id::UInt32, gen::UInt32)
     _Entity(id, gen)
 end
