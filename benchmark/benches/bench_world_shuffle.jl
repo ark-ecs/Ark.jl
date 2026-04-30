@@ -4,7 +4,7 @@ using Random
 function setup_world_shuffle(n_entities::Int)
     world = World(
         CompN{1}, CompN{2}, CompN{3}, CompN{4}, CompN{5},
-        CompN{6}, CompN{7}, CompN{8}, CompN{9}, CompN{10}
+        CompN{6}, CompN{7}, CompN{8}, CompN{9}, CompN{10},
     )
 
     for i in 1:n_entities
