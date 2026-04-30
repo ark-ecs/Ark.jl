@@ -8,14 +8,18 @@ function setup_world_shuffle(n_entities::Int)
     )
 
     for i in 1:n_entities
-        new_entity!(world, (
+        new_entity!(
+            world,
+            (
                 CompN{1}(i, i), CompN{2}(i, i), CompN{3}(i, i), CompN{4}(i, i), CompN{5}(i, i),
                 CompN{6}(i, i), CompN{7}(i, i), CompN{8}(i, i), CompN{9}(i, i), CompN{10}(i, i),
             ),
         )
     end
 
-    f = Filter(world, (
+    f = Filter(
+        world,
+        (
             CompN{1}, CompN{2}, CompN{3}, CompN{4}, CompN{5},
             CompN{6}, CompN{7}, CompN{8}, CompN{9}, CompN{10},
         ),
