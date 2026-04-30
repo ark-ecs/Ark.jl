@@ -46,7 +46,7 @@ By default, the comparisons operates on the id of the entities
 if no `by` function is specified. Also, the sorting algorithm
 is `Base.Sort.QuickSort` since it is non-allocating.
 """
-function sort_entities!(filter::Filter; alg=Base.Sort.QuickSort, kwargs...)
+function sort_entities!(filter::Filter; kwargs...)
     world = filter._world
     _check_locked(world)
 
