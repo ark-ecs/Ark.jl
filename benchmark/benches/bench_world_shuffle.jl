@@ -30,7 +30,7 @@ end
 
 function benchmark_world_sort(args)
     _, f = args
-    sort_entities!(f; by=e->e[CompN{1}].x)
+    sort_entities!(f; by=e->f._world[e][CompN{1}].x)
 end
 
 for n in (100, 10_000)
