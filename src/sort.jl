@@ -55,12 +55,12 @@ function sort_entities!(filter::Filter; alg=Base.Sort.QuickSort, kwargs...)
         for table_id in filter._filter.tables.ids
             table = @inbounds world._tables[table_id]
             if !isempty(table.entities)
-                _sort_table_entities!(world, table; kwargs...)
+                _sort_table_entities!(world, table; alg, kwargs...)
             end
         end
     else
         arches, arches_hot = _get_archetypes(world, filter)
-        _sort_entities!(world, filter._filter, arches, arches_hot; kwargs...)
+        _sort_entities!(world, filter._filter, arches, arches_hot; alg, kwargs...)
     end
     _unlock(world._lock)
 
@@ -72,6 +72,7 @@ function _sort_entities!(
     filter::_MaskFilter,
     archetypes::Vector{<:_Archetype},
     archetypes_hot::Vector{<:_ArchetypeHot};
+    alg::Base.Sort.Algorithm,
     kwargs...,
 )
     @_each_matching_table(
@@ -80,13 +81,13 @@ function _sort_entities!(
         archetypes,
         archetypes_hot,
         table,
-        _sort_table_entities!(world, table; kwargs...)
+        _sort_table_entities!(world, table; alg, kwargs...)
     )
 
     return
 end
 
-function _sort_table_entities!(world::World, table::_Table; kwargs...)
+function _sort_table_entities!(world::World, table::_Table; alg::Base.Sort.Algorithm, kwargs...)
     if length(table) <= 1
         return
     end
@@ -94,7 +95,7 @@ function _sort_table_entities!(world::World, table::_Table; kwargs...)
     @inbounds archetype = world._archetypes[table.archetype]
     sortable = _SortableEntities(world, archetype, table)
 
-    sort!(sortable; kwargs...)
+    sort!(sortable; alg, kwargs...)
 
     return
 end
