@@ -7,8 +7,6 @@ function setup_world_shuffle(n_entities::Int)
         CompN{6}, CompN{7}, CompN{8}, CompN{9}, CompN{10}
     )
 
-    entities = Vector{Entity}()
-
     for _ in 1:n_entities
         new_entity!(world, (
             CompN{1}(0, 0), CompN{2}(0, 0), CompN{3}(0, 0), CompN{4}(0, 0), CompN{5}(0, 0),
