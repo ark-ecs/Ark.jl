@@ -1,38 +1,4 @@
 
-struct _SortableEntities{W<:World,M} <: AbstractVector{Entity}
-    world::W
-    archetype::_Archetype{M}
-    table::_Table
-end
-
-Base.IndexStyle(::Type{<:_SortableEntities}) = IndexLinear()
-Base.eltype(::Type{<:_SortableEntities}) = Entity
-Base.size(v::_SortableEntities) = (length(v),)
-Base.length(v::_SortableEntities) = length(v.table.entities)
-Base.lastindex(v::_SortableEntities) = length(v)
-function Base.firstindex(v::_SortableEntities)
-    return 1
-end
-
-@inline function Base.getindex(v::_SortableEntities, i::Int)
-    return @inbounds v.table.entities._data[i]
-end
-
-@inline function Base.setindex!(v::_SortableEntities, entity::Entity, i::Int)
-    world, table, archetype = v.world, v.table, v.archetype
-
-    @inbounds idx = world._entities[entity._id]
-    j = Int(idx.row)
-
-    @check idx.table == table.id
-
-    if i != j
-        _swap_rows!(world, archetype, table, i, j)
-    end
-
-    return entity
-end
-
 """
     sort_entities!(filter::Filter; kwargs...)
 
@@ -88,14 +54,50 @@ function _sort_entities!(
 end
 
 function _sort_table_entities!(world::World, table::_Table; alg::Base.Sort.Algorithm, kwargs...)
-    if length(table) <= 1
+    len = length(table)
+    if len <= 1
         return
     end
 
-    @inbounds archetype = world._archetypes[table.archetype]
-    sortable = _SortableEntities(world, archetype, table)
+    @inbounds begin
 
-    sort!(sortable; alg, kwargs...)
+        sort!(table.entities._data; alg, kwargs...)
+
+        archetype = world._archetypes[table.archetype]
+        entities = table.entities
+
+        # Components still have the old order
+        for start in 1:len
+            entity = entities[start]
+            index = world._entities[entity._id]
+
+            # table == 0 means this row's cycle was already processed
+            if index.table == UInt32(0)
+                continue
+            end
+
+            old_row = Int(index.row)
+
+            if old_row != start
+                for comp in archetype.components
+                    _permute_component_cycle!(
+                        world,
+                        comp,
+                        table.id,
+                        entities,
+                        world._entities,
+                        start,
+                    )
+                end
+            end
+        end
+
+        # Restore the entity index to the final shuffled positions
+        for row in 1:len
+            entity = entities[row]
+            world._entities[entity._id] = _EntityIndex(table.id, UInt32(row))
+        end
+    end
 
     return
 end
