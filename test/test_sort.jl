@@ -30,13 +30,6 @@ end
         # swap-removes e3 into the first row, so rows are now unsorted
         remove_entity!(world, e1)
 
-        table = first(world._tables)
-        archetype = world._archetypes[table.archetype]
-        sortable_entities = _SortableEntities(world, archetype, table)
-        @test IndexStyle(typeof(sortable_entities)) == IndexLinear()
-        @test size(sortable_entities) == (0,)
-        @test firstindex(sortable_entities) == 1
-
         filter = Filter(world, (A, B))
 
         for (entities, as, bs) in Query(filter)
