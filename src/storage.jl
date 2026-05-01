@@ -300,3 +300,127 @@ end
         $(exprs_swap...)
     end
 end
+
+function _permute_component_data!(
+    s::_ComponentStorage{C,A},
+    table::UInt32,
+    entities::Entities,
+    entity_index::Vector{_EntityIndex},
+) where {C,A<:AbstractArray}
+    @inbounds col = s.data[table]
+    len = length(entities)
+
+    @inbounds for start in 1:len
+        entity = entities[start]
+        index = entity_index[entity._id]
+
+        # table == 0 means this cycle was already processed for this component.
+        if index.table == UInt32(0)
+            continue
+        end
+
+        old_row = Int(index.row)
+
+        if old_row != start
+            tmp = col[start]
+            row = start
+
+            while true
+                entity = entities[row]
+                index = entity_index[entity._id]
+                next_row = Int(index.row)
+                entity_index[entity._id] = _EntityIndex(UInt32(0), index.row)
+
+                if next_row == start
+                    col[row] = tmp
+                    break
+                end
+
+                col[row] = col[next_row]
+                row = next_row
+            end
+        end
+    end
+
+    # Restore old table markers so the next component can reuse the same permutation.
+    @inbounds for row in 1:len
+        entity = entities[row]
+        index = entity_index[entity._id]
+        entity_index[entity._id] = _EntityIndex(table, index.row)
+    end
+
+    return nothing
+end
+
+@generated function _permute_component_data!(
+    s::_ComponentStorage{C,A},
+    table::UInt32,
+    entities::Entities,
+    entity_index::Vector{_EntityIndex},
+) where {C,A<:_AbstractStructArray}
+    names = fieldnames(C)
+    tmp_syms = [gensym(:tmp) for _ in names]
+
+    tmp_exprs = [
+        :($(tmp_syms[i]) = getfield(comps, $(QuoteNode(names[i])))[start])
+        for i in eachindex(names)
+    ]
+
+    shift_exprs = [
+        :(getfield(comps, $(QuoteNode(name)))[row] =
+            getfield(comps, $(QuoteNode(name)))[next_row])
+        for name in names
+    ]
+
+    final_exprs = [
+        :(getfield(comps, $(QuoteNode(names[i])))[row] = $(tmp_syms[i]))
+        for i in eachindex(names)
+    ]
+
+    return quote
+        @inbounds col = s.data[table]
+        comps = getfield(col, :_components)
+        len = length(entities)
+
+        @inbounds for start in 1:len
+            entity = entities[start]
+            index = entity_index[entity._id]
+
+            if index.table == UInt32(0)
+                continue
+            end
+
+            old_row = Int(index.row)
+
+            if old_row != start
+                $(tmp_exprs...)
+
+                row = start
+
+                while true
+                    entity = entities[row]
+                    index = entity_index[entity._id]
+                    next_row = Int(index.row)
+                    entity_index[entity._id] = _EntityIndex(UInt32(0), index.row)
+
+                    if next_row == start
+                        $(final_exprs...)
+                        break
+                    end
+
+                    $(shift_exprs...)
+
+                    row = next_row
+                end
+            end
+        end
+
+        @inbounds for row in 1:len
+            entity = entities[row]
+            index = entity_index[entity._id]
+            entity_index[entity._id] = _EntityIndex(table, index.row)
+        end
+
+        return nothing
+    end
+end
