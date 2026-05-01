@@ -2264,3 +2264,21 @@ end
     end
     return
 end
+
+@generated function _permute_component_data!(
+    world::World{CS},
+    comp::Int,
+    table::UInt32,
+    entities::Entities,
+) where {CS<:Tuple}
+    _generate_component_switch(
+        CS,
+        :comp,
+        i -> :(_permute_component_data!(
+            world._storages.$i,
+            table,
+            entities,
+            world._entities,
+        )),
+    )
+end
