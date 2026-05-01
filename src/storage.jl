@@ -301,7 +301,7 @@ end
     end
 end
 
-function _permute_component_cycle!(
+@inline function _permute_component_cycle!(
     s::_ComponentStorage{C,A},
     table::UInt32,
     entities::Entities,
