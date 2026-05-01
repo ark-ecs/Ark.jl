@@ -55,9 +55,9 @@ function _shuffle_table!(rng::AbstractRNG, world::World, table::_Table)
         archetype = world._archetypes[table.archetype]
         entities = table.entities
 
-        # Shuffle only the entity column.
+        # Shuffle only the entity column
         for i in len:-1:2
-            j = rand(rng, Random.Sampler(rng, Base.OneTo(i), Val(1)))
+            j = @inline rand(rng, Random.Sampler(rng, Base.OneTo(i), Val(1)))
 
             if i != j
                 entities._data[i], entities._data[j] =
