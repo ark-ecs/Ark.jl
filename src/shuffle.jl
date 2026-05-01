@@ -36,13 +36,46 @@ function _shuffle(
     @_each_matching_table(world, filter, archetypes, archetypes_hot, table, _shuffle_table!(rng, world, table))
 end
 
+#function _shuffle_table!(rng::AbstractRNG, world::World, table::_Table)
+#    len = length(table)
+#    archetype = world._archetypes[table.archetype]
+
+#    for i in len:-1:2
+#        j = @inline rand(rng, Random.Sampler(rng, Base.OneTo(i), Val(1)))
+#        _swap_rows!(world, archetype, table, i, j)
+#    end
+#    return
+#end
+
 function _shuffle_table!(rng::AbstractRNG, world::World, table::_Table)
     len = length(table)
-    archetype = world._archetypes[table.archetype]
+    len <= 1 && return nothing
 
-    for i in len:-1:2
-        j = @inline rand(rng, Random.Sampler(rng, Base.OneTo(i), Val(1)))
-        _swap_rows!(world, archetype, table, i, j)
+    @inbounds begin
+        archetype = world._archetypes[table.archetype]
+        entities = table.entities
+
+        # shuffle only entity rows
+        for i in len:-1:2
+            j = rand(rng, Random.Sampler(rng, Base.OneTo(i), Val(1)))
+
+            if i != j
+                entities._data[i], entities._data[j] =
+                    entities._data[j], entities._data[i]
+            end
+        end
+
+        # world._entities still contains old rows
+        for comp in archetype.components
+            _permute_component_data!(world, comp, table.id, entities)
+        end
+
+        # restore entity indices to the final shuffled positions.
+        for row in 1:len
+            entity = entities[row]
+            world._entities[entity._id] = _EntityIndex(table.id, UInt32(row))
+        end
     end
-    return
+
+    return nothing
 end
