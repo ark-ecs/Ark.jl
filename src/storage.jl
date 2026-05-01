@@ -319,7 +319,7 @@ end
 
         final_exprs = [:(comps.($(names[i]))[row] = $(tmp_syms[i])) for i in eachindex(names)]
     else
-        tmp_exprs = [:(@inbounds col[start])]
+        tmp_exprs = [:(@inbounds tmp = col[start])]
 
         shift_exprs = [:(col[row] = col[next_row])]
 
