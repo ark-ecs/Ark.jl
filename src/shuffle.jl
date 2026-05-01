@@ -36,67 +36,13 @@ function _shuffle(
     @_each_matching_table(world, filter, archetypes, archetypes_hot, table, _shuffle_table!(rng, world, table))
 end
 
-#function _shuffle_table!(rng::AbstractRNG, world::World, table::_Table)
-#    len = length(table)
-#    archetype = world._archetypes[table.archetype]
-
-#    for i in len:-1:2
-#        j = @inline rand(rng, Random.Sampler(rng, Base.OneTo(i), Val(1)))
-#        _swap_rows!(world, archetype, table, i, j)
-#    end
-#    return
-#end
-
 function _shuffle_table!(rng::AbstractRNG, world::World, table::_Table)
     len = length(table)
-    len <= 1 && return nothing
+    archetype = world._archetypes[table.archetype]
 
-    @inbounds begin
-        archetype = world._archetypes[table.archetype]
-        entities = table.entities
-
-        # Shuffle only the entity column
-        for i in len:-1:2
-            j = @inline rand(rng, Random.Sampler(rng, Base.OneTo(i), Val(1)))
-
-            if i != j
-                entities._data[i], entities._data[j] =
-                    entities._data[j], entities._data[i]
-            end
-        end
-
-        # Components still have the old order
-        for start in 1:len
-            entity = entities[start]
-            index = world._entities[entity._id]
-
-            # table == 0 means this row's cycle was already processed
-            if index.table == UInt32(0)
-                continue
-            end
-
-            old_row = Int(index.row)
-
-            if old_row != start
-                for comp in archetype.components
-                    _permute_component_cycle!(
-                        world,
-                        comp,
-                        table.id,
-                        entities,
-                        world._entities,
-                        start,
-                    )
-                end
-            end
-        end
-
-        # Restore the entity index to the final shuffled positions
-        for row in 1:len
-            entity = entities[row]
-            world._entities[entity._id] = _EntityIndex(table.id, UInt32(row))
-        end
+    for i in len:-1:2
+        j = @inline rand(rng, Random.Sampler(rng, Base.OneTo(i), Val(1)))
+        _swap_rows!(world, archetype, table, i, j)
     end
-
-    return nothing
+    return
 end
