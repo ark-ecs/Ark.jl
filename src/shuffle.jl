@@ -57,11 +57,10 @@ function _shuffle_table!(rng::AbstractRNG, world::World, table::_Table)
 
         # shuffle only entity rows
         for i in len:-1:2
-            j = rand(rng, Random.Sampler(rng, Base.OneTo(i), Val(1)))
+            j = @inline rand(rng, Random.Sampler(rng, Base.OneTo(i), Val(1)))
 
             if i != j
-                entities._data[i], entities._data[j] =
-                    entities._data[j], entities._data[i]
+                entities._data[i], entities._data[j] = entities._data[j], entities._data[i]
             end
         end
 
