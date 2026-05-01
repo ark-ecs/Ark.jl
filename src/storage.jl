@@ -328,7 +328,7 @@ end
 
     return quote
         @inbounds col = s.data[table]
-        comps = getfield(col, :_components)
+        $(A <: _AbstractStructArray ? :(comps = getfield(col, :_components) : (:(nothing))))
 
         $(tmp_exprs...)
 
