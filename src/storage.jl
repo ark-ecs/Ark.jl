@@ -340,36 +340,50 @@ end
 ) where {C,A<:_AbstractStructArray}
     names = fieldnames(C)
 
-    exprs = Expr[]
+    tmp_syms = [gensym(:tmp) for _ in names]
 
-    for name in names
-        tmp = gensym(:tmp)
-        push!(exprs, quote
-            $tmp = @inbounds comps.$name[start]
+    tmp_exprs = [
+        :($(tmp_syms[i]) = getfield(comps, $(QuoteNode(names[i])))[start])
+        for i in eachindex(names)
+    ]
+
+    shift_exprs = [
+        :(getfield(comps, $(QuoteNode(name)))[row] =
+            getfield(comps, $(QuoteNode(name)))[next_row])
+        for name in names
+    ]
+
+    final_exprs = [
+        :(getfield(comps, $(QuoteNode(names[i])))[row] = $(tmp_syms[i]))
+        for i in eachindex(names)
+    ]
+
+    return quote
+        @inbounds begin
+            col = s.data[table]
+            comps = getfield(col, :_components)
+
+            $(tmp_exprs...)
+
             row = start
 
-            @inbounds while true
+            while true
                 entity = entities[row]
                 index = entity_index[entity._id]
                 next_row = Int(index.row)
+
                 entity_index[entity._id] = _EntityIndex(UInt32(0), index.row)
 
                 if next_row == start
-                    comps.$name[row] = $tmp
+                    $(final_exprs...)
                     break
                 end
 
-                comps.$name[row] = comps.$name[next_row]
+                $(shift_exprs...)
+
                 row = next_row
             end
-        end)
-    end
-
-    return quote
-        @inbounds col = s.data[table]
-        comps = getfield(col, :_components)
-
-        $(exprs...)
+        end
 
         return nothing
     end
