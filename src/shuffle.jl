@@ -55,21 +55,43 @@ function _shuffle_table!(rng::AbstractRNG, world::World, table::_Table)
         archetype = world._archetypes[table.archetype]
         entities = table.entities
 
-        # shuffle only entity rows
+        # Shuffle only the entity column.
         for i in len:-1:2
-            j = @inline rand(rng, Random.Sampler(rng, Base.OneTo(i), Val(1)))
+            j = rand(rng, Random.Sampler(rng, Base.OneTo(i), Val(1)))
 
             if i != j
-                entities._data[i], entities._data[j] = entities._data[j], entities._data[i]
+                entities._data[i], entities._data[j] =
+                    entities._data[j], entities._data[i]
             end
         end
 
-        # world._entities still contains old rows
-        for comp in archetype.components
-            _permute_component_data!(world, comp, table.id, entities)
+        # Components still have the old order
+        for start in 1:len
+            entity = entities[start]
+            index = world._entities[entity._id]
+
+            # table == 0 means this row's cycle was already processed
+            if index.table == UInt32(0)
+                continue
+            end
+
+            old_row = Int(index.row)
+
+            if old_row != start
+                for comp in archetype.components
+                    _permute_component_cycle!(
+                        world,
+                        comp,
+                        table.id,
+                        entities,
+                        world._entities,
+                        start,
+                    )
+                end
+            end
         end
 
-        # restore entity indices to the final shuffled positions.
+        # Restore the entity index to the final shuffled positions
         for row in 1:len
             entity = entities[row]
             world._entities[entity._id] = _EntityIndex(table.id, UInt32(row))
