@@ -301,88 +301,54 @@ end
     end
 end
 
-@inline function _permute_component_cycle!(
+@inline @generated function _permute_component_cycle!(
     s::_ComponentStorage{C,A},
     table::UInt32,
     entities::Entities,
     entity_index::Vector{_EntityIndex},
     start::Int,
 ) where {C,A<:AbstractArray}
-    @inbounds col = s.data[table]
-
-    tmp = @inbounds col[start]
-    row = start
-
-    @inbounds while true
-        entity = entities[row]
-        index = entity_index[entity._id]
-        next_row = Int(index.row)
-        entity_index[entity._id] = _EntityIndex(UInt32(0), index.row)
-
-        if next_row == start
-            col[row] = tmp
-            break
-        end
-
-        col[row] = col[next_row]
-        row = next_row
-    end
-
-    return nothing
-end
-
-@generated function _permute_component_cycle!(
-    s::_ComponentStorage{C,A},
-    table::UInt32,
-    entities::Entities,
-    entity_index::Vector{_EntityIndex},
-    start::Int,
-) where {C,A<:_AbstractStructArray}
     names = fieldnames(C)
 
-    tmp_syms = [gensym(:tmp) for _ in names]
+    if A <: _AbstractStructArray
+        tmp_syms = [gensym(:tmp) for _ in names]
 
-    tmp_exprs = [
-        :($(tmp_syms[i]) = getfield(comps, $(QuoteNode(names[i])))[start])
-        for i in eachindex(names)
-    ]
+        tmp_exprs = [:(@inbounds $(tmp_syms[i]) = comps.($(names[i]))[start]) for i in eachindex(names)]
 
-    shift_exprs = [
-        :(getfield(comps, $(QuoteNode(name)))[row] =
-            getfield(comps, $(QuoteNode(name)))[next_row])
-        for name in names
-    ]
+        shift_exprs = [:(comps.$name[row] = comps.$name[next_row]) for name in names]
 
-    final_exprs = [
-        :(getfield(comps, $(QuoteNode(names[i])))[row] = $(tmp_syms[i]))
-        for i in eachindex(names)
-    ]
+        final_exprs = [:(comps.($(names[i]))[row] = $(tmp_syms[i])) for i in eachindex(names)]
+    else
+        tmp_exprs = [:(@inbounds col[start])]
+
+        shift_exprs = [:(col[row] = col[next_row])]
+
+        final_exprs = [:(col[row] = tmp)]
+    end
 
     return quote
-        @inbounds begin
-            col = s.data[table]
-            comps = getfield(col, :_components)
+        @inbounds col = s.data[table]
+        comps = getfield(col, :_components)
 
-            $(tmp_exprs...)
+        $(tmp_exprs...)
 
-            row = start
+        row = start
 
-            while true
-                entity = entities[row]
-                index = entity_index[entity._id]
-                next_row = Int(index.row)
+        @inbounds while true
+            entity = entities[row]
+            index = entity_index[entity._id]
+            next_row = Int(index.row)
 
-                entity_index[entity._id] = _EntityIndex(UInt32(0), index.row)
+            entity_index[entity._id] = _EntityIndex(UInt32(0), index.row)
 
-                if next_row == start
-                    $(final_exprs...)
-                    break
-                end
-
-                $(shift_exprs...)
-
-                row = next_row
+            if next_row == start
+                $(final_exprs...)
+                break
             end
+
+            $(shift_exprs...)
+
+            row = next_row
         end
 
         return nothing
