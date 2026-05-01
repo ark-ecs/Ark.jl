@@ -326,8 +326,6 @@ function _permute_component_data!(
             row = start
 
             while true
-                entity = entities[row]
-                index = entity_index[entity._id]
                 next_row = Int(index.row)
                 entity_index[entity._id] = _EntityIndex(UInt32(0), index.row)
 
@@ -337,7 +335,10 @@ function _permute_component_data!(
                 end
 
                 col[row] = col[next_row]
+
                 row = next_row
+                entity = entities[row]
+                index = entity_index[entity._id]
             end
         end
     end
@@ -398,8 +399,6 @@ end
                 row = start
 
                 while true
-                    entity = entities[row]
-                    index = entity_index[entity._id]
                     next_row = Int(index.row)
                     entity_index[entity._id] = _EntityIndex(UInt32(0), index.row)
 
@@ -411,6 +410,8 @@ end
                     $(shift_exprs...)
 
                     row = next_row
+                    entity = entities[row]
+                    index = entity_index[entity._id]
                 end
             end
         end
