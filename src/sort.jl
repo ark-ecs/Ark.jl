@@ -60,7 +60,6 @@ function _sort_table_entities!(world::World, table::_Table; alg::Base.Sort.Algor
     end
 
     @inbounds begin
-
         sort!(table.entities._data; alg, kwargs...)
 
         archetype = world._archetypes[table.archetype]
