@@ -318,7 +318,8 @@ end
         ]
 
         shift_exprs = [
-            :(getfield(comps, $(QuoteNode(name)))[row] = getfield(comps, $(QuoteNode(name)))[next_row]) for name in names
+            :(getfield(comps, $(QuoteNode(name)))[row] = getfield(comps, $(QuoteNode(name)))[next_row]) for
+            name in names
         ]
 
         final_exprs = [
