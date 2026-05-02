@@ -15,6 +15,10 @@ function _velocity_dxs(world, entities)
     return [world[e][Velocity].dx for e in entities]
 end
 
+function _velocity_dys(world, entities)
+    return [world[e][Velocity].dy for e in entities]
+end
+
 function _healths(world, entities)
     return [world[e][Health].health for e in entities]
 end
@@ -57,7 +61,7 @@ end
             @test [b.x for b in bs] == [2.0]
         end
 
-        world = World(Position, Velocity, Health)
+        world = World(Position, Velocity => Storage{StructArray}, Health)
 
         xs = [3.0, -2.0, 5.0, 1.0, 4.0]
         for x in xs
@@ -76,6 +80,7 @@ end
 
         @test _position_xs(world, entities) == sorted_xs
         @test _velocity_dxs(world, entities) == sorted_xs .+ 100.0
+        @test _velocity_dys(world, entities) == -sorted_xs
         @test _healths(world, entities) == 2 .* sorted_xs
 
         for (row, entity) in enumerate(entities)
