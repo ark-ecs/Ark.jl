@@ -313,11 +313,17 @@ end
     if A <: _AbstractStructArray
         tmp_syms = [gensym(:tmp) for _ in names]
 
-        tmp_exprs = [:(@inbounds $(tmp_syms[i]) = comps.($(names[i]))[start]) for i in eachindex(names)]
+        tmp_exprs = [
+            :(@inbounds $(tmp_syms[i]) = getfield(comps, $(QuoteNode(names[i])))[start]) for i in eachindex(names)
+        ]
 
-        shift_exprs = [:(comps.$name[row] = comps.$name[next_row]) for name in names]
+        shift_exprs = [
+            :(getfield(comps, $(QuoteNode(name)))[row] = getfield(comps, $(QuoteNode(name)))[next_row]) for name in names
+        ]
 
-        final_exprs = [:(comps.($(names[i]))[row] = $(tmp_syms[i])) for i in eachindex(names)]
+        final_exprs = [
+            :(getfield(comps, $(QuoteNode(names[i])))[row] = $(tmp_syms[i])) for i in eachindex(names)
+        ]
     else
         tmp_exprs = [:(@inbounds tmp = col[start])]
 
