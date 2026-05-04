@@ -26,17 +26,22 @@ function setup_world_shuffle(n_entities::Int)
     )
     rng = Xoshiro(42)
     shuffle_entities!(rng, f)
-    return (rng, f)
+    return (rng, f, n_entities)
 end
 
 function benchmark_world_shuffle(args)
-    rng, f = args
+    rng, f _ = args
     shuffle_entities!(rng, f)
 end
 
 function benchmark_world_sort(args)
-    _, f = args
+    _, f, _ = args
     sort_entities!(f; by=e -> f._world[e][CompN{1}].x)
+end
+
+function benchmark_world_partition(args)
+    _, f, n = args
+    partition_entities!(f; by=e -> f._world[e][CompN{1}].x < n/2)
 end
 
 for n in (100, 10_000)
@@ -47,4 +52,9 @@ end
 for n in (100, 10_000)
     SUITE["benchmark_world_sort n=$(n)"] =
         @be setup_world_shuffle($n) benchmark_world_sort(_) evals = 1 seconds = SECONDS
+end
+
+for n in (100, 10_000)
+    SUITE["benchmark_world_partition n=$(n)"] =
+        @be setup_world_shuffle($n) benchmark_world_partition(_) evals = 1 seconds = SECONDS
 end
