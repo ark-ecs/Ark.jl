@@ -36,7 +36,7 @@ function _partition_entities!(
 )
     @_each_matching_table(
         world, filter, archetypes, archetypes_hot, table,
-        _partition_table!(world, table; pred),
+        _partition_table!(world, table, pred),
     )
 end
 
