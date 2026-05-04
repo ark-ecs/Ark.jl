@@ -40,7 +40,7 @@ function _partition_entities!(
     )
 end
 
-@inline function _partition_table!(world::World, table::_Table, pred::Any)
+function _partition_table!(world::World, table::_Table, pred::Any)
     len = length(table)
     if len <= 1
         return
@@ -62,7 +62,7 @@ end
         end
 
         if left < right
-            _swap_rows!(world, archetype, table, left, right)::Nothing
+            _swap_rows!(world, archetype, table, left, right)
             left += 1
             right -= 1
         end
