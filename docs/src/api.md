@@ -84,6 +84,7 @@ unregister!(::Filter)
 count_entities
 shuffle_entities!
 sort_entities!
+partition_entities!
 length
 Entities
 @unpack
