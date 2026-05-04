@@ -30,7 +30,7 @@ function setup_world_shuffle(n_entities::Int)
 end
 
 function benchmark_world_shuffle(args)
-    rng, f _ = args
+    rng, f, _ = args
     shuffle_entities!(rng, f)
 end
 
