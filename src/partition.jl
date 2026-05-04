@@ -7,7 +7,7 @@ come first within each table, while entities that do not satisfy `pred` are move
 to the end.
 Partioning is performed per-table (archetype).
 """
-function partition_entities!(filter::Filter; pred::Any)
+function partition_entities!(filter::Filter; pred::P) where P
     _check_locked(filter._world)
 
     _lock(filter._world._lock)
