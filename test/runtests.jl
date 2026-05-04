@@ -21,6 +21,7 @@ end
 
 include("TestTypes.jl")
 
+include("test_util.jl")
 include("test_world.jl")
 include("test_cache.jl")
 include("test_filter.jl")
