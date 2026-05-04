@@ -62,7 +62,7 @@ function _partition_table!(world::World, table::_Table, pred::Any)
         end
 
         if left < right
-            _swap_rows!(world, archetype, table, left, right)
+            _swap_rows!(world, archetype, table, left, right)::Nothing
             left += 1
             right -= 1
         end
