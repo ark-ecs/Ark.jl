@@ -46,7 +46,7 @@ end
 
 function benchmark_world_partition(args)
     _, f, pred = args
-    partition_entities!(f; pred)
+    partition_entities!(f, pred)
 end
 
 for n in (100, 10_000)
