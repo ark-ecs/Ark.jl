@@ -12,6 +12,8 @@ end
 
 function shuffle_entities!(rng::AbstractRNG, filter::F) where {F<:Filter}
     _check_locked(filter._world)
+
+    _lock(filter._world._lock)
     if _is_cached(filter._filter)
         for table_id in filter._filter.tables.ids
             table = @inbounds filter._world._tables[table_id]
@@ -23,6 +25,8 @@ function shuffle_entities!(rng::AbstractRNG, filter::F) where {F<:Filter}
         arches, arches_hot = _get_archetypes(filter._world, filter)
         _shuffle(rng, filter._world, filter._filter, arches, arches_hot)
     end
+    _unlock(filter._world._lock)
+
     return filter
 end
 

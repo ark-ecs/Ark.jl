@@ -38,6 +38,7 @@ include("filter.jl")
 include("query.jl")
 include("shuffle.jl")
 include("sort.jl")
+include("partition.jl")
 include("batch_ops.jl")
 include("handle.jl")
 include("unchecked.jl")
@@ -59,7 +60,7 @@ export is_zero
 
 export Query, Filter
 export close!, unregister!
-export count_entities, shuffle_entities!, sort_entities!
+export count_entities, shuffle_entities!, sort_entities!, partition_entities!
 
 export Entities
 

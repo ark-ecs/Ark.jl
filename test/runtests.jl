@@ -21,7 +21,6 @@ end
 
 include("TestTypes.jl")
 
-include("test_util.jl")
 include("test_world.jl")
 include("test_cache.jl")
 include("test_filter.jl")
@@ -41,6 +40,7 @@ include("test_linear_map.jl")
 include("test_graph.jl")
 include("test_shuffle.jl")
 include("test_sort.jl")
+include("test_partition.jl")
 include("test_unchecked.jl")
 include("test_indexing_api.jl")
 include("test_gpu_vector.jl")
