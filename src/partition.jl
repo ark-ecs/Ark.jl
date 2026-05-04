@@ -7,7 +7,7 @@ come first within each table, while entities that do not satisfy `pred` are move
 to the end.
 Partioning is performed per-table (archetype).
 """
-function partition_entities!(filter::Filter; pred)
+function partition_entities!(filter::Filter; pred::Any)
     _check_locked(filter._world)
 
     _lock(filter._world._lock)
@@ -28,19 +28,19 @@ function partition_entities!(filter::Filter; pred)
 end
 
 function _partition_entities!(
-    world::W,
-    filter::_MaskFilter{M},
-    archetypes::Vector{_Archetype{M}},
-    archetypes_hot::Vector{_ArchetypeHot{M}},
-    ; pred,
-) where {W<:World,M}
+    world::World,
+    filter::_MaskFilter,
+    archetypes::Vector{<:_Archetype},
+    archetypes_hot::Vector{<:_ArchetypeHot},
+    ; pred::Any,
+)
     @_each_matching_table(
         world, filter, archetypes, archetypes_hot, table,
         _partition_table!(world, table; pred),
     )
 end
 
-function _partition_table!(world::World, table::_Table; pred)
+function _partition_table!(world::World, table::_Table; pred::Any)
     len = length(table)
     if len <= 1
         return
