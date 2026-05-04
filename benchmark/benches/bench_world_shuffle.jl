@@ -41,7 +41,10 @@ end
 
 function benchmark_world_partition(args)
     _, f, n = args
-    partition_entities!(f; pred=e -> f._world[e][CompN{1}].x < n / 2)
+    pred = let world = f._world, limit = n / 2
+        e -> world[e][CompN{1}].x < limit
+    end
+    partition_entities!(f; pred)
 end
 
 for n in (100, 10_000)
