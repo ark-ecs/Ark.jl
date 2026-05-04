@@ -15,12 +15,12 @@ function partition_entities!(filter::Filter; pred::Any)
         for table_id in filter._filter.tables.ids
             table = @inbounds filter._world._tables[table_id]
             if !isempty(table.entities)
-                _partition_table!(filter._world, table; pred)
+                _partition_table!(filter._world, table, pred)
             end
         end
     else
         arches, arches_hot = _get_archetypes(filter._world, filter)
-        _partition_entities!(filter._world, filter._filter, arches, arches_hot; pred)
+        _partition_entities!(filter._world, filter._filter, arches, arches_hot, pred)
     end
     _unlock(filter._world._lock)
 
@@ -32,7 +32,7 @@ function _partition_entities!(
     filter::_MaskFilter,
     archetypes::Vector{<:_Archetype},
     archetypes_hot::Vector{<:_ArchetypeHot},
-    ; pred::Any,
+    pred::Any,
 )
     @_each_matching_table(
         world, filter, archetypes, archetypes_hot, table,
@@ -40,7 +40,7 @@ function _partition_entities!(
     )
 end
 
-function _partition_table!(world::World, table::_Table; pred::Any)
+function _partition_table!(world::World, table::_Table, pred::Any)
     len = length(table)
     if len <= 1
         return
