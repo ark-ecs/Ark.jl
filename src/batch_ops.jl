@@ -352,15 +352,27 @@ end
     filter::F,
     add::Tuple;
 ) where {Fn,F<:Filter}
-    add, relations = _normalize_inline_relations_value(add, ())
-    rel_types, targets = _relation_types_and_targets(relations)
-    return @inline _exchange_components!(
-        fn, world, filter,
-        Val{typeof(add)}(), add,
-        (),
-        rel_types, targets,
-        Val(true), Val(true), Val(false),
-    )
+    if _components_are_types(add)
+        add, relations = _normalize_inline_relations_type(add, ())
+        rel_types, targets = _relation_types_and_targets(relations)
+        return @inline _exchange_components!(
+            fn, world, filter,
+            ntuple(i -> Val(add[i]), length(add)), (),
+            (),
+            rel_types, targets,
+            Val(false), Val(true), Val(false),
+        )
+    else
+        add, relations = _normalize_inline_relations_value(add, ())
+        rel_types, targets = _relation_types_and_targets(relations)
+        return @inline _exchange_components!(
+            fn, world, filter,
+            Val{typeof(add)}(), add,
+            (),
+            rel_types, targets,
+            Val(true), Val(true), Val(false),
+        )
+    end
 end
 
 @inline Base.@constprop :aggressive function add_components!(
