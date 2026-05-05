@@ -73,7 +73,7 @@ Relation components can contain variables/fields like usual components, but in m
 
 ## Creating relations
 
-Relation targets are specified inline by pairing the relation component with its target entity using `Relation => entity`.
+Relation targets are specified by pairing the relation component with its target entity using `Relation => entity`.
 
 ### On new entities
 
