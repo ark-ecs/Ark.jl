@@ -103,7 +103,7 @@ Note that, when creating entities with relationship components, targets for all 
 
 ### When adding components
 
-Relation target must also be given when adding relation components with [add_components!](@ref):
+Relation target must also be given when adding relation components to an entity with [add_components!](@ref):
 
 ```jldoctest; output=false
 add_components!(world, entity, (ChildOf() => parent,))
@@ -120,10 +120,9 @@ We can also change the target entity of an already assigned relation component.
 This is done via [set_relations!](@ref) or by indexing with an entity handle:
 
 ```jldoctest; output=false
-entity = new_entity!(world, 
-                     (Position(0, 0), ChildOf() => parent))
-
+entity = new_entity!(world, (Position(0, 0), ChildOf() => parent))
 set_relations!(world, entity, (ChildOf => parent2,))
+
 # or via handle
 we = world[entity]
 we.rel[ChildOf] = parent2
@@ -138,10 +137,9 @@ This also works for changing the targets of multiple relations in one function c
 Target entities can be retrieved with [get_relations](@ref) or by indexing:
 
 ```jldoctest; output=false
-entity = new_entity!(world, 
-                     (Position(0, 0), ChildOf() => parent))
-
+entity = new_entity!(world, (Position(0, 0), ChildOf() => parent))
 parent_entity, = get_relations(world, entity, (ChildOf,))
+
 # or via handle
 we = world[entity]
 parent_entity = we.rel[ChildOf]
