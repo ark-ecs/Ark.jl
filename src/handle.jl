@@ -82,17 +82,13 @@ end
 ) where {VT<:Tuple,CS}
     value_types = VT.parameters
     comp_types = CS
-
     for i in eachindex(comp_types)
-        value_types[i] === comp_types[i] ||
-            throw(ArgumentError(
-                "cannot assign value $i of type $(value_types[i]) to component slot $(comp_types[i])",
-            ))
+        if value_types[i] !== comp_types[i]
+            throw(ArgumentError("cannot assign value $i of type $(value_types[i]) to component slot $(comp_types[i])"))
+        end
     end
 
-    return quote
-        set_components!(entityhandle.world, entityhandle.entity, values)
-    end
+    return :(set_components!(entityhandle.world, entityhandle.entity, values))
 end
 
 @inline Base.@constprop :aggressive function Base.in(::Type{T}, entityhandle::EntityHandle) where {T}
