@@ -1415,7 +1415,7 @@ end
     old_table::_Table,
     new_table::_Table,
     table_index::UInt32,
-)::Int where {W<:World}
+)::Nothing where {W<:World}
     inline_jtable = length(W.parameters[1].parameters) <= 10
     quote
         new_row = _add_entity!(new_table, entity)
