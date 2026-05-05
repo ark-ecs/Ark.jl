@@ -21,7 +21,7 @@ Note that components are not initialized/undef unless set in the callback in thi
   - `f::Function`: Optional callback for initialization, can be passed as a `do` block.
   - `world::World`: The [World](@ref) instance to use.
   - `n::Int`: The number of entities to create.
-    - `components::Tuple`: A tuple of components to add. Either default values like `(Position(0, 0), Velocity(1, 1))`, types like `(Position, Velocity)`, or inline relation pairs like `(Position, ChildOf => parent)`.
+  - `components::Tuple`: A tuple of components to add. Either default values like `(Position(0, 0), Velocity(1, 1))`, types like `(Position, Velocity)`, or relation pairs like `(Position, ChildOf => parent)`.
   - `iterate::Bool`: Whether to return a batch for individual entity initialization.
 
 # Examples
