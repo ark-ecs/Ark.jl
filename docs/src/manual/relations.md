@@ -80,8 +80,7 @@ Relation targets are specified by pairing the relation component with its target
 To create an entity with relations, add a relationship component and specify it's target entity using [new_entity!](@ref):
 
 ```jldoctest; output=false
-entity = new_entity!(world, 
-                     (Position(0, 0), ChildOf() => parent))
+entity = new_entity!(world, (Position(0, 0), ChildOf() => parent))
 
 # output
 
