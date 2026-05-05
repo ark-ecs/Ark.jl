@@ -43,9 +43,9 @@ See the user manual chapter on [Queries](@ref) for more details and examples.
 # Arguments
 
   - `world`: The `World` instance to query.
-    - `comp_types::Tuple`: Components the query filters for and provides access to. Relation targets can be specified inline, like `(ChildOf => parent,)`.
-    - `with::Tuple`: Additional components the entities must have. Relation targets can be specified inline here as well.
-    - `without::Tuple`: Components the entities must not have. Relation targets can be excluded inline, like `(ChildOf => parent,)`.
+  - `comp_types::Tuple`: Components the query filters for and provides access to. Relation targets can also be specified inline.
+  - `with::Tuple`: Additional components the entities must have. Relation targets can be specified here as well.
+  - `without::Tuple`: Components the entities must not have.
   - `optional::Tuple`: Additional components that are optional in the query.
   - `exclusive::Bool`: Makes the query exclusive in base and `with` components, can't be combined with `without`.
 
@@ -185,9 +185,7 @@ end
         while tab <= length(q._q_lock.tables)
             table = @inbounds q._world._tables[Int(q._q_lock.tables[tab])]
             # TODO we can probably optimize here if exactly one relation in archetype and one queried.
-            if isempty(table.entities) ||
-               !_matches(q._world._relations, table, q._filter.relations) ||
-               _matches_excluded(q._world._relations, table, q._filter.exclude_relations)
+            if !isempty(table.entities) && _matches(world._relations, table, filter.relations)
                 tab += 1
                 continue
             end
