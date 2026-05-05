@@ -88,20 +88,12 @@ entity = new_entity!(world,
 Entity(6, 0)
 ```
 
-This works in the same way for batch entity creation with [new_entities!](@ref):
-
-```jldoctest; output=false
-new_entities!(world, 100, (Position(0, 0), ChildOf() => parent))
-
-# output
-
-```
+This works in the same way for batch entity creation with [new_entities!](@ref).
 
 Multiple relationships can be used in a similar way:
 
 ```jldoctest; output=false
-entity = new_entity!(world, 
-                     (Position(0, 0), ChildOf() => parent, RenderLayer() => layer1))
+entity = new_entity!(world, (Position(0, 0), ChildOf() => parent, RenderLayer() => layer1))
 
 # output
 
