@@ -49,9 +49,9 @@ end
         world = World(Position, ChildOf)
 
         parents = [new_entity!(world, (Position(i, i),)) for i in 1:100]
-        children = [new_entity!(world, (Position(i, i), ChildOf()); relations=(ChildOf => parents[i],)) for i in 1:100]
+        children = [new_entity!(world, (Position(i, i), ChildOf() => parents[i])) for i in 1:100]
 
-        child = new_entity!(world, (ChildOf(),); relations=(ChildOf => parents[1],))
+        child = new_entity!(world, (ChildOf() => parents[1],))
         remove_entity!(world, child)
 
         f_parents = Filter(world, (Position,); without=(ChildOf,), register=register)

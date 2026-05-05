@@ -124,7 +124,7 @@ end
 
     @unchecked begin
         e2 = new_entity!(world, ())
-        e1 = new_entity!(world, (ChildOf(),); relations=(ChildOf => zero_entity,))
+        e1 = new_entity!(world, (ChildOf() => zero_entity,))
         set_relations!(world, e1, (ChildOf => e2,))
 
         (rels,) = get_relations(world, e1, (ChildOf,))

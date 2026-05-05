@@ -110,12 +110,11 @@ end
 @inline Base.@constprop :aggressive function add_components!(
     entityhandle::EntityHandle,
     values::Tuple;
-    relations::Tuple=(),
     _unchecked::Bool=false,
 )
     world = entityhandle.world
     entity = entityhandle.entity
-    return add_components!(world, entity, values; relations, _unchecked)
+    return add_components!(world, entity, values; _unchecked)
 end
 
 @inline Base.@constprop :aggressive function remove_components!(

@@ -19,7 +19,6 @@ end
         without::Tuple=(),
         optional::Tuple=(),
         exclusive::Bool=false,
-        relations::Tuple=(),
         register::Bool=false,
     )
 
@@ -33,12 +32,11 @@ See the user manual chapter on [Queries](@ref) for more details and examples.
 # Arguments
 
   - `world`: The `World` instance to filter.
-  - `comp_types::Tuple`: Components the filter filters for.
-  - `with::Tuple`: Additional components the entities must have.
-  - `without::Tuple`: Components the entities must not have.
+    - `comp_types::Tuple`: Components the filter filters for. Relation targets can be specified inline, like `(ChildOf => parent,)`.
+    - `with::Tuple`: Additional components the entities must have. Relation targets can be specified inline here as well.
+    - `without::Tuple`: Components the entities must not have. Relation targets can be excluded inline, like `(ChildOf => parent,)`.
   - `optional::Tuple`: Additional components that are optional in the filter.
   - `exclusive::Bool`: Makes the filter exclusive in base and `with` components, can't be combined with `without`.
-  - `relations::Tuple`: Relationship component type => target entity pairs. These relation components must be in the filter's components or `with`.
 """
 Base.@constprop :aggressive function Filter(
     world::World,
@@ -48,10 +46,13 @@ Base.@constprop :aggressive function Filter(
     optional::Tuple=(),
     exclusive::Bool=false,
     register::Bool=false,
-    relations::Tuple{Vararg{Pair{DataType,Entity}}}=(),
 )
-    rel_types = ntuple(i -> Val(relations[i].first), length(relations))
-    targets = ntuple(i -> relations[i].second, length(relations))
+    comp_types, comp_relations = _normalize_inline_relations_type(comp_types)
+    with, with_relations = _normalize_inline_relations_type(with)
+    without, without_relations = _normalize_inline_excluded_relations_type(without)
+        relations = (comp_relations..., with_relations...)
+    rel_types, targets = _relation_types_and_targets(relations)
+    without_rel_types, without_targets = _relation_types_and_targets(without_relations)
     return _Filter_from_types(world,
         ntuple(i -> Val(comp_types[i]), length(comp_types)),
         ntuple(i -> Val(with[i]), length(with)),
@@ -60,6 +61,7 @@ Base.@constprop :aggressive function Filter(
         Val(exclusive),
         Val(register),
         rel_types, targets,
+        without_rel_types, without_targets,
     )
 end
 
@@ -73,7 +75,9 @@ end
     ::REG,
     ::TR,
     targets::Tuple{Vararg{Entity}},
-) where {W<:World,CT<:Tuple,WT<:Tuple,WO<:Tuple,OT<:Tuple,EX<:Val,REG<:Val,TR<:Tuple}
+    ::ER,
+    exclude_targets::Tuple{Vararg{Entity}},
+) where {W<:World,CT<:Tuple,WT<:Tuple,WO<:Tuple,OT<:Tuple,EX<:Val,REG<:Val,TR<:Tuple,ER<:Tuple}
     world_storage_modes = W.parameters[3].parameters
 
     required_types = _to_types(CT)
@@ -81,6 +85,7 @@ end
     without_types = _to_types(WO)
     optional_types = _to_types(OT)
     rel_types = _to_types(TR)
+    exclude_rel_types = _to_types(ER)
 
     # check for duplicates
     all_comps = vcat(required_types, with_types, without_types, optional_types)
@@ -88,6 +93,8 @@ end
 
     _check_no_duplicates(rel_types)
     _check_relations(rel_types)
+    _check_no_duplicates(vcat(without_types, exclude_rel_types))
+    _check_relations(exclude_rel_types)
 
     comp_types = union(required_types, optional_types)
     non_exclude_types = union(comp_types, with_types)
@@ -104,6 +111,7 @@ end
     without_ids = map(C -> _component_id(CS, C), without_types)
     non_exclude_ids = map(C -> _component_id(CS, C), non_exclude_types)
     rel_ids = map(C -> _component_id(CS, C), rel_types)
+    exclude_rel_ids = map(C -> _component_id(CS, C), exclude_rel_types)
 
     M = max(1, cld(length(CS.parameters), 64))
     mask = _Mask{M}(required_ids..., with_ids...)
@@ -130,11 +138,21 @@ end
         else
             _empty_relations
         end
+        exclude_relations = if length(exclude_targets) > 0
+            rel = Vector{Pair{Int,Entity}}()
+            for (c, e) in zip($exclude_rel_ids, exclude_targets)
+                push!(rel, c => e)
+            end
+            rel
+        else
+            _empty_relations
+        end
         filter = Filter{$W,$comp_tuple_type,$EX,$optional_flags_type,$REG,$M}(
             _MaskFilter{$M}(
                 $(mask),
                 $(exclude_mask),
                 relations,
+                exclude_relations,
                 $register ? _IdCollection() : _empty_table_ids,
                 Base.RefValue{UInt32}(UInt32(0)),
                 $(has_excluded),
@@ -188,7 +206,9 @@ macro _each_matching_table(world, filter, archetypes, archetypes_hot, table, act
             for table_id in tables
                 # TODO we can probably optimize here if exactly one relation in archetype and one queried.
                 table = @inbounds world._tables[Int(table_id)]
-                if !isempty(table.entities) && _matches(world._relations, table, filter.relations)
+                if !isempty(table.entities) &&
+                   _matches(world._relations, table, filter.relations) &&
+                   !_matches_excluded(world._relations, table, filter.exclude_relations)
                     $action
                 end
             end

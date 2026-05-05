@@ -7,7 +7,7 @@ function setup_world_set_rel_batch(n_entities::Int)
     filter = Filter(world, (ChildOf,))
 
     for i in 1:n_entities
-        new_entity!(world, (ChildOf(),); relations=(ChildOf => parent1,))
+        new_entity!(world, (ChildOf() => parent1,))
     end
 
     set_relations!(world, filter, (ChildOf => parent2,))

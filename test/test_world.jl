@@ -444,9 +444,9 @@ end
 
     @test world._targets[parent1._id] == false
 
-    e1 = new_entity!(world, (Position(0, 0), ChildOf()); relations=(ChildOf => parent1,))
-    e2 = new_entity!(world, (Position(0, 0), ChildOf()); relations=(ChildOf => parent2,))
-    e3 = new_entity!(world, (Position(0, 0), ChildOf()); relations=(ChildOf => parent2,))
+    e1 = new_entity!(world, (Position(0, 0), ChildOf() => parent1))
+    e2 = new_entity!(world, (Position(0, 0), ChildOf() => parent2))
+    e3 = new_entity!(world, (Position(0, 0), ChildOf() => parent2))
 
     @test world._targets[parent1._id] == true
 
@@ -458,24 +458,24 @@ end
     @test arch.index[1][parent1._id].ids == [2]
     @test arch.index[1][parent2._id].ids == [3]
 
-    e4 = new_entity!(world, (Position(0, 0), ChildOf()); relations=(ChildOf => parent2,))
+    e4 = new_entity!(world, (Position(0, 0), ChildOf() => parent2))
     @test get_relations(world, e4, (ChildOf,)) == get_relations(world, e2, (ChildOf,))
 
     @test_throws(
-        "ArgumentError: all relations must be in the set of component types",
-        new_entity!(world, (Position(0, 0),); relations=(ChildOf => parent1,))
+        "ArgumentError: relation targets must be fully specified",
+        new_entity!(world, (Position(0, 0), ChildOf()))
     )
     @test_throws(
         "ArgumentError: component Position is not a relationship",
-        new_entity!(world, (Position(0, 0),); relations=(Position => parent1,))
+        new_entity!(world, (Position(0, 0) => parent1,))
     )
     @test_throws(
         "ArgumentError: duplicate component types: ChildOf",
-        new_entity!(world, (ChildOf(),); relations=(ChildOf => parent1, ChildOf => parent2))
+        new_entity!(world, (ChildOf() => parent1, ChildOf() => parent2))
     )
     @test_throws(
         "ArgumentError: can't use a dead entity as relation target, except for the zero entity",
-        new_entity!(world, (Position(0, 0), ChildOf()); relations=(ChildOf => dead_parent,)),
+        new_entity!(world, (Position(0, 0), ChildOf() => dead_parent)),
     )
 end
 
@@ -490,12 +490,9 @@ end
     parent1 = new_entity!(world, ())
     parent2 = new_entity!(world, ())
 
-    e1 = new_entity!(world, (Position(0, 0), ChildOf(), ChildOf2());
-        relations=(ChildOf => parent1, ChildOf2 => parent2))
-    e2 = new_entity!(world, (Position(0, 0), ChildOf(), ChildOf2());
-        relations=(ChildOf => parent2, ChildOf2 => parent1))
-    e3 = new_entity!(world, (Position(0, 0), ChildOf(), ChildOf2());
-        relations=(ChildOf => parent1, ChildOf2 => parent2))
+    e1 = new_entity!(world, (Position(0, 0), ChildOf() => parent1, ChildOf2() => parent2))
+    e2 = new_entity!(world, (Position(0, 0), ChildOf() => parent2, ChildOf2() => parent1))
+    e3 = new_entity!(world, (Position(0, 0), ChildOf() => parent1, ChildOf2() => parent2))
 
     @test length(world._archetypes[2].tables) == 2
     @test get_relations(world, e1, (ChildOf, ChildOf2)) == (parent1, parent2)
@@ -525,12 +522,9 @@ end
     dead_parent = new_entity!(world, ())
     remove_entity!(world, dead_parent)
 
-    entity1 = new_entity!(world, (Position(0, 0), ChildOf()); relations=(ChildOf => parent1,))
-    entity2 = new_entity!(world, (Position(0, 0), ChildOf()); relations=(ChildOf => parent1,))
-    entity3 = new_entity!(world,
-        (Position(0, 0), ChildOf2(), ChildOf());
-        relations=(ChildOf => parent2, ChildOf2 => parent1),
-    )
+    entity1 = new_entity!(world, (Position(0, 0), ChildOf() => parent1))
+    entity2 = new_entity!(world, (Position(0, 0), ChildOf() => parent1))
+    entity3 = new_entity!(world, (Position(0, 0), ChildOf2() => parent1, ChildOf() => parent2))
 
     @test get_relations(world, entity1, (ChildOf,)) == (parent1,)
     @test get_relations(world, entity3, (ChildOf,)) == (parent2,)
@@ -601,15 +595,15 @@ end
     dead_parent = new_entity!(world, ())
     remove_entity!(world, dead_parent)
 
-    filter1 = Filter(world, (ChildOf,); relations=(ChildOf => parent1,), register=true)
+    filter1 = Filter(world, (ChildOf => parent1,); register=true)
     filter2 = Filter(world, (ChildOf,); register=true)
 
-    e1 = new_entity!(world, (Position(1, 1), ChildOf()); relations=(ChildOf => parent1,))
-    e2 = new_entity!(world, (Position(2, 2), ChildOf()); relations=(ChildOf => parent1,))
-    e3 = new_entity!(world, (Position(3, 3), ChildOf()); relations=(ChildOf => parent2,))
-    e4 = new_entity!(world, (Position(4, 4), ChildOf()); relations=(ChildOf => parent2,))
-    e5 = new_entity!(world, (Position(5, 5), ChildOf()); relations=(ChildOf => parent3,))
-    e6 = new_entity!(world, (Position(6, 6), ChildOf()); relations=(ChildOf => parent3,))
+    e1 = new_entity!(world, (Position(1, 1), ChildOf() => parent1))
+    e2 = new_entity!(world, (Position(2, 2), ChildOf() => parent1))
+    e3 = new_entity!(world, (Position(3, 3), ChildOf() => parent2))
+    e4 = new_entity!(world, (Position(4, 4), ChildOf() => parent2))
+    e5 = new_entity!(world, (Position(5, 5), ChildOf() => parent3))
+    e6 = new_entity!(world, (Position(6, 6), ChildOf() => parent3))
 
     count = 0
     set_relations!(world, filter1, (ChildOf => parent2,)) do entities
@@ -635,7 +629,7 @@ end
     end
 
     count = 0
-    set_relations!(world, Filter(world, (ChildOf,); relations=(ChildOf => parent2,)), (ChildOf => parent1,)) do entities
+    set_relations!(world, Filter(world, (ChildOf => parent2,)), (ChildOf => parent1,)) do entities
         count += 1
     end
     @test count == 0
@@ -683,10 +677,7 @@ end
 
     parent = new_entity!(world, ())
 
-    entity = new_entity!(world,
-        (Position(1, 2), Velocity(3, 4), ChildOf(), NoIsBits2([[1]]));
-        relations=(ChildOf => parent,),
-    )
+    entity = new_entity!(world, (Position(1, 2), Velocity(3, 4), ChildOf() => parent, NoIsBits2([[1]])))
     entity2 = copy_entity!(world, entity)
 
     @test counter == 2
@@ -743,8 +734,7 @@ end
 
     entity = new_entity!(world, (Position(1, 2), Velocity(3, 4)))
     entity2 = copy_entity!(world, entity;
-        add=(Altitude(5), ChildOf()), remove=(Position,),
-        relations=(ChildOf => parent,),
+        add=(Altitude(5), ChildOf() => parent), remove=(Position,),
     )
     @test counter == 1
     @test counter_rel == 1
@@ -952,14 +942,14 @@ end
     )
     parent = new_entity!(world, ())
 
-    new_entities!(world, 100, (Position, ChildOf); relations=(ChildOf => parent,)) do (_, positions, children)
+    new_entities!(world, 100, (Position, ChildOf => parent)) do (_, positions, children)
         for i in eachindex(positions, children)
             positions[i] = Position(1, 1)
             children[i] = ChildOf()
         end
     end
 
-    new_entities!(world, 100, (Position(0, 0), ChildOf()); relations=(ChildOf => parent,))
+    new_entities!(world, 100, (Position(0, 0), ChildOf() => parent))
 
     for (entities, children) in Query(world, (ChildOf,))
         for i in eachindex(entities)
@@ -1098,10 +1088,10 @@ end
 
     e1 = new_entity!(world, ())
 
-    add_components!(world, e1, (Position(1, 2), ChildOf()); relations=(ChildOf => parent1,))
+    add_components!(world, e1, (Position(1, 2), ChildOf() => parent1))
     @test get_relations(world, e1, (ChildOf,)) == (parent1,)
 
-    add_components!(world, e1, (ChildOf2(),); relations=(ChildOf2 => parent2,))
+    add_components!(world, e1, (ChildOf2() => parent2,))
     @test get_relations(world, e1, (ChildOf, ChildOf2)) == (parent1, parent2)
     @test get_relations(world, e1, (ChildOf2, ChildOf)) == (parent2, parent1)
 
@@ -1227,7 +1217,7 @@ end
 
     parent = new_entity!(world, ())
     e1 = new_entity!(world, (Position(1, 1), Velocity(1, 1)))
-    exchange_components!(world, e1; remove=(Velocity,), add=(ChildOf(),), relations=(ChildOf => parent,))
+    exchange_components!(world, e1; remove=(Velocity,), add=(ChildOf() => parent,))
 
     parents = get_relations(world, e1, (ChildOf,))
     @test parents == (parent,)
@@ -1368,27 +1358,21 @@ end
     @test length(world._tables[4].entities) == 0
 
     entities1 = Entity[]
-    new_entities!(world, 10,
-        (Position(0, 0), Velocity(0, 0), ChildOf());
-        relations=(ChildOf => parent1,),
-    ) do (entities, _, _, _)
+    new_entities!(world, 10, (Position(0, 0), Velocity(0, 0), ChildOf() => parent1)) do (entities, _, _, _)
         append!(entities1, entities)
     end
 
     entities2 = Entity[]
-    new_entities!(world, 10,
-        (Position(0, 0), Velocity(0, 0), ChildOf());
-        relations=(ChildOf => parent2,),
-    ) do (entities, _, _, _)
+    new_entities!(world, 10, (Position(0, 0), Velocity(0, 0), ChildOf() => parent2)) do (entities, _, _, _)
         append!(entities2, entities)
     end
 
     # create an archetype without tables
     parent3 = new_entity!(world, ())
-    remove_entity!(world, new_entity!(world, (Position(0, 0), ChildOf()); relations=(ChildOf => parent3,)))
+    remove_entity!(world, new_entity!(world, (Position(0, 0), ChildOf() => parent3)))
     remove_entity!(world, parent3)
 
-    filter2 = Filter(world, (ChildOf,); relations=(ChildOf => parent1,))
+    filter2 = Filter(world, (ChildOf => parent1,))
     remove_entities!(world, filter2)
 
     @test count == 13
@@ -1452,8 +1436,8 @@ end
 
     @test length(filter._filter.tables) == 2
 
-    new_entity!(world, (Position(1, 1), ChildOf()); relations=(ChildOf => parent,))
-    new_entity!(world, (Position(2, 2), ChildOf()); relations=(ChildOf => parent,))
+    new_entity!(world, (Position(1, 1), ChildOf() => parent))
+    new_entity!(world, (Position(2, 2), ChildOf() => parent))
 
     counter = 0
     remove_entities!(world, filter) do entities
@@ -1476,8 +1460,8 @@ end
     new_entity!(world, (Position(1, 1),))
     new_entity!(world, (Velocity(1, 1),))
     new_entity!(world, (Position(1, 1), Velocity(1, 1)))
-    new_entity!(world, (Position(1, 1), ChildOf()); relations=(ChildOf => parent1,))
-    new_entity!(world, (Position(1, 1), ChildOf()); relations=(ChildOf => parent2,))
+    new_entity!(world, (Position(1, 1), ChildOf() => parent1))
+    new_entity!(world, (Position(1, 1), ChildOf() => parent2))
 
     filter = Filter(world, (Position,); register=true)
 
@@ -1529,10 +1513,10 @@ end
     parent1 = new_entity!(world, ())
     parent2 = new_entity!(world, ())
 
-    new_entity!(world, (Position(0, 0), Velocity(0, 0), ChildOf()); relations=(ChildOf => parent1,))
-    new_entity!(world, (Position(0, 0), Velocity(0, 0), ChildOf()); relations=(ChildOf => parent2,))
-    new_entity!(world, (Position(0, 0), ChildOf2(), ChildOf()); relations=(ChildOf => parent1, ChildOf2 => parent2))
-    new_entity!(world, (Position(0, 0), ChildOf2(), ChildOf()); relations=(ChildOf => parent2, ChildOf2 => parent1))
+    new_entity!(world, (Position(0, 0), Velocity(0, 0), ChildOf() => parent1))
+    new_entity!(world, (Position(0, 0), Velocity(0, 0), ChildOf() => parent2))
+    new_entity!(world, (Position(0, 0), ChildOf2() => parent2, ChildOf() => parent1))
+    new_entity!(world, (Position(0, 0), ChildOf2() => parent1, ChildOf() => parent2))
 
     pos_relations = _get_relations_storage(world, Position)
     child_relations = _get_relations_storage(world, ChildOf)

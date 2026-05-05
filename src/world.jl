@@ -33,6 +33,79 @@ function _WorldPool{M}() where {M}
     )
 end
 
+@inline _split_inline_relation_value(value) = (value,), ()
+
+@inline function _split_inline_relation_value(value::Pair{T,Entity}) where {T}
+    return (value.first,), (T => value.second,)
+end
+
+@inline _split_inline_relations_value(::Tuple{}) = (), ()
+
+@inline function _split_inline_relations_value(values::Tuple)
+    head_values, head_relations = _split_inline_relation_value(values[1])
+    tail_values, tail_relations = _split_inline_relations_value(Base.tail(values))
+    return (head_values..., tail_values...), (head_relations..., tail_relations...)
+end
+
+@inline function _normalize_inline_relations_value(values::Tuple, relations::Tuple=())
+    normalized_values, inline_relations = _split_inline_relations_value(values)
+    return normalized_values, (inline_relations..., relations...)
+end
+
+@inline _split_inline_relation_type(value) = (value,), ()
+
+@inline function _split_inline_relation_type(value::Pair{DataType,Entity})
+    return (value.first,), (value.first => value.second,)
+end
+
+@inline _split_inline_relations_type(::Tuple{}) = (), ()
+
+@inline function _split_inline_relations_type(values::Tuple)
+    head_values, head_relations = _split_inline_relation_type(values[1])
+    tail_values, tail_relations = _split_inline_relations_type(Base.tail(values))
+    return (head_values..., tail_values...), (head_relations..., tail_relations...)
+end
+
+@inline function _normalize_inline_relations_type(values::Tuple, relations::Tuple=())
+    normalized_values, inline_relations = _split_inline_relations_type(values)
+    return normalized_values, (inline_relations..., relations...)
+end
+
+@inline _split_inline_excluded_relation_type(value) = (value,), ()
+
+@inline function _split_inline_excluded_relation_type(value::Pair{DataType,Entity})
+    return (), (value.first => value.second,)
+end
+
+@inline _split_inline_excluded_relations_type(::Tuple{}) = (), ()
+
+@inline function _split_inline_excluded_relations_type(values::Tuple)
+    head_values, head_relations = _split_inline_excluded_relation_type(values[1])
+    tail_values, tail_relations = _split_inline_excluded_relations_type(Base.tail(values))
+    return (head_values..., tail_values...), (head_relations..., tail_relations...)
+end
+
+@inline function _normalize_inline_excluded_relations_type(values::Tuple)
+    return _split_inline_excluded_relations_type(values)
+end
+
+@inline _component_is_type(value) = value isa DataType
+
+@inline function _component_is_type(value::Pair{DataType,Entity})
+    return true
+end
+
+@inline _components_are_types(::Tuple{}) = true
+
+@inline function _components_are_types(values::Tuple)
+    return _component_is_type(values[1]) && _components_are_types(Base.tail(values))
+end
+
+@inline function _relation_types_and_targets(relations::Tuple)
+    return ntuple(i -> Val(relations[i].first), length(relations)),
+        ntuple(i -> relations[i].second, length(relations))
+end
+
 """
     World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M}
 
@@ -123,16 +196,15 @@ function World(comp_types::Union{Type,Pair{<:Type,<:Type}}...; initial_capacity:
 end
 
 """
-    new_entity!(world::World, values::Tuple; relations::Tuple=())::Entity
+    new_entity!(world::World, values::Tuple)::Entity
 
 Creates a new [Entity](@ref) with the given component values. Types are inferred from the values.
 
 # Arguments
 
-  - `world::World`: The `World` instance to use.
-  - `values::Tuple`: Component values for the entity.
+    - `world::World`: The `World` instance to use.
+    - `values::Tuple`: Component values for the entity, including inline relation pairs like `(Position(0, 0), ChildOf() => parent)`.
   - `defaults::Tuple`: A tuple of default values for initialization, like `(Position(0, 0), Velocity(1, 1))`.
-  - `relations::Tuple`: Relationship component type => target entity pairs.
 
 # Examples
 
@@ -149,7 +221,7 @@ Entity(5, 0)
 Create an entity with components and relationships:
 
 ```jldoctest; setup = :(using Ark; include(string(dirname(pathof(Ark)), "/docs.jl"))), output = false
-entity = new_entity!(world, (Position(0, 0), ChildOf()); relations=(ChildOf => parent,))
+entity = new_entity!(world, (Position(0, 0), ChildOf() => parent))
 
 # output
 
@@ -159,11 +231,10 @@ Entity(5, 0)
 Base.@constprop :aggressive function new_entity!(
     world::World,
     values::Tuple;
-    relations::Tuple{Vararg{Pair{DataType,Entity}}}=(),
     _unchecked=false,
 )
-    rel_types = ntuple(i -> Val(relations[i].first), length(relations))
-    targets = ntuple(i -> relations[i].second, length(relations))
+    values, relations = _normalize_inline_relations_value(values, ())
+    rel_types, targets = _relation_types_and_targets(relations)
 
     entity, table_id = _new_entity!(world, Val{typeof(values)}(), values, rel_types, targets, Val(_unchecked))
 
@@ -188,7 +259,6 @@ end
         entity::Entity;
         add::Tuple=(),
         remove::Tuple=(),
-        relations::Tuple=(),
         mode=:copy,
     )
 
@@ -200,9 +270,8 @@ Mutable and non-isbits components are shallow copied by default. This can be cha
 
   - `world`: The `World` instance to query.
   - `entity::Entity`: The entity to copy.
-  - `add::Tuple`: Components to add, like `add=(Health(0),)`.
+    - `add::Tuple`: Components to add, like `add=(Health(0),)` or `add=(ChildOf() => parent,)`.
   - `remove::Tuple`: Component types to remove, like `remove=(Position,Velocity)`.
-  - `relations::Tuple`: Relationship component type => target entity pairs.
   - `mode::Tuple`: Copy mode for mutable and non-isbits components. Modes are :ref, :copy, :deepcopy.
 
 # Examples
@@ -233,15 +302,14 @@ Entity(5, 0)
 @inline Base.@constprop :aggressive function copy_entity!(
     world::World, entity::Entity;
     add::Tuple=(), remove::Tuple=(),
-    relations::Tuple{Vararg{Pair{DataType,Entity}}}=(),
     mode::Symbol=:copy,
     _unchecked::Bool=false,
 )
+    add, relations = _normalize_inline_relations_value(add, ())
     if isempty(add) && isempty(remove) && isempty(relations)
         return @inline _copy_entity!(world, entity, Val(mode), Val(_unchecked))
     end
-    rel_types = ntuple(i -> Val(relations[i].first), length(relations))
-    targets = ntuple(i -> relations[i].second, length(relations))
+    rel_types, targets = _relation_types_and_targets(relations)
     return @inline _copy_entity!(
         world,
         entity,
@@ -463,9 +531,11 @@ set_relations!(world, entity, (ChildOf => parent,))
 end
 
 """
-    add_components!(world::World, entity::Entity, values::Tuple; relations::Tuple)
+    add_components!(world::World, entity::Entity, values::Tuple)
 
 Adds the given component values to an [Entity](@ref). Types are inferred from the values.
+
+Inline relation pairs like `(ChildOf() => parent,)` can be included in `values`.
 
 # Example
 
@@ -480,11 +550,10 @@ add_components!(world, entity, (Health(100),))
     world::World,
     entity::Entity,
     values::Tuple;
-    relations::Tuple{Vararg{Pair{DataType,Entity}}}=(),
     _unchecked::Bool=false,
 )
-    rel_types = ntuple(i -> Val(relations[i].first), length(relations))
-    targets = ntuple(i -> relations[i].second, length(relations))
+    values, relations = _normalize_inline_relations_value(values, ())
+    rel_types, targets = _relation_types_and_targets(relations)
     return @inline _exchange_components!(world, entity, Val{typeof(values)}(), values, (), rel_types, targets,
         Val(_unchecked), Val(:add))
 end
@@ -525,10 +594,11 @@ end
         entity::Entity;
         add::Tuple=(),
         remove::Tuple=(),
-        relations::Tuple=(),
     )
 
 Adds and removes components on an [Entity](@ref). Types are inferred from the add values.
+
+Inline relation pairs like `ChildOf() => parent` can be included in `add`.
 
 # Example
 
@@ -547,11 +617,10 @@ exchange_components!(world, entity;
     entity::Entity;
     add::Tuple=(),
     remove::Tuple=(),
-    relations::Tuple{Vararg{Pair{DataType,Entity}}}=(),
     _unchecked::Bool=false,
 )
-    rel_types = ntuple(i -> Val(relations[i].first), length(relations))
-    targets = ntuple(i -> relations[i].second, length(relations))
+    add, relations = _normalize_inline_relations_value(add, ())
+    rel_types, targets = _relation_types_and_targets(relations)
     return @inline _exchange_components!(
         world,
         entity,

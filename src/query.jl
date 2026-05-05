@@ -27,7 +27,6 @@ end
         without::Tuple=(),
         optional::Tuple=(),
         exclusive::Bool=false,
-        relations::Tuple=(),
     )
 
 Creates a query.
@@ -44,12 +43,11 @@ See the user manual chapter on [Queries](@ref) for more details and examples.
 # Arguments
 
   - `world`: The `World` instance to query.
-  - `comp_types::Tuple`: Components the query filters for and provides access to.
-  - `with::Tuple`: Additional components the entities must have.
-  - `without::Tuple`: Components the entities must not have.
+    - `comp_types::Tuple`: Components the query filters for and provides access to. Relation targets can be specified inline, like `(ChildOf => parent,)`.
+    - `with::Tuple`: Additional components the entities must have. Relation targets can be specified inline here as well.
+    - `without::Tuple`: Components the entities must not have. Relation targets can be excluded inline, like `(ChildOf => parent,)`.
   - `optional::Tuple`: Additional components that are optional in the query.
   - `exclusive::Bool`: Makes the query exclusive in base and `with` components, can't be combined with `without`.
-  - `relations::Tuple`: Relationship component type => target entity pairs. These relation components must be in the query's components or `with`.
 
 # Example
 
@@ -73,7 +71,6 @@ Base.@constprop :aggressive function Query(
     without::Tuple=(),
     optional::Tuple=(),
     exclusive::Bool=false,
-    relations::Tuple{Vararg{Pair{DataType,Entity}}}=(),
 )
     filter = Filter(
         world,
@@ -82,7 +79,6 @@ Base.@constprop :aggressive function Query(
         without=without,
         optional=optional,
         exclusive=exclusive,
-        relations=relations,
     )
     return _Query_from_filter(filter)
 end
@@ -189,7 +185,9 @@ end
         while tab <= length(q._q_lock.tables)
             table = @inbounds q._world._tables[Int(q._q_lock.tables[tab])]
             # TODO we can probably optimize here if exactly one relation in archetype and one queried.
-            if isempty(table.entities) || !_matches(q._world._relations, table, q._filter.relations)
+            if isempty(table.entities) ||
+               !_matches(q._world._relations, table, q._filter.relations) ||
+               _matches_excluded(q._world._relations, table, q._filter.exclude_relations)
                 tab += 1
                 continue
             end

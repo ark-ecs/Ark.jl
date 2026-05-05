@@ -73,7 +73,7 @@ Relation components can contain variables/fields like usual components, but in m
 
 ## Creating relations
 
-All functions that create or add components take a keyword argument `relations` that allows to specify target entities for relationship components using tuples of `Type => Entity` pairs.
+Relation targets are specified inline by pairing the relation component with its target entity using `Relation => entity`.
 
 ### On new entities
 
@@ -81,22 +81,27 @@ To create an entity with relations, add a relationship component and specify it'
 
 ```jldoctest; output=false
 entity = new_entity!(world, 
-                     (Position(0, 0), ChildOf());
-                     relations=(ChildOf => parent,))
+                     (Position(0, 0), ChildOf() => parent))
 
 # output
 
 Entity(6, 0)
 ```
 
-This works in the same way for batch entity creation with [new_entities!](@ref).
+This works in the same way for batch entity creation with [new_entities!](@ref):
+
+```jldoctest; output=false
+new_entities!(world, 100, (Position(0, 0), ChildOf() => parent))
+
+# output
+
+```
 
 Multiple relationships can be used in a similar way:
 
 ```jldoctest; output=false
 entity = new_entity!(world, 
-                     (Position(0, 0), ChildOf(), RenderLayer());
-                     relations=(ChildOf => parent, RenderLayer => layer1))
+                     (Position(0, 0), ChildOf() => parent, RenderLayer() => layer1))
 
 # output
 
@@ -107,10 +112,10 @@ Note that, when creating entities with relationship components, targets for all 
 
 ### When adding components
 
-Relation target must also be given when adding relation components to an entity with [add_components!](@ref):
+Relation target must also be given when adding relation components with [add_components!](@ref):
 
 ```jldoctest; output=false
-add_components!(world, entity, (ChildOf(),); relations=(ChildOf => parent,))
+add_components!(world, entity, (ChildOf() => parent,))
 
 # output
 
@@ -125,8 +130,7 @@ This is done via [set_relations!](@ref) or by indexing with an entity handle:
 
 ```jldoctest; output=false
 entity = new_entity!(world, 
-                     (Position(0, 0), ChildOf());
-                     relations=(ChildOf => parent,))
+                     (Position(0, 0), ChildOf() => parent))
 
 set_relations!(world, entity, (ChildOf => parent2,))
 # or via handle
@@ -144,8 +148,7 @@ Target entities can be retrieved with [get_relations](@ref) or by indexing:
 
 ```jldoctest; output=false
 entity = new_entity!(world, 
-                     (Position(0, 0), ChildOf());
-                     relations=(ChildOf => parent,))
+                     (Position(0, 0), ChildOf() => parent))
 
 parent_entity, = get_relations(world, entity, (ChildOf,))
 # or via handle
@@ -163,10 +166,10 @@ As with other operations, relation targets can be set in batches. See chapter [B
 
 ## Querying relations
 
-Queries support filtering for relation targets using the keyword argument `relations` in the same way as already shown:
+Queries support filtering for relation targets directly in the query tuples:
 
 ```jldoctest; output=false
-for (entities, children) in Query(world, (ChildOf,); relations=(ChildOf => parent,))
+for (entities, children) in Query(world, (ChildOf => parent,))
     # ...
 end
 
@@ -179,7 +182,7 @@ Here, component values are not required in the query iteration.
 It is thus sufficient to have the relation component in the query's `with`:
 
 ```jldoctest; output=false
-for (entities,) in Query(world, (); with=(ChildOf,), relations=(ChildOf => parent,))
+for (entities,) in Query(world, (); with=(ChildOf => parent,))
     # ...
 end
 

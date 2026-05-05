@@ -35,6 +35,19 @@ function _matches(indices::Vector{_ComponentRelations}, t::_Table, relations::Ve
     return true
 end
 
+function _matches_excluded(indices::Vector{_ComponentRelations}, t::_Table, relations::Vector{Pair{Int,Entity}})
+    if length(relations) == 0 || !_has_relations(t)
+        return false
+    end
+    for (comp, target) in relations
+        @inbounds trg = indices[comp].targets[t.id]
+        if target == trg
+            return true
+        end
+    end
+    return false
+end
+
 function _matches_exact(indices::Vector{_ComponentRelations}, t::_Table, relations::Vector{Pair{Int,Entity}})
     # This check is done in _get_table_slow_path
     #if length(relations) < length(t.relations)
