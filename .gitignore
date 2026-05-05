@@ -14,6 +14,7 @@
 /docs/Manifest*.toml
 /benchmark/Manifest*.toml
 /demos/Manifest*.toml
+/test/Manifest*.toml
 /test/ext/Manifest*.toml
 /docs/build/
 statprof/
