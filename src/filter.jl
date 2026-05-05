@@ -104,7 +104,6 @@ end
     without_ids = map(C -> _component_id(CS, C), without_types)
     non_exclude_ids = map(C -> _component_id(CS, C), non_exclude_types)
     rel_ids = map(C -> _component_id(CS, C), rel_types)
-    exclude_rel_ids = map(C -> _component_id(CS, C), exclude_rel_types)
 
     M = max(1, cld(length(CS.parameters), 64))
     mask = _Mask{M}(required_ids..., with_ids...)
