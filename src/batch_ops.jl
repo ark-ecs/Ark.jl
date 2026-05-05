@@ -171,9 +171,7 @@ function _get_tables(
         arch_tables = _get_tables(world, archetype, filter._filter.relations)
         for table_id in arch_tables
             table = @inbounds world._tables[Int(table_id)]
-            if !isempty(table.entities) &&
-               _matches(world._relations, table, filter._filter.relations) &&
-               !_matches_excluded(world._relations, table, filter._filter.exclude_relations)
+            if !isempty(table.entities) && _matches(world._relations, table, filter._filter.relations)
                 push!(tables, table.id)
                 any_relations = true
             end
