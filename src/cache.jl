@@ -3,7 +3,6 @@ struct _MaskFilter{M}
     mask::_Mask{M}
     exclude_mask::_Mask{M}
     relations::Vector{Pair{Int,Entity}}
-    exclude_relations::Vector{Pair{Int,Entity}}
     tables::_IdCollection
     id::Base.RefValue{UInt32}
     has_excluded::Bool
@@ -56,8 +55,7 @@ function _register_filter!(
         tables = _get_tables(world, arch, filter.relations)
         for table_id in tables
             table = @inbounds world._tables[Int(table_id)]
-            if _matches(world._relations, table, filter.relations) &&
-               !_matches_excluded(world._relations, table, filter.exclude_relations)
+            if _matches(world._relations, table, filter.relations)
                 _add_table!(filter, table)
             end
         end
@@ -105,8 +103,7 @@ function _add_table!(
             _add_table!(filter, table)
             continue
         end
-        if _matches(world._relations, table, filter.relations) &&
-           !_matches_excluded(world._relations, table, filter.exclude_relations)
+        if _matches(world._relations, table, filter.relations)
             _add_table!(filter, table)
         end
     end
