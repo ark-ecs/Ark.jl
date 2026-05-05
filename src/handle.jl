@@ -75,7 +75,7 @@ end
     return _setindex_handle_components!(entityhandle, values, Val(comps))
 end
 
-@generated @inline Base.@constprop :aggressive function _setindex_handle_components!(
+@inline Base.@constprop :aggressive @generated function _setindex_handle_components!(
     entityhandle::EntityHandle,
     values::VT,
     ::Val{CS},
