@@ -59,12 +59,40 @@ end
     return get_components(entityhandle.world, entityhandle.entity, comps)
 end
 
-@inline Base.@constprop :aggressive function Base.setindex!(entityhandle::EntityHandle, value, ::Type{T}) where {T}
-    set_components!(entityhandle.world, entityhandle.entity, (value,))[1]
+@inline Base.@constprop :aggressive function Base.setindex!(
+    entityhandle::EntityHandle,
+    value::T,
+    ::Type{T},
+) where {T}
+    return set_components!(entityhandle.world, entityhandle.entity, (value,))[1]
 end
 
-@inline Base.@constprop :aggressive function Base.setindex!(entityhandle::EntityHandle, values::Tuple, comps::Tuple)
-    set_components!(entityhandle.world, entityhandle.entity, values)
+@inline Base.@constprop :aggressive function Base.setindex!(
+    entityhandle::EntityHandle,
+    values::Tuple{Vararg{Any,N}},
+    comps::Tuple{Vararg{Type,N}},
+) where {N}
+    return _setindex_handle_components!(entityhandle, values, Val(comps))
+end
+
+@generated @inline Base.@constprop :aggressive function _setindex_handle_components!(
+    entityhandle::EntityHandle,
+    values::VT,
+    ::Val{CS},
+) where {VT<:Tuple,CS}
+    value_types = VT.parameters
+    comp_types = CS
+
+    for i in eachindex(comp_types)
+        value_types[i] === comp_types[i] ||
+            throw(ArgumentError(
+                "cannot assign value $i of type $(value_types[i]) to component slot $(comp_types[i])",
+            ))
+    end
+
+    return quote
+        set_components!(entityhandle.world, entityhandle.entity, values)
+    end
 end
 
 @inline Base.@constprop :aggressive function Base.in(::Type{T}, entityhandle::EntityHandle) where {T}
