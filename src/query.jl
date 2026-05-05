@@ -185,7 +185,7 @@ end
         while tab <= length(q._q_lock.tables)
             table = @inbounds q._world._tables[Int(q._q_lock.tables[tab])]
             # TODO we can probably optimize here if exactly one relation in archetype and one queried.
-            if !isempty(table.entities) && _matches(world._relations, table, filter.relations)
+            if isempty(table.entities) || !_matches(q._world._relations, table, q._filter.relations)
                 tab += 1
                 continue
             end
