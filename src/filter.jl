@@ -32,9 +32,9 @@ See the user manual chapter on [Queries](@ref) for more details and examples.
 # Arguments
 
   - `world`: The `World` instance to filter.
-    - `comp_types::Tuple`: Components the filter filters for. Relation targets can be specified inline, like `(ChildOf => parent,)`.
-    - `with::Tuple`: Additional components the entities must have. Relation targets can be specified inline here as well.
-    - `without::Tuple`: Components the entities must not have. Relation targets can be excluded inline, like `(ChildOf => parent,)`.
+  - `comp_types::Tuple`: Components the filter filters for. Relation targets can also be specified.
+  - `with::Tuple`: Additional components the entities must have. Relation targets can also be specified.
+  - `without::Tuple`: Components the entities must not have. Relation targets can be specified here as well.
   - `optional::Tuple`: Additional components that are optional in the filter.
   - `exclusive::Bool`: Makes the filter exclusive in base and `with` components, can't be combined with `without`.
 """
