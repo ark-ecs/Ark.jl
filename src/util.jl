@@ -132,5 +132,5 @@ end
 
 function _relation_types_and_targets(relations::Tuple)
     return ntuple(i -> Val(relations[i].first), length(relations)),
-        ntuple(i -> relations[i].second, length(relations))
+    ntuple(i -> relations[i].second, length(relations))
 end

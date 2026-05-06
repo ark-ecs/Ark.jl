@@ -3,7 +3,7 @@
     types = _to_types(CT.parameters)
     comps, rels = [], []
     for i in eachindex(types)
-        if types[i] <: Pair{<:Any, Entity}
+        if types[i] <: Pair{<:Any,Entity}
             if Mode === :type
                 push!(rels, :(values[$i]))
             else
@@ -166,6 +166,7 @@ Creates a new [Entity](@ref) with the given component values. Types are inferred
 
     - `world::World`: The `World` instance to use.
     - `values::Tuple`: Component values for the entity, including inline relation pairs like `(Position(0, 0), ChildOf() => parent)`.
+
   - `defaults::Tuple`: A tuple of default values for initialization, like `(Position(0, 0), Velocity(1, 1))`.
 
 # Examples
@@ -232,7 +233,7 @@ Mutable and non-isbits components are shallow copied by default. This can be cha
 
   - `world`: The `World` instance to query.
   - `entity::Entity`: The entity to copy.
-    - `add::Tuple`: Components to add, like `add=(Health(0),)` or `add=(ChildOf() => parent,)`.
+      + `add::Tuple`: Components to add, like `add=(Health(0),)` or `add=(ChildOf() => parent,)`.
   - `remove::Tuple`: Component types to remove, like `remove=(Position,Velocity)`.
   - `mode::Tuple`: Copy mode for mutable and non-isbits components. Modes are :ref, :copy, :deepcopy.
 

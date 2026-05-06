@@ -64,7 +64,7 @@
 
     count = 0
     for (ents,) in Query(world, (); with=(ChildOf => zero_entity,))
-        @test typeof(ents) == Entities 
+        @test typeof(ents) == Entities
         count += length(ents)
     end
     @test count == 150
