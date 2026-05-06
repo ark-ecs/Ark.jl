@@ -62,6 +62,15 @@
 
     @test length(world._tables) == 4
 
+    count = 0
+    for (ents,) in Query(world, (); with=(ChildOf => zero_entity,))
+        @test typeof(ents) == Entities 
+        count += length(ents)
+    end
+    @test count == 150
+
+    @test length(world._tables) == 4
+
     parent3 = new_entity!(world, ())
     parent4 = new_entity!(world, ())
     e1 = new_entity!(world, (Position(0, 0), ChildOf() => parent3))

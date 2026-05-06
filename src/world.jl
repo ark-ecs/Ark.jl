@@ -66,7 +66,7 @@ _split_relations_type(::Tuple{}) = (), ()
     return (head_values..., tail_values...), (head_relations..., tail_relations...)
 end
 
-@inline function _normalize_inline_relations_type(values::Tuple, relations::Tuple=())
+@inline function _normalize_relations_type(values::Tuple, relations::Tuple=())
     normalized_values, inline_relations = _split_relations_type(values)
     return normalized_values, (inline_relations..., relations...)
 end

@@ -85,7 +85,7 @@ end
     components::Tuple,
     ::Val{true},
 ) where {F}
-    components, relations = _normalize_inline_relations_type(components, ())
+    components, relations = _normalize_relations_type(components, ())
     rel_types, targets = _relation_types_and_targets(relations)
     return _new_entities!(fn, world, n,
         ntuple(i -> Val(components[i]), length(components)), (),
@@ -112,7 +112,7 @@ end
     components::Tuple,
     ::Val{true},
 )
-    components, relations = _normalize_inline_relations_type(components, ())
+    components, relations = _normalize_relations_type(components, ())
     rel_types, targets = _relation_types_and_targets(relations)
     return _new_entities!(world, n,
         Val{typeof(components)}(), components,
@@ -357,7 +357,7 @@ end
     add::Tuple;
 ) where {Fn,F<:Filter}
     if _components_are_types(add)
-        add, relations = _normalize_inline_relations_type(add, ())
+        add, relations = _normalize_relations_type(add, ())
         rel_types, targets = _relation_types_and_targets(relations)
         return @inline _exchange_components!(
             fn, world, filter,
@@ -539,7 +539,7 @@ end
     remove::Tuple=(),
 ) where {Fn,F<:Filter}
     if _components_are_types(add)
-        add, relations = _normalize_inline_relations_type(add, ())
+        add, relations = _normalize_relations_type(add, ())
         rel_types, targets = _relation_types_and_targets(relations)
         return @inline _exchange_components!(
             fn, world, filter,
