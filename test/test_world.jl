@@ -939,8 +939,10 @@ end
         Dummy,
         Position,
         ChildOf,
+        ChildOf2,
     )
     parent = new_entity!(world, ())
+    parent2 = new_entity!(world, ())
 
     new_entities!(world, 100, (Position, ChildOf => parent)) do (_, positions, children)
         for i in eachindex(positions, children)
@@ -950,6 +952,26 @@ end
     end
 
     new_entities!(world, 100, (Position(0, 0), ChildOf() => parent))
+
+    new_entities!(world, 25, (Position, ChildOf => parent, ChildOf2 => parent2)) do (_, positions, children, children2)
+        for i in eachindex(positions, children, children2)
+            positions[i] = Position(i, -i)
+            children[i] = ChildOf()
+            children2[i] = ChildOf2()
+        end
+    end
+
+    count = 0
+    for (entities, positions, children, children2) in Query(world, (Position, ChildOf, ChildOf2))
+        for i in eachindex(entities, positions, children, children2)
+            @test positions[i] == Position(i, -i)
+            @test children[i] == ChildOf()
+            @test children2[i] == ChildOf2()
+            @test get_relations(world, entities[i], (ChildOf, ChildOf2)) == (parent, parent2)
+            count += 1
+        end
+    end
+    @test count == 25
 
     for (entities, children) in Query(world, (ChildOf,))
         for i in eachindex(entities)
@@ -1164,6 +1186,41 @@ end
 
     filter = Query(world, (Position, Velocity, Altitude, Health, LabelComponent))
     @test count_entities(filter) == 20
+
+    @testset "with relations and callback" begin
+        world_rel = World(
+            Dummy,
+            Position => Storage{StructArray},
+            Velocity,
+            ChildOf,
+        )
+
+        parent = new_entity!(world_rel, ())
+        new_entities!(world_rel, 10, (Position(1, 1),))
+
+        filter_rel = Filter(world_rel, (Position,))
+        add_components!(world_rel, filter_rel, (Velocity, ChildOf => parent)) do (entities, velocities, children)
+            @test length(entities) == 10
+            @test length(velocities) == 10
+            @test length(children) == 10
+            for i in eachindex(entities, velocities, children)
+                velocities[i] = Velocity(i, i + 1)
+                children[i] = ChildOf()
+            end
+        end
+
+        count = 0
+        for (entities, positions, velocities, children) in Query(world_rel, (Position, Velocity, ChildOf))
+            for i in eachindex(entities, positions, velocities, children)
+                @test positions[i] == Position(1, 1)
+                @test velocities[i] == Velocity(i, i + 1)
+                @test children[i] == ChildOf()
+                @test get_relations(world_rel, entities[i], (ChildOf,)) == (parent,)
+                count += 1
+            end
+        end
+        @test count == 10
+    end
 end
 
 @static if RUN_JET
@@ -1279,6 +1336,43 @@ end
         end
     end
     @test count == 20
+
+    @testset "with relations and callback" begin
+        world_rel = World(
+            Dummy,
+            Position => Storage{StructArray},
+            Velocity,
+            Altitude,
+            ChildOf,
+        )
+
+        parent = new_entity!(world_rel, ())
+        new_entities!(world_rel, 10, (Position(1, 1), Altitude(100)))
+
+        filter_rel = Filter(world_rel, (Altitude,))
+        exchange_components!(world_rel, filter_rel; add=(Velocity, ChildOf => parent), remove=(Altitude,)) do (entities, velocities, children)
+            @test length(entities) == 10
+            @test length(velocities) == 10
+            @test length(children) == 10
+            for i in eachindex(entities, velocities, children)
+                velocities[i] = Velocity(i, -i)
+                children[i] = ChildOf()
+            end
+        end
+
+        count = 0
+        for (entities, positions, velocities, children) in Query(world_rel, (Position, Velocity, ChildOf))
+            for i in eachindex(entities, positions, velocities, children)
+                @test positions[i] == Position(1, 1)
+                @test velocities[i] == Velocity(i, -i)
+                @test children[i] == ChildOf()
+                @test has_components(world_rel, entities[i], (Altitude,)) == false
+                @test get_relations(world_rel, entities[i], (ChildOf,)) == (parent,)
+                count += 1
+            end
+        end
+        @test count == 10
+    end
 end
 
 """

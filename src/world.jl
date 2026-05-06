@@ -33,16 +33,16 @@ function _WorldPool{M}() where {M}
     )
 end
 
-_split_inline_relation_value(value) = (value,), ()
+_split_relation_value(value) = (value,), ()
 
-@inline function _split_inline_relation_value(value::Pair{T,Entity}) where {T}
+@inline function _split_relation_value(value::Pair{T,Entity}) where {T}
     return (value.first,), (T => value.second,)
 end
 
 _split_relations_value(::Tuple{}) = (), ()
 
 @inline function _split_relations_value(values::Tuple)
-    head_values, head_relations = _split_inline_relation_value(values[1])
+    head_values, head_relations = _split_relation_value(values[1])
     tail_values, tail_relations = _split_relations_value(Base.tail(values))
     return (head_values..., tail_values...), (head_relations..., tail_relations...)
 end
@@ -71,13 +71,21 @@ end
     return normalized_values, (inline_relations..., relations...)
 end
 
-_component_is_type(value::Any) = false
+function _component_is_type(value::Any)
+    return false
+end
 
-_component_is_type(value::DataType) = true
+function _component_is_type(value::DataType)
+    return true
+end
 
-_component_is_type(value::Pair{DataType,Entity}) = true
+function _component_is_type(value::Pair{DataType,Entity})
+    return true
+end
 
-_components_are_types(::Tuple{}) = true
+function _components_are_types(::Tuple{})
+    return true
+end
 
 @inline function _components_are_types(values::Tuple)
     return _component_is_type(values[1]) && _components_are_types(Base.tail(values))
