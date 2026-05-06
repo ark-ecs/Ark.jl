@@ -51,24 +51,21 @@ end
     return :(($(comps...),), ($(rels...),))
 end
 
-function _component_is_type(value::Any)
-    return false
-end
-
-function _component_is_type(value::DataType)
-    return true
-end
-
-function _component_is_type(value::Pair{DataType,Entity})
-    return true
-end
-
-function _components_are_types(::Tuple{})
-    return true
-end
-
-@inline function _components_are_types(values::Tuple)
-    return _component_is_type(values[1]) && _components_are_types(Base.tail(values))
+@generated function _components_are_types(values::Tuple)
+    types = _to_types(values.parameters)
+    c = 0
+    for t in types
+        if t == DataType || t == Pair{DataType,Entity}
+            c += 1
+        end
+    end
+    if c == length(types)
+        return true
+    elseif c == 0
+        return false
+    else
+        throw(ArgumentError("components must be either all values or all types"))
+    end
 end
 
 """
