@@ -233,7 +233,7 @@ Mutable and non-isbits components are shallow copied by default. This can be cha
 
   - `world`: The `World` instance to query.
   - `entity::Entity`: The entity to copy.
-      + `add::Tuple`: Components to add, like `add=(Health(0),)` or `add=(ChildOf() => parent,)`.
+  - `add::Tuple`: Components to add, like `add=(Health(0),ChildOf() => parent)`.
   - `remove::Tuple`: Component types to remove, like `remove=(Position,Velocity)`.
   - `mode::Tuple`: Copy mode for mutable and non-isbits components. Modes are :ref, :copy, :deepcopy.
 
