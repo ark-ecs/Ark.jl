@@ -134,20 +134,3 @@ function _relation_types_and_targets(relations::Tuple)
     return ntuple(i -> Val(relations[i].first), length(relations)),
         ntuple(i -> relations[i].second, length(relations))
 end
-
-@generated function _components_are_types(values::Tuple)
-    types = _to_types(values.parameters)
-    c = 0
-    for t in types
-        if t == DataType || t == Pair{DataType,Entity}
-            c += 1
-        end
-    end
-    if c == length(types)
-        return true
-    elseif c == 0
-        return false
-    else
-        throw(ArgumentError("components must be either all values or all types"))
-    end
-end
