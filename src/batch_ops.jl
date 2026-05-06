@@ -62,7 +62,19 @@ Base.@constprop :aggressive function new_entities!(
     elseif n == 0
         return
     end
-    return _new_entities_dispatch!(fn, world, n, components, Val(_components_are_types(components)))
+    if _components_are_types(components)
+        components, relations = _normalize_relations(components, Val(:type))
+        rel_types, targets = _relation_types_and_targets(relations)
+        return _new_entities!(fn, world, n,
+            ntuple(i -> Val(components[i]), length(components)), (),
+            rel_types, targets, Val(false), Val(true))
+    else
+        components, relations = _normalize_relations(components, Val(:value))
+        rel_types, targets = _relation_types_and_targets(relations)
+        return _new_entities!(fn, world, n,
+            Val{typeof(components)}(), components,
+            rel_types, targets, Val(true), Val(true))
+    end
 end
 
 Base.@constprop :aggressive function new_entities!(
@@ -75,62 +87,20 @@ Base.@constprop :aggressive function new_entities!(
     elseif n == 0
         return
     end
-    return _new_entities_dispatch!(world, n, components, Val(_components_are_types(components)))
-end
-
-@inline Base.@constprop :aggressive function _new_entities_dispatch!(
-    fn::F,
-    world::World,
-    n::Int,
-    components::Tuple,
-    ::Val{true},
-) where {F}
-    components, relations = _normalize_relations(components, Val(:type))
-    rel_types, targets = _relation_types_and_targets(relations)
-    return _new_entities!(fn, world, n,
-        ntuple(i -> Val(components[i]), length(components)), (),
-        rel_types, targets, Val(false), Val(true))
-end
-
-@inline Base.@constprop :aggressive function _new_entities_dispatch!(
-    fn::F,
-    world::World,
-    n::Int,
-    components::Tuple,
-    ::Val{false},
-) where {F}
-    components, relations = _normalize_relations(components, Val(:value))
-    rel_types, targets = _relation_types_and_targets(relations)
-    return _new_entities!(fn, world, n,
-        Val{typeof(components)}(), components,
-        rel_types, targets, Val(true), Val(true))
-end
-
-@inline Base.@constprop :aggressive function _new_entities_dispatch!(
-    world::World,
-    n::Int,
-    components::Tuple,
-    ::Val{true},
-)
-    components, relations = _normalize_relations(components, Val(:type))
-    rel_types, targets = _relation_types_and_targets(relations)
-    return _new_entities!(world, n,
-        Val{typeof(components)}(), components,
-        rel_types, targets, Val(true), Val(false)) do tuple
-    end
-end
-
-@inline Base.@constprop :aggressive function _new_entities_dispatch!(
-    world::World,
-    n::Int,
-    components::Tuple,
-    ::Val{false},
-)
-    components, relations = _normalize_relations(components, Val(:value))
-    rel_types, targets = _relation_types_and_targets(relations)
-    return _new_entities!(world, n,
-        Val{typeof(components)}(), components,
-        rel_types, targets, Val(true), Val(false)) do tuple
+    if _components_are_types(components)
+        components, relations = _normalize_relations(components, Val(:type))
+        rel_types, targets = _relation_types_and_targets(relations)
+        return _new_entities!(world, n,
+            Val{typeof(components)}(), components,
+            rel_types, targets, Val(true), Val(false)) do tuple
+        end
+    else
+        components, relations = _normalize_relations(components, Val(:value))
+        rel_types, targets = _relation_types_and_targets(relations)
+        return _new_entities!(world, n,
+            Val{typeof(components)}(), components,
+            rel_types, targets, Val(true), Val(false)) do tuple
+        end
     end
 end
 
