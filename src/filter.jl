@@ -47,13 +47,13 @@ Base.@constprop :aggressive function Filter(
     exclusive::Bool=false,
     register::Bool=false,
 )
-    comp_types, comp_relations = _normalize_relations_type(comp_types)
-    with, with_relations = _normalize_relations_type(with)
+    comp_types_f, comp_relations = _normalize_relations(comp_types, Val(:type))
+    with_f, with_relations = _normalize_relations_type(with)
     relations = (comp_relations..., with_relations...)
     rel_types, targets = _relation_types_and_targets(relations)
     return _Filter_from_types(world,
-        ntuple(i -> Val(comp_types[i]), length(comp_types)),
-        ntuple(i -> Val(with[i]), length(with)),
+        ntuple(i -> Val(comp_types_f[i]), length(comp_types_f)),
+        ntuple(i -> Val(with_f[i]), length(with_f)),
         ntuple(i -> Val(without[i]), length(without)),
         ntuple(i -> Val(optional[i]), length(optional)),
         Val(exclusive),

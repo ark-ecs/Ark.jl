@@ -33,42 +33,22 @@ function _WorldPool{M}() where {M}
     )
 end
 
-_split_relation_value(value) = (value,), ()
-
-@inline function _split_relation_value(value::Pair{T,Entity}) where {T}
-    return (value.first,), (T => value.second,)
-end
-
-_split_relations_value(::Tuple{}) = (), ()
-
-@inline function _split_relations_value(values::Tuple)
-    head_values, head_relations = _split_relation_value(values[1])
-    tail_values, tail_relations = _split_relations_value(Base.tail(values))
-    return (head_values..., tail_values...), (head_relations..., tail_relations...)
-end
-
-@inline function _normalize_relations_value(values::Tuple, relations::Tuple=())
-    normalized_values, inline_relations = _split_relations_value(values)
-    return normalized_values, (inline_relations..., relations...)
-end
-
-_split_relation_type(value) = (value,), ()
-
-@inline function _split_relation_type(value::Pair{DataType,Entity})
-    return (value.first,), (value.first => value.second,)
-end
-
-_split_relations_type(::Tuple{}) = (), ()
-
-@inline function _split_relations_type(values::Tuple)
-    head_values, head_relations = _split_relation_type(values[1])
-    tail_values, tail_relations = _split_relations_type(Base.tail(values))
-    return (head_values..., tail_values...), (head_relations..., tail_relations...)
-end
-
-@inline function _normalize_relations_type(values::Tuple, relations::Tuple=())
-    normalized_values, inline_relations = _split_relations_type(values)
-    return normalized_values, (inline_relations..., relations...)
+@generated function _normalize_relations(values::CT, ::Val{Mode}) where {CT<:Tuple,Mode}
+    types = _to_types(CT.parameters)
+    comps, rels = [], []
+    for i in eachindex(types)
+        if types[i] <: Pair{<:Any, Entity}
+            if Mode === :type
+                push!(rels, :(values[$i]))
+            else
+                push!(rels, :($(types[i].parameters[1]) => values[$i].second))
+            end
+            push!(comps, :(values[$i].first))
+        else
+            push!(comps, :(values[$i]))
+        end
+    end
+    return :(($(comps...),), ($(rels...),))
 end
 
 function _component_is_type(value::Any)
@@ -89,11 +69,6 @@ end
 
 @inline function _components_are_types(values::Tuple)
     return _component_is_type(values[1]) && _components_are_types(Base.tail(values))
-end
-
-@inline function _relation_types_and_targets(relations::Tuple)
-    return ntuple(i -> Val(relations[i].first), length(relations)),
-        ntuple(i -> relations[i].second, length(relations))
 end
 
 """
@@ -223,7 +198,7 @@ Base.@constprop :aggressive function new_entity!(
     values::Tuple;
     _unchecked=false,
 )
-    values, relations = _normalize_relations_value(values, ())
+    values, relations = _normalize_relations(values, Val(:value))
     rel_types, targets = _relation_types_and_targets(relations)
 
     entity, table_id = _new_entity!(world, Val{typeof(values)}(), values, rel_types, targets, Val(_unchecked))
@@ -295,7 +270,7 @@ Entity(5, 0)
     mode::Symbol=:copy,
     _unchecked::Bool=false,
 )
-    add, relations = _normalize_relations_value(add, ())
+    add, relations = _normalize_relations(add, Val(:value))
     if isempty(add) && isempty(remove) && isempty(relations)
         return @inline _copy_entity!(world, entity, Val(mode), Val(_unchecked))
     end
@@ -542,7 +517,7 @@ add_components!(world, entity, (Health(100),))
     values::Tuple;
     _unchecked::Bool=false,
 )
-    values, relations = _normalize_relations_value(values, ())
+    values, relations = _normalize_relations(values, Val(:value))
     rel_types, targets = _relation_types_and_targets(relations)
     return @inline _exchange_components!(world, entity, Val{typeof(values)}(), values, (), rel_types, targets,
         Val(_unchecked), Val(:add))
@@ -609,7 +584,7 @@ exchange_components!(world, entity;
     remove::Tuple=(),
     _unchecked::Bool=false,
 )
-    add, relations = _normalize_relations_value(add, ())
+    add, relations = _normalize_relations(add, Val(:value))
     rel_types, targets = _relation_types_and_targets(relations)
     return @inline _exchange_components!(
         world,
