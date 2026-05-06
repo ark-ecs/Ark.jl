@@ -30,7 +30,7 @@ end
     elseif c == 0
         return false
     else
-        throw(ArgumentError("components must be either all values or all types"))
+        throw(ArgumentError("components must be either all values or all types."))
     end
 end
 

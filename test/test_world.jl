@@ -879,6 +879,7 @@ end
     new_entities!(world, 0, ())
     @test_throws("ArgumentError: can't add a negative number of entities.", new_entities!(world, -1, ()))
     @test_throws("ArgumentError: can't add a negative number of entities.", new_entities!(identity, world, -1, ()))
+    @test_throws("ArgumentError: components must be either all values or all types", new_entities!(identity, world, 1, (Position, Velocity(99, 99))))
 
     new_entities!(world, 100, (Position(99, 99), Velocity(99, 99))) do (ent, pos_col, vel_col)
         @test length(ent) == 100
