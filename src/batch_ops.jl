@@ -567,11 +567,7 @@ end
     add::Tuple=(),
     remove::Tuple=(),
 ) where {F<:Filter}
-    if _components_are_types(add)
-        add, relations = _normalize_inline_relations_type(add, ())
-    else
-        add, relations = _normalize_relations_value(add, ())
-    end
+    add, relations = _normalize_relations_value(add, ())
     rel_types, targets = _relation_types_and_targets(relations)
     return @inline _exchange_components!(
         world, filter,

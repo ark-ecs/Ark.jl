@@ -954,8 +954,8 @@ end
     new_entities!(world, 100, (Position(0, 0), ChildOf() => parent))
 
     new_entities!(world, 25, (Position, ChildOf => parent, ChildOf2 => parent2)) do (_, positions, children, children2)
-        for i in eachindex(positions, children, children2)
-            positions[i] = Position(i, -i)
+        for (n, i) in enumerate(eachindex(positions, children, children2))
+            positions[i] = Position(n, -n)
             children[i] = ChildOf()
             children2[i] = ChildOf2()
         end
@@ -963,8 +963,8 @@ end
 
     count = 0
     for (entities, positions, children, children2) in Query(world, (Position, ChildOf, ChildOf2))
-        for i in eachindex(entities, positions, children, children2)
-            @test positions[i] == Position(i, -i)
+        for (n, i) in enumerate(eachindex(entities, positions, children, children2))
+            @test positions[i] == Position(n, -n)
             @test children[i] == ChildOf()
             @test children2[i] == ChildOf2()
             @test get_relations(world, entities[i], (ChildOf, ChildOf2)) == (parent, parent2)
@@ -1203,17 +1203,17 @@ end
             @test length(entities) == 10
             @test length(velocities) == 10
             @test length(children) == 10
-            for i in eachindex(entities, velocities, children)
-                velocities[i] = Velocity(i, i + 1)
+            for (n, i) in enumerate(eachindex(entities, velocities, children))
+                velocities[i] = Velocity(n, n + 1)
                 children[i] = ChildOf()
             end
         end
 
         count = 0
         for (entities, positions, velocities, children) in Query(world_rel, (Position, Velocity, ChildOf))
-            for i in eachindex(entities, positions, velocities, children)
+            for (n, i) in enumerate(eachindex(entities, positions, velocities, children))
                 @test positions[i] == Position(1, 1)
-                @test velocities[i] == Velocity(i, i + 1)
+                @test velocities[i] == Velocity(n, n + 1)
                 @test children[i] == ChildOf()
                 @test get_relations(world_rel, entities[i], (ChildOf,)) == (parent,)
                 count += 1
@@ -1354,17 +1354,17 @@ end
             @test length(entities) == 10
             @test length(velocities) == 10
             @test length(children) == 10
-            for i in eachindex(entities, velocities, children)
-                velocities[i] = Velocity(i, -i)
+            for (n, i) in enumerate(eachindex(entities, velocities, children))
+                velocities[i] = Velocity(n, -n)
                 children[i] = ChildOf()
             end
         end
 
         count = 0
         for (entities, positions, velocities, children) in Query(world_rel, (Position, Velocity, ChildOf))
-            for i in eachindex(entities, positions, velocities, children)
+            for (n, i) in enumerate(eachindex(entities, positions, velocities, children))
                 @test positions[i] == Position(1, 1)
-                @test velocities[i] == Velocity(i, -i)
+                @test velocities[i] == Velocity(n, -n)
                 @test children[i] == ChildOf()
                 @test has_components(world_rel, entities[i], (Altitude,)) == false
                 @test get_relations(world_rel, entities[i], (ChildOf,)) == (parent,)
