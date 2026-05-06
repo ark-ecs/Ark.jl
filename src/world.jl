@@ -33,69 +33,51 @@ function _WorldPool{M}() where {M}
     )
 end
 
-@inline _split_inline_relation_value(value) = (value,), ()
+_split_inline_relation_value(value) = (value,), ()
 
 @inline function _split_inline_relation_value(value::Pair{T,Entity}) where {T}
     return (value.first,), (T => value.second,)
 end
 
-@inline _split_inline_relations_value(::Tuple{}) = (), ()
+_split_relations_value(::Tuple{}) = (), ()
 
-@inline function _split_inline_relations_value(values::Tuple)
+@inline function _split_relations_value(values::Tuple)
     head_values, head_relations = _split_inline_relation_value(values[1])
-    tail_values, tail_relations = _split_inline_relations_value(Base.tail(values))
+    tail_values, tail_relations = _split_relations_value(Base.tail(values))
     return (head_values..., tail_values...), (head_relations..., tail_relations...)
 end
 
-@inline function _normalize_inline_relations_value(values::Tuple, relations::Tuple=())
-    normalized_values, inline_relations = _split_inline_relations_value(values)
+@inline function _normalize_relations_value(values::Tuple, relations::Tuple=())
+    normalized_values, inline_relations = _split_relations_value(values)
     return normalized_values, (inline_relations..., relations...)
 end
 
-@inline _split_inline_relation_type(value) = (value,), ()
+_split_relation_type(value) = (value,), ()
 
-@inline function _split_inline_relation_type(value::Pair{DataType,Entity})
+@inline function _split_relation_type(value::Pair{DataType,Entity})
     return (value.first,), (value.first => value.second,)
 end
 
-@inline _split_inline_relations_type(::Tuple{}) = (), ()
+_split_relations_type(::Tuple{}) = (), ()
 
-@inline function _split_inline_relations_type(values::Tuple)
-    head_values, head_relations = _split_inline_relation_type(values[1])
-    tail_values, tail_relations = _split_inline_relations_type(Base.tail(values))
+@inline function _split_relations_type(values::Tuple)
+    head_values, head_relations = _split_relation_type(values[1])
+    tail_values, tail_relations = _split_relations_type(Base.tail(values))
     return (head_values..., tail_values...), (head_relations..., tail_relations...)
 end
 
 @inline function _normalize_inline_relations_type(values::Tuple, relations::Tuple=())
-    normalized_values, inline_relations = _split_inline_relations_type(values)
+    normalized_values, inline_relations = _split_relations_type(values)
     return normalized_values, (inline_relations..., relations...)
 end
 
-@inline _split_inline_excluded_relation_type(value) = (value,), ()
+_component_is_type(value::Any) = false
 
-@inline function _split_inline_excluded_relation_type(value::Pair{DataType,Entity})
-    return (), (value.first => value.second,)
-end
+_component_is_type(value::DataType) = true
 
-@inline _split_inline_excluded_relations_type(::Tuple{}) = (), ()
+_component_is_type(value::Pair{DataType,Entity}) = true
 
-@inline function _split_inline_excluded_relations_type(values::Tuple)
-    head_values, head_relations = _split_inline_excluded_relation_type(values[1])
-    tail_values, tail_relations = _split_inline_excluded_relations_type(Base.tail(values))
-    return (head_values..., tail_values...), (head_relations..., tail_relations...)
-end
-
-@inline function _normalize_inline_excluded_relations_type(values::Tuple)
-    return _split_inline_excluded_relations_type(values)
-end
-
-@inline _component_is_type(value) = value isa DataType
-
-@inline function _component_is_type(value::Pair{DataType,Entity})
-    return true
-end
-
-@inline _components_are_types(::Tuple{}) = true
+_components_are_types(::Tuple{}) = true
 
 @inline function _components_are_types(values::Tuple)
     return _component_is_type(values[1]) && _components_are_types(Base.tail(values))
@@ -233,7 +215,7 @@ Base.@constprop :aggressive function new_entity!(
     values::Tuple;
     _unchecked=false,
 )
-    values, relations = _normalize_inline_relations_value(values, ())
+    values, relations = _normalize_relations_value(values, ())
     rel_types, targets = _relation_types_and_targets(relations)
 
     entity, table_id = _new_entity!(world, Val{typeof(values)}(), values, rel_types, targets, Val(_unchecked))
@@ -305,7 +287,7 @@ Entity(5, 0)
     mode::Symbol=:copy,
     _unchecked::Bool=false,
 )
-    add, relations = _normalize_inline_relations_value(add, ())
+    add, relations = _normalize_relations_value(add, ())
     if isempty(add) && isempty(remove) && isempty(relations)
         return @inline _copy_entity!(world, entity, Val(mode), Val(_unchecked))
     end
@@ -535,7 +517,7 @@ end
 
 Adds the given component values to an [Entity](@ref). Types are inferred from the values.
 
-Inline relation pairs like `(ChildOf() => parent,)` can be included in `values`.
+Relation pairs like `(ChildOf() => parent,)` can be included in the values.
 
 # Example
 
@@ -552,7 +534,7 @@ add_components!(world, entity, (Health(100),))
     values::Tuple;
     _unchecked::Bool=false,
 )
-    values, relations = _normalize_inline_relations_value(values, ())
+    values, relations = _normalize_relations_value(values, ())
     rel_types, targets = _relation_types_and_targets(relations)
     return @inline _exchange_components!(world, entity, Val{typeof(values)}(), values, (), rel_types, targets,
         Val(_unchecked), Val(:add))
@@ -619,7 +601,7 @@ exchange_components!(world, entity;
     remove::Tuple=(),
     _unchecked::Bool=false,
 )
-    add, relations = _normalize_inline_relations_value(add, ())
+    add, relations = _normalize_relations_value(add, ())
     rel_types, targets = _relation_types_and_targets(relations)
     return @inline _exchange_components!(
         world,

@@ -226,14 +226,6 @@ end
         cnt += length(entities)
     end
     @test cnt == 10
-
-    query = Query(world, (Position,); with=(ChildOf => parent2,))
-    @test length(query) == 1
-    @test count_entities(query) == 10
-
-    query = Query(world, (Position,); without=(ChildOf => parent2,))
-    @test length(query) == 2
-    @test count_entities(query) == 20
 end
 
 @testset "Query multiple relations" begin

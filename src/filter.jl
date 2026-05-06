@@ -49,7 +49,6 @@ Base.@constprop :aggressive function Filter(
 )
     comp_types, comp_relations = _normalize_inline_relations_type(comp_types)
     with, with_relations = _normalize_inline_relations_type(with)
-    without, without_relations = _normalize_inline_excluded_relations_type(without)
     relations = (comp_relations..., with_relations...)
     rel_types, targets = _relation_types_and_targets(relations)
     return _Filter_from_types(world,

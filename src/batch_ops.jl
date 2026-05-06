@@ -97,7 +97,7 @@ end
     components::Tuple,
     ::Val{false},
 ) where {F}
-    components, relations = _normalize_inline_relations_value(components, ())
+    components, relations = _normalize_relations_value(components, ())
     rel_types, targets = _relation_types_and_targets(relations)
     return _new_entities!(fn, world, n,
         Val{typeof(components)}(), components,
@@ -124,7 +124,7 @@ end
     components::Tuple,
     ::Val{false},
 )
-    components, relations = _normalize_inline_relations_value(components, ())
+    components, relations = _normalize_relations_value(components, ())
     rel_types, targets = _relation_types_and_targets(relations)
     return _new_entities!(world, n,
         Val{typeof(components)}(), components,
@@ -318,7 +318,9 @@ Note that components are not initialized/undef unless set in the callback in thi
   - `f::Function`: Optional callback for initialization, can be passed as a `do` block.
   - `world::World`: The [World](@ref) instance to use.
   - `filter::Filter`: The [Filter](@ref) to select entities.
-  - `add::Tuple`: A tuple of components to add. Either default values like `(Position(0, 0), Velocity(1, 1))`, types like `(Position, Velocity)`, or relation pairs like `(ChildOf() => parent,)`.
+  - `add::Tuple`: A tuple of components to add. Either default values like 
+    `(Position(0, 0), Velocity(1, 1), ChildOf() => parent,)` or types
+     like `(Position, Velocity, ChildOf => parent)`.
 
 # Examples
 
@@ -363,7 +365,7 @@ end
             Val(false), Val(true), Val(false),
         )
     else
-        add, relations = _normalize_inline_relations_value(add, ())
+        add, relations = _normalize_relations_value(add, ())
         rel_types, targets = _relation_types_and_targets(relations)
         return @inline _exchange_components!(
             fn, world, filter,
@@ -380,7 +382,7 @@ end
     filter::F,
     add::Tuple;
 ) where {F<:Filter}
-    add, relations = _normalize_inline_relations_value(add, ())
+    add, relations = _normalize_relations_value(add, ())
     rel_types, targets = _relation_types_and_targets(relations)
     return @inline _exchange_components!(
         world, filter,
@@ -490,7 +492,9 @@ Note that components are not initialized/undef unless set in the callback in thi
   - `f::Function`: Optional callback for initialization, can be passed as a `do` block.
   - `world::World`: The [World](@ref) instance to use.
   - `filter::Filter`: The [Filter](@ref) to select entities.
-  - `add::Tuple`: A tuple of components to add. Either default values like `(Position(0, 0), Velocity(1, 1))`, types like `(Position, Velocity)`, or relation pairs like `(ChildOf() => parent,)`.
+  - `add::Tuple`: A tuple of components to add. Either default values like 
+    `(Position(0, 0), Velocity(1, 1), ChildOf() => parent,) or types like
+    `(Position, Velocity, ChildOf => parent,)`.
   - `remove::Tuple`: A tuple of component types to remove, like `(Position, Velocity)`
 
 # Examples
@@ -543,7 +547,7 @@ end
             Val(false), Val(true), Val(false),
         )
     else
-        add, relations = _normalize_inline_relations_value(add, ())
+        add, relations = _normalize_relations_value(add, ())
         rel_types, targets = _relation_types_and_targets(relations)
         return @inline _exchange_components!(
             fn, world, filter,
@@ -564,7 +568,7 @@ end
     if _components_are_types(add)
         add, relations = _normalize_inline_relations_type(add, ())
     else
-        add, relations = _normalize_inline_relations_value(add, ())
+        add, relations = _normalize_relations_value(add, ())
     end
     rel_types, targets = _relation_types_and_targets(relations)
     return @inline _exchange_components!(
