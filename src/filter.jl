@@ -48,7 +48,7 @@ Base.@constprop :aggressive function Filter(
     register::Bool=false,
 )
     comp_types_f, comp_relations = _normalize_relations(comp_types, Val(:type))
-    with_f, with_relations = _normalize_relations_type(with)
+    with_f, with_relations = _normalize_relations(with, Val(:type))
     relations = (comp_relations..., with_relations...)
     rel_types, targets = _relation_types_and_targets(relations)
     return _Filter_from_types(world,
