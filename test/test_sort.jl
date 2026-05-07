@@ -157,28 +157,20 @@ end
 
         xs_parent1 = [3.0, 1.0, 2.0]
         for x in xs_parent1
-            new_entity!(
-                world, (Position(x, x), Velocity(x + 5.0, -x), ChildOf());
-                relations=(ChildOf => parent1,),
-            )
+            new_entity!(world, (Position(x, x), Velocity(x + 5.0, -x), ChildOf() => parent1))
         end
 
         xs_parent2 = [9.0, 8.0]
         for x in xs_parent2
-            new_entity!(
-                world, (Position(x, x), Velocity(x + 10.0, -x), ChildOf());
-                relations=(ChildOf => parent2,),
-            )
+            new_entity!(world, (Position(x, x), Velocity(x + 10.0, -x), ChildOf() => parent2))
         end
 
         filter_parent1 = Filter(
-            world, (Position, Velocity, ChildOf);
-            relations=(ChildOf => parent1,),
+            world, (Position, Velocity, ChildOf => parent1),
         )
 
         filter_parent2 = Filter(
-            world, (Position, Velocity, ChildOf);
-            relations=(ChildOf => parent2,),
+            world, (Position, Velocity, ChildOf => parent2),
         )
 
         by_position_x = entity -> world[entity][Position].x

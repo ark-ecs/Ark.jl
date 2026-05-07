@@ -4,8 +4,7 @@
         [f::Function],
         world::World,
         n::Int,
-        components::Tuple;
-        relations:Tuple=(),
+        components::Tuple,
     )
 
 Creates the given number of [entities](@ref Entity).
@@ -22,8 +21,9 @@ Note that components are not initialized/undef unless set in the callback in thi
   - `f::Function`: Optional callback for initialization, can be passed as a `do` block.
   - `world::World`: The [World](@ref) instance to use.
   - `n::Int`: The number of entities to create.
-  - `components::Tuple`: A tuple of component to add. Either default values like `(Position(0, 0), Velocity(1, 1))`, or types like `(Position, Velocity)`.
-  - `relations::Tuple`: Relationship component type => target entity pairs.
+  - `components::Tuple`: A tuple of components to add. Either default values like
+    `(Position(0, 0), Velocity(1, 1), ChildOf() => parent)`, or types like
+    `(Position, Velocity, ChildOf => parent)`.
   - `iterate::Bool`: Whether to return a batch for individual entity initialization.
 
 # Examples
@@ -52,45 +52,61 @@ end
 ```
 """
 Base.@constprop :aggressive function new_entities!(
-    fn::F,
-    world::World,
-    n::Int,
-    components::Tuple;
-    relations::Tuple{Vararg{Pair{DataType,Entity}}}=(),
+    fn::F, world::World, n::Int, components::Tuple,
 ) where {F}
     if n < 0
         throw(ArgumentError("can't add a negative number of entities."))
     elseif n == 0
         return
     end
-    if components isa Tuple{Vararg{DataType}}
-        rel_types = ntuple(i -> Val(relations[i].first), length(relations))
-        targets = ntuple(i -> relations[i].second, length(relations))
-        return _new_entities!(fn, world, n,
-            ntuple(i -> Val(components[i]), length(components)), (),
-            rel_types, targets, Val(false), Val(true))
-    else
-        rel_types = ntuple(i -> Val(relations[i].first), length(relations))
-        targets = ntuple(i -> relations[i].second, length(relations))
-        return _new_entities!(fn, world, n,
-            Val{typeof(components)}(), components,
-            rel_types, targets, Val(true), Val(true))
-    end
+    return _new_entities_dispatch!(fn, world, n, components, Val(_components_are_types(components)))
 end
 
-Base.@constprop :aggressive function new_entities!(
-    world::World,
-    n::Int,
-    components::Tuple;
-    relations::Tuple{Vararg{Pair{DataType,Entity}}}=(),
-)
+Base.@constprop :aggressive function new_entities!(world::World, n::Int, components::Tuple)
     if n < 0
         throw(ArgumentError("can't add a negative number of entities."))
     elseif n == 0
         return
     end
-    rel_types = ntuple(i -> Val(relations[i].first), length(relations))
-    targets = ntuple(i -> relations[i].second, length(relations))
+    return _new_entities_dispatch!(world, n, components, Val(_components_are_types(components)))
+end
+
+@inline Base.@constprop :aggressive function _new_entities_dispatch!(
+    fn::F, world::World, n::Int, components::Tuple, ::Val{true},
+) where {F}
+    components, relations = _normalize_relations(components, Val(:type))
+    rel_types, targets = _relation_types_and_targets(relations)
+    return _new_entities!(fn, world, n,
+        ntuple(i -> Val(components[i]), length(components)), (),
+        rel_types, targets, Val(false), Val(true))
+end
+
+@inline Base.@constprop :aggressive function _new_entities_dispatch!(
+    fn::F, world::World, n::Int, components::Tuple, ::Val{false},
+) where {F}
+    components, relations = _normalize_relations(components, Val(:value))
+    rel_types, targets = _relation_types_and_targets(relations)
+    return _new_entities!(fn, world, n,
+        Val{typeof(components)}(), components,
+        rel_types, targets, Val(true), Val(true))
+end
+
+@inline Base.@constprop :aggressive function _new_entities_dispatch!(
+    world::World, n::Int, components::Tuple, ::Val{true},
+)
+    components, relations = _normalize_relations(components, Val(:type))
+    rel_types, targets = _relation_types_and_targets(relations)
+    return _new_entities!(world, n,
+        Val{typeof(components)}(), components,
+        rel_types, targets, Val(true), Val(false)) do tuple
+    end
+end
+
+@inline Base.@constprop :aggressive function _new_entities_dispatch!(
+    world::World, n::Int, components::Tuple, ::Val{false},
+)
+    components, relations = _normalize_relations(components, Val(:value))
+    rel_types, targets = _relation_types_and_targets(relations)
     return _new_entities!(world, n,
         Val{typeof(components)}(), components,
         rel_types, targets, Val(true), Val(false)) do tuple
@@ -219,7 +235,7 @@ Optionally runs a callback/`do`-block on the affected entities.
 Setting relation targets:
 
 ```jldoctest; setup = :(using Ark; include(string(dirname(pathof(Ark)), "/docs.jl"))), output = false
-filter = Filter(world, (ChildOf,); relations=(ChildOf => parent,))
+filter = Filter(world, (ChildOf => parent,))
 set_relations!(world, filter, (ChildOf => parent2,))
 
 # output
@@ -229,7 +245,7 @@ set_relations!(world, filter, (ChildOf => parent2,))
 Setting relation targets and running a callback:
 
 ```jldoctest; setup = :(using Ark; include(string(dirname(pathof(Ark)), "/docs.jl"))), output = false
-filter = Filter(world, (ChildOf,); relations=(ChildOf => parent,))
+filter = Filter(world, (ChildOf => parent,))
 set_relations!(world, filter, (ChildOf => parent2,)) do entities
     # do something with the entities...
 end
@@ -266,7 +282,6 @@ end
         world::World,
         filter::Filter,
         add::Tuple=(),
-        relations::Tuple=(),
     )
 
 Adds components to all [entities](@ref Entity) matching the given [Filter](@ref).
@@ -284,8 +299,9 @@ Note that components are not initialized/undef unless set in the callback in thi
   - `f::Function`: Optional callback for initialization, can be passed as a `do` block.
   - `world::World`: The [World](@ref) instance to use.
   - `filter::Filter`: The [Filter](@ref) to select entities.
-  - `add::Tuple`: A tuple of component to add. Either default values like `(Position(0, 0), Velocity(1, 1))`, or types like `(Position, Velocity)`.
-  - `relations::Tuple`: Relationship component type => target entity pairs.
+  - `add::Tuple`: A tuple of components to add. Either default values like
+    `(Position(0, 0), Velocity(1, 1), ChildOf() => parent,)` or types
+    like `(Position, Velocity, ChildOf => parent)`.
 
 # Examples
 
@@ -318,11 +334,10 @@ end
     world::World,
     filter::F,
     add::Tuple;
-    relations::Tuple{Vararg{Pair{DataType,Entity}}}=(),
 ) where {Fn,F<:Filter}
-    if add isa Tuple{Vararg{DataType}}
-        rel_types = ntuple(i -> Val(relations[i].first), length(relations))
-        targets = ntuple(i -> relations[i].second, length(relations))
+    if _components_are_types(add)
+        add, relations = _normalize_relations(add, Val(:type))
+        rel_types, targets = _relation_types_and_targets(relations)
         return @inline _exchange_components!(
             fn, world, filter,
             ntuple(i -> Val(add[i]), length(add)), (),
@@ -331,8 +346,8 @@ end
             Val(false), Val(true), Val(false),
         )
     else
-        rel_types = ntuple(i -> Val(relations[i].first), length(relations))
-        targets = ntuple(i -> relations[i].second, length(relations))
+        add, relations = _normalize_relations(add, Val(:value))
+        rel_types, targets = _relation_types_and_targets(relations)
         return @inline _exchange_components!(
             fn, world, filter,
             Val{typeof(add)}(), add,
@@ -347,10 +362,9 @@ end
     world::World,
     filter::F,
     add::Tuple;
-    relations::Tuple{Vararg{Pair{DataType,Entity}}}=(),
 ) where {F<:Filter}
-    rel_types = ntuple(i -> Val(relations[i].first), length(relations))
-    targets = ntuple(i -> relations[i].second, length(relations))
+    add, relations = _normalize_relations(add, Val(:value))
+    rel_types, targets = _relation_types_and_targets(relations)
     return @inline _exchange_components!(
         world, filter,
         Val{typeof(add)}(), add,
@@ -442,7 +456,6 @@ end
         filter::Filter;
         add::Tuple=(),
         remove::Tuple=(),
-        relations::Tuple=(),
     )
 
 Adds and removes components on all [entities](@ref Entity) matching the given [Filter](@ref).
@@ -460,9 +473,9 @@ Note that components are not initialized/undef unless set in the callback in thi
   - `f::Function`: Optional callback for initialization, can be passed as a `do` block.
   - `world::World`: The [World](@ref) instance to use.
   - `filter::Filter`: The [Filter](@ref) to select entities.
-  - `add::Tuple`: A tuple of component to add. Either default values like `(Position(0, 0), Velocity(1, 1))`, or types like `(Position, Velocity)`.
+  - `add::Tuple`: A tuple of components to add. Either default values like
+    `(Position(0, 0), Velocity(1, 1), ChildOf() => parent,) or types like `(Position, Velocity, ChildOf => parent,)`.
   - `remove::Tuple`: A tuple of component types to remove, like `(Position, Velocity)`
-  - `relations::Tuple`: Relationship component type => target entity pairs.
 
 # Examples
 
@@ -502,11 +515,10 @@ end
     filter::F;
     add::Tuple=(),
     remove::Tuple=(),
-    relations::Tuple{Vararg{Pair{DataType,Entity}}}=(),
 ) where {Fn,F<:Filter}
-    if add isa Tuple{Vararg{DataType}}
-        rel_types = ntuple(i -> Val(relations[i].first), length(relations))
-        targets = ntuple(i -> relations[i].second, length(relations))
+    if _components_are_types(add)
+        add, relations = _normalize_relations(add, Val(:type))
+        rel_types, targets = _relation_types_and_targets(relations)
         return @inline _exchange_components!(
             fn, world, filter,
             ntuple(i -> Val(add[i]), length(add)), (),
@@ -515,8 +527,8 @@ end
             Val(false), Val(true), Val(false),
         )
     else
-        rel_types = ntuple(i -> Val(relations[i].first), length(relations))
-        targets = ntuple(i -> relations[i].second, length(relations))
+        add, relations = _normalize_relations(add, Val(:value))
+        rel_types, targets = _relation_types_and_targets(relations)
         return @inline _exchange_components!(
             fn, world, filter,
             Val{typeof(add)}(), add,
@@ -532,10 +544,9 @@ end
     filter::F;
     add::Tuple=(),
     remove::Tuple=(),
-    relations::Tuple{Vararg{Pair{DataType,Entity}}}=(),
 ) where {F<:Filter}
-    rel_types = ntuple(i -> Val(relations[i].first), length(relations))
-    targets = ntuple(i -> relations[i].second, length(relations))
+    add, relations = _normalize_relations(add, Val(:value))
+    rel_types, targets = _relation_types_and_targets(relations)
     return @inline _exchange_components!(
         world, filter,
         Val{typeof(add)}(), add,

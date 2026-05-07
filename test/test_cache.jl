@@ -52,15 +52,15 @@ end
     parent2 = new_entity!(world, ())
 
     filter1 = Filter(world, (ChildOf,); register=true)
-    filter2 = Filter(world, (ChildOf,); relations=(ChildOf => parent1,), register=true)
+    filter2 = Filter(world, (ChildOf => parent1,); register=true)
 
-    e1 = new_entity!(world, (ChildOf(),); relations=(ChildOf => parent1,))
-    e2 = new_entity!(world, (ChildOf(),); relations=(ChildOf => parent2,))
+    e1 = new_entity!(world, (ChildOf() => parent1,))
+    e2 = new_entity!(world, (ChildOf() => parent2,))
 
     @test length(world._tables[2].filters) == 2
     @test length(world._tables[3].filters) == 1
 
-    filter3 = Filter(world, (ChildOf,); relations=(ChildOf => parent2,), register=true)
+    filter3 = Filter(world, (ChildOf => parent2,); register=true)
 
     @test length(filter1._filter.tables) == 2
     @test length(filter2._filter.tables) == 1
@@ -88,7 +88,7 @@ end
     f2 = Filter(world, (Position,); register=true)
     unregister!(f1)
     parent = new_entity!(world, ())
-    child = new_entity!(world, (Position(1.1, 1.1), ChildOf()); relations=(ChildOf => parent,))
+    child = new_entity!(world, (Position(1.1, 1.1), ChildOf() => parent))
 
     # Raised BoundsError: attempt to access 2-element Vector{Ark._MaskFilter{1}} at index [0]
     remove_entity!(world, parent)

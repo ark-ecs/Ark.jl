@@ -6,11 +6,7 @@ function setup_world_new_entity_5_rel(n::Int)
     # Run once to allocate memory
     entities = Vector{Entity}()
     for _ in 1:n
-        e = new_entity!(
-            world,
-            (Position(0, 0), Velocity(0, 0), CompA(0, 0), CompB(0, 0), ChildOf());
-            relations=(ChildOf => parent,),
-        )
+        e = new_entity!(world, (Position(0, 0), Velocity(0, 0), CompA(0, 0), CompB(0, 0), ChildOf() => parent))
         push!(entities, e)
     end
 
@@ -24,11 +20,7 @@ end
 function benchmark_world_new_entity_5_rel(args, n::Int)
     world, parent = args
     for _ in 1:n
-        new_entity!(
-            world,
-            (Position(0, 0), Velocity(0, 0), CompA(0, 0), CompB(0, 0), ChildOf());
-            relations=(ChildOf => parent,),
-        )
+        new_entity!(world, (Position(0, 0), Velocity(0, 0), CompA(0, 0), CompB(0, 0), ChildOf() => parent))
     end
 end
 

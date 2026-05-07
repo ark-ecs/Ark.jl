@@ -6,7 +6,7 @@ function setup_world_set_rel(n_entities::Int)
 
     entities = Vector{Entity}()
     for i in 1:n_entities
-        e = new_entity!(world, (ChildOf(),); relations=(ChildOf => parent1,))
+        e = new_entity!(world, (ChildOf() => parent1,))
         push!(entities, e)
     end
 

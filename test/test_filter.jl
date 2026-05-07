@@ -70,3 +70,20 @@ end
     filter = Filter(world, (Position, Velocity); register=true)
     @test string(filter) == "Filter((Position, Velocity); registered=true)"
 end
+
+@testset "Filter relation targets" begin
+    world = World(Dummy, Position, ChildOf)
+    parent1 = new_entity!(world, ())
+    parent2 = new_entity!(world, ())
+    parent3 = new_entity!(world, ())
+
+    for i in 1:10
+        new_entity!(world, (Position(i, i), ChildOf() => parent1))
+        new_entity!(world, (Position(i, i), ChildOf() => parent2))
+        new_entity!(world, (Position(i, i), ChildOf() => parent3))
+    end
+
+    filter = Filter(world, (Position,); with=(ChildOf => parent2,))
+    @test length(filter) == 1
+    @test count_entities(filter) == 10
+end

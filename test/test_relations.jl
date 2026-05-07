@@ -5,14 +5,14 @@
     parent1 = new_entity!(world, ())
     parent2 = new_entity!(world, ())
 
-    new_entities!(world, 100, (Position, ChildOf); relations=(ChildOf => parent1,)) do (_, positions, children)
+    new_entities!(world, 100, (Position, ChildOf => parent1)) do (_, positions, children)
         for i in eachindex(positions, children)
             positions[i] = Position(i, i)
             children[i] = ChildOf()
         end
     end
 
-    new_entities!(world, 50, (Position, ChildOf); relations=(ChildOf => parent2,)) do (_, positions, children)
+    new_entities!(world, 50, (Position, ChildOf => parent2)) do (_, positions, children)
         for i in eachindex(positions, children)
             positions[i] = Position(i, i)
             children[i] = ChildOf()
@@ -43,7 +43,7 @@
     @test counters == [100, 100]
 
     count = 0
-    for (_, children) in Query(world, (ChildOf,); relations=(ChildOf => zero_entity,))
+    for (_, children) in Query(world, (ChildOf => zero_entity,))
         count += length(children)
     end
     @test count == 100
@@ -55,8 +55,17 @@
     unregister!(obs2)
 
     count = 0
-    for (_, children) in Query(world, (ChildOf,); relations=(ChildOf => zero_entity,))
+    for (_, children) in Query(world, (ChildOf => zero_entity,))
         count += length(children)
+    end
+    @test count == 150
+
+    @test length(world._tables) == 4
+
+    count = 0
+    for (ents,) in Query(world, (); with=(ChildOf => zero_entity,))
+        @test typeof(ents) == Entities
+        count += length(ents)
     end
     @test count == 150
 
@@ -64,8 +73,8 @@
 
     parent3 = new_entity!(world, ())
     parent4 = new_entity!(world, ())
-    e1 = new_entity!(world, (Position(0, 0), ChildOf()); relations=(ChildOf => parent3,))
-    e2 = new_entity!(world, (Position(0, 0), ChildOf()); relations=(ChildOf => parent4,))
+    e1 = new_entity!(world, (Position(0, 0), ChildOf() => parent3))
+    e2 = new_entity!(world, (Position(0, 0), ChildOf() => parent4))
     @test length(world._tables) == 4
 
     parents = get_relations(world, e1, (ChildOf,))
@@ -81,9 +90,7 @@ end
     parent2 = new_entity!(world, ())
     parent3 = new_entity!(world, ())
 
-    new_entities!(world, 50, (Position, ChildOf, ChildOf2);
-        relations=(ChildOf => parent1, ChildOf2 => parent2),
-    ) do (_, positions, children, children2)
+    new_entities!(world, 50, (Position, ChildOf => parent1, ChildOf2 => parent2)) do (_, positions, children, children2)
         for i in eachindex(positions, children, children2)
             positions[i] = Position(i, i)
             children[i] = ChildOf()
@@ -91,9 +98,7 @@ end
         end
     end
 
-    new_entities!(world, 30, (Position, ChildOf, ChildOf2);
-        relations=(ChildOf => parent2, ChildOf2 => parent3),
-    ) do (_, positions, children, children2)
+    new_entities!(world, 30, (Position, ChildOf => parent2, ChildOf2 => parent3)) do (_, positions, children, children2)
         for i in eachindex(positions, children, children2)
             positions[i] = Position(i, i)
             children[i] = ChildOf()
@@ -104,29 +109,25 @@ end
     @test count_entities(Filter(world, (ChildOf, ChildOf2))) == 80
 
     cnt = 0
-    for (entities, _) in Query(world, (ChildOf,); relations=(ChildOf => parent1,))
+    for (entities, _) in Query(world, (ChildOf => parent1,))
         cnt += length(entities)
     end
     @test cnt == 50
 
     cnt = 0
-    for (entities, _) in Query(world, (ChildOf2,); relations=(ChildOf2 => parent2,))
+    for (entities, _) in Query(world, (ChildOf2 => parent2,))
         cnt += length(entities)
     end
     @test cnt == 50
 
     cnt = 0
-    for (entities, _, _) in Query(world, (ChildOf, ChildOf2);
-        relations=(ChildOf => parent2, ChildOf2 => parent3),
-    )
+    for (entities, _, _) in Query(world, (ChildOf => parent2, ChildOf2 => parent3))
         cnt += length(entities)
     end
     @test cnt == 30
 
     cnt = 0
-    for (entities, _, _) in Query(world, (ChildOf, ChildOf2);
-        relations=(ChildOf => parent1, ChildOf2 => parent3),
-    )
+    for (entities, _, _) in Query(world, (ChildOf => parent1, ChildOf2 => parent3))
         cnt += length(entities)
     end
     @test cnt == 0
@@ -152,13 +153,13 @@ end
     @test remove_counters == [50, 0]
 
     cnt = 0
-    for (entities, _) in Query(world, (ChildOf,); relations=(ChildOf => zero_entity,))
+    for (entities, _) in Query(world, (ChildOf => zero_entity,))
         cnt += length(entities)
     end
     @test cnt == 50
 
     cnt = 0
-    for (entities, _) in Query(world, (ChildOf2,); relations=(ChildOf2 => parent2,))
+    for (entities, _) in Query(world, (ChildOf2 => parent2,))
         cnt += length(entities)
     end
     @test cnt == 50
@@ -168,26 +169,24 @@ end
     @test remove_counters == [80, 50]
 
     cnt = 0
-    for (entities, _) in Query(world, (ChildOf,); relations=(ChildOf => zero_entity,))
+    for (entities, _) in Query(world, (ChildOf => zero_entity,))
         cnt += length(entities)
     end
     @test cnt == 80
 
     cnt = 0
-    for (entities, _) in Query(world, (ChildOf2,); relations=(ChildOf2 => zero_entity,))
+    for (entities, _) in Query(world, (ChildOf2 => zero_entity,))
         cnt += length(entities)
     end
     @test cnt == 50
 
     cnt = 0
-    for (entities, _) in Query(world, (ChildOf2,); relations=(ChildOf2 => parent3,))
+    for (entities, _) in Query(world, (ChildOf2 => parent3,))
         cnt += length(entities)
     end
     @test cnt == 30
 
-    e = new_entity!(world, (Position(0, 0), ChildOf(), ChildOf2());
-        relations=(ChildOf => parent3, ChildOf2 => parent3),
-    )
+    e = new_entity!(world, (Position(0, 0), ChildOf() => parent3, ChildOf2() => parent3))
     @test get_relations(world, e, (ChildOf, ChildOf2)) == (parent3, parent3)
 
     parent4 = new_entity!(world, ())
@@ -199,7 +198,7 @@ end
     world = World(Position, ChildOf)
 
     old_parent = new_entity!(world, (Position(0.0, 0.0),))
-    child = new_entity!(world, (ChildOf(),); relations=(ChildOf => old_parent,))
+    child = new_entity!(world, (ChildOf() => old_parent,))
 
     remove_entity!(world, old_parent)
     @test !is_alive(world, old_parent)
@@ -219,22 +218,22 @@ end
     remove_entity!(world, old_parent)
     new_parent = new_entity!(world, (Position(1.0, 1.0),))
 
-    new_entity!(world, (ChildOf(),); relations=(ChildOf => new_parent,))
-    @test_throws ArgumentError new_entity!(world, (ChildOf(),); relations=(ChildOf => old_parent,))
+    new_entity!(world, (ChildOf() => new_parent,))
+    @test_throws ArgumentError new_entity!(world, (ChildOf() => old_parent,))
 end
 
 @testset "Issue #477" begin
     world = World(ChildOf)
 
     parent = new_entity!(world, ())
-    child = new_entity!(world, (ChildOf(),); relations=(ChildOf => parent,))
+    child = new_entity!(world, (ChildOf() => parent,))
 
     remove_entity!(world, parent)
     @test get_relations(world, child, (ChildOf,)) == (zero_entity,)
     @test length(world._archetypes[2].tables) == 1
     @test length(world._archetypes[2].free_tables) == 1
 
-    ghost = new_entity!(world, (ChildOf(),); relations=(ChildOf => child,))
+    ghost = new_entity!(world, (ChildOf() => child,))
     @test is_alive(world, ghost) == true
     @test has_components(world, ghost, (ChildOf,)) == true
 
@@ -258,11 +257,11 @@ end
     world = World(ChildOf)
 
     t1 = new_entity!(world, ())
-    filter_t1 = Filter(world, (ChildOf,); relations=(ChildOf => t1,))
+    filter_t1 = Filter(world, (ChildOf => t1,))
     remove_entity!(world, t1)
 
     t2 = new_entity!(world, ())
-    c2 = new_entity!(world, (ChildOf(),); relations=(ChildOf => t2,))
+    c2 = new_entity!(world, (ChildOf() => t2,))
 
     @test length(world._archetypes) == 2
     @test length(world._tables) == 2
@@ -286,7 +285,7 @@ end
         nothing
     end
     parent = new_entity!(world, (Position(0.0, 0.0),))
-    child = new_entity!(world, (Position(1.1, 1.1), ChildOf()); relations=(ChildOf => parent,))
+    child = new_entity!(world, (Position(1.1, 1.1), ChildOf() => parent))
 
     # This raised an error due to locked world
     remove_entities!(world, Filter(world, (Position,); without=(ChildOf,)))
@@ -302,7 +301,7 @@ end
     p1 = new_entity!(world, (Tag(),))
     p2 = new_entity!(world, (Tag(),))
 
-    child = new_entity!(world, (R1(), R2()); relations=(R1 => p1, R2 => p2))
+    child = new_entity!(world, (R1() => p1, R2() => p2))
     @test get_relations(world, child, (R1, R2)) == (p1, p2)
 
     # Before the fix in PR #611, this panicked with:

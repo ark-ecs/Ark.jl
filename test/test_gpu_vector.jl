@@ -7,7 +7,7 @@
     )
     e1 = new_entity!(w, (A(2.0), B(2.0)))
     @test get_components(w, e1, (A, B)) == (A(2.0), B(2.0))
-    e2 = new_entity!(w, (A(2.0), B(2.0), C()); relations=(C => e1,))
+    e2 = new_entity!(w, (A(2.0), B(2.0), C() => e1))
     @test get_components(w, e2, (A, B, C)) == (A(2.0), B(2.0), C())
     e3 = copy_entity!(w, e1)
     @test e1 != e2 && e2 != e3
@@ -36,11 +36,11 @@
     @test get_components(w, e2, (B,)) == (B(3.0),)
     @test has_components(w, e2, (A, C)) == false
     @test length(es) == 4
-    add_components!(w, e2, (A(2.0), C()); relations=(C => e1,))
+    add_components!(w, e2, (A(2.0), C() => e1))
     @test has_components(w, e2, (A, C)) == true
     er, = get_relations(w, e2, (C,))
     @test er == e1
-    add_components!(w, e3, (C(),); relations=(C => e2,))
+    add_components!(w, e3, (C() => e2,))
     @test length(es) == 10
     set_relations!(w, e3, (C => er,))
 
@@ -49,7 +49,7 @@
     @test is_alive(w, e2) == false
 
     new_entities!(w, 1, (A(2.0), B(2.0)))
-    new_entities!(w, 1, (A(2.0), B(2.0), C()); relations=(C => er,))
+    new_entities!(w, 1, (A(2.0), B(2.0), C() => er))
     new_entities!(w, 2, (A, B)) do (entities, as, bs)
         for i in eachindex(entities)
             as[i] = A(2.0)

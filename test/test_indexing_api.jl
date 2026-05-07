@@ -2,12 +2,9 @@
 @testset "Indexing API" begin
     world = World(Position, Velocity, ChildOf, ChildOf2)
 
-    e1 = new_entity!(world, (Position(1.0, 2.0), Velocity(0.1, 0.2), ChildOf());
-        relations=(ChildOf => zero_entity,))
-    e2 = new_entity!(world, (Position(10.0, 20.0), ChildOf());
-        relations=(ChildOf => e1,))
-    e3 = new_entity!(world, (Position(0.0, 0.0), ChildOf(), ChildOf2()),
-        relations=(ChildOf => e1, ChildOf2 => e2))
+    e1 = new_entity!(world, (Position(1.0, 2.0), Velocity(0.1, 0.2), ChildOf() => zero_entity))
+    e2 = new_entity!(world, (Position(10.0, 20.0), ChildOf() => e1))
+    e3 = new_entity!(world, (Position(0.0, 0.0), ChildOf() => e1, ChildOf2() => e2))
     we1 = world[e1]
     we2 = world[e2]
     we3 = world[e3]

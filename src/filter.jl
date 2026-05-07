@@ -19,7 +19,6 @@ end
         without::Tuple=(),
         optional::Tuple=(),
         exclusive::Bool=false,
-        relations::Tuple=(),
         register::Bool=false,
     )
 
@@ -33,12 +32,11 @@ See the user manual chapter on [Queries](@ref) for more details and examples.
 # Arguments
 
   - `world`: The `World` instance to filter.
-  - `comp_types::Tuple`: Components the filter filters for.
-  - `with::Tuple`: Additional components the entities must have.
+  - `comp_types::Tuple`: Components the filter filters for. Relation targets can also be specified.
+  - `with::Tuple`: Additional components the entities must have. Relation targets can be specified here as well.
   - `without::Tuple`: Components the entities must not have.
   - `optional::Tuple`: Additional components that are optional in the filter.
   - `exclusive::Bool`: Makes the filter exclusive in base and `with` components, can't be combined with `without`.
-  - `relations::Tuple`: Relationship component type => target entity pairs. These relation components must be in the filter's components or `with`.
 """
 Base.@constprop :aggressive function Filter(
     world::World,
@@ -48,13 +46,14 @@ Base.@constprop :aggressive function Filter(
     optional::Tuple=(),
     exclusive::Bool=false,
     register::Bool=false,
-    relations::Tuple{Vararg{Pair{DataType,Entity}}}=(),
 )
-    rel_types = ntuple(i -> Val(relations[i].first), length(relations))
-    targets = ntuple(i -> relations[i].second, length(relations))
+    comp_types_f, comp_relations = _normalize_relations(comp_types, Val(:type))
+    with_f, with_relations = _normalize_relations(with, Val(:type))
+    relations = (comp_relations..., with_relations...)
+    rel_types, targets = _relation_types_and_targets(relations)
     return _Filter_from_types(world,
-        ntuple(i -> Val(comp_types[i]), length(comp_types)),
-        ntuple(i -> Val(with[i]), length(with)),
+        ntuple(i -> Val(comp_types_f[i]), length(comp_types_f)),
+        ntuple(i -> Val(with_f[i]), length(with_f)),
         ntuple(i -> Val(without[i]), length(without)),
         ntuple(i -> Val(optional[i]), length(optional)),
         Val(exclusive),

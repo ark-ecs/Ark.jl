@@ -227,7 +227,7 @@ end
 
     parent = new_entity!(world, ())
 
-    new_entity!(world, (ChildOf(),); relations=(ChildOf => parent,))
+    new_entity!(world, (ChildOf() => parent,))
     @test counter == 0
 end
 
@@ -244,7 +244,7 @@ end
 
     parent = new_entity!(world, ())
 
-    new_entity!(world, (ChildOf(),); relations=(ChildOf => parent,))
+    new_entity!(world, (ChildOf() => parent,))
     @test counter == 1
 end
 
@@ -264,7 +264,7 @@ end
 
     parent = new_entity!(world, ())
 
-    new_entity!(world, (ChildOf(),); relations=(ChildOf => parent,))
+    new_entity!(world, (ChildOf() => parent,))
     @test counter == 1
 
     unregister!(obs)
@@ -275,13 +275,13 @@ end
         counter += 1
     end
 
-    new_entity!(world, (Position(0, 0), Velocity(0, 0), ChildOf()); relations=(ChildOf => parent,))
+    new_entity!(world, (Position(0, 0), Velocity(0, 0), ChildOf() => parent))
     @test counter == 2
-    new_entity!(world, (Position(0, 0), Velocity(0, 0), Altitude(0), ChildOf()); relations=(ChildOf => parent,))
+    new_entity!(world, (Position(0, 0), Velocity(0, 0), Altitude(0), ChildOf() => parent))
     @test counter == 3
-    new_entity!(world, (Position(0, 0), ChildOf()); relations=(ChildOf => parent,))
+    new_entity!(world, (Position(0, 0), ChildOf() => parent))
     @test counter == 3
-    new_entity!(world, (Altitude(0), ChildOf()); relations=(ChildOf => parent,))
+    new_entity!(world, (Altitude(0), ChildOf() => parent))
     @test counter == 3
 
     unregister!(obs)
@@ -289,9 +289,9 @@ end
     obs = observe!(world, OnAddRelations; with=(Position, Velocity), without=(Altitude,)) do entity
         counter += 1
     end
-    new_entity!(world, (Position(0, 0), Velocity(0, 0), ChildOf()); relations=(ChildOf => parent,))
+    new_entity!(world, (Position(0, 0), Velocity(0, 0), ChildOf() => parent))
     @test counter == 4
-    new_entity!(world, (Position(0, 0), Velocity(0, 0), Altitude(0), ChildOf()); relations=(ChildOf => parent,))
+    new_entity!(world, (Position(0, 0), Velocity(0, 0), Altitude(0), ChildOf() => parent))
     @test counter == 4
 
     @test counter_remove == 0
@@ -419,14 +419,14 @@ end
 
     parent = new_entity!(world, ())
 
-    new_entities!(world, 10, (Position, Velocity, ChildOf); relations=(ChildOf => parent,)) do _
+    new_entities!(world, 10, (Position, Velocity, ChildOf => parent)) do _
     end
     @test counter == 10
 
-    new_entities!(world, 10, (Position(0, 0), Velocity(0, 0), ChildOf()); relations=(ChildOf => parent,))
+    new_entities!(world, 10, (Position(0, 0), Velocity(0, 0), ChildOf() => parent))
     @test counter == 20
 
-    new_entities!(world, 10, (Position(0, 0), Velocity(0, 0), ChildOf()); relations=(ChildOf => parent,)) do _
+    new_entities!(world, 10, (Position(0, 0), Velocity(0, 0), ChildOf() => parent)) do _
         @test is_locked(world) == true
     end
     @test counter == 30
@@ -439,13 +439,13 @@ end
         counter += 1
     end
 
-    new_entities!(world, 10, (Position(0, 0), Velocity(0, 0), ChildOf()); relations=(ChildOf => parent,))
+    new_entities!(world, 10, (Position(0, 0), Velocity(0, 0), ChildOf() => parent))
     @test counter == 40
-    new_entities!(world, 10, (Position(0, 0), Velocity(0, 0), Altitude(0), ChildOf()); relations=(ChildOf => parent,))
+    new_entities!(world, 10, (Position(0, 0), Velocity(0, 0), Altitude(0), ChildOf() => parent))
     @test counter == 50
-    new_entities!(world, 10, (Position(0, 0), ChildOf()); relations=(ChildOf => parent,))
+    new_entities!(world, 10, (Position(0, 0), ChildOf() => parent))
     @test counter == 50
-    new_entities!(world, 10, (Altitude(0), ChildOf()); relations=(ChildOf => parent,))
+    new_entities!(world, 10, (Altitude(0), ChildOf() => parent))
     @test counter == 50
 
     unregister!(obs)
@@ -453,9 +453,9 @@ end
     obs = observe!(world, OnAddRelations; with=(Position, Velocity), without=(Altitude,)) do entity
         counter += 1
     end
-    new_entities!(world, 10, (Position(0, 0), Velocity(0, 0), ChildOf()); relations=(ChildOf => parent,))
+    new_entities!(world, 10, (Position(0, 0), Velocity(0, 0), ChildOf() => parent))
     @test counter == 60
-    new_entities!(world, 10, (Position(0, 0), Velocity(0, 0), Altitude(0), ChildOf()); relations=(ChildOf => parent,))
+    new_entities!(world, 10, (Position(0, 0), Velocity(0, 0), Altitude(0), ChildOf() => parent))
     @test counter == 60
 end
 
@@ -472,7 +472,7 @@ end
 
     parent = new_entity!(world, ())
 
-    new_entities!(world, 10, (ChildOf(),); relations=(ChildOf => parent,))
+    new_entities!(world, 10, (ChildOf() => parent,))
     @test counter == 0
 end
 
@@ -489,7 +489,7 @@ end
 
     parent = new_entity!(world, ())
 
-    new_entities!(world, 10, (ChildOf(),); relations=(ChildOf => parent,))
+    new_entities!(world, 10, (ChildOf() => parent,))
     @test counter == 10
 end
 
@@ -497,14 +497,11 @@ end
     world = World(Dummy, Position, Velocity, Altitude, ChildOf)
 
     parent = new_entity!(world, ())
-    filter = Filter(world, (ChildOf,); relations=(ChildOf => parent,), register=true)
+    filter = Filter(world, (ChildOf => parent,); register=true)
 
     # create empty table
     remove_entity!(world,
-        new_entity!(world,
-            (Position(0, 0), Velocity(0, 0), Altitude(100), ChildOf());
-            relations=(ChildOf => parent,),
-        ),
+        new_entity!(world, (Position(0, 0), Velocity(0, 0), Altitude(100), ChildOf() => parent)),
     )
 
     counter = 0
@@ -516,11 +513,11 @@ end
     observe!(world, OnRemoveEntity) do entity
     end
 
-    new_entities!(world, 10, (Position(0, 0), Velocity(0, 0), ChildOf()); relations=(ChildOf => parent,))
+    new_entities!(world, 10, (Position(0, 0), Velocity(0, 0), ChildOf() => parent))
     remove_entities!(world, filter)
     @test counter == 10
 
-    new_entities!(world, 10, (Position(0, 0), Velocity(0, 0), ChildOf()); relations=(ChildOf => parent,))
+    new_entities!(world, 10, (Position(0, 0), Velocity(0, 0), ChildOf() => parent))
     remove_entities!(world, filter)
     @test counter == 20
 
@@ -532,16 +529,16 @@ end
         counter += 1
     end
 
-    new_entities!(world, 10, (Position(0, 0), Velocity(0, 0), ChildOf()); relations=(ChildOf => parent,))
+    new_entities!(world, 10, (Position(0, 0), Velocity(0, 0), ChildOf() => parent))
     remove_entities!(world, filter)
     @test counter == 30
-    new_entities!(world, 10, (Position(0, 0), Velocity(0, 0), Altitude(0), ChildOf()); relations=(ChildOf => parent,))
+    new_entities!(world, 10, (Position(0, 0), Velocity(0, 0), Altitude(0), ChildOf() => parent))
     remove_entities!(world, filter)
     @test counter == 40
-    new_entities!(world, 10, (Position(0, 0), ChildOf()); relations=(ChildOf => parent,))
+    new_entities!(world, 10, (Position(0, 0), ChildOf() => parent))
     remove_entities!(world, filter)
     @test counter == 40
-    new_entities!(world, 10, (Altitude(0), ChildOf()); relations=(ChildOf => parent,))
+    new_entities!(world, 10, (Altitude(0), ChildOf() => parent))
     remove_entities!(world, filter)
     @test counter == 40
 
@@ -550,10 +547,10 @@ end
     obs = observe!(world, OnRemoveRelations; with=(Position, Velocity), without=(Altitude,)) do entity
         counter += 1
     end
-    new_entities!(world, 10, (Position(0, 0), Velocity(0, 0), ChildOf()); relations=(ChildOf => parent,))
+    new_entities!(world, 10, (Position(0, 0), Velocity(0, 0), ChildOf() => parent))
     remove_entities!(world, filter)
     @test counter == 50
-    new_entities!(world, 10, (Position(0, 0), Velocity(0, 0), Altitude(0), ChildOf()); relations=(ChildOf => parent,))
+    new_entities!(world, 10, (Position(0, 0), Velocity(0, 0), Altitude(0), ChildOf() => parent))
     remove_entities!(world, filter)
     @test counter == 50
 end
@@ -571,8 +568,8 @@ end
 
     parent = new_entity!(world, ())
 
-    new_entities!(world, 10, (ChildOf(),); relations=(ChildOf => parent,))
-    remove_entities!(world, Filter(world, (ChildOf,); relations=(ChildOf => parent,)))
+    new_entities!(world, 10, (ChildOf() => parent,))
+    remove_entities!(world, Filter(world, (ChildOf => parent,)))
     @test counter == 0
 end
 
@@ -589,8 +586,8 @@ end
 
     parent = new_entity!(world, ())
 
-    new_entities!(world, 10, (ChildOf(),); relations=(ChildOf => parent,))
-    remove_entities!(world, Filter(world, (ChildOf,); relations=(ChildOf => parent,)))
+    new_entities!(world, 10, (ChildOf() => parent,))
+    remove_entities!(world, Filter(world, (ChildOf => parent,)))
     @test counter == 10
 end
 
@@ -651,7 +648,7 @@ end
 
     parent = new_entity!(world, ())
 
-    remove_entity!(world, new_entity!(world, (Position(0, 0), ChildOf()); relations=(ChildOf => parent,)))
+    remove_entity!(world, new_entity!(world, (Position(0, 0), ChildOf() => parent)))
     @test counter == 1
 
     unregister!(obs)
@@ -662,17 +659,17 @@ end
 
     remove_entity!(
         world,
-        new_entity!(world, (Position(0, 0), Velocity(0, 0), ChildOf()); relations=(ChildOf => parent,)),
+        new_entity!(world, (Position(0, 0), Velocity(0, 0), ChildOf() => parent)),
     )
     @test counter == 2
     remove_entity!(
         world,
-        new_entity!(world, (Position(0, 0), Velocity(0, 0), Altitude(0), ChildOf()); relations=(ChildOf => parent,)),
+        new_entity!(world, (Position(0, 0), Velocity(0, 0), Altitude(0), ChildOf() => parent)),
     )
     @test counter == 3
-    remove_entity!(world, new_entity!(world, (Position(0, 0), ChildOf()); relations=(ChildOf => parent,)))
+    remove_entity!(world, new_entity!(world, (Position(0, 0), ChildOf() => parent)))
     @test counter == 3
-    remove_entity!(world, new_entity!(world, (Altitude(0), ChildOf()); relations=(ChildOf => parent,)))
+    remove_entity!(world, new_entity!(world, (Altitude(0), ChildOf() => parent)))
     @test counter == 3
 
     unregister!(obs)
@@ -682,12 +679,12 @@ end
     end
     remove_entity!(
         world,
-        new_entity!(world, (Position(0, 0), Velocity(0, 0), ChildOf()); relations=(ChildOf => parent,)),
+        new_entity!(world, (Position(0, 0), Velocity(0, 0), ChildOf() => parent)),
     )
     @test counter == 4
     remove_entity!(
         world,
-        new_entity!(world, (Position(0, 0), Velocity(0, 0), Altitude(0), ChildOf()); relations=(ChildOf => parent,)),
+        new_entity!(world, (Position(0, 0), Velocity(0, 0), Altitude(0), ChildOf() => parent)),
     )
     @test counter == 4
 end
@@ -852,11 +849,11 @@ end
     parent2 = new_entity!(world, ())
     entity = new_entity!(world, ())
 
-    add_components!(world, entity, (ChildOf(),); relations=(ChildOf => parent1,))
+    add_components!(world, entity, (ChildOf() => parent1,))
     @test counter_add == 1
     @test counter_rem == 0
 
-    add_components!(world, entity, (ChildOf2(),); relations=(ChildOf2 => parent1,))
+    add_components!(world, entity, (ChildOf2() => parent1,))
     @test counter_add == 2
     @test counter_rem == 0
 
@@ -876,7 +873,7 @@ end
     @test counter_add == 5
     @test counter_rem == 4
 
-    add_components!(world, entity, (ChildOf3(),); relations=(ChildOf3 => parent1,))
+    add_components!(world, entity, (ChildOf3() => parent1,))
     @test counter_add == 5
     @test counter_rem == 4
 
@@ -904,7 +901,7 @@ end
     parent1 = new_entity!(world, ())
     parent2 = new_entity!(world, ())
 
-    e = new_entity!(world, (Position(0, 0), Velocity(0, 0), ChildOf()); relations=(ChildOf => parent1,))
+    e = new_entity!(world, (Position(0, 0), Velocity(0, 0), ChildOf() => parent1))
     @test counter_add == 1
     @test counter_rem == 0
 
@@ -912,12 +909,12 @@ end
     @test counter_add == 2
     @test counter_rem == 1
 
-    e = new_entity!(world, (Altitude(0), ChildOf()); relations=(ChildOf => parent1,))
+    e = new_entity!(world, (Altitude(0), ChildOf() => parent1))
     set_relations!(world, e, (ChildOf => parent2,))
     @test counter_add == 2
     @test counter_rem == 1
 
-    e = new_entity!(world, (Position(0, 0), ChildOf()); relations=(ChildOf => parent1,))
+    e = new_entity!(world, (Position(0, 0), ChildOf() => parent1))
     set_relations!(world, e, (ChildOf => parent2,))
     @test counter_add == 2
     @test counter_rem == 1
@@ -942,7 +939,7 @@ end
     parent1 = new_entity!(world, ())
     parent2 = new_entity!(world, ())
 
-    e = new_entity!(world, (Altitude(0), ChildOf()); relations=(ChildOf => parent1,))
+    e = new_entity!(world, (Altitude(0), ChildOf() => parent1))
     @test counter_add == 1
     @test counter_rem == 0
 
@@ -950,12 +947,12 @@ end
     @test counter_add == 2
     @test counter_rem == 1
 
-    e = new_entity!(world, (Position(0, 0), ChildOf()); relations=(ChildOf => parent1,))
+    e = new_entity!(world, (Position(0, 0), ChildOf() => parent1))
     set_relations!(world, e, (ChildOf => parent2,))
     @test counter_add == 2
     @test counter_rem == 1
 
-    e = new_entity!(world, (Position(0, 0), Velocity(0, 0), ChildOf()); relations=(ChildOf => parent1,))
+    e = new_entity!(world, (Position(0, 0), Velocity(0, 0), ChildOf() => parent1))
     set_relations!(world, e, (ChildOf => parent2,))
     @test counter_add == 2
     @test counter_rem == 1
@@ -985,19 +982,19 @@ end
     parent2 = new_entity!(world, ())
     parent3 = new_entity!(world, ())
 
-    new_entities!(world, 10, (Position(1, 1), ChildOf()); relations=(ChildOf => parent1,))
-    new_entities!(world, 10, (Position(1, 1), ChildOf()); relations=(ChildOf => parent2,))
-    new_entities!(world, 10, (Position(1, 1), ChildOf()); relations=(ChildOf => parent3,))
+    new_entities!(world, 10, (Position(1, 1), ChildOf() => parent1))
+    new_entities!(world, 10, (Position(1, 1), ChildOf() => parent2))
+    new_entities!(world, 10, (Position(1, 1), ChildOf() => parent3))
 
     @test counter_add == 30
     @test counter_rem == 0
 
-    set_relations!(world, Filter(world, (ChildOf,); relations=(ChildOf => parent2,)), (ChildOf => parent1,))
+    set_relations!(world, Filter(world, (ChildOf => parent2,)), (ChildOf => parent1,))
 
     @test counter_add == 40
     @test counter_rem == 10
 
-    set_relations!(world, Filter(world, (ChildOf,); relations=(ChildOf => parent2,)), (ChildOf => parent1,))
+    set_relations!(world, Filter(world, (ChildOf => parent2,)), (ChildOf => parent1,))
 
     @test counter_add == 40
     @test counter_rem == 10
@@ -1059,7 +1056,7 @@ end
     remove_components!(world, Filter(world, (Velocity,)), (Velocity,))
     @test counters == [10, 10, 0, 0]
 
-    add_components!(world, Filter(world, (Position,)), (ChildOf(),); relations=(ChildOf => parent1,))
+    add_components!(world, Filter(world, (Position,)), (ChildOf() => parent1,))
     @test counters == [10, 10, 10, 0]
 
     remove_components!(world, Filter(world, (ChildOf,)), (ChildOf,))
@@ -1082,7 +1079,7 @@ end
     new_entities!(world, 10, (Position(0, 0),))
     @test counters == [0, 0]
 
-    add_components!(world, Filter(world, (Position,)), (ChildOf(),); relations=(ChildOf => parent,))
+    add_components!(world, Filter(world, (Position,)), (ChildOf() => parent,))
     @test counters == [0, 0]
 
     remove_components!(world, Filter(world, (ChildOf,)), (ChildOf,))
@@ -1111,7 +1108,7 @@ end
     new_entities!(world, 10, (Position(0, 0),))
     @test counters == [0, 0]
 
-    add_components!(world, Filter(world, (Position,)), (ChildOf(),); relations=(ChildOf => parent,))
+    add_components!(world, Filter(world, (Position,)), (ChildOf() => parent,))
     @test counters == [10, 0]
 
     remove_components!(world, Filter(world, (ChildOf,)), (ChildOf,))
@@ -1140,7 +1137,7 @@ end
     new_entities!(world, 10, (Position(0, 0),))
     @test counters == [0, 0]
 
-    add_components!(world, Filter(world, (Position,)), (ChildOf(),); relations=(ChildOf => parent,))
+    add_components!(world, Filter(world, (Position,)), (ChildOf() => parent,))
     @test counters == [0, 0]
 
     remove_components!(world, Filter(world, (ChildOf,)), (ChildOf,))
@@ -1169,7 +1166,7 @@ end
     new_entities!(world, 10, (Position(0, 0),))
     @test counters == [0, 0]
 
-    add_components!(world, Filter(world, (Position,)), (ChildOf(),); relations=(ChildOf => parent,))
+    add_components!(world, Filter(world, (Position,)), (ChildOf() => parent,))
     @test counters == [10, 0]
 
     remove_components!(world, Filter(world, (ChildOf,)), (ChildOf,))
