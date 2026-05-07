@@ -1809,7 +1809,12 @@ end
     end
 end
 
-@generated function _get_relations(world::W, entity::Entity, ::TS, ::Val{Unchecked}) where {W<:World,TS<:Tuple,Unchecked}
+@generated function _get_relations(
+    world::W,
+    entity::Entity,
+    ::TS,
+    ::Val{Unchecked},
+) where {W<:World,TS<:Tuple,Unchecked}
     types = _to_types(TS)
     if length(types) == 0
         return :(())
