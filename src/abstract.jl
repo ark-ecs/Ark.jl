@@ -19,6 +19,7 @@ world = World(Relation{Joint})
 
 # output
 
+World(entities=0, comp_types=(Joint))
 ```
 """
 struct Relation{T} end
