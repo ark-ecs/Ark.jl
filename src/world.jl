@@ -821,14 +821,10 @@ end
     storage_mode_type = :(Tuple{$(storage_val_types...)})
 
     # Component registration
-    id_exprs = [:(
-        _register_component!(registry, $(types[i]), $(relation_flags[i]))
-    ) for i in eachindex(types)]
+    id_exprs = [:(_register_component!(registry, $(types[i]), $(relation_flags[i]))) for i in eachindex(types)]
     id_tuple = Expr(:tuple, id_exprs...)
 
-    relations_expr = [:(
-        _new_component_relations($(relation_flags[i]))
-    ) for i in eachindex(types)]
+    relations_expr = [:(_new_component_relations($(relation_flags[i]))) for i in eachindex(types)]
     relations_vec = Expr(:vect, relations_expr...)
 
     M = max(1, cld(length(types), 64))
