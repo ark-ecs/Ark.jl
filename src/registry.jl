@@ -20,10 +20,6 @@ end
     return registry.is_relation[comp_id]
 end
 
-function _register_component!(registry::_ComponentRegistry, ::Type{C})::Int where C
-    return _register_component!(registry, C, false)
-end
-
 function _register_component!(registry::_ComponentRegistry, ::Type{C}, is_relation::Bool)::Int where C
     if haskey(registry.components, C)
         throw(ArgumentError(lazy"duplicate component type $C during world creation"))

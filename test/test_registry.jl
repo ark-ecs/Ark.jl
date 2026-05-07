@@ -3,9 +3,9 @@
     registry = _ComponentRegistry()
 
     # Register new types
-    id_int = _register_component!(registry, Int)
-    id_float = _register_component!(registry, Float64)
-    id_pos = _register_component!(registry, Position)
+    id_int = _register_component!(registry, Int, false)
+    id_float = _register_component!(registry, Float64, false)
+    id_pos = _register_component!(registry, Position, false)
 
     # Check that IDs are Int and unique
     @test isa(id_int, Int)
