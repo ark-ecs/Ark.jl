@@ -32,13 +32,21 @@ end
     return collect(vec)
 end
 
-@inline _unwrap_relation_type(::Type{Relation{T}}) where {T} = T
+function _unwrap_relation_type(::Type{Relation{T}}) where {T}
+    return T
+end
 
-@inline _unwrap_relation_type(::Type{T}) where {T} = T
+function _unwrap_relation_type(::Type{T}) where {T}
+    return T
+end
 
-@inline _declares_relation(::Type{Relation{T}}) where {T} = true
+function _declares_relation(::Type{Relation{T}}) where {T}
+    return true
+end
 
-@inline _declares_relation(::Type{T}) where {T} = false
+function _declares_relation(::Type{T}) where {T}
+    return false
+end
 
 @inline function _is_relation_type(::Type{T}, declared_relations::Type{<:Tuple})::Bool where {T}
     for relation_type in declared_relations.parameters
