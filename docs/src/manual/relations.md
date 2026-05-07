@@ -68,6 +68,7 @@ world = World(Position, Velocity, Relation{ChildOf})
 
 # output
 
+World(entities=0, comp_types=(Joint))
 ```
 
 The `Relation{ChildOf}` entry in the world constructor is what makes `ChildOf` a relation in that world.
