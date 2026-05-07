@@ -1,6 +1,6 @@
 
 @testset "Indexing API" begin
-    world = World(Position, Velocity, ChildOf, ChildOf2)
+    world = World(Position, Velocity, Relation{ChildOf}, Relation{ChildOf2})
 
     e1 = new_entity!(world, (Position(1.0, 2.0), Velocity(0.1, 0.2), ChildOf() => zero_entity))
     e2 = new_entity!(world, (Position(10.0, 20.0), ChildOf() => e1))

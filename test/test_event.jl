@@ -215,7 +215,7 @@ end
 end
 
 @testset "Fire OnAddRelations entity creation early out" begin
-    world = World(Dummy, ChildOf, ChildOf2)
+    world = World(Dummy, Relation{ChildOf}, Relation{ChildOf2})
 
     counter = 0
     observe!(world, OnAddRelations, (ChildOf2,)) do entity
@@ -232,7 +232,7 @@ end
 end
 
 @testset "Fire OnAddRelations entity creation filtered" begin
-    world = World(Dummy, ChildOf, ChildOf2)
+    world = World(Dummy, Relation{ChildOf}, Relation{ChildOf2})
 
     counter = 0
     obs = observe!(world, OnAddRelations, (ChildOf,)) do entity
@@ -249,7 +249,7 @@ end
 end
 
 @testset "Fire OnAddRelations entity creation" begin
-    world = World(Dummy, Position, Velocity, Altitude, ChildOf)
+    world = World(Dummy, Position, Velocity, Altitude, Relation{ChildOf})
 
     counter = 0
     obs = observe!(world, OnAddRelations) do entity
@@ -408,7 +408,7 @@ end
 end
 
 @testset "Fire OnAddRelations batch" begin
-    world = World(Dummy, Position, Velocity, Altitude, ChildOf)
+    world = World(Dummy, Position, Velocity, Altitude, Relation{ChildOf})
 
     counter = 0
     obs = observe!(world, OnAddRelations) do entity
@@ -460,7 +460,7 @@ end
 end
 
 @testset "Fire OnAddRelations batch early out" begin
-    world = World(Dummy, ChildOf, ChildOf2)
+    world = World(Dummy, Relation{ChildOf}, Relation{ChildOf2})
 
     counter = 0
     observe!(world, OnAddRelations, (ChildOf2,)) do entity
@@ -477,7 +477,7 @@ end
 end
 
 @testset "Fire OnAddRelations batch filtered" begin
-    world = World(Dummy, ChildOf, ChildOf2)
+    world = World(Dummy, Relation{ChildOf}, Relation{ChildOf2})
 
     counter = 0
     obs = observe!(world, OnAddRelations, (ChildOf,)) do entity
@@ -494,7 +494,7 @@ end
 end
 
 @testset "Fire OnRemoveRelations batch" begin
-    world = World(Dummy, Position, Velocity, Altitude, ChildOf)
+    world = World(Dummy, Position, Velocity, Altitude, Relation{ChildOf})
 
     parent = new_entity!(world, ())
     filter = Filter(world, (ChildOf => parent,); register=true)
@@ -556,7 +556,7 @@ end
 end
 
 @testset "Fire OnRemoveRelations batch early out" begin
-    world = World(Dummy, ChildOf, ChildOf2)
+    world = World(Dummy, Relation{ChildOf}, Relation{ChildOf2})
 
     counter = 0
     observe!(world, OnRemoveRelations, (ChildOf2,)) do entity
@@ -574,7 +574,7 @@ end
 end
 
 @testset "Fire OnAddRelations batch filtered" begin
-    world = World(Dummy, ChildOf, ChildOf2)
+    world = World(Dummy, Relation{ChildOf}, Relation{ChildOf2})
 
     counter = 0
     obs = observe!(world, OnRemoveRelations, (ChildOf,)) do entity
@@ -637,7 +637,7 @@ end
 end
 
 @testset "Fire OnRemoveRelations entity removal" begin
-    world = World(Dummy, Position, Velocity, Altitude, ChildOf)
+    world = World(Dummy, Position, Velocity, Altitude, Relation{ChildOf})
 
     counter = 0
     obs = observe!(world, OnRemoveRelations) do entity
@@ -826,7 +826,7 @@ end
 end
 
 @testset "Fire OnAddRelations/OnRemoveRelations" begin
-    world = World(Dummy, Position, Velocity, ChildOf, ChildOf2, ChildOf3)
+    world = World(Dummy, Position, Velocity, Relation{ChildOf}, Relation{ChildOf2}, Relation{ChildOf3})
 
     counter_add = 0
     counter_rem = 0
@@ -883,7 +883,7 @@ end
 end
 
 @testset "Fire OnAddRelations/OnRemoveRelations with" begin
-    world = World(Dummy, Position, Velocity, Altitude, ChildOf, ChildOf2)
+    world = World(Dummy, Position, Velocity, Altitude, Relation{ChildOf}, Relation{ChildOf2})
 
     counter_add = 0
     counter_rem = 0
@@ -921,7 +921,7 @@ end
 end
 
 @testset "Fire OnAddRelations/OnRemoveRelations without" begin
-    world = World(Dummy, Position, Velocity, Altitude, ChildOf)
+    world = World(Dummy, Position, Velocity, Altitude, Relation{ChildOf})
 
     counter_add = 0
     counter_rem = 0
@@ -959,7 +959,7 @@ end
 end
 
 @testset "Fire OnAddRelations/OnRemoveRelations batch" begin
-    world = World(Dummy, Position, Velocity, ChildOf, ChildOf2, ChildOf3)
+    world = World(Dummy, Position, Velocity, Relation{ChildOf}, Relation{ChildOf2}, Relation{ChildOf3})
 
     counter_add = 0
     counter_rem = 0
@@ -1011,7 +1011,7 @@ end
 end
 
 @testset "Fire batch exchange events" begin
-    world = World(Dummy, Position, Velocity, Altitude, ChildOf, ChildOf2)
+    world = World(Dummy, Position, Velocity, Altitude, Relation{ChildOf}, Relation{ChildOf2})
 
     counters = Int[0, 0, 0, 0]
     observe!(world, OnAddComponents, (Velocity,)) do entity
@@ -1064,7 +1064,7 @@ end
 end
 
 @testset "Fire batch exchange early out" begin
-    world = World(Dummy, Position, Velocity, Altitude, ChildOf, ChildOf2)
+    world = World(Dummy, Position, Velocity, Altitude, Relation{ChildOf}, Relation{ChildOf2})
 
     counters = Int[0, 0]
     observe!(world, OnAddRelations, (ChildOf2,)) do entity
@@ -1087,7 +1087,7 @@ end
 end
 
 @testset "Fire batch exchange with" begin
-    world = World(Dummy, Position, Velocity, Altitude, ChildOf, ChildOf2)
+    world = World(Dummy, Position, Velocity, Altitude, Relation{ChildOf}, Relation{ChildOf2})
 
     counters = Int[0, 0]
     observe!(world, OnAddRelations, (ChildOf,); with=(Position,)) do entity
@@ -1116,7 +1116,7 @@ end
 end
 
 @testset "Fire batch exchange with early out" begin
-    world = World(Dummy, Position, Velocity, Altitude, ChildOf, ChildOf2)
+    world = World(Dummy, Position, Velocity, Altitude, Relation{ChildOf}, Relation{ChildOf2})
 
     counters = Int[0, 0]
     observe!(world, OnAddRelations, (ChildOf,); with=(Velocity,)) do entity
@@ -1145,7 +1145,7 @@ end
 end
 
 @testset "Fire batch exchange without" begin
-    world = World(Dummy, Position, Velocity, Altitude, ChildOf, ChildOf2)
+    world = World(Dummy, Position, Velocity, Altitude, Relation{ChildOf}, Relation{ChildOf2})
 
     counters = Int[0, 0]
     observe!(world, OnAddRelations, (ChildOf,); without=(Position,)) do entity

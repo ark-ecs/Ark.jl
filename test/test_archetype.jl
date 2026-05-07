@@ -39,7 +39,7 @@ end
 @testset "_Archetype _add_table!" begin
     # TODO: re-activate, but use world and entity creations
     """
-    world = World(Dummy, Position, ChildOf)
+    world = World(Dummy, Position, Relation{ChildOf})
     child_id = 3 + offset_ID
 
     t1 =
@@ -80,7 +80,7 @@ end
 end
 
 @testset "_Archetype has relations" begin
-    world = World(Dummy, Position, ChildOf)
+    world = World(Dummy, Position, Relation{ChildOf})
 
     new_entity!(world, (Position(0, 0),))
     @test _has_relations(world._archetypes[2]) == false

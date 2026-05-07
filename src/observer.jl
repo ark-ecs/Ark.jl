@@ -70,6 +70,7 @@ end
     comp_types = _to_types(CT)
     with_types = _to_types(WT)
     without_types = _to_types(WO)
+    relation_types = W.parameters[6]
 
     _check_no_duplicates(comp_types)
     _check_no_duplicates(with_types)
@@ -87,7 +88,7 @@ end
 
     all_comps_relations = true
     for T in comp_types
-        if !(T <: Relationship)
+        if !_is_relation_type(T, relation_types)
             all_comps_relations = false
         end
     end

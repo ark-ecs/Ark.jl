@@ -7,7 +7,7 @@ struct B
     x::Float64
 end
 
-struct C <: Relationship end
+struct C end
 
 struct Position
     x::Float64
@@ -49,9 +49,9 @@ mutable struct MutableNoIsBits
     v::Vector{MutableComponent}
 end
 
-struct ChildOf <: Relationship end
-struct ChildOf2 <: Relationship end
-struct ChildOf3 <: Relationship end
+struct ChildOf end
+struct ChildOf2 end
+struct ChildOf3 end
 
 mutable struct Tick
     time::Int

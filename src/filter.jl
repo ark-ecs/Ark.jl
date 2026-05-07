@@ -74,6 +74,7 @@ end
     targets::Tuple{Vararg{Entity}},
 ) where {W<:World,CT<:Tuple,WT<:Tuple,WO<:Tuple,OT<:Tuple,EX<:Val,REG<:Val,TR<:Tuple}
     world_storage_modes = W.parameters[3].parameters
+    relation_types = W.parameters[6]
 
     required_types = _to_types(CT)
     with_types = _to_types(WT)
@@ -86,7 +87,7 @@ end
     _check_no_duplicates(all_comps)
 
     _check_no_duplicates(rel_types)
-    _check_relations(rel_types)
+    _check_relations(rel_types, relation_types)
 
     comp_types = union(required_types, optional_types)
     non_exclude_types = union(comp_types, with_types)

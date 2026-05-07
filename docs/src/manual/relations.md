@@ -16,10 +16,10 @@ DocTestSetup = quote
         dx::Float64
         dy::Float64
     end
-    struct ChildOf <: Relationship end
-    struct RenderLayer <: Relationship end
+    struct ChildOf end
+    struct RenderLayer end
 
-    world = World(Position, Velocity, ChildOf, RenderLayer)
+    world = World(Position, Velocity, Relation{ChildOf}, Relation{RenderLayer})
     entity = new_entity!(world, ())
     parent = new_entity!(world, ())
     parent2 = new_entity!(world, ())
@@ -58,17 +58,19 @@ for relations with different target entities.
 
 ## Relation components
 
-To use entity relations, create components that are sub-types of the abstract marker type [Relationship](@ref):
+To use entity relations, define a normal component type and declare it as a relation in the [World](@ref) constructor with [Relation{T}](@ref Relation):
 
 ```jldoctest; output=false
-struct ChildOf <: Relationship
+struct ChildOf
 end
+
+world = World(Position, Velocity, Relation{ChildOf})
 
 # output
 
 ```
 
-That's all to make a component be treated as an entity relationship by Ark.
+The `Relation{ChildOf}` entry in the world constructor is what makes `ChildOf` a relation in that world.
 Relation components can contain variables/fields like usual components, but in many cases they will just be empty structs.
 
 ## Creating relations
@@ -77,7 +79,7 @@ Relation targets are specified by pairing the relation component with its target
 
 ### On new entities
 
-To create an entity with relations, add a relationship component and specify it's target entity using [new_entity!](@ref):
+To create an entity with relations, add a relation component and specify its target entity using [new_entity!](@ref):
 
 ```jldoctest; output=false
 entity = new_entity!(world, (Position(0, 0), ChildOf() => parent))
@@ -99,7 +101,7 @@ entity = new_entity!(world, (Position(0, 0), ChildOf() => parent, RenderLayer() 
 Entity(6, 0)
 ```
 
-Note that, when creating entities with relationship components, targets for all relations must be specified.
+Note that, when creating entities with relation components, targets for all relations must be specified.
 
 ### When adding components
 

@@ -35,7 +35,7 @@
 end
 
 @testset "get_components unchecked" begin
-    world = World(Health, Position, ChildOf)
+    world = World(Health, Position, Relation{ChildOf})
 
     e = new_entity!(world, (Health(10),))
 
@@ -56,7 +56,7 @@ end
 end
 
 @testset "set_components! unchecked" begin
-    world = World(Health, Position, ChildOf)
+    world = World(Health, Position, Relation{ChildOf})
 
     e = new_entity!(world, (Health(10),))
     @unchecked set_components!(world, e, (Health(50),))
@@ -65,7 +65,7 @@ end
 end
 
 @testset "copy_entity! unchecked" begin
-    world = World(Health, Position, ChildOf)
+    world = World(Health, Position, Relation{ChildOf})
 
     e = new_entity!(world, (Health(10),))
     @unchecked begin
@@ -83,7 +83,7 @@ end
 end
 
 @testset "remove_entity! unchecked" begin
-    world = World(Health, Position, ChildOf)
+    world = World(Health, Position, Relation{ChildOf})
 
     @unchecked begin
         e = Ark.new_entity!(world, (Health(10),))
@@ -93,7 +93,7 @@ end
 end
 
 @testset "has_components unchecked" begin
-    world = World(Health, Position, ChildOf)
+    world = World(Health, Position, Relation{ChildOf})
 
     @unchecked begin
         e = new_entity!(world, (Health(10),))
@@ -103,7 +103,7 @@ end
 end
 
 @testset "add/remove/exchange unchecked" begin
-    world = World(Health, Position, ChildOf)
+    world = World(Health, Position, Relation{ChildOf})
 
     @unchecked begin
         e = new_entity!(world, (Health(10),))
@@ -120,7 +120,7 @@ end
 end
 
 @testset "Relations unchecked" begin
-    world = World(Health, Position, ChildOf)
+    world = World(Health, Position, Relation{ChildOf})
 
     @unchecked begin
         e2 = new_entity!(world, ())

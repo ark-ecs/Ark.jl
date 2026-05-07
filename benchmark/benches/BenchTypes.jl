@@ -9,7 +9,7 @@ struct Velocity
     dy::Float64
 end
 
-struct ChildOf <: Relationship end
+struct ChildOf end
 
 struct CompA
     x::Float64
