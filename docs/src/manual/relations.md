@@ -68,8 +68,8 @@ world = World(Position, Velocity, Relation{ChildOf})
 
 # output
 
- World(entities=0, comp_types=(Position, Velocity, ChildOf))
- ```
+World(entities=0, comp_types=(Position, Velocity, ChildOf))
+```
 
 The `Relation{ChildOf}` entry in the world constructor is what makes `ChildOf` a relation in that world.
 Relation components can contain variables/fields like usual components, but in many cases they will just be empty structs.
