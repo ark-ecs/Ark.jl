@@ -1153,7 +1153,7 @@ end
     push!(exprs, Expr(:return, Expr(:tuple, result_exprs...)))
 
     return quote
-        @inbounds begin
+        Base.@assume_effects :nothrow @inbounds begin
             $(Expr(:block, exprs...))
         end
     end
