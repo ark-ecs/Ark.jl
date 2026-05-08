@@ -5,7 +5,8 @@
 ### Breaking changes
 
 - The relationship API has been rewritten to be less verbose and redundant, by coupling together the components with the chosen
-relation in one statement (#614, #625)
+relation in one statement (#614, #625), it also now requires to register a component as a relation at world construction instead
+of at type definition for better extensibility (#626, #627).
 - `observe!(world, observer; unregister=true)` has been removed in favour of `register!(observer)` and `unregister!(observer)` (#574)
 - `EventType` is renamed to `Event` (#573)
 
