@@ -6,6 +6,6 @@ set_preferences!("Ark", "THREAD_SAFE_LOCK" => "false")
 using Ark
 using Test
 
-include("../TestTypes.jl")
+include("TestADTypes.jl")
 
-include("test_mooncake_interop.jl")
+include("test_AD_interop.jl")
