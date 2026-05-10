@@ -117,7 +117,7 @@ using ReverseDiff
         observer_total += alpha * removed_relations
         observer_total += beta * removed_entities
 
-        return total + relation_total + observer_total
+        return total + relation_total[] + observer_total
     end
 
     function gradient_ratios(backend)
