@@ -14,7 +14,7 @@ function _EntityPool(cap::UInt32)
     return _EntityPool(v1, v2, 0)
 end
 
-function _get_entity(p::_EntityPool)::Entity
+@inbounds function _get_entity(p::_EntityPool)::Entity
     if p.next == 0
         return _get_new_entity(p)
     end
@@ -49,7 +49,7 @@ function _get_new_entities!(p::_EntityPool, n::Integer)
     return
 end
 
-function _recycle(p::_EntityPool, e::Entity)
+@inbounds function _recycle(p::_EntityPool, e::Entity)
     if e._id < 2
         throw(ArgumentError("can't recycle the reserved zero entity"))
     end
