@@ -14,7 +14,7 @@ function _EntityPool(cap::UInt32)
     return _EntityPool(v1, v2, 0)
 end
 
-@inbounds function _get_entity(p::_EntityPool)::Entity
+@inline @inbounds function _get_entity(p::_EntityPool)::Entity
     if p.next == 0
         return _get_new_entity(p)
     end
