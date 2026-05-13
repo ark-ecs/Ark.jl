@@ -1,14 +1,17 @@
 
 mutable struct _EntityPool
-    const entities::Vector{Entity}
+    const ids::Vector{UInt32}
+    const gens::Vector{UInt32}
     next::Int
 end
 
 function _EntityPool(cap::UInt32)
-    v = [_new_entity(UInt32(0), typemax(UInt32))]
-    sizehint!(v, cap)
+    v1 = [UInt32(0)]
+    sizehint!(v1, cap)
+    v2 = [typemax(UInt32)]
+    sizehint!(v2, cap)
 
-    return _EntityPool(v, 0)
+    return _EntityPool(v1, v2, 0)
 end
 
 function _get_entity(p::_EntityPool)::Entity
@@ -16,27 +19,32 @@ function _get_entity(p::_EntityPool)::Entity
         return _get_new_entity(p)
     end
     curr = p.next
-    temp = p.entities[curr]
+    temp_id = p.ids[curr]
+    temp_gen = p.gens[curr]
 
-    p.next = temp._id
-    entity = _Entity(curr % UInt32, temp._gen)
-    p.entities[curr] = entity
+    p.next = temp_id
+    id = curr % UInt32
+    p.ids[curr] = id
+    p.gens[curr] = temp_gen
 
-    return entity
+    return _Entity(id, temp_gen)
 end
 
 function _get_new_entity(p::_EntityPool)::Entity
-    e = _new_entity(length(p.entities) + 1, 0)
-    push!(p.entities, e)
-    return e
+    id = (length(p.ids) + 1) % UInt32
+    push!(p.ids, id)
+    push!(p.gens, UInt32(0))
+    return _new_entity(id, UInt32(0))
 end
 
 function _get_new_entities!(p::_EntityPool, n::Integer)
-    old_len = length(p.entities)
+    old_len = length(p.ids)
     new_len = old_len + n
-    resize!(p.entities, new_len)
-    for i in (old_len+1):new_len
-        @inbounds p.entities[i] = _new_entity(i % UInt32, UInt32(0))
+    resize!(p.ids, new_len)
+    resize!(p.gens, new_len)
+    @inbounds for i in (old_len+1):new_len
+        p.ids[i] = i % UInt32
+        p.gens[i] = UInt32(0)
     end
     return
 end
@@ -47,15 +55,18 @@ function _recycle(p::_EntityPool, e::Entity)
     end
     temp = p.next
     p.next = e._id
-    p.entities[e._id] = _new_entity(temp % UInt32, e._gen + UInt32(1))
+
+    p.ids[e._id] = temp % UInt32
+    p.gens[e._id] = e._gen + UInt32(1)
     return nothing
 end
 
 function _is_alive(p::_EntityPool, e::Entity)::Bool
-    @inbounds return e._gen == p.entities[e._id]._gen
+    @inbounds return e._gen == p.gens[e._id]
 end
 
 function _reset!(p::_EntityPool)
-    resize!(p.entities, 1)
+    resize!(p.ids, 1)
+    resize!(p.gens, 1)
     p.next = 0
 end
