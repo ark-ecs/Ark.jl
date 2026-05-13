@@ -1414,18 +1414,18 @@ end
         # Bulk-allocate the rest
         if i <= new_length
             rem = new_length - i + 1
-            old_pool_len = length(pool.entities)
+            old_pool_len = length(pool.ids)
             @check old_pool_len == length(world._entities)
             _get_new_entities!(pool, rem)
 
-            new_pool_len = length(pool.entities)
+            new_pool_len = length(pool.ids)
             resize!(world._entities, new_pool_len)
             $(world_has_rel ? :(resize!(world._targets, new_pool_len)) : nothing)
             $(world_has_rel ? :(view(world._targets, (old_pool_len+1):new_pool_len) .= false) : nothing)
 
             @inbounds @simd for j in 1:rem
                 id = old_pool_len + j
-                entity = pool.entities[id]
+                entity = _Entity(pool.ids[id], pool.gens[id])
                 entities[i] = entity
                 world._entities[id] = _EntityIndex(table_index, UInt32(i))
                 i += 1
