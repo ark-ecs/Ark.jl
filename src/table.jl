@@ -7,7 +7,20 @@ end
 _RelationId(::Val{M}) where {M} =
     64M <= typemax(UInt8) ? UInt8 : 64M <= typemax(UInt16) ? UInt16 : UInt32
 
+const _EMPTY_RELATIONS_UINT8 = Pair{UInt8,Entity}[]
+const _EMPTY_RELATIONS_UINT16 = Pair{UInt16,Entity}[]
+const _EMPTY_RELATIONS_UINT32 = Pair{UInt32,Entity}[]
+
+_empty_relations(::Type{UInt8}) = _EMPTY_RELATIONS_UINT8
+_empty_relations(::Type{UInt16}) = _EMPTY_RELATIONS_UINT16
+_empty_relations(::Type{UInt32}) = _EMPTY_RELATIONS_UINT32
+
 function _empty_relations(::Val{M}) where {M}
+    R = _RelationId(Val(M))
+    return _empty_relations(R)
+end
+
+function _new_relations(::Val{M}) where {M}
     R = _RelationId(Val(M))
     return Vector{Pair{R,Entity}}()
 end

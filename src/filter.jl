@@ -122,7 +122,7 @@ end
     return quote
         relations = if length(targets) > 0
             # TODO: can/should we use an ntuple instead?
-            rel = _empty_relations(Val($M))
+            rel = _new_relations(Val($M))
             for (c, e) in zip($rel_ids, targets)
                 push!(rel, _relation(Val($M), c, e))
             end

@@ -57,8 +57,8 @@ end
 
 function _WorldPool{M,R}() where {M,R}
     return _WorldPool(
-        _empty_relations(Val(M)),
-        _empty_relations(Val(M)),
+        _new_relations(Val(M)),
+        _new_relations(Val(M)),
         Vector{Entity}(),
         Vector{UInt32}(),
         Vector{_BatchTable{M,R}}(),
