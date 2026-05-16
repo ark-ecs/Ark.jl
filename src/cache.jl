@@ -10,7 +10,7 @@ end
 
 _is_cached(f::_MaskFilter) = f.id[] > 0
 
-function _add_table!(filter::F, table::_Table) where {F<:_MaskFilter}
+function _add_table!(filter::F, table::_Table{R}) where {F<:_MaskFilter,R}
     _add_id!(filter.tables, table.id)
     _add_id!(table.filters, filter.id[])
 end
@@ -90,8 +90,8 @@ function _add_table!(
     cache::_Cache,
     world::W,
     archetype::_ArchetypeHot,
-    table::_Table,
-) where {W<:_AbstractWorld}
+    table::_Table{R},
+) where {W<:_AbstractWorld,R}
     for filter in cache.filters
         if !_is_cached(filter)
             continue
@@ -109,7 +109,7 @@ function _add_table!(
     end
 end
 
-function _remove_table!(cache::_Cache, table::_Table)
+function _remove_table!(cache::_Cache, table::_Table{R}) where {R}
     for filter_id in table.filters.ids
         filter = cache.filters[filter_id]
         _remove_id!(filter.tables, table.id)

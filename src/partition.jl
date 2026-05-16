@@ -40,7 +40,7 @@ function _partition_entities!(
     )
 end
 
-function _partition_table!(world::World, table::_Table, pred::P) where P
+function _partition_table!(world::World, table::_Table{R}, pred::P) where {R,P}
     len = length(table)
     if len <= 1
         return

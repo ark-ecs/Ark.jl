@@ -71,7 +71,7 @@ function _Archetype(
     )
 end
 
-function _add_table!(indices::Vector{_ComponentRelations}, arch::_Archetype, t::_Table)
+function _add_table!(indices::Vector{_ComponentRelations}, arch::_Archetype, t::_Table{R}) where {R}
     _add_id!(arch.tables, t.id)
 
     if !_has_relations(arch)
@@ -92,7 +92,7 @@ end
 
 _has_relations(a::_Archetype) = a.num_relations > 0
 
-function _free_table!(a::_Archetype, table::_Table)
+function _free_table!(a::_Archetype, table::_Table{R}) where {R}
     _remove_id!(a.tables, table.id)
     push!(a.free_tables, table.id)
 
@@ -145,8 +145,8 @@ function _reset!(a::_Archetype)
     return
 end
 
-struct _BatchTable{M}
-    table::_Table
+struct _BatchTable{M,R}
+    table::_Table{R}
     archetype::_Archetype{M}
     start_idx::Int
     end_idx::Int

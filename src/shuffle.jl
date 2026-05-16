@@ -40,7 +40,7 @@ function _shuffle(
     @_each_matching_table(world, filter, archetypes, archetypes_hot, table, _shuffle_table!(rng, world, table))
 end
 
-function _shuffle_table!(rng::AbstractRNG, world::World, table::_Table)
+function _shuffle_table!(rng::AbstractRNG, world::World, table::_Table{R}) where {R}
     len = length(table)
     archetype = world._archetypes[table.archetype]
 

@@ -30,17 +30,13 @@ function _new_table(::Val{M}, id::UInt32, archetype::UInt32) where {M}
     return _Table{R}(Entities(0), _empty_relations(Val(M)), _IdCollection(), id, archetype)
 end
 
-function _new_table(id::UInt32, archetype::UInt32)
-    return _new_table(Val(1), id, archetype)
-end
-
 function _new_table(::Val{M}, id::UInt32, archetype::UInt32, cap::Int, relations::Vector{Pair{R,Entity}}) where {M,R}
     return _Table{R}(Entities(cap), relations, _IdCollection(), id, archetype)
 end
 
-_has_relations(t::_Table) = !isempty(t.relations)
+_has_relations(t::_Table{R}) where {R} = !isempty(t.relations)
 
-function _matches(indices::Vector{_ComponentRelations}, t::_Table, relations::Vector{Pair{R,Entity}}) where {R<:Integer}
+function _matches(indices::Vector{_ComponentRelations}, t::_Table{TR}, relations::Vector{Pair{R,Entity}}) where {TR,R<:Integer}
     if length(relations) == 0 || !_has_relations(t)
         return true
     end
@@ -53,7 +49,7 @@ function _matches(indices::Vector{_ComponentRelations}, t::_Table, relations::Ve
     return true
 end
 
-function _matches_exact(indices::Vector{_ComponentRelations}, t::_Table, relations::Vector{Pair{R,Entity}}) where {R<:Integer}
+function _matches_exact(indices::Vector{_ComponentRelations}, t::_Table{TR}, relations::Vector{Pair{R,Entity}}) where {TR,R<:Integer}
     # This check is done in _get_table_slow_path
     #if length(relations) < length(t.relations)
     #    throw(ArgumentError("relation targets must be fully specified"))
@@ -69,12 +65,12 @@ function _matches_exact(indices::Vector{_ComponentRelations}, t::_Table, relatio
     return true
 end
 
-function _add_entity!(t::_Table, entity::Entity)::Int
+function _add_entity!(t::_Table{R}, entity::Entity)::Int where {R}
     push!(t.entities._data, entity)
     return length(t.entities)
 end
 
-Base.length(t::_Table) = Base.length(t.entities)
-Base.isempty(t::_Table) = Base.isempty(t.entities)
-Base.resize!(t::_Table, length::Int) = Base.resize!(t.entities._data, length)
-Base.empty!(t::_Table) = Base.empty!(t.entities._data)
+Base.length(t::_Table{R}) where {R} = Base.length(t.entities)
+Base.isempty(t::_Table{R}) where {R} = Base.isempty(t.entities)
+Base.resize!(t::_Table{R}, length::Int) where {R} = Base.resize!(t.entities._data, length)
+Base.empty!(t::_Table{R}) where {R} = Base.empty!(t.entities._data)

@@ -51,7 +51,7 @@ struct _WorldPool{M,R}
     cleanup_relations::Vector{Pair{R,Entity}}
     entities::Vector{Entity}
     tables::Vector{UInt32}
-    batches::Vector{_BatchTable{M}}
+    batches::Vector{_BatchTable{M,R}}
     mask::_MutableMask{M}
 end
 
@@ -61,7 +61,7 @@ function _WorldPool{M,R}() where {M,R}
         _empty_relations(Val(M)),
         Vector{Entity}(),
         Vector{UInt32}(),
-        Vector{_BatchTable{M}}(),
+        Vector{_BatchTable{M,R}}(),
         _MutableMask{M}(),
     )
 end
@@ -894,7 +894,7 @@ end
 
 @inline function _find_or_create_table!(
     world::World,
-    old_table::_Table,
+    old_table::_Table{R},
     add::Tuple{Vararg{Int}},
     remove::Tuple{Vararg{Int}},
     relations::Tuple{Vararg{Int}},
@@ -903,7 +903,7 @@ end
     rem_mask::_Mask,
     use_map::Union{_NoUseMap,_UseMap},
     world_has_rel::Val{true},
-)::Tuple{UInt32,Bool}
+)::Tuple{UInt32,Bool} where {R}
     @inbounds old_arch = world._archetypes[old_table.archetype]
     new_arch_index, is_new = _find_or_create_archetype!(
         world, old_arch.node, add, remove, relations, add_mask, rem_mask, use_map,
@@ -924,7 +924,7 @@ end
 
 @inline function _find_or_create_table!(
     world::World,
-    old_table::_Table,
+    old_table::_Table{R},
     add::Tuple{Vararg{Int}},
     remove::Tuple{Vararg{Int}},
     relations::Tuple{Vararg{Int}},
@@ -933,7 +933,7 @@ end
     rem_mask::_Mask,
     use_map::Union{_NoUseMap,_UseMap},
     world_has_rel::Val{false},
-)::Tuple{UInt32,Bool}
+)::Tuple{UInt32,Bool} where {R}
     @inbounds old_arch_hot = world._archetypes_hot[old_table.archetype]
     old_mask = old_arch_hot.mask
     if !_contains_all(old_mask, rem_mask)
@@ -966,13 +966,13 @@ end
 # internal for handling relations
 function _find_or_create_table!(
     world::World,
-    old_table::_Table,
+    old_table::_Table{R},
     new_arch_hot::_ArchetypeHot,
     new_arch::_Archetype,
     relations::Tuple{Vararg{Int}},
     targets::Tuple{Vararg{Entity}},
     has_remove::Bool,
-)::Tuple{UInt32,Bool}
+)::Tuple{UInt32,Bool} where {R}
     # Find existing relations that were not removed, and add new relations.
     all_relations = world._pool.relations
     requires_free = true
@@ -1123,10 +1123,10 @@ end
 
 @inline function _get_exchange_targets(
     world::World,
-    old_table::_Table,
+    old_table::_Table{R},
     relations::Tuple{Vararg{Int}},
     targets::Tuple{Vararg{Entity}},
-)
+) where {R}
     new_relations = world._pool.relations
     append!(new_relations, old_table.relations)
 
@@ -1154,9 +1154,9 @@ end
 # only for internal use in _cleanup_archetypes
 function _get_exchange_targets_unchecked(
     world::World,
-    old_table::_Table,
+    old_table::_Table{TR},
     relations::Vector{Pair{R,Entity}},
-) where {R<:Integer}
+) where {TR,R<:Integer}
     new_relations = world._pool.relations
     append!(new_relations, old_table.relations)
 
@@ -1177,10 +1177,10 @@ function _get_exchange_targets_unchecked(
 end
 
 @inline function _get_table(
-    world::World,
+    world::World{CS,CT,ST,N,M,WR},
     arch::_Archetype,
     relations::Vector{Pair{R,Entity}},
-)::Tuple{_Table,Bool} where {R<:Integer}
+)::Tuple{_Table{WR},Bool} where {CS,CT,ST,N,M,WR,R<:Integer}
     if length(arch.tables) == 0
         return @inbounds world._tables[1], false
     end
@@ -1467,10 +1467,10 @@ end
     world::W,
     entity::Entity,
     index::_EntityIndex,
-    old_table::_Table,
-    new_table::_Table,
+    old_table::_Table{OR},
+    new_table::_Table{NR},
     table_index::UInt32,
-)::Nothing where {W<:World}
+)::Nothing where {W<:World,OR,NR}
     inline_jtable = length(W.parameters[1].parameters) <= 10
     quote
         new_row = _add_entity!(new_table, entity)
@@ -2303,7 +2303,7 @@ end
         k -> :(_swap_component_data!(world._storages.$k, table, i, j)))
 end
 
-@inline function _swap_rows!(world::World, archetype::_Archetype, table::_Table, i::Int, j::Int)
+@inline function _swap_rows!(world::World, archetype::_Archetype, table::_Table{R}, i::Int, j::Int) where {R}
     @inbounds begin
         entity_i = table.entities._data[i]
         entity_j = table.entities._data[j]

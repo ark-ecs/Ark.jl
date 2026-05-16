@@ -288,7 +288,7 @@ function _fire_remove_entity_relations(
     _do_fire_comps(m, OnRemoveRelations, entity, mask, mask, true)
 end
 
-function _fire_create_entities(m::_EventManager{W,M}, table::_BatchTable{M}) where {W<:_AbstractWorld,M}
+function _fire_create_entities(m::_EventManager{W,M}, table::_BatchTable{M,R}) where {W<:_AbstractWorld,M,R}
     evt = OnCreateEntity._id
     observers = m.observers[evt]
     mask = table.archetype.node.mask
@@ -312,15 +312,15 @@ function _fire_create_entities(m::_EventManager{W,M}, table::_BatchTable{M}) whe
     end
 end
 
-function _fire_create_entities_relations(m::_EventManager{W,M}, table::_BatchTable{M}) where {W<:_AbstractWorld,M}
+function _fire_create_entities_relations(m::_EventManager{W,M}, table::_BatchTable{M,R}) where {W<:_AbstractWorld,M,R}
     _do_fire_comps(m, OnAddRelations, table, table.archetype.node.mask)
 end
 
 function _fire_remove_entities(
     m::_EventManager{W,M},
-    table::_Table,
+    table::_Table{R},
     mask::_Mask{M},
-) where {W<:_AbstractWorld,M}
+) where {W<:_AbstractWorld,M,R}
     evt = OnRemoveEntity._id
     observers = m.observers[evt]
     if length(observers) > 1
@@ -344,9 +344,9 @@ end
 
 function _fire_remove_entities_relations(
     m::_EventManager{W,M},
-    table::_Table,
+    table::_Table{R},
     mask::_Mask{M},
-) where {W<:_AbstractWorld,M}
+) where {W<:_AbstractWorld,M,R}
     evt = OnRemoveRelations._id
     observers = m.observers[evt]
     if length(observers) > 1
@@ -416,10 +416,10 @@ end
 function _fire_add(
     m::_EventManager{W,M},
     event::Event,
-    table::_BatchTable,
+    table::_BatchTable{BM,R},
     old_mask::_Mask{M},
     new_mask::_Mask{M},
-) where {W<:_AbstractWorld,M}
+) where {W<:_AbstractWorld,M,BM,R}
     evt = event._id
     observers = m.observers[evt]
     if length(observers) > 1
@@ -492,10 +492,10 @@ end
 function _fire_remove(
     m::_EventManager{W,M},
     event::Event,
-    table::_BatchTable,
+    table::_BatchTable{BM,R},
     old_mask::_Mask{M},
     new_mask::_Mask{M},
-) where {W<:_AbstractWorld,M}
+) where {W<:_AbstractWorld,M,BM,R}
     evt = event._id
     observers = m.observers[evt]
     if length(observers) > 1
@@ -541,9 +541,9 @@ end
 function _fire_set_relations(
     m::_EventManager{W,M},
     event::Event,
-    table::_BatchTable{M},
+    table::_BatchTable{M,R},
     mask::_MutableMask{M},
-) where {W<:_AbstractWorld,M}
+) where {W<:_AbstractWorld,M,R}
     _do_fire_comps(m, event, table, mask)
 end
 
@@ -597,9 +597,9 @@ end
 @inline function _do_fire_comps(
     m::_EventManager{W,M},
     event::Event,
-    table::_BatchTable{M},
+    table::_BatchTable{M,R},
     mask::MK,
-) where {W<:_AbstractWorld,MK<:_AbstractMask{M}} where {M}
+) where {W<:_AbstractWorld,MK<:_AbstractMask{M}} where {M,R}
     evt = event._id
     observers = m.observers[evt]
     entity_mask = table.archetype.node.mask

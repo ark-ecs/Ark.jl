@@ -613,11 +613,11 @@ end
 function _set_relations_table!(
     fn::Fn,
     world::W,
-    batch::_BatchTable,
+    batch::_BatchTable{M,R},
     relations::Tuple{Vararg{Int}},
     targets::Tuple{Vararg{Entity}},
     has_fn::Bool,
-) where {Fn,W<:World}
+) where {Fn,W<:World,M,R}
     new_relations, changed, mask = _get_exchange_targets(world, batch.table, relations, targets)
     if !changed
         empty!(new_relations)
@@ -722,7 +722,7 @@ end
 @generated function _exchange_components_table!(
     fn::Fn,
     world::W,
-    batch::_BatchTable,
+    batch::_BatchTable{M,R},
     ::ATS,
     add::Tuple,
     ::Val{RTS},
@@ -731,7 +731,7 @@ end
     ::Val{DEF},
     ::Val{HFN},
     ::Val{REM},
-) where {Fn,W<:World,ATS,RTS<:Tuple,TR<:Tuple,DEF<:Val,HFN<:Val,REM<:Val}
+) where {Fn,W<:World,M,R,ATS,RTS<:Tuple,TR<:Tuple,DEF<:Val,HFN<:Val,REM<:Val}
     add_types = _to_types(ATS)
     rem_types = _to_types(RTS)
     rel_types = _to_types(TR)
@@ -1114,10 +1114,10 @@ end
 @generated function _get_columns(
     world::W,
     ::Val{TS},
-    table::_Table,
+    table::_Table{R},
     start_idx::Int,
     end_idx::Int,
-) where {W<:World,TS<:Tuple}
+) where {W<:World,TS<:Tuple,R}
     CS = W.parameters[1]
     comp_types = TS.parameters
     world_storage_modes = W.parameters[3].parameters

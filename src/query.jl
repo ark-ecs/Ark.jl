@@ -283,8 +283,8 @@ end
 
 @generated function _get_columns(
     q::Query{W,TS,SM,EX,OPT,REG,N,M,R,QS},
-    table::_Table,
-) where {W<:World,TS<:Tuple,SM<:Tuple,EX,OPT,REG,N,M,R,QS}
+    table::_Table{TR},
+) where {W<:World,TS<:Tuple,SM<:Tuple,EX,OPT,REG,N,M,R,QS,TR}
     comp_types = TS.parameters
     storage_modes = SM.parameters
     is_optional = OPT.parameters
