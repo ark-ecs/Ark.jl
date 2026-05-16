@@ -122,6 +122,7 @@ end
         relations = if length(targets) > 0
             # TODO: can/should we use an ntuple instead?
             rel = Vector{Pair{Int32,Entity}}()
+            resize!(rel, $(length(rel_ids)))
             for (c, e) in zip($rel_ids, targets)
                 push!(rel, c => e)
             end
