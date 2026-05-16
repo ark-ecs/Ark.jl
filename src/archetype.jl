@@ -79,7 +79,7 @@ function _add_table!(indices::Vector{_ComponentRelations}, arch::_Archetype, t::
     end
 
     for (comp, target) in t.relations
-        idx = indices[comp].archetypes[arch.id]
+        idx = indices[Int(comp)].archetypes[arch.id]
         dict = arch.index[idx]
         _add_id!(get!(() -> _IdCollection(), dict, target._id), t.id)
 

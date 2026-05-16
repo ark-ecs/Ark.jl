@@ -6,8 +6,8 @@ A filter for components. See function
 [Filter](@ref Filter(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)) for details.
 See also [Query](@ref).
 """
-struct Filter{W<:World,TS<:Tuple,EX,OPT,REG,M}
-    _filter::_MaskFilter{M}
+struct Filter{W<:World,TS<:Tuple,EX,OPT,REG,M,R}
+    _filter::_MaskFilter{M,R}
     _world::W
 end
 
@@ -109,6 +109,7 @@ end
     exclude_mask = EX === Val{true} ? _Mask{M}(_Not(), non_exclude_ids...) : _Mask{M}(without_ids...)
     has_excluded = (length(without_ids) > 0) || (EX === Val{true})
     register = REG === Val{true}
+    R = _RelationId(Val(M))
 
     comp_tuple_type = Expr(:curly, :Tuple, comp_types...)
 
@@ -121,16 +122,16 @@ end
     return quote
         relations = if length(targets) > 0
             # TODO: can/should we use an ntuple instead?
-            rel = Vector{Pair{Int,Entity}}()
+            rel = _empty_relations(Val($M))
             for (c, e) in zip($rel_ids, targets)
-                push!(rel, c => e)
+                push!(rel, _relation(Val($M), c, e))
             end
             rel
         else
-            _empty_relations
+            _empty_relations(Val($M))
         end
-        filter = Filter{$W,$comp_tuple_type,$EX,$optional_flags_type,$REG,$M}(
-            _MaskFilter{$M}(
+        filter = Filter{$W,$comp_tuple_type,$EX,$optional_flags_type,$REG,$M,$R}(
+            _MaskFilter{$M,$R}(
                 $(mask),
                 $(exclude_mask),
                 relations,
@@ -272,7 +273,7 @@ function _count_entities_registered(world::W, filter::_MaskFilter{M}) where {W<:
     return count
 end
 
-function Base.show(io::IO, filter::Filter{W,CT,EX,OPT,REG,M}) where {W<:World,CT<:Tuple,EX<:Val,OPT,REG<:Val,M}
+function Base.show(io::IO, filter::Filter{W,CT,EX,OPT,REG,M,R}) where {W<:World,CT<:Tuple,EX<:Val,OPT,REG<:Val,M,R}
     world_types = W.parameters[2].parameters
     comp_types = CT.parameters
 

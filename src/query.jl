@@ -10,8 +10,8 @@ end
 A query for components. See function
 [Query](@ref Query(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)) for details.
 """
-struct Query{W<:World,TS<:Tuple,SM<:Tuple,EX,OPT,REG,N,M,QS<:Tuple}
-    _filter::_MaskFilter{M}
+struct Query{W<:World,TS<:Tuple,SM<:Tuple,EX,OPT,REG,N,M,R,QS<:Tuple}
+    _filter::_MaskFilter{M,R}
     _archetypes::Vector{_Archetype{M}}
     _archetypes_hot::Vector{_ArchetypeHot{M}}
     _q_lock::_QueryCursor
@@ -104,6 +104,7 @@ end
     OPT = F.parameters[4]
     REG = F.parameters[5]
     M = F.parameters[6]
+    R = F.parameters[7]
 
     world_storage_modes = W.parameters[3].parameters
     comp_types = _to_types(TS.parameters)
@@ -132,7 +133,7 @@ end
     return quote
         _lock(filter._world._lock)
         arches, hot = $(archetypes)
-        Query{$W,$TS,$storage_tuple_mode,$EX,$OPT,$REG,$(length(comp_types)),$M,$storage_tuple_type}(
+        Query{$W,$TS,$storage_tuple_mode,$EX,$OPT,$REG,$(length(comp_types)),$M,$R,$storage_tuple_type}(
             filter._filter,
             arches,
             hot,
@@ -281,9 +282,9 @@ function close!(q::Q) where {Q<:Query}
 end
 
 @generated function _get_columns(
-    q::Query{W,TS,SM,EX,OPT,REG,N,M,QS},
+    q::Query{W,TS,SM,EX,OPT,REG,N,M,R,QS},
     table::_Table,
-) where {W<:World,TS<:Tuple,SM<:Tuple,EX,OPT,REG,N,M,QS}
+) where {W<:World,TS<:Tuple,SM<:Tuple,EX,OPT,REG,N,M,R,QS}
     comp_types = TS.parameters
     storage_modes = SM.parameters
     is_optional = OPT.parameters
@@ -322,7 +323,7 @@ end
         push!(result_exprs, Symbol("vec", i))
     end
 
-    element_type = :(Base.eltype(Query{W,TS,SM,EX,OPT,REG,N,M,QS}))
+    element_type = :(Base.eltype(Query{W,TS,SM,EX,OPT,REG,N,M,R,QS}))
 
     result_exprs = map(x -> :($x), result_exprs)
     tuple_expr = Expr(:tuple, result_exprs...)
@@ -338,8 +339,8 @@ end
 Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
 
 @generated function Base.eltype(
-    ::Type{Query{W,TS,SM,EX,OPT,REG,N,M,QS}},
-) where {W<:World,TS<:Tuple,SM<:Tuple,EX,OPT,REG,N,M,QS}
+    ::Type{Query{W,TS,SM,EX,OPT,REG,N,M,R,QS}},
+) where {W<:World,TS<:Tuple,SM<:Tuple,EX,OPT,REG,N,M,R,QS}
     comp_types = TS.parameters
     storage_modes = SM.parameters
     is_optional = OPT.parameters
@@ -373,8 +374,8 @@ Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
 end
 
 function Base.show(
-    io::IO, query::Query{W,CT,SM,EX,OPT,REG,N,M,QS},
-) where {W<:World,CT<:Tuple,SM<:Tuple,EX<:Val,OPT,REG,N,M,QS}
+    io::IO, query::Query{W,CT,SM,EX,OPT,REG,N,M,R,QS},
+) where {W<:World,CT<:Tuple,SM<:Tuple,EX<:Val,OPT,REG,N,M,R,QS}
     world_types = W.parameters[2].parameters
     comp_types = CT.parameters
 

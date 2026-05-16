@@ -44,23 +44,21 @@ const zero_entity::Entity = _new_entity(1, 0)
 
 const _no_entity::Entity = _new_entity(0, 0)
 
-const _empty_relations::Vector{Pair{Int,Entity}} = Vector{Pair{Int,Entity}}()
-
 struct NoResource end
 
-struct _WorldPool{M}
-    relations::Vector{Pair{Int,Entity}}
-    cleanup_relations::Vector{Pair{Int,Entity}}
+struct _WorldPool{M,R}
+    relations::Vector{Pair{R,Entity}}
+    cleanup_relations::Vector{Pair{R,Entity}}
     entities::Vector{Entity}
     tables::Vector{UInt32}
     batches::Vector{_BatchTable{M}}
     mask::_MutableMask{M}
 end
 
-function _WorldPool{M}() where {M}
+function _WorldPool{M,R}() where {M,R}
     return _WorldPool(
-        Vector{Pair{Int,Entity}}(),
-        Vector{Pair{Int,Entity}}(),
+        _empty_relations(Val(M)),
+        _empty_relations(Val(M)),
         Vector{Entity}(),
         Vector{UInt32}(),
         Vector{_BatchTable{M}}(),
@@ -69,14 +67,14 @@ function _WorldPool{M}() where {M}
 end
 
 """
-    World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M}
+    World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M,R}
 
 The World is the central storage for [entities](@ref Entities),
 [components](@ref Components) and [resources](@ref Resources).
 
 See the constructor [World](@ref World(::Union{Type,Pair}...; ::Int, ::Bool)) for details.
 """
-mutable struct World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M} <: _AbstractWorld
+mutable struct World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M,R} <: _AbstractWorld
     const _entities::Vector{_EntityIndex}
     const _targets::BitVector
     const _storages::CS
@@ -84,7 +82,7 @@ mutable struct World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M} <: _AbstractWorld
     const _archetypes::Vector{_Archetype{M}}
     const _archetypes_hot::Vector{_ArchetypeHot{M}}
     const _relation_archetypes::Vector{UInt32}
-    const _tables::Vector{_Table}
+    const _tables::Vector{_Table{R}}
     const _last_table::_LastTable{M}
     const _index::_ComponentIndex{M}
     const _registry::_ComponentRegistry
@@ -92,11 +90,16 @@ mutable struct World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M} <: _AbstractWorld
     const _lock::_Lock
     const _graph::_Graph{M}
     const _resources::_Linear_Map{DataType,Any,false,false,DataType,NoResource}
-    const _event_manager::_EventManager{World{CS,CT,ST,N,M},M}
-    const _cache::_Cache{M}
-    const _pool::_WorldPool{M}
+    const _event_manager::_EventManager{World{CS,CT,ST,N,M,R},M}
+    const _cache::_Cache{M,R}
+    const _pool::_WorldPool{M,R}
     const _initial_capacity::Int
 end
+
+_empty_relations(::World{CS,CT,ST,N,M,R}) where {CS,CT,ST,N,M,R} = _empty_relations(Val(M))
+_relation(world::World{CS,CT,ST,N,M,R}, id::Integer, target::Entity) where {CS,CT,ST,N,M,R} =
+    _relation(Val(M), id, target)
+_mask_chunks(::World{CS,CT,ST,N,M,R}) where {CS,CT,ST,N,M,R} = M
 
 """
     World(
@@ -817,6 +820,7 @@ end
     relations_vec = Expr(:vect, relations_expr...)
 
     M = max(1, cld(length(types), 64))
+    R = _RelationId(Val(M))
     start_mask = _Mask{M}()
     return quote
         registry = _ComponentRegistry()
@@ -829,7 +833,7 @@ end
 
         node = graph.nodes[$start_mask]
 
-        World{$(storage_tuple_type),$(component_tuple_type),$(storage_mode_type),$(length(types)),$M}(
+        World{$(storage_tuple_type),$(component_tuple_type),$(storage_mode_type),$(length(types)),$M,$R}(
             index,
             targets,
             $storage_tuple,
@@ -837,7 +841,7 @@ end
             [_Archetype(UInt32(1), node, UInt32(1))],
             [_ArchetypeHot(node, UInt32(1))],
             Vector{UInt32}(),
-            [_new_table(UInt32(1), UInt32(1))],
+            [_new_table(Val($(M)), UInt32(1), UInt32(1))],
             _LastTable{$M}(_Mask{$M}(), UInt32(1)),
             _ComponentIndex{$(M)}($(length(types))),
             registry,
@@ -846,11 +850,11 @@ end
             graph,
             _Linear_Map{DataType,Any}(; zero_key=NoResource, zero_value=NoResource()),
             _EventManager{
-                World{$(storage_tuple_type),$(component_tuple_type),$(storage_mode_type),$(length(types)),$M},
+                World{$(storage_tuple_type),$(component_tuple_type),$(storage_mode_type),$(length(types)),$M,$R},
                 $(M),
             }(),
-            _Cache{$M}(),
-            _WorldPool{$M}(),
+            _Cache{$M,$R}(),
+            _WorldPool{$M,$R}(),
             initial_capacity,
         )
     end
@@ -909,7 +913,7 @@ end
     if !new_arch_hot.has_relations && isempty(relations)
         if is_new
             @inbounds new_arch = world._archetypes[new_arch_index]
-            return _create_table!(world, new_arch, _empty_relations), _has_relations(old_arch)
+            return _create_table!(world, new_arch, _empty_relations(world)), _has_relations(old_arch)
         end
         return new_arch_hot.table, _has_relations(old_arch)
     end
@@ -949,7 +953,7 @@ end
     )
     if is_new
         @inbounds new_arch = world._archetypes[new_arch_index]
-        table_id = _create_table!(world, new_arch, _empty_relations)
+        table_id = _create_table!(world, new_arch, _empty_relations(world))
     else
         @inbounds new_arch_hot = world._archetypes_hot[new_arch_index]
         table_id = new_arch_hot.table
@@ -976,20 +980,20 @@ function _find_or_create_table!(
     if _has_relations(old_table) || !isempty(relations)
         if has_remove > 0
             for rel in old_table.relations
-                if _get_bit(new_arch_hot.mask, rel[1])
+                if _get_bit(new_arch_hot.mask, Int(rel[1]))
                     push!(all_relations, rel)
                 else
                     relation_removed = true
                 end
             end
             @inbounds for i in eachindex(relations)
-                push!(all_relations, Pair(relations[i], targets[i]))
+                push!(all_relations, _relation(world, relations[i], targets[i]))
             end
         else
             if length(relations) > 0
                 append!(all_relations, old_table.relations)
                 @inbounds for i in eachindex(relations)
-                    push!(all_relations, Pair(relations[i], targets[i]))
+                    push!(all_relations, _relation(world, relations[i], targets[i]))
                 end
             else
                 all_relations = old_table.relations
@@ -1024,7 +1028,12 @@ function _find_or_create_table!(
     return new_table_id, relation_removed
 end
 
-function _recycle_table!(world::World, arch::_Archetype, table_id::UInt32, relations::Vector{Pair{Int,Entity}})
+function _recycle_table!(
+    world::World,
+    arch::_Archetype,
+    table_id::UInt32,
+    relations::Vector{<:Pair{<:Integer,Entity}},
+)
     if length(relations) < arch.num_relations
         throw(ArgumentError("relation targets must be fully specified"))
     end
@@ -1043,7 +1052,11 @@ function _recycle_table!(world::World, arch::_Archetype, table_id::UInt32, relat
     _add_table!(world._cache, world, world._archetypes_hot[arch.id], table)
 end
 
-function _create_table!(world::World, arch::_Archetype, relations::Vector{Pair{Int,Entity}})::UInt32
+function _create_table!(
+    world::World,
+    arch::_Archetype,
+    relations::Vector{<:Pair{<:Integer,Entity}},
+)::UInt32
     if length(relations) < arch.num_relations
         throw(ArgumentError("relation targets must be fully specified"))
     end
@@ -1052,7 +1065,7 @@ function _create_table!(world::World, arch::_Archetype, relations::Vector{Pair{I
     _check_relation_targets(world, relations)
 
     new_table_id = length(world._tables) + 1
-    table = _new_table(UInt32(new_table_id), arch.id, world._initial_capacity, relations)
+    table = _new_table(Val(_mask_chunks(world)), UInt32(new_table_id), arch.id, world._initial_capacity, relations)
     push!(world._tables, table)
 
     _push_empty_to_all_storages!(world)
@@ -1120,7 +1133,8 @@ end
     changed = false
     mask = _clear_mask!(world._pool.mask)
     for (rel, trg) in zip(relations, targets)
-        @inbounds target = world._relations[rel].targets[old_table.id]
+        rel_int = Int(rel)
+        @inbounds target = world._relations[rel_int].targets[old_table.id]
         if target._id == 0
             throw(ArgumentError("entity does not have the requested relationship component"))
         end
@@ -1128,9 +1142,9 @@ end
         if target._id == trg._id
             continue
         end
-        _set_bit!(mask, rel)
-        @inbounds index = world._relations[rel].archetypes[old_table.archetype]
-        @inbounds new_relations[index] = Pair(rel, trg)
+        _set_bit!(mask, rel_int)
+        @inbounds index = world._relations[rel_int].archetypes[old_table.archetype]
+        @inbounds new_relations[index] = _relation(world, rel, trg)
         changed = true
     end
 
@@ -1141,27 +1155,32 @@ end
 function _get_exchange_targets_unchecked(
     world::World,
     old_table::_Table,
-    relations::Vector{Pair{Int,Entity}},
+    relations::Vector{<:Pair{<:Integer,Entity}},
 )
     new_relations = world._pool.relations
     append!(new_relations, old_table.relations)
 
     mask = _clear_mask!(world._pool.mask)
     for (rel, trg) in relations
-        @inbounds comp_relations = world._relations[rel]
+        rel_int = Int(rel)
+        @inbounds comp_relations = world._relations[rel_int]
         @inbounds target = comp_relations.targets[old_table.id]
         @inbounds index = comp_relations.archetypes[old_table.archetype]
-        @inbounds new_relations[index] = Pair(rel, trg)
+        @inbounds new_relations[index] = _relation(world, rel, trg)
 
         if target._id != trg._id
-            _set_bit!(mask, rel)
+            _set_bit!(mask, rel_int)
         end
     end
 
     return new_relations, mask
 end
 
-@inline function _get_table(world::World, arch::_Archetype, relations::Vector{Pair{Int,Entity}})::Tuple{_Table,Bool}
+@inline function _get_table(
+    world::World,
+    arch::_Archetype,
+    relations::Vector{<:Pair{<:Integer,Entity}},
+)::Tuple{_Table,Bool}
     if length(arch.tables) == 0
         return @inbounds world._tables[1], false
     end
@@ -1176,7 +1195,7 @@ end
     rel_comp = first_rel.first
     target_id = first_rel.second._id
 
-    @inbounds rel_idx = world._relations[rel_comp].archetypes[arch.id]
+    @inbounds rel_idx = world._relations[Int(rel_comp)].archetypes[arch.id]
     index = arch.index[rel_idx]
 
     tables = get(index, target_id, _empty_id_collection)
@@ -1199,7 +1218,11 @@ end
     return @inbounds world._tables[1], false
 end
 
-function _get_tables(world::World, arch::_Archetype, relations::Vector{Pair{Int,Entity}})::Vector{UInt32}
+function _get_tables(
+    world::World,
+    arch::_Archetype,
+    relations::Vector{<:Pair{<:Integer,Entity}},
+)::Vector{UInt32}
     if !_has_relations(arch) || isempty(relations)
         return arch.tables.ids
     end
@@ -1208,7 +1231,7 @@ function _get_tables(world::World, arch::_Archetype, relations::Vector{Pair{Int,
     rel_comp = first_rel.first
     target_id = first_rel.second._id
 
-    @inbounds rel_idx = world._relations[rel_comp].archetypes[arch.id]
+    @inbounds rel_idx = world._relations[Int(rel_comp)].archetypes[arch.id]
     @inbounds index = arch.index[rel_idx]
 
     tables = get(index, target_id, _empty_id_collection)
@@ -1248,11 +1271,11 @@ function _cleanup_archetypes(world::World, entity::Entity)
             has_target = false
             for rel in table.relations
                 if rel.second._id == entity._id
-                    push!(relations, Pair(rel.first, zero_entity))
+                    push!(relations, _relation(world, rel.first, zero_entity))
                     has_target = true
                 elseif !is_alive(world, rel.second)
                     # There may be further targets that were removed
-                    push!(relations, Pair(rel.first, zero_entity))
+                    push!(relations, _relation(world, rel.first, zero_entity))
                 end
             end
             @check has_target == true
@@ -2158,20 +2181,20 @@ end
 
 function _activate_archetype_relation_for_comp!(
     world::World{CS,CT},
-    comp::Int,
+    comp::Integer,
     arch::Int,
     index::Int,
 ) where {CS,CT}
-    _activate_archetype_column!(world._relations[comp], arch, index)
+    _activate_archetype_column!(world._relations[Int(comp)], arch, index)
 end
 
 function _activate_table_relation_for_comp!(
     world::World{CS,CT},
-    comp::Int,
+    comp::Integer,
     table::Int,
     target::Entity,
 ) where {CS,CT}
-    _activate_table_column!(world._relations[comp], table, target)
+    _activate_table_column!(world._relations[Int(comp)], table, target)
 end
 
 @generated function _ensure_column_size_for_comp!(
@@ -2257,7 +2280,7 @@ function _check_relation_targets(world::World, relations::Tuple{Vararg{Entity}})
     end
 end
 
-function _check_relation_targets(world::World, relations::Vector{Pair{Int,Entity}})
+function _check_relation_targets(world::World, relations::Vector{<:Pair{<:Integer,Entity}})
     for rel in relations
         _check_relation_target(world, rel.second)
     end

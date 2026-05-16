@@ -1,8 +1,8 @@
 
-struct _MaskFilter{M}
+struct _MaskFilter{M,R}
     mask::_Mask{M}
     exclude_mask::_Mask{M}
-    relations::Vector{Pair{Int,Entity}}
+    relations::Vector{Pair{R,Entity}}
     tables::_IdCollection
     id::Base.RefValue{UInt32}
     has_excluded::Bool
@@ -15,12 +15,12 @@ function _add_table!(filter::F, table::_Table) where {F<:_MaskFilter}
     _add_id!(table.filters, filter.id[])
 end
 
-struct _Cache{M}
-    filters::Vector{_MaskFilter{M}}
+struct _Cache{M,R}
+    filters::Vector{_MaskFilter{M,R}}
     free_indices::Vector{UInt32}
 end
 
-_Cache{M}() where {M} = _Cache{M}(Vector{_MaskFilter{M}}(), Vector{UInt32}())
+_Cache{M,R}() where {M,R} = _Cache{M,R}(Vector{_MaskFilter{M,R}}(), Vector{UInt32}())
 
 function _register_filter!(
     world::W,
