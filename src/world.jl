@@ -1034,7 +1034,7 @@ function _recycle_table!(world::World, arch::_Archetype, table_id::UInt32, relat
 
     for (i, comp) in enumerate(relations)
         entity = comp.second
-        _activate_table_relation_for_comp!(world, comp.first % Int, table_id, entity)
+        _activate_table_relation_for_comp!(world, comp.first % Int, table_id % Int, entity)
         table.relations[i] = comp
         world._targets[entity._id] = true
     end
