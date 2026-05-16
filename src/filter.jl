@@ -123,8 +123,8 @@ end
             # TODO: can/should we use an ntuple instead?
             rel = Vector{Pair{Int32,Entity}}()
             resize!(rel, $(length(rel_ids)))
-            for (c, e) in zip($rel_ids, targets)
-                push!(rel, c => e)
+            @inbounds for (i, (c, e)) in enumerate(zip($rel_ids, targets))
+                rel[i] = c => e
             end
             rel
         else
