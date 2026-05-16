@@ -44,13 +44,13 @@ const zero_entity::Entity = _new_entity(1, 0)
 
 const _no_entity::Entity = _new_entity(0, 0)
 
-const _empty_relations::Vector{Pair{Int,Entity}} = Vector{Pair{Int,Entity}}()
+const _empty_relations::Vector{Pair{Int32,Entity}} = Vector{Pair{Int32,Entity}}()
 
 struct NoResource end
 
 struct _WorldPool{M}
-    relations::Vector{Pair{Int,Entity}}
-    cleanup_relations::Vector{Pair{Int,Entity}}
+    relations::Vector{Pair{Int32,Entity}}
+    cleanup_relations::Vector{Pair{Int32,Entity}}
     entities::Vector{Entity}
     tables::Vector{UInt32}
     batches::Vector{_BatchTable{M}}
@@ -59,8 +59,8 @@ end
 
 function _WorldPool{M}() where {M}
     return _WorldPool(
-        Vector{Pair{Int,Entity}}(),
-        Vector{Pair{Int,Entity}}(),
+        Vector{Pair{Int32,Entity}}(),
+        Vector{Pair{Int32,Entity}}(),
         Vector{Entity}(),
         Vector{UInt32}(),
         Vector{_BatchTable{M}}(),
@@ -1024,7 +1024,7 @@ function _find_or_create_table!(
     return new_table_id, relation_removed
 end
 
-function _recycle_table!(world::World, arch::_Archetype, table_id::UInt32, relations::Vector{Pair{Int,Entity}})
+function _recycle_table!(world::World, arch::_Archetype, table_id::UInt32, relations::Vector{Pair{Int32,Entity}})
     if length(relations) < arch.num_relations
         throw(ArgumentError("relation targets must be fully specified"))
     end
@@ -1043,7 +1043,7 @@ function _recycle_table!(world::World, arch::_Archetype, table_id::UInt32, relat
     _add_table!(world._cache, world, world._archetypes_hot[arch.id], table)
 end
 
-function _create_table!(world::World, arch::_Archetype, relations::Vector{Pair{Int,Entity}})::UInt32
+function _create_table!(world::World, arch::_Archetype, relations::Vector{Pair{Int32,Entity}})::UInt32
     if length(relations) < arch.num_relations
         throw(ArgumentError("relation targets must be fully specified"))
     end
@@ -1141,7 +1141,7 @@ end
 function _get_exchange_targets_unchecked(
     world::World,
     old_table::_Table,
-    relations::Vector{Pair{Int,Entity}},
+    relations::Vector{Pair{Int32,Entity}},
 )
     new_relations = world._pool.relations
     append!(new_relations, old_table.relations)
@@ -1161,7 +1161,7 @@ function _get_exchange_targets_unchecked(
     return new_relations, mask
 end
 
-@inline function _get_table(world::World, arch::_Archetype, relations::Vector{Pair{Int,Entity}})::Tuple{_Table,Bool}
+@inline function _get_table(world::World, arch::_Archetype, relations::Vector{Pair{Int32,Entity}})::Tuple{_Table,Bool}
     if length(arch.tables) == 0
         return @inbounds world._tables[1], false
     end
@@ -1199,7 +1199,7 @@ end
     return @inbounds world._tables[1], false
 end
 
-function _get_tables(world::World, arch::_Archetype, relations::Vector{Pair{Int,Entity}})::Vector{UInt32}
+function _get_tables(world::World, arch::_Archetype, relations::Vector{Pair{Int32,Entity}})::Vector{UInt32}
     if !_has_relations(arch) || isempty(relations)
         return arch.tables.ids
     end
@@ -2151,24 +2151,24 @@ end
     return Expr(:block, exprs...)
 end
 
-@generated function _activate_new_column_for_comp!(world::World{CS}, comp::Int, index::Int) where CS
+@generated function _activate_new_column_for_comp!(world::World{CS}, comp::Integer, index::Integer) where CS
     _generate_component_switch(CS, :comp,
         i -> :(_activate_column!(world._storages.$i, index, world._initial_capacity)))
 end
 
 function _activate_archetype_relation_for_comp!(
     world::World{CS,CT},
-    comp::Int,
-    arch::Int,
-    index::Int,
+    comp::Integer,
+    arch::Integer,
+    index::Integer,
 ) where {CS,CT}
     _activate_archetype_column!(world._relations[comp], arch, index)
 end
 
 function _activate_table_relation_for_comp!(
     world::World{CS,CT},
-    comp::Int,
-    table::Int,
+    comp::Integer,
+    table::Integer,
     target::Entity,
 ) where {CS,CT}
     _activate_table_column!(world._relations[comp], table, target)
@@ -2176,9 +2176,9 @@ end
 
 @generated function _ensure_column_size_for_comp!(
     world::World{CS},
-    comp::Int,
+    comp::Integer,
     arch::UInt32,
-    needed::Int,
+    needed::Integer,
 ) where CS
     _generate_component_switch(CS, :comp,
         i -> :(_ensure_column_size!(world._storages.$i, arch, needed)))
@@ -2186,7 +2186,7 @@ end
 
 @generated function _move_component_data!(
     world::World{CS},
-    comp::Int,
+    comp::Integer,
     old_table::UInt32,
     new_table::UInt32,
     row::UInt32,
@@ -2197,7 +2197,7 @@ end
 
 @generated function _copy_component_data!(
     world::World{CS},
-    comp::Int,
+    comp::Integer,
     old_table::UInt32,
     new_table::UInt32,
     old_row::UInt32,
@@ -2213,7 +2213,7 @@ end
 
 @generated function _copy_component_data_to_end!(
     world::World{CS},
-    comp::Int,
+    comp::Integer,
     old_table::UInt32,
     new_table::UInt32,
 ) where {CS<:Tuple}
@@ -2223,7 +2223,7 @@ end
 
 @generated function _clear_component_data!(
     world::World{CS},
-    comp::Int,
+    comp::Integer,
     table::UInt32,
 ) where {CS<:Tuple}
     _generate_component_switch(CS, :comp,
@@ -2232,7 +2232,7 @@ end
 
 @generated function _swap_remove_in_column_for_comp!(
     world::World{CS},
-    comp::Int,
+    comp::Integer,
     table::UInt32,
     row::UInt32,
 ) where {CS<:Tuple}
@@ -2257,7 +2257,7 @@ function _check_relation_targets(world::World, relations::Tuple{Vararg{Entity}})
     end
 end
 
-function _check_relation_targets(world::World, relations::Vector{Pair{Int,Entity}})
+function _check_relation_targets(world::World, relations::Vector{Pair{Int32,Entity}})
     for rel in relations
         _check_relation_target(world, rel.second)
     end
@@ -2271,10 +2271,10 @@ end
 
 @generated function _swap_components!(
     world::World{CS},
-    comp::Int,
+    comp::Integer,
     table::UInt32,
-    i::Int,
-    j::Int,
+    i::Integer,
+    j::Integer,
 ) where {CS<:Tuple}
     _generate_component_switch(CS, :comp,
         k -> :(_swap_component_data!(world._storages.$k, table, i, j)))
@@ -2299,11 +2299,11 @@ end
 
 @generated function _permute_component_cycle!(
     world::World{CS},
-    comp::Int,
+    comp::Integer,
     table::UInt32,
     entities::Entities,
     entity_index::Vector{_EntityIndex},
-    start::Int,
+    start::Integer,
 ) where {CS<:Tuple}
     _generate_component_switch(
         CS,

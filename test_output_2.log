@@ -1,0 +1,188 @@
+  Activating project at `~/.julia/dev/Ark`
+     Testing Ark
+      Status `/tmp/jl_Gqbrny/Project.toml`
+  [4c88cf16] Aqua v0.8.14
+  [56664e29] Ark v0.4.0 `~/.julia/dev/Ark`
+  [ff5a1669] FieldViews v0.3.3
+  [069b7b12] FunctionWrappers v1.1.3
+  [21216c6a] Preferences v1.5.2
+  [90137ffa] StaticArrays v1.9.18
+  [44cfe95a] Pkg v1.12.1
+  [9a3f8284] Random v1.11.0
+  [8dfed614] Test v1.11.0
+      Status `/tmp/jl_Gqbrny/Manifest.toml`
+  [7d9f7c33] Accessors v0.1.44
+  [4c88cf16] Aqua v0.8.14
+  [56664e29] Ark v0.4.0 `~/.julia/dev/Ark`
+  [34da2185] Compat v4.18.1
+  [a33af91c] CompositionsBase v0.1.2
+  [187b0558] ConstructionBase v1.6.0
+  [ff5a1669] FieldViews v0.3.3
+  [069b7b12] FunctionWrappers v1.1.3
+  [3587e190] InverseFunctions v0.1.17
+  [1914dd2f] MacroTools v0.5.16
+  [aea7be01] PrecompileTools v1.3.4
+  [21216c6a] Preferences v1.5.2
+  [90137ffa] StaticArrays v1.9.18
+  [1e83bf80] StaticArraysCore v1.4.4
+  [0dad84c5] ArgTools v1.1.2
+  [56f22d72] Artifacts v1.11.0
+  [2a0f44e3] Base64 v1.11.0
+  [ade2ca70] Dates v1.11.0
+  [f43a241f] Downloads v1.7.0
+  [7b1f6079] FileWatching v1.11.0
+  [b77e0a4c] InteractiveUtils v1.11.0
+  [ac6e5ff7] JuliaSyntaxHighlighting v1.12.0
+  [b27032c2] LibCURL v0.6.4
+  [76f85450] LibGit2 v1.11.0
+  [8f399da3] Libdl v1.11.0
+  [37e2e46d] LinearAlgebra v1.12.0
+  [56ddb016] Logging v1.11.0
+  [d6f4376e] Markdown v1.11.0
+  [ca575930] NetworkOptions v1.3.0
+  [44cfe95a] Pkg v1.12.1
+  [de0858da] Printf v1.11.0
+  [9a3f8284] Random v1.11.0
+  [ea8e919c] SHA v0.7.0
+  [9e88b42a] Serialization v1.11.0
+  [f489334b] StyledStrings v1.11.0
+  [fa267f1f] TOML v1.0.3
+  [a4e569a6] Tar v1.10.0
+  [8dfed614] Test v1.11.0
+  [cf7118a7] UUIDs v1.11.0
+  [4ec0a83e] Unicode v1.11.0
+  [e66e0078] CompilerSupportLibraries_jll v1.3.0+1
+  [deac9b47] LibCURL_jll v8.15.0+0
+  [e37daf67] LibGit2_jll v1.9.0+0
+  [29816b5a] LibSSH2_jll v1.11.3+1
+  [14a3606d] MozillaCACerts_jll v2025.11.4
+  [4536629a] OpenBLAS_jll v0.3.29+0
+  [458c3c95] OpenSSL_jll v3.5.4+0
+  [83775a58] Zlib_jll v1.3.1+2
+  [8e850b90] libblastrampoline_jll v5.15.0+0
+  [8e850ede] nghttp2_jll v1.64.0+1
+  [3f19e933] p7zip_jll v17.7.0+0
+     Testing Running tests...
+   Resolving package versions...
+    Updating `/tmp/jl_Gqbrny/Project.toml`
+  [c3a54625] + JET v0.11.3
+    Updating `/tmp/jl_Gqbrny/Manifest.toml`
+  [da1fd8a2] + CodeTracking v3.0.2
+  [807dbc54] + Compiler v0.1.1
+  [c3a54625] + JET v0.11.3
+  [aa1ae85d] + JuliaInterpreter v0.10.12
+  [70703baa] + JuliaSyntax v1.0.2
+  [6f1432cf] + LoweredCodeUtils v3.5.1
+  [bac558e1] + OrderedCollections v1.8.1
+  [295af30f] + Revise v3.14.3
+  [3fa0cd96] + REPL v1.11.0
+  [6462fe0b] + Sockets v1.11.0
+ERROR: LoadError: Some tests did not pass: 4 passed, 0 failed, 1 errored, 0 broken.
+in expression starting at /home/bob/.julia/dev/Ark/test/test_world.jl:482
+in expression starting at /home/bob/.julia/dev/Ark/test/runtests.jl:25
+Test Summary: | Pass  Total  Time
+debug flag    |    1      1  0.1s
+Test Summary: | Pass  Total  Time
+_format_type  |    5      5  0.0s
+Test Summary:  | Pass  Total  Time
+World creation |    4      4  1.0s
+Test Summary:    | Pass  Total  Time
+World creation 2 |   16     16  0.7s
+Test Summary: | Pass  Total  Time
+World show    |    1      1  2.5s
+Test Summary:      | Pass  Total  Time
+World storage type |    2      2  0.2s
+Test Summary:        | Pass  Total  Time
+World creation error |    5      5  0.1s
+Test Summary:        | Pass  Total  Time
+World creation large |    1      1  1.3s
+Test Summary:      | Pass  Total  Time
+World create table |    8      8  0.5s
+Test Summary:                | Pass  Total  Time
+World Component Registration |   15     15  0.4s
+Test Summary:      | Pass  Total  Time
+_get_storage Tests |    5      5  0.1s
+Test Summary:                | Pass  Total  Time
+_find_or_create_table! Tests |   19     19  0.1s
+Test Summary:         | Pass  Total  Time
+_create_entity! Tests |    7      7  0.3s
+Test Summary:            | Pass  Total  Time
+World get/set components |    8      8  1.0s
+Test Summary:           | Pass  Total  Time
+World new_entity! Tests |   10     10  0.2s
+Test Summary:               | Pass  Total  Time
+World new_entity! relations |   12     12  2.5s
+World new_entity! multiple relations: Error During Test at /home/bob/.julia/dev/Ark/test/test_world.jl:482
+  Got exception outside of a @test
+  MethodError: no method matching _set_bit!(::_MutableMask{1}, ::Int32)
+  The function `_set_bit!` exists, but no method is defined for this combination of argument types.
+  
+  Closest candidates are:
+    _set_bit!(::_MutableMask{1}, !Matched::Int64)
+     @ Ark ~/.julia/dev/Ark/src/mask.jl:188
+    _set_bit!(::_MutableMask, !Matched::Int64)
+     @ Ark ~/.julia/dev/Ark/src/mask.jl:193
+  
+  Stacktrace:
+    [1] _get_exchange_targets_unchecked(world::World{Tuple{_ComponentStorage{Dummy, Vector{Dummy}}, _ComponentStorage{Position, Vector{Position}}, _ComponentStorage{ChildOf, Vector{ChildOf}}, _ComponentStorage{ChildOf2, Vector{ChildOf2}}}, Tuple{Type{Dummy}, Type{Position}, Type{ChildOf}, Type{ChildOf2}}, NTuple{4, Storage{Vector}}, 4, 1}, old_table::Ark._Table, relations::Vector{Pair{Int32, Entity}})
+      @ Ark ~/.julia/dev/Ark/src/world.jl:1157
+    [2] _cleanup_archetypes(world::World{Tuple{_ComponentStorage{Dummy, Vector{Dummy}}, _ComponentStorage{Position, Vector{Position}}, _ComponentStorage{ChildOf, Vector{ChildOf}}, _ComponentStorage{ChildOf2, Vector{ChildOf2}}}, Tuple{Type{Dummy}, Type{Position}, Type{ChildOf}, Type{ChildOf2}}, NTuple{4, Storage{Vector}}, 4, 1}, entity::Entity)
+      @ Ark ~/.julia/dev/Ark/src/world.jl:1261
+    [3] macro expansion
+      @ ~/.julia/dev/Ark/src/world.jl:359 [inlined]
+    [4] _remove_entity!(world::World{Tuple{_ComponentStorage{Dummy, Vector{Dummy}}, _ComponentStorage{Position, Vector{Position}}, _ComponentStorage{ChildOf, Vector{ChildOf}}, _ComponentStorage{ChildOf2, Vector{ChildOf2}}}, Tuple{Type{Dummy}, Type{Position}, Type{ChildOf}, Type{ChildOf2}}, NTuple{4, Storage{Vector}}, 4, 1}, entity::Entity, ::Val{false})
+      @ Ark ~/.julia/dev/Ark/src/world.jl:306
+    [5] #remove_entity!#203
+      @ ~/.julia/dev/Ark/src/world.jl:303 [inlined]
+    [6] remove_entity!(world::World{Tuple{_ComponentStorage{Dummy, Vector{Dummy}}, _ComponentStorage{Position, Vector{Position}}, _ComponentStorage{ChildOf, Vector{ChildOf}}, _ComponentStorage{ChildOf2, Vector{ChildOf2}}}, Tuple{Type{Dummy}, Type{Position}, Type{ChildOf}, Type{ChildOf2}}, NTuple{4, Storage{Vector}}, 4, 1}, entity::Entity)
+      @ Ark ~/.julia/dev/Ark/src/world.jl:302
+    [7] top-level scope
+      @ ~/.julia/dev/Ark/test/test_world.jl:483
+    [8] macro expansion
+      @ ~/.julia/juliaup/julia-1.12.6+0.x64.linux.gnu/share/julia/stdlib/v1.12/Test/src/Test.jl:1777 [inlined]
+    [9] macro expansion
+      @ ~/.julia/dev/Ark/test/test_world.jl:502 [inlined]
+   [10] include(mapexpr::Function, mod::Module, _path::String)
+      @ Base ./Base.jl:307
+   [11] top-level scope
+      @ ~/.julia/dev/Ark/test/runtests.jl:25
+   [12] include(mapexpr::Function, mod::Module, _path::String)
+      @ Base ./Base.jl:307
+   [13] top-level scope
+      @ none:6
+   [14] eval(m::Module, e::Any)
+      @ Core ./boot.jl:489
+   [15] exec_options(opts::Base.JLOptions)
+      @ Base ./client.jl:283
+   [16] _start()
+      @ Base ./client.jl:550
+Test Summary:                        | Pass  Error  Total  Time
+World new_entity! multiple relations |    4      1      5  2.4s
+RNG of the outermost testset: Random.Xoshiro(0xe20a1a629d350442, 0x05652386ae7f678f, 0xc74b47e04633aed6, 0x6329e93e8030a744, 0x8cd74d0d890a37f9)
+ERROR: LoadError: Package Ark errored during testing
+Stacktrace:
+  [1] pkgerror(msg::String)
+    @ Pkg.Types ~/.julia/juliaup/julia-1.12.6+0.x64.linux.gnu/share/julia/stdlib/v1.12/Pkg/src/Types.jl:68
+  [2] test(ctx::Pkg.Types.Context, pkgs::Vector{PackageSpec}; coverage::Bool, julia_args::Cmd, test_args::Cmd, test_fn::Nothing, force_latest_compatible_version::Bool, allow_earlier_backwards_compatible_versions::Bool, allow_reresolve::Bool)
+    @ Pkg.Operations ~/.julia/juliaup/julia-1.12.6+0.x64.linux.gnu/share/julia/stdlib/v1.12/Pkg/src/Operations.jl:2538
+  [3] test
+    @ ~/.julia/juliaup/julia-1.12.6+0.x64.linux.gnu/share/julia/stdlib/v1.12/Pkg/src/Operations.jl:2387 [inlined]
+  [4] test(ctx::Pkg.Types.Context, pkgs::Vector{PackageSpec}; coverage::Bool, test_fn::Nothing, julia_args::Cmd, test_args::Vector{String}, force_latest_compatible_version::Bool, allow_earlier_backwards_compatible_versions::Bool, allow_reresolve::Bool, kwargs::@Kwargs{io::IOContext{IO}})
+    @ Pkg.API ~/.julia/juliaup/julia-1.12.6+0.x64.linux.gnu/share/julia/stdlib/v1.12/Pkg/src/API.jl:552
+  [5] test(pkgs::Vector{PackageSpec}; io::IOContext{IO}, kwargs::@Kwargs{test_args::Vector{String}})
+    @ Pkg.API ~/.julia/juliaup/julia-1.12.6+0.x64.linux.gnu/share/julia/stdlib/v1.12/Pkg/src/API.jl:169
+  [6] test(pkgs::Vector{String}; kwargs::@Kwargs{test_args::Vector{String}})
+    @ Pkg.API ~/.julia/juliaup/julia-1.12.6+0.x64.linux.gnu/share/julia/stdlib/v1.12/Pkg/src/API.jl:157
+  [7] test
+    @ ~/.julia/juliaup/julia-1.12.6+0.x64.linux.gnu/share/julia/stdlib/v1.12/Pkg/src/API.jl:157 [inlined]
+  [8] #test#81
+    @ ~/.julia/juliaup/julia-1.12.6+0.x64.linux.gnu/share/julia/stdlib/v1.12/Pkg/src/API.jl:156 [inlined]
+  [9] top-level scope
+    @ ~/.julia/dev/Ark/run_tests.jl:3
+ [10] include(mod::Module, _path::String)
+    @ Base ./Base.jl:306
+ [11] exec_options(opts::Base.JLOptions)
+    @ Base ./client.jl:317
+ [12] _start()
+    @ Base ./client.jl:550
+in expression starting at /home/bob/.julia/dev/Ark/run_tests.jl:3

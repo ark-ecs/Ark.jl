@@ -121,7 +121,7 @@ end
     return quote
         relations = if length(targets) > 0
             # TODO: can/should we use an ntuple instead?
-            rel = Vector{Pair{Int,Entity}}()
+            rel = Vector{Pair{Int32,Entity}}()
             for (c, e) in zip($rel_ids, targets)
                 push!(rel, c => e)
             end

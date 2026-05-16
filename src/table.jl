@@ -6,23 +6,23 @@ end
 
 struct _Table
     entities::Entities
-    relations::Vector{Pair{Int,Entity}}
+    relations::Vector{Pair{Int32,Entity}}
     filters::_IdCollection
     id::UInt32
     archetype::UInt32
 end
 
 function _new_table(id::UInt32, archetype::UInt32)
-    return _Table(Entities(0), Pair{Int,Entity}[], _IdCollection(), id, archetype)
+    return _Table(Entities(0), Pair{Int32,Entity}[], _IdCollection(), id, archetype)
 end
 
-function _new_table(id::UInt32, archetype::UInt32, cap::Int, relations::Vector{Pair{Int,Entity}})
+function _new_table(id::UInt32, archetype::UInt32, cap::Int, relations::Vector{Pair{Int32,Entity}})
     return _Table(Entities(cap), relations, _IdCollection(), id, archetype)
 end
 
 _has_relations(t::_Table) = !isempty(t.relations)
 
-function _matches(indices::Vector{_ComponentRelations}, t::_Table, relations::Vector{Pair{Int,Entity}})
+function _matches(indices::Vector{_ComponentRelations}, t::_Table, relations::Vector{Pair{Int32,Entity}})
     if length(relations) == 0 || !_has_relations(t)
         return true
     end
@@ -35,7 +35,7 @@ function _matches(indices::Vector{_ComponentRelations}, t::_Table, relations::Ve
     return true
 end
 
-function _matches_exact(indices::Vector{_ComponentRelations}, t::_Table, relations::Vector{Pair{Int,Entity}})
+function _matches_exact(indices::Vector{_ComponentRelations}, t::_Table, relations::Vector{Pair{Int32,Entity}})
     # This check is done in _get_table_slow_path
     #if length(relations) < length(t.relations)
     #    throw(ArgumentError("relation targets must be fully specified"))
