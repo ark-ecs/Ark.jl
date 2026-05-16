@@ -1032,8 +1032,8 @@ function _recycle_table!(
     world::World,
     arch::_Archetype,
     table_id::UInt32,
-    relations::Vector{<:Pair{<:Integer,Entity}},
-)
+    relations::Vector{Pair{R,Entity}},
+) where {R<:Integer}
     if length(relations) < arch.num_relations
         throw(ArgumentError("relation targets must be fully specified"))
     end
@@ -1055,8 +1055,8 @@ end
 function _create_table!(
     world::World,
     arch::_Archetype,
-    relations::Vector{<:Pair{<:Integer,Entity}},
-)::UInt32
+    relations::Vector{Pair{R,Entity}},
+)::UInt32 where {R<:Integer}
     if length(relations) < arch.num_relations
         throw(ArgumentError("relation targets must be fully specified"))
     end
@@ -1155,8 +1155,8 @@ end
 function _get_exchange_targets_unchecked(
     world::World,
     old_table::_Table,
-    relations::Vector{<:Pair{<:Integer,Entity}},
-)
+    relations::Vector{Pair{R,Entity}},
+) where {R<:Integer}
     new_relations = world._pool.relations
     append!(new_relations, old_table.relations)
 
@@ -1179,8 +1179,8 @@ end
 @inline function _get_table(
     world::World,
     arch::_Archetype,
-    relations::Vector{<:Pair{<:Integer,Entity}},
-)::Tuple{_Table,Bool}
+    relations::Vector{Pair{R,Entity}},
+)::Tuple{_Table,Bool} where {R<:Integer}
     if length(arch.tables) == 0
         return @inbounds world._tables[1], false
     end
@@ -1221,8 +1221,8 @@ end
 function _get_tables(
     world::World,
     arch::_Archetype,
-    relations::Vector{<:Pair{<:Integer,Entity}},
-)::Vector{UInt32}
+    relations::Vector{Pair{R,Entity}},
+)::Vector{UInt32} where {R<:Integer}
     if !_has_relations(arch) || isempty(relations)
         return arch.tables.ids
     end
@@ -2280,7 +2280,7 @@ function _check_relation_targets(world::World, relations::Tuple{Vararg{Entity}})
     end
 end
 
-function _check_relation_targets(world::World, relations::Vector{<:Pair{<:Integer,Entity}})
+function _check_relation_targets(world::World, relations::Vector{Pair{R,Entity}}) where {R<:Integer}
     for rel in relations
         _check_relation_target(world, rel.second)
     end
