@@ -976,7 +976,7 @@ function _find_or_create_table!(
     if _has_relations(old_table) || !isempty(relations)
         if has_remove > 0
             for rel in old_table.relations
-                if _get_bit(new_arch_hot.mask, rel[1])
+                if _get_bit(new_arch_hot.mask, rel[1] % Int)
                     push!(all_relations, rel)
                 else
                     relation_removed = true
@@ -1034,7 +1034,7 @@ function _recycle_table!(world::World, arch::_Archetype, table_id::UInt32, relat
 
     for (i, comp) in enumerate(relations)
         entity = comp.second
-        _activate_table_relation_for_comp!(world, comp.first, Int(table_id), entity)
+        _activate_table_relation_for_comp!(world, Int(comp.first), Int(table_id), entity)
         table.relations[i] = comp
         world._targets[entity._id] = true
     end
@@ -1063,7 +1063,7 @@ function _create_table!(world::World, arch::_Archetype, relations::Vector{Pair{I
     _push_zero_to_all_table_relations!(world)
     for (i, comp) in enumerate(relations)
         entity = comp.second
-        _activate_table_relation_for_comp!(world, comp.first, new_table_id, entity)
+        _activate_table_relation_for_comp!(world, comp.first % Int, new_table_id, entity)
         world._targets[entity._id] = true
     end
 
@@ -1154,7 +1154,7 @@ function _get_exchange_targets_unchecked(
         @inbounds new_relations[index] = Pair(rel, trg)
 
         if target._id != trg._id
-            _set_bit!(mask, rel)
+            _set_bit!(mask, rel % Int)
         end
     end
 
@@ -2151,24 +2151,24 @@ end
     return Expr(:block, exprs...)
 end
 
-@generated function _activate_new_column_for_comp!(world::World{CS}, comp::Integer, index::Integer) where CS
+@generated function _activate_new_column_for_comp!(world::World{CS}, comp::Int, index::Int) where CS
     _generate_component_switch(CS, :comp,
         i -> :(_activate_column!(world._storages.$i, index, world._initial_capacity)))
 end
 
 function _activate_archetype_relation_for_comp!(
     world::World{CS,CT},
-    comp::Integer,
-    arch::Integer,
-    index::Integer,
+    comp::Int,
+    arch::Int,
+    index::Int,
 ) where {CS,CT}
     _activate_archetype_column!(world._relations[comp], arch, index)
 end
 
 function _activate_table_relation_for_comp!(
     world::World{CS,CT},
-    comp::Integer,
-    table::Integer,
+    comp::Int,
+    table::Int,
     target::Entity,
 ) where {CS,CT}
     _activate_table_column!(world._relations[comp], table, target)
@@ -2176,9 +2176,9 @@ end
 
 @generated function _ensure_column_size_for_comp!(
     world::World{CS},
-    comp::Integer,
+    comp::Int,
     arch::UInt32,
-    needed::Integer,
+    needed::Int,
 ) where CS
     _generate_component_switch(CS, :comp,
         i -> :(_ensure_column_size!(world._storages.$i, arch, needed)))
@@ -2186,7 +2186,7 @@ end
 
 @generated function _move_component_data!(
     world::World{CS},
-    comp::Integer,
+    comp::Int,
     old_table::UInt32,
     new_table::UInt32,
     row::UInt32,
@@ -2197,7 +2197,7 @@ end
 
 @generated function _copy_component_data!(
     world::World{CS},
-    comp::Integer,
+    comp::Int,
     old_table::UInt32,
     new_table::UInt32,
     old_row::UInt32,
@@ -2213,7 +2213,7 @@ end
 
 @generated function _copy_component_data_to_end!(
     world::World{CS},
-    comp::Integer,
+    comp::Int,
     old_table::UInt32,
     new_table::UInt32,
 ) where {CS<:Tuple}
@@ -2223,7 +2223,7 @@ end
 
 @generated function _clear_component_data!(
     world::World{CS},
-    comp::Integer,
+    comp::Int,
     table::UInt32,
 ) where {CS<:Tuple}
     _generate_component_switch(CS, :comp,
@@ -2232,7 +2232,7 @@ end
 
 @generated function _swap_remove_in_column_for_comp!(
     world::World{CS},
-    comp::Integer,
+    comp::Int,
     table::UInt32,
     row::UInt32,
 ) where {CS<:Tuple}
@@ -2271,10 +2271,10 @@ end
 
 @generated function _swap_components!(
     world::World{CS},
-    comp::Integer,
+    comp::Int,
     table::UInt32,
-    i::Integer,
-    j::Integer,
+    i::Int,
+    j::Int,
 ) where {CS<:Tuple}
     _generate_component_switch(CS, :comp,
         k -> :(_swap_component_data!(world._storages.$k, table, i, j)))
@@ -2299,11 +2299,11 @@ end
 
 @generated function _permute_component_cycle!(
     world::World{CS},
-    comp::Integer,
+    comp::Int,
     table::UInt32,
     entities::Entities,
     entity_index::Vector{_EntityIndex},
-    start::Integer,
+    start::Int,
 ) where {CS<:Tuple}
     _generate_component_switch(
         CS,
