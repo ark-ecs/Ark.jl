@@ -1148,7 +1148,7 @@ function _get_exchange_targets_unchecked(
 
     mask = _clear_mask!(world._pool.mask)
     for (rel, trg) in relations
-        @inbounds comp_relations = world._relations[rel % Int] 
+        @inbounds comp_relations = world._relations[rel%Int] 
         @inbounds target = comp_relations.targets[old_table.id]
         @inbounds index = comp_relations.archetypes[old_table.archetype]
         @inbounds new_relations[index] = Pair(rel, trg)
@@ -1176,7 +1176,7 @@ end
     rel_comp = first_rel.first
     target_id = first_rel.second._id
 
-    @inbounds rel_idx = world._relations[rel_comp % Int].archetypes[arch.id]
+    @inbounds rel_idx = world._relations[rel_comp%Int].archetypes[arch.id]
     index = arch.index[rel_idx]
 
     tables = get(index, target_id, _empty_id_collection)
@@ -1208,7 +1208,7 @@ function _get_tables(world::World, arch::_Archetype, relations::Vector{Pair{Int3
     rel_comp = first_rel.first
     target_id = first_rel.second._id
 
-    @inbounds rel_idx = world._relations[rel_comp % Int].archetypes[arch.id]
+    @inbounds rel_idx = world._relations[rel_comp%Int].archetypes[arch.id]
     @inbounds index = arch.index[rel_idx]
 
     tables = get(index, target_id, _empty_id_collection)
