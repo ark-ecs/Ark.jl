@@ -1148,7 +1148,7 @@ function _get_exchange_targets_unchecked(
 
     mask = _clear_mask!(world._pool.mask)
     for (rel, trg) in relations
-        @inbounds comp_relations = world._relations[rel%Int] 
+        @inbounds comp_relations = world._relations[rel%Int]
         @inbounds target = comp_relations.targets[old_table.id]
         @inbounds index = comp_relations.archetypes[old_table.archetype]
         @inbounds new_relations[index] = Pair(rel, trg)
