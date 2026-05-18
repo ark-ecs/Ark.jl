@@ -2,7 +2,7 @@
 struct _MaskFilter{M}
     mask::_Mask{M}
     exclude_mask::_Mask{M}
-    relations::Vector{Pair{Int,Entity}}
+    relations::Vector{Pair{Int32,Entity}}
     tables::_IdCollection
     id::Base.RefValue{UInt32}
     has_excluded::Bool

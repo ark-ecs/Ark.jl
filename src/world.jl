@@ -44,13 +44,13 @@ const zero_entity::Entity = _new_entity(1, 0)
 
 const _no_entity::Entity = _new_entity(0, 0)
 
-const _empty_relations::Vector{Pair{Int,Entity}} = Vector{Pair{Int,Entity}}()
+const _empty_relations::Vector{Pair{Int32,Entity}} = Vector{Pair{Int32,Entity}}()
 
 struct NoResource end
 
 struct _WorldPool{M}
-    relations::Vector{Pair{Int,Entity}}
-    cleanup_relations::Vector{Pair{Int,Entity}}
+    relations::Vector{Pair{Int32,Entity}}
+    cleanup_relations::Vector{Pair{Int32,Entity}}
     entities::Vector{Entity}
     tables::Vector{UInt32}
     batches::Vector{_BatchTable{M}}
@@ -59,8 +59,8 @@ end
 
 function _WorldPool{M}() where {M}
     return _WorldPool(
-        Vector{Pair{Int,Entity}}(),
-        Vector{Pair{Int,Entity}}(),
+        Vector{Pair{Int32,Entity}}(),
+        Vector{Pair{Int32,Entity}}(),
         Vector{Entity}(),
         Vector{UInt32}(),
         Vector{_BatchTable{M}}(),
@@ -976,7 +976,7 @@ function _find_or_create_table!(
     if _has_relations(old_table) || !isempty(relations)
         if has_remove > 0
             for rel in old_table.relations
-                if _get_bit(new_arch_hot.mask, rel[1])
+                if _get_bit(new_arch_hot.mask, rel[1] % Int)
                     push!(all_relations, rel)
                 else
                     relation_removed = true
@@ -1024,7 +1024,7 @@ function _find_or_create_table!(
     return new_table_id, relation_removed
 end
 
-function _recycle_table!(world::World, arch::_Archetype, table_id::UInt32, relations::Vector{Pair{Int,Entity}})
+function _recycle_table!(world::World, arch::_Archetype, table_id::UInt32, relations::Vector{Pair{Int32,Entity}})
     if length(relations) < arch.num_relations
         throw(ArgumentError("relation targets must be fully specified"))
     end
@@ -1034,7 +1034,7 @@ function _recycle_table!(world::World, arch::_Archetype, table_id::UInt32, relat
 
     for (i, comp) in enumerate(relations)
         entity = comp.second
-        _activate_table_relation_for_comp!(world, comp.first, Int(table_id), entity)
+        _activate_table_relation_for_comp!(world, comp.first % Int, table_id % Int, entity)
         table.relations[i] = comp
         world._targets[entity._id] = true
     end
@@ -1043,7 +1043,7 @@ function _recycle_table!(world::World, arch::_Archetype, table_id::UInt32, relat
     _add_table!(world._cache, world, world._archetypes_hot[arch.id], table)
 end
 
-function _create_table!(world::World, arch::_Archetype, relations::Vector{Pair{Int,Entity}})::UInt32
+function _create_table!(world::World, arch::_Archetype, relations::Vector{Pair{Int32,Entity}})::UInt32
     if length(relations) < arch.num_relations
         throw(ArgumentError("relation targets must be fully specified"))
     end
@@ -1063,7 +1063,7 @@ function _create_table!(world::World, arch::_Archetype, relations::Vector{Pair{I
     _push_zero_to_all_table_relations!(world)
     for (i, comp) in enumerate(relations)
         entity = comp.second
-        _activate_table_relation_for_comp!(world, comp.first, new_table_id, entity)
+        _activate_table_relation_for_comp!(world, comp.first % Int, new_table_id, entity)
         world._targets[entity._id] = true
     end
 
@@ -1141,27 +1141,27 @@ end
 function _get_exchange_targets_unchecked(
     world::World,
     old_table::_Table,
-    relations::Vector{Pair{Int,Entity}},
+    relations::Vector{Pair{Int32,Entity}},
 )
     new_relations = world._pool.relations
     append!(new_relations, old_table.relations)
 
     mask = _clear_mask!(world._pool.mask)
     for (rel, trg) in relations
-        @inbounds comp_relations = world._relations[rel]
+        @inbounds comp_relations = world._relations[rel%Int]
         @inbounds target = comp_relations.targets[old_table.id]
         @inbounds index = comp_relations.archetypes[old_table.archetype]
         @inbounds new_relations[index] = Pair(rel, trg)
 
         if target._id != trg._id
-            _set_bit!(mask, rel)
+            _set_bit!(mask, rel % Int)
         end
     end
 
     return new_relations, mask
 end
 
-@inline function _get_table(world::World, arch::_Archetype, relations::Vector{Pair{Int,Entity}})::Tuple{_Table,Bool}
+@inline function _get_table(world::World, arch::_Archetype, relations::Vector{Pair{Int32,Entity}})::Tuple{_Table,Bool}
     if length(arch.tables) == 0
         return @inbounds world._tables[1], false
     end
@@ -1176,7 +1176,7 @@ end
     rel_comp = first_rel.first
     target_id = first_rel.second._id
 
-    @inbounds rel_idx = world._relations[rel_comp].archetypes[arch.id]
+    @inbounds rel_idx = world._relations[rel_comp%Int].archetypes[arch.id]
     index = arch.index[rel_idx]
 
     tables = get(index, target_id, _empty_id_collection)
@@ -1199,7 +1199,7 @@ end
     return @inbounds world._tables[1], false
 end
 
-function _get_tables(world::World, arch::_Archetype, relations::Vector{Pair{Int,Entity}})::Vector{UInt32}
+function _get_tables(world::World, arch::_Archetype, relations::Vector{Pair{Int32,Entity}})::Vector{UInt32}
     if !_has_relations(arch) || isempty(relations)
         return arch.tables.ids
     end
@@ -1208,7 +1208,7 @@ function _get_tables(world::World, arch::_Archetype, relations::Vector{Pair{Int,
     rel_comp = first_rel.first
     target_id = first_rel.second._id
 
-    @inbounds rel_idx = world._relations[rel_comp].archetypes[arch.id]
+    @inbounds rel_idx = world._relations[rel_comp%Int].archetypes[arch.id]
     @inbounds index = arch.index[rel_idx]
 
     tables = get(index, target_id, _empty_id_collection)
@@ -2257,7 +2257,7 @@ function _check_relation_targets(world::World, relations::Tuple{Vararg{Entity}})
     end
 end
 
-function _check_relation_targets(world::World, relations::Vector{Pair{Int,Entity}})
+function _check_relation_targets(world::World, relations::Vector{Pair{Int32,Entity}})
     for rel in relations
         _check_relation_target(world, rel.second)
     end
