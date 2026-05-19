@@ -28,9 +28,9 @@ DocTestSetup = quote
     struct Health
         value::Float64
     end
-    struct ChildOf <: Relationship end
+    struct ChildOf end
 
-    world = World(Position, Velocity, Health, ChildOf)
+    world = World(Position, Velocity, Health, Relation{ChildOf})
     entity = new_entity!(world, ())
     parent = new_entity!(world, ())
     parent2 = new_entity!(world, ())

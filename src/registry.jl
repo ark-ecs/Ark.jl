@@ -20,14 +20,14 @@ end
     return registry.is_relation[comp_id]
 end
 
-function _register_component!(registry::_ComponentRegistry, ::Type{C})::Int where C
+function _register_component!(registry::_ComponentRegistry, ::Type{C}, is_relation::Bool)::Int where C
     if haskey(registry.components, C)
         throw(ArgumentError(lazy"duplicate component type $C during world creation"))
     end
     id = registry.counter
     registry.components[C] = id
     push!(registry.types, C)
-    push!(registry.is_relation, C <: Relationship)
+    push!(registry.is_relation, is_relation)
     registry.counter += 1
     return id
 end

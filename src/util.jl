@@ -32,9 +32,34 @@ end
     return collect(vec)
 end
 
-@inline function _check_relations(types::Vector{DataType})
+function _unwrap_relation_type(::Type{Relation{T}}) where {T}
+    return T
+end
+
+function _unwrap_relation_type(::Type{T}) where {T}
+    return T
+end
+
+function _declares_relation(::Type{Relation{T}}) where {T}
+    return true
+end
+
+function _declares_relation(::Type{T}) where {T}
+    return false
+end
+
+@inline function _is_relation_type(::Type{T}, declared_relations::Type{<:Tuple})::Bool where {T}
+    for relation_type in declared_relations.parameters
+        if T === relation_type
+            return true
+        end
+    end
+    return false
+end
+
+@inline function _check_relations(types::Vector{DataType}, declared_relations::Type{<:Tuple})
     for T in types
-        if !(T <: Relationship)
+        if !_is_relation_type(T, declared_relations)
             throw(ArgumentError("component $(nameof(T)) is not a relationship"))
         end
     end
@@ -120,14 +145,8 @@ function _generate_type_lookup(CS::Type{<:Tuple}, TargetType::Type, result_gener
     return :(throw(ArgumentError($(lazy"Component type $(TargetType) not found in the World"))))
 end
 
-function _has_relations(CS::Type{<:Tuple})
-    _storage_types = CS.parameters
-    for (i, S) in enumerate(_storage_types)
-        if S.parameters[1] <: Relationship
-            return true
-        end
-    end
-    return false
+function _has_relations(declared_relations::Type{<:Tuple})
+    return !isempty(declared_relations.parameters)
 end
 
 function _relation_types_and_targets(relations::Tuple)

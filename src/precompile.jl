@@ -8,9 +8,9 @@ using PrecompileTools
     struct B
         x::Float64
     end
-    struct C <: Relationship end
+    struct C end
     @compile_workload let
-        w = World(A, B => Storage{StructArray}, C)
+        w = World(A, B => Storage{StructArray}, Relation{C})
         e1 = new_entity!(w, (A(0.0), B(0.0)))
         e2 = new_entity!(w, (A(0.0), B(0.0), C() => e1))
         e3 = copy_entity!(w, e1)

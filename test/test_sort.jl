@@ -150,7 +150,7 @@ end
     end
 
     @testset "sort only matching relationship tables" begin
-        world = World(Position, Velocity, ChildOf)
+        world = World(Position, Velocity, Relation{ChildOf})
 
         parent1 = new_entity!(world, (Position(0.0, 0.0),))
         parent2 = new_entity!(world, (Position(10.0, 10.0),))

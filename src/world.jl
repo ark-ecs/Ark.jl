@@ -69,14 +69,14 @@ function _WorldPool{M}() where {M}
 end
 
 """
-    World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M}
+    World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M,RT<:Tuple}
 
 The World is the central storage for [entities](@ref Entities),
 [components](@ref Components) and [resources](@ref Resources).
 
 See the constructor [World](@ref World(::Union{Type,Pair}...; ::Int, ::Bool)) for details.
 """
-mutable struct World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M} <: _AbstractWorld
+mutable struct World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M,RT<:Tuple} <: _AbstractWorld
     const _entities::Vector{_EntityIndex}
     const _targets::BitVector
     const _storages::CS
@@ -92,7 +92,7 @@ mutable struct World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M} <: _AbstractWorld
     const _lock::_Lock
     const _graph::_Graph{M}
     const _resources::_Linear_Map{DataType,Any,false,false,DataType,NoResource}
-    const _event_manager::_EventManager{World{CS,CT,ST,N,M},M}
+    const _event_manager::_EventManager{World{CS,CT,ST,N,M,RT},M}
     const _cache::_Cache{M}
     const _pool::_WorldPool{M}
     const _initial_capacity::Int
@@ -111,6 +111,7 @@ All component types that will be used with the world must be specified.
 This allows Ark to use Julia's compile-time method generation to achieve the best performance.
 
 For each component type, an individual [storage mode](@ref component-storages) can be set.
+Relation components are declared in the constructor with [`Relation{T}`](@ref Relation).
 
 Additional arguments can be used to allow mutable component types (forbidden by default and discouraged)
 and an initial capacity for entities in [archetypes](@ref Architecture).
@@ -151,10 +152,18 @@ World(entities=0, comp_types=(Position, Velocity, Health))
 ```
 """
 function World(comp_types::Union{Type,Pair{<:Type,<:Type}}...; initial_capacity::Int=128, allow_mutable=false)
-    types = map(arg -> arg isa Type ? arg : arg.first, comp_types)
+    raw_types = map(arg -> arg isa Type ? arg : arg.first, comp_types)
+    types = map(_unwrap_relation_type, raw_types)
     storages = map(arg -> arg isa Type ? Storage{Vector} : arg.second, comp_types)
+    relation_types = map(_unwrap_relation_type, filter(_declares_relation, raw_types))
 
-    _World_from_types(Val{Tuple{types...}}(), Val{Tuple{storages...}}(), Val(allow_mutable), initial_capacity)
+    _World_from_types(
+        Val{Tuple{types...}}(),
+        Val{Tuple{storages...}}(),
+        Val{Tuple{relation_types...}}(),
+        Val(allow_mutable),
+        initial_capacity,
+    )
 end
 
 """
@@ -306,7 +315,7 @@ end
 @generated function _remove_entity!(world::W, entity::Entity, ::Val{Unchecked}) where {W<:World,Unchecked}
     CS = W.parameters[1]
     inline_jtable = length(CS.parameters) <= 10
-    world_has_rel = _has_relations(CS)
+    world_has_rel = _has_relations(W.parameters[6])
 
     check_expr = Unchecked ? :() : :(
         if !is_alive(world, entity)
@@ -748,12 +757,14 @@ end
 @generated function _World_from_types(
     ::Val{CS},
     ::Val{ST},
+    ::Val{RT},
     ::Val{MUT},
     initial_capacity::Int,
-) where {CS<:Tuple,ST<:Tuple,MUT}
+) where {CS<:Tuple,ST<:Tuple,RT<:Tuple,MUT}
     types = CS.parameters
     storage_val_types = ST.parameters
     allow_mutable = MUT::Bool
+    relation_flags = [_is_relation_type(T, RT) for T in types]
 
     for (T, mode) in zip(types, storage_val_types)
         if !isconcretetype(T)
@@ -810,10 +821,10 @@ end
     storage_mode_type = :(Tuple{$(storage_val_types...)})
 
     # Component registration
-    id_exprs = [:(_register_component!(registry, $T)) for T in types]
+    id_exprs = [:(_register_component!(registry, $(types[i]), $(relation_flags[i]))) for i in eachindex(types)]
     id_tuple = Expr(:tuple, id_exprs...)
 
-    relations_expr = [:(_new_component_relations($T <: Relationship)) for T in types]
+    relations_expr = [:(_new_component_relations($(relation_flags[i]))) for i in eachindex(types)]
     relations_vec = Expr(:vect, relations_expr...)
 
     M = max(1, cld(length(types), 64))
@@ -829,7 +840,7 @@ end
 
         node = graph.nodes[$start_mask]
 
-        World{$(storage_tuple_type),$(component_tuple_type),$(storage_mode_type),$(length(types)),$M}(
+        World{$(storage_tuple_type),$(component_tuple_type),$(storage_mode_type),$(length(types)),$M,$RT}(
             index,
             targets,
             $storage_tuple,
@@ -846,7 +857,7 @@ end
             graph,
             _Linear_Map{DataType,Any}(; zero_key=NoResource, zero_value=NoResource()),
             _EventManager{
-                World{$(storage_tuple_type),$(component_tuple_type),$(storage_mode_type),$(length(types)),$M},
+                World{$(storage_tuple_type),$(component_tuple_type),$(storage_mode_type),$(length(types)),$M,$RT},
                 $(M),
             }(),
             _Cache{$M}(),
@@ -1301,10 +1312,11 @@ end
 ) where {W<:World,TS<:Tuple,TR<:Tuple,Unchecked}
     types = _to_types(TS.parameters)
     rel_types = _to_types(TR)
+    relation_types = W.parameters[6]
 
     _check_no_duplicates(types)
     _check_no_duplicates(rel_types)
-    _check_relations(rel_types)
+    _check_relations(rel_types, relation_types)
     _check_is_subset(rel_types, types)
 
     CS = W.parameters[1]
@@ -1317,7 +1329,7 @@ end
     add_mask = _Mask{M}(ids...)
     rem_mask = _Mask{M}()
 
-    world_has_rel = Val{_has_relations(CS)}()
+    world_has_rel = Val{_has_relations(relation_types)}()
 
     exprs = []
     if !Unchecked
@@ -1366,8 +1378,7 @@ end
 end
 
 @inline @generated function _create_entity!(world::W, table_index::UInt32)::Tuple{Entity,Int} where {W<:World}
-    CS = W.parameters[1]
-    world_has_rel = _has_relations(CS)
+    world_has_rel = _has_relations(W.parameters[6])
     quote
         entity = _get_entity(world._entity_pool)
         @inbounds table = world._tables[table_index]
@@ -1387,8 +1398,7 @@ end
 end
 
 @generated function _create_entities!(world::W, table_index::UInt32, n::Int)::Tuple{Int,Int} where {W<:World}
-    CS = W.parameters[1]
-    world_has_rel = _has_relations(CS)
+    world_has_rel = _has_relations(W.parameters[6])
     quote
         table = world._tables[Int(table_index)]
         archetype = world._archetypes[table.archetype]
@@ -1574,13 +1584,14 @@ end
     add_types = _to_types(ATS.parameters)
     rem_types = _to_types(RTS)
     rel_types = _to_types(TR)
+    relation_types = W.parameters[6]
     exprs = []
 
     _check_no_duplicates(add_types)
     _check_no_duplicates(rem_types)
     _check_if_intersect(add_types, rem_types)
     _check_no_duplicates(rel_types)
-    _check_relations(rel_types)
+    _check_relations(rel_types, relation_types)
     _check_is_subset(rel_types, add_types)
 
     CS = W.parameters[1]
@@ -1605,7 +1616,7 @@ end
     end
     push!(exprs, :(_check_locked(world)))
 
-    world_has_rel = Val{_has_relations(CS)}()
+    world_has_rel = Val{_has_relations(relation_types)}()
     push!(exprs, :(index = world._entities[entity._id]))
     push!(exprs, :(old_table = world._tables[index.table]))
     push!(exprs, :(old_archetype = world._archetypes[old_table.archetype]))
@@ -1798,13 +1809,18 @@ end
     end
 end
 
-@generated function _get_relations(world::World, entity::Entity, ::TS, ::Val{Unchecked}) where {TS<:Tuple,Unchecked}
+@generated function _get_relations(
+    world::W,
+    entity::Entity,
+    ::TS,
+    ::Val{Unchecked},
+) where {W<:World,TS<:Tuple,Unchecked}
     types = _to_types(TS)
     if length(types) == 0
         return :(())
     end
 
-    _check_relations(types)
+    _check_relations(types, W.parameters[6])
     _check_no_duplicates(types)
 
     exprs = Expr[]
@@ -1850,9 +1866,10 @@ end
     ::Val{Unchecked},
 ) where {W<:World,TR<:Tuple,Unchecked}
     rel_types = _to_types(TR)
+    relation_types = W.parameters[6]
 
     _check_no_duplicates(rel_types)
-    _check_relations(rel_types)
+    _check_relations(rel_types, relation_types)
 
     rel_ids = tuple([_component_id(W.parameters[1], T) for T in rel_types]...)
 
@@ -1943,6 +1960,7 @@ end
     add_types = _to_types(ATS.parameters)
     rem_types = _to_types(RTS)
     rel_types = _to_types(TR)
+    relation_types = W.parameters[6]
 
     if isempty(add_types) && isempty(rem_types)
         throw(ArgumentError("either components to add or to remove must be given for exchange_components!"))
@@ -1952,7 +1970,7 @@ end
     _check_no_duplicates(rem_types)
     _check_if_intersect(add_types, rem_types)
     _check_no_duplicates(rel_types)
-    _check_relations(rel_types)
+    _check_relations(rel_types, relation_types)
     _check_is_subset(rel_types, add_types)
 
     exprs = []
@@ -1978,7 +1996,7 @@ end
     add_mask = _Mask{M}(add_ids...)
     rem_mask = _Mask{M}(rem_ids...)
 
-    world_has_rel = Val{_has_relations(CS)}()
+    world_has_rel = Val{_has_relations(relation_types)}()
 
     push!(exprs, :(@inbounds index = world._entities[entity._id]))
     push!(exprs, :(@inbounds old_table = world._tables[index.table]))
@@ -2127,24 +2145,26 @@ end
     return Expr(:block, exprs...)
 end
 
-@generated function _push_zero_to_all_archetype_relations!(world::World{CS,CT}) where {CS<:Tuple,CT<:Tuple}
-    comp_types = CT.parameters
+@generated function _push_zero_to_all_archetype_relations!(world::W) where {W<:World}
+    comp_types = W.parameters[2].parameters
+    relation_types = W.parameters[6]
     n = length(comp_types)
     exprs = Expr[]
     for i in 1:n
-        if comp_types[i].parameters[1] <: Relationship
+        if _is_relation_type(comp_types[i].parameters[1], relation_types)
             push!(exprs, :(_add_archetype_column!(world._relations[$i])))
         end
     end
     return Expr(:block, exprs...)
 end
 
-@generated function _push_zero_to_all_table_relations!(world::World{CS,CT}) where {CS<:Tuple,CT<:Tuple}
-    comp_types = CT.parameters
+@generated function _push_zero_to_all_table_relations!(world::W) where {W<:World}
+    comp_types = W.parameters[2].parameters
+    relation_types = W.parameters[6]
     n = length(comp_types)
     exprs = Expr[]
     for i in 1:n
-        if comp_types[i].parameters[1] <: Relationship
+        if _is_relation_type(comp_types[i].parameters[1], relation_types)
             push!(exprs, :(_add_table_column!(world._relations[$i])))
         end
     end

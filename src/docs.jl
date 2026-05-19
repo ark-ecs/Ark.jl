@@ -20,12 +20,12 @@ struct Health
     h::Float64
 end
 
-struct ChildOf <: Relationship end
+struct ChildOf end
 
 registry = EventRegistry()
 const OnCollisionDetected = new_event_type!(registry, :OnCollisionDetected)
 
-world = World(Position, Velocity, Altitude, Health, ChildOf)
+world = World(Position, Velocity, Altitude, Health, Relation{ChildOf})
 
 parent = new_entity!(world, (Position(0, 0),))
 parent2 = new_entity!(world, (Position(0, 0),))

@@ -1,6 +1,6 @@
 
 @testset "Cache functionality" begin
-    world = World(Dummy, Position, Velocity, ChildOf, Altitude)
+    world = World(Dummy, Position, Velocity, Relation{ChildOf}, Altitude)
 
     filter1 = Filter(world, (); register=true)
     @test length(world._cache.filters) == 1
@@ -46,7 +46,7 @@
 end
 
 @testset "Cache functionality relations" begin
-    world = World(Dummy, Position, Velocity, ChildOf)
+    world = World(Dummy, Position, Velocity, Relation{ChildOf})
 
     parent1 = new_entity!(world, ())
     parent2 = new_entity!(world, ())
@@ -83,7 +83,7 @@ end
 end
 
 @testset "Add to unregistered filter Issue #499" begin
-    world = World(Position, ChildOf)
+    world = World(Position, Relation{ChildOf})
     f1 = Filter(world, (Position,); register=true)
     f2 = Filter(world, (Position,); register=true)
     unregister!(f1)

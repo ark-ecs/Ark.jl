@@ -74,7 +74,7 @@ export unpack, @unpack
 
 export @unchecked
 
-export Relationship
+export Relation
 
 export Storage, StructArray, GPUStructArray, GPUVector
 

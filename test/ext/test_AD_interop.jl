@@ -11,7 +11,7 @@ using ReverseDiff
 @testset "Compute gradients through DifferentiationInterface backends" begin
     function run_world(args::AbstractVector{T}) where {T<:Number}
         alpha, beta = args
-        world = World(Position{T}, Velocity{T}, ChildOf)
+        world = World(Position{T}, Velocity{T}, Relation{ChildOf})
         relation_total = Ref(zero(alpha + beta))
 
         function accumulate_position!(accum, entity)

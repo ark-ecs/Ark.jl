@@ -5,8 +5,10 @@ function _storage_from_component(world, comp)
 end
 
 function Ark.World(comp_types::Union{Type,Pair{<:Type,<:Type}}...; initial_capacity::Int=128, allow_mutable=false)
-    types = map(arg -> arg isa Type ? arg : arg.first, comp_types)
+    raw_types = map(arg -> arg isa Type ? arg : arg.first, comp_types)
+    types = map(Ark._unwrap_relation_type, raw_types)
     storages = map(arg -> arg isa Type ? Storage{WrappedVector} : arg.second, comp_types)
+    relation_types = map(Ark._unwrap_relation_type, filter(Ark._declares_relation, raw_types))
     storages = collect(Any, storages)
     for i in 1:length(storages)
         if isbitstype(types[i]) && storages[i] == Storage{WrappedVector}
@@ -23,6 +25,7 @@ function Ark.World(comp_types::Union{Type,Pair{<:Type,<:Type}}...; initial_capac
     Ark._World_from_types(
         Val{Tuple{fake_types[1:255]...,types...,fake_types[256:300]...}}(),
         Val{Tuple{fake_storage[1:255]...,storages...,fake_storage[256:300]...}}(),
+        Val{Tuple{relation_types...}}(),
         Val(allow_mutable),
         initial_capacity,
     )

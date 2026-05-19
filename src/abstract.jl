@@ -4,20 +4,25 @@ abstract type _AbstractWorld end
 abstract type _AbstractStructArray{C,CS<:NamedTuple,N} <: AbstractVector{C} end
 
 """
-    Relationship
+    Relation{T}
 
-Abstract marker type for relationship components.
+Marks `T` as a relation component during [World](@ref) construction.
 
 # Example
 
 ```jldoctest; setup = :(using Ark), output = false
-struct ChildOf <: Relationship end
+struct Joint
+    stiffness::Float64
+end
+
+world = World(Relation{Joint})
 
 # output
 
+World(entities=0, comp_types=(Joint))
 ```
 """
-abstract type Relationship end
+struct Relation{T} end
 
 """
     Storage{T}

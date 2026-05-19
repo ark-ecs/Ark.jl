@@ -566,9 +566,10 @@ end
     ::HFN,
 ) where {Fn,W<:World,F<:Filter,TR<:Tuple,HFN<:Val}
     rel_types = _to_types(TR)
+    relation_types = W.parameters[6]
 
     _check_no_duplicates(rel_types)
-    _check_relations(rel_types)
+    _check_relations(rel_types, relation_types)
 
     rel_ids = tuple([_component_id(W.parameters[1], T) for T in rel_types]...)
 
@@ -670,6 +671,7 @@ end
     add_types = _to_types(ATS)
     rem_types = _to_types(RTS)
     rel_types = _to_types(TR)
+    relation_types = W.parameters[6]
 
     if isempty(add_types) && isempty(rem_types)
         throw(ArgumentError("either components to add or to remove must be given for exchange_components!"))
@@ -679,7 +681,7 @@ end
     _check_no_duplicates(rem_types)
     _check_if_intersect(add_types, rem_types)
     _check_no_duplicates(rel_types)
-    _check_relations(rel_types)
+    _check_relations(rel_types, relation_types)
     _check_is_subset(rel_types, add_types)
 
     return quote
@@ -735,6 +737,7 @@ end
     add_types = _to_types(ATS)
     rem_types = _to_types(RTS)
     rel_types = _to_types(TR)
+    relation_types = W.parameters[6]
 
     exprs = []
 
@@ -750,7 +753,7 @@ end
     add_mask = _Mask{M}(add_ids...)
     rem_mask = _Mask{M}(rem_ids...)
 
-    world_has_rel = Val{_has_relations(CS)}()
+    world_has_rel = Val{_has_relations(relation_types)}()
     adds_relations = !isempty(rel_types)
 
     push!(
@@ -877,8 +880,7 @@ end
 end
 
 @generated function _remove_entities!(fn::Fn, world::W, filter::F, ::HFN) where {Fn,W<:World,F<:Filter,HFN<:Val}
-    CS = W.parameters[1]
-    world_has_rel = _has_relations(CS)
+    world_has_rel = _has_relations(W.parameters[6])
     has_fn = HFN == Val{true}
     quote
         _check_locked(world)
@@ -996,10 +998,11 @@ end
 ) where {F,W<:World,TS,TR<:Tuple,DEF<:Val,HFN<:Val}
     types = _to_types(TS)
     rel_types = _to_types(TR)
+    relation_types = W.parameters[6]
 
     _check_no_duplicates(types)
     _check_no_duplicates(rel_types)
-    _check_relations(rel_types)
+    _check_relations(rel_types, relation_types)
     _check_is_subset(rel_types, types)
 
     CS = W.parameters[1]
@@ -1012,7 +1015,7 @@ end
     add_mask = _Mask{M}(ids...)
     rem_mask = _Mask{M}()
 
-    world_has_rel = Val{_has_relations(CS)}()
+    world_has_rel = Val{_has_relations(relation_types)}()
 
     exprs = []
     push!(exprs, :(_check_relation_targets(world, targets)))

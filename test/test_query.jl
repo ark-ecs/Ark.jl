@@ -194,7 +194,7 @@ end
 end
 
 @testset "Query relations" begin
-    world = World(Dummy, Position, Velocity, ChildOf)
+    world = World(Dummy, Position, Velocity, Relation{ChildOf})
     parent1 = new_entity!(world, ())
     parent2 = new_entity!(world, ())
     parent3 = new_entity!(world, ())
@@ -229,7 +229,7 @@ end
 end
 
 @testset "Query multiple relations" begin
-    world = World(Dummy, Position, ChildOf, ChildOf2)
+    world = World(Dummy, Position, Relation{ChildOf}, Relation{ChildOf2})
     parent1 = new_entity!(world, ())
     parent2 = new_entity!(world, ())
     parent3 = new_entity!(world, ())

@@ -1,6 +1,6 @@
 
 function setup_world_new_entity_1_rel(n::Int)
-    world = World(Position, ChildOf)
+    world = World(Position, Relation{ChildOf})
     parent = new_entity!(world, ())
 
     # Run once to allocate memory

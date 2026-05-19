@@ -72,7 +72,7 @@ end
 end
 
 @testset "Filter relation targets" begin
-    world = World(Dummy, Position, ChildOf)
+    world = World(Dummy, Position, Relation{ChildOf})
     parent1 = new_entity!(world, ())
     parent2 = new_entity!(world, ())
     parent3 = new_entity!(world, ())

@@ -46,7 +46,7 @@ end
 
 @testset "Relations Shuffle" begin
     for register in (false, true)
-        world = World(Position, ChildOf)
+        world = World(Position, Relation{ChildOf})
 
         parents = [new_entity!(world, (Position(i, i),)) for i in 1:100]
         children = [new_entity!(world, (Position(i, i), ChildOf() => parents[i])) for i in 1:100]

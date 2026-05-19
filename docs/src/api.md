@@ -17,7 +17,7 @@ World
 World(::Type...)
 reset!
 is_locked
-Relationship
+Relation
 ```
 
 ## [Entities](@id entities-api)

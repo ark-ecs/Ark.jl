@@ -3,7 +3,7 @@
     w = World(
         A => Storage{GPUVector{:CPU}},
         B => Storage{GPUVector{:CPU}},
-        C => Storage{GPUVector{:CPU}},
+        Relation{C} => Storage{GPUVector{:CPU}},
     )
     e1 = new_entity!(w, (A(2.0), B(2.0)))
     @test get_components(w, e1, (A, B)) == (A(2.0), B(2.0))

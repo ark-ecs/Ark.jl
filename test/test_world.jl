@@ -13,7 +13,7 @@ end
         Position,
         Velocity => Storage{StructArray},
         Altitude,
-        ChildOf,
+        Relation{ChildOf},
     )
     @test isa(world, World)
     params = typeof(world).parameters[1]
@@ -86,8 +86,8 @@ end
         World(Position, Velocity, Velocity))
 
     @test_throws(
-        "ArgumentError: can't use Relationship as component as it is not a concrete type",
-        World(Position, Velocity, Relationship))
+        "ArgumentError: can't use Relation as component as it is not a concrete type",
+        World(Position, Velocity, Relation))
 
     @test_throws(
         "ArgumentError: Health is not a valid storage mode, must be Storage{T<:AbstractVector}",
@@ -433,7 +433,7 @@ end
     world = World(
         Dummy,
         Position,
-        ChildOf,
+        Relation{ChildOf},
         Velocity => Storage{StructArray},
     )
 
@@ -483,8 +483,8 @@ end
     world = World(
         Dummy,
         Position,
-        ChildOf,
-        ChildOf2,
+        Relation{ChildOf},
+        Relation{ChildOf2},
     )
 
     parent1 = new_entity!(world, ())
@@ -513,8 +513,8 @@ end
     world = World(
         Dummy,
         Position,
-        ChildOf,
-        ChildOf2,
+        Relation{ChildOf},
+        Relation{ChildOf2},
     )
 
     parent1 = new_entity!(world, ())
@@ -585,8 +585,8 @@ end
     world = World(
         Dummy,
         Position,
-        ChildOf,
-        ChildOf2,
+        Relation{ChildOf},
+        Relation{ChildOf2},
     )
     parent1 = new_entity!(world, ())
     parent2 = new_entity!(world, ())
@@ -660,7 +660,7 @@ end
         Dummy,
         Position,
         Velocity => Storage{StructArray},
-        ChildOf,
+        Relation{ChildOf},
         NoIsBits2 => Storage{StructArray},
     )
 
@@ -716,7 +716,7 @@ end
         Position,
         Velocity => Storage{StructArray},
         Altitude,
-        ChildOf,
+        Relation{ChildOf},
     )
 
     counter = 0
@@ -942,8 +942,8 @@ end
     world = World(
         Dummy,
         Position,
-        ChildOf,
-        ChildOf2,
+        Relation{ChildOf},
+        Relation{ChildOf2},
     )
     parent = new_entity!(world, ())
     parent2 = new_entity!(world, ())
@@ -1105,8 +1105,8 @@ end
         Dummy,
         Position,
         Velocity,
-        ChildOf,
-        ChildOf2,
+        Relation{ChildOf},
+        Relation{ChildOf2},
     )
 
     parent1 = new_entity!(world, ())
@@ -1196,7 +1196,7 @@ end
             Dummy,
             Position => Storage{StructArray},
             Velocity,
-            ChildOf,
+            Relation{ChildOf},
         )
 
         parent = new_entity!(world_rel, ())
@@ -1274,7 +1274,7 @@ end
 end
 
 @testset "World exchange components with relations" begin
-    world = World(Dummy, ChildOf, Position, Velocity)
+    world = World(Dummy, Relation{ChildOf}, Position, Velocity)
 
     parent = new_entity!(world, ())
     e1 = new_entity!(world, (Position(1, 1), Velocity(1, 1)))
@@ -1347,7 +1347,7 @@ end
             Position => Storage{StructArray},
             Velocity,
             Altitude,
-            ChildOf,
+            Relation{ChildOf},
         )
 
         parent = new_entity!(world_rel, ())
@@ -1428,7 +1428,7 @@ end
 end
 
 @testset "remove_entities! Tests" begin
-    world = World(Dummy, Position, Velocity, Altitude, ChildOf)
+    world = World(Dummy, Position, Velocity, Altitude, Relation{ChildOf})
 
     count = 0
     obs1 = observe!(world, OnRemoveEntity) do entity
@@ -1517,7 +1517,7 @@ end
 end
 
 @testset "remove_entities! cached filter" begin
-    world = World(Dummy, Position, Velocity, ChildOf)
+    world = World(Dummy, Position, Velocity, Relation{ChildOf})
     filter = Filter(world, (Position,); register=true)
 
     parent = new_entity!(world, ())
@@ -1553,7 +1553,7 @@ end
 end
 
 @testset "World reset!" begin
-    world = World(Dummy, Position, Velocity, ChildOf)
+    world = World(Dummy, Position, Velocity, Relation{ChildOf})
 
     obs = observe!(world, OnAddComponents, (Position,)) do _
     end
@@ -1612,7 +1612,7 @@ end
 end
 
 @testset "World relations index" begin
-    world = World(Dummy, ChildOf, Position, Velocity, ChildOf2)
+    world = World(Dummy, Relation{ChildOf}, Position, Velocity, Relation{ChildOf2})
     parent1 = new_entity!(world, ())
     parent2 = new_entity!(world, ())
 

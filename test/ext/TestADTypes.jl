@@ -8,4 +8,4 @@ struct Velocity{T<:Number}
     dy::T
 end
 
-struct ChildOf <: Relationship end
+struct ChildOf end
