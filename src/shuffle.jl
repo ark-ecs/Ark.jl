@@ -45,7 +45,7 @@ function _shuffle_table!(rng::AbstractRNG, world::World, table::_Table)
     archetype = world._archetypes[table.archetype]
 
     for i in len:-1:2
-        j = @inline rand(rng, Random.Sampler(rng, Base.OneTo(i), Val(1)))
+        j = rand(rng, Random.Sampler(rng, Base.OneTo(i), Val(1)))
         _swap_rows!(world, archetype, table, i, j)
     end
     return

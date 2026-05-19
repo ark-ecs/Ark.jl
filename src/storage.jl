@@ -31,7 +31,7 @@ function _storage_type(::Type{Storage{GPUVector{B}}}, ::Type{C}) where {B,C}
     GPUVector{B,C,_gpuvector_type(C, Val{B}())}
 end
 
-@inline function _get_component(
+function _get_component(
     s::_ComponentStorage{C,A},
     arch::UInt32,
     row::UInt32,
@@ -44,7 +44,7 @@ end
     return @inbounds col[row]
 end
 
-@inline function _get_component(
+function _get_component(
     s::_ComponentStorage{C,A},
     arch::UInt32,
     row::UInt32,
@@ -53,7 +53,7 @@ end
     return @inbounds s.data[arch][row]
 end
 
-@inline function _set_component!(
+function _set_component!(
     s::_ComponentStorage{C,A},
     arch::UInt32,
     row::UInt32,
@@ -67,7 +67,7 @@ end
     return @inbounds col[row] = value
 end
 
-@inline function _set_component!(
+function _set_component!(
     s::_ComponentStorage{C,A},
     arch::UInt32,
     row::UInt32,
@@ -274,7 +274,7 @@ function _activate_table_column!(rel::_ComponentRelations, table::Int, entity::E
     @inbounds rel.targets[table] = entity
 end
 
-@inline function _swap_component_data!(
+function _swap_component_data!(
     s::_ComponentStorage{C,A},
     arch::UInt32,
     i::Int,
@@ -301,7 +301,7 @@ end
     end
 end
 
-@inline @generated function _permute_component_cycle!(
+@generated function _permute_component_cycle!(
     s::_ComponentStorage{C,A},
     table::UInt32,
     entities::Entities,

@@ -1,13 +1,13 @@
 
-Base.@propagate_inbounds @inline function _unchecked_getindex(collection, indices...)
+Base.@propagate_inbounds function _unchecked_getindex(collection, indices...)
     return Base.getindex(collection, indices...)
 end
 
-Base.@propagate_inbounds @inline function _unchecked_setindex!(collection, value, indices...)
+Base.@propagate_inbounds function _unchecked_setindex!(collection, value, indices...)
     return Base.setindex!(collection, value, indices...)
 end
 
-@inline function _unchecked_in(item, collection)
+function _unchecked_in(item, collection)
     return Base.in(item, collection)
 end
 

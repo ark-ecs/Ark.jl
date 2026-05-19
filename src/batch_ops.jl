@@ -71,7 +71,7 @@ Base.@constprop :aggressive function new_entities!(world::World, n::Int, compone
     return _new_entities_dispatch!(world, n, components, Val(_components_are_types(components)))
 end
 
-@inline Base.@constprop :aggressive function _new_entities_dispatch!(
+Base.@constprop :aggressive function _new_entities_dispatch!(
     fn::F, world::World, n::Int, components::Tuple, ::Val{true},
 ) where {F}
     components, relations = _normalize_relations(components, Val(:type))
@@ -81,7 +81,7 @@ end
         rel_types, targets, Val(false), Val(true))
 end
 
-@inline Base.@constprop :aggressive function _new_entities_dispatch!(
+Base.@constprop :aggressive function _new_entities_dispatch!(
     fn::F, world::World, n::Int, components::Tuple, ::Val{false},
 ) where {F}
     components, relations = _normalize_relations(components, Val(:value))
@@ -91,7 +91,7 @@ end
         rel_types, targets, Val(true), Val(true))
 end
 
-@inline Base.@constprop :aggressive function _new_entities_dispatch!(
+Base.@constprop :aggressive function _new_entities_dispatch!(
     world::World, n::Int, components::Tuple, ::Val{true},
 )
     components, relations = _normalize_relations(components, Val(:type))
@@ -102,7 +102,7 @@ end
     end
 end
 
-@inline Base.@constprop :aggressive function _new_entities_dispatch!(
+Base.@constprop :aggressive function _new_entities_dispatch!(
     world::World, n::Int, components::Tuple, ::Val{false},
 )
     components, relations = _normalize_relations(components, Val(:value))
@@ -254,7 +254,7 @@ end
 
 ```
 """
-@inline Base.@constprop :aggressive function set_relations!(
+Base.@constprop :aggressive function set_relations!(
     fn::Fn,
     world::W,
     filter::F,
@@ -262,17 +262,17 @@ end
 ) where {Fn,W<:World,F<:Filter}
     rel_types = ntuple(i -> Val(relations[i].first), length(relations))
     targets = ntuple(i -> relations[i].second, length(relations))
-    return @inline _set_relations_batch!(fn, world, filter, rel_types, targets, Val(true))
+    return _set_relations_batch!(fn, world, filter, rel_types, targets, Val(true))
 end
 
-@inline Base.@constprop :aggressive function set_relations!(
+Base.@constprop :aggressive function set_relations!(
     world::W,
     filter::F,
     relations::Tuple,
 ) where {W<:World,F<:Filter}
     rel_types = ntuple(i -> Val(relations[i].first), length(relations))
     targets = ntuple(i -> relations[i].second, length(relations))
-    return @inline _set_relations_batch!(world, filter, rel_types, targets, Val(false)) do _
+    return _set_relations_batch!(world, filter, rel_types, targets, Val(false)) do _
     end
 end
 
@@ -329,7 +329,7 @@ end
 
 ```
 """
-@inline Base.@constprop :aggressive function add_components!(
+Base.@constprop :aggressive function add_components!(
     fn::Fn,
     world::World,
     filter::F,
@@ -338,7 +338,7 @@ end
     if _components_are_types(add)
         add, relations = _normalize_relations(add, Val(:type))
         rel_types, targets = _relation_types_and_targets(relations)
-        return @inline _exchange_components!(
+        return _exchange_components!(
             fn, world, filter,
             ntuple(i -> Val(add[i]), length(add)), (),
             (),
@@ -348,7 +348,7 @@ end
     else
         add, relations = _normalize_relations(add, Val(:value))
         rel_types, targets = _relation_types_and_targets(relations)
-        return @inline _exchange_components!(
+        return _exchange_components!(
             fn, world, filter,
             Val{typeof(add)}(), add,
             (),
@@ -358,14 +358,14 @@ end
     end
 end
 
-@inline Base.@constprop :aggressive function add_components!(
+Base.@constprop :aggressive function add_components!(
     world::World,
     filter::F,
     add::Tuple;
 ) where {F<:Filter}
     add, relations = _normalize_relations(add, Val(:value))
     rel_types, targets = _relation_types_and_targets(relations)
-    return @inline _exchange_components!(
+    return _exchange_components!(
         world, filter,
         Val{typeof(add)}(), add,
         (),
@@ -419,13 +419,13 @@ end
 
 ```
 """
-@inline Base.@constprop :aggressive function remove_components!(
+Base.@constprop :aggressive function remove_components!(
     fn::Fn,
     world::World,
     filter::F,
     remove::Tuple,
 ) where {Fn,F<:Filter}
-    return @inline _exchange_components!(
+    return _exchange_components!(
         fn, world, filter,
         Val{Tuple{}}(), (),
         ntuple(i -> Val(remove[i]), length(remove)),
@@ -434,12 +434,12 @@ end
     )
 end
 
-@inline Base.@constprop :aggressive function remove_components!(
+Base.@constprop :aggressive function remove_components!(
     world::World,
     filter::F,
     remove::Tuple,
 ) where {F<:Filter}
-    return @inline _exchange_components!(
+    return _exchange_components!(
         world, filter,
         Val{Tuple{}}(), (),
         ntuple(i -> Val(remove[i]), length(remove)),
@@ -509,7 +509,7 @@ end
 
 ```
 """
-@inline Base.@constprop :aggressive function exchange_components!(
+Base.@constprop :aggressive function exchange_components!(
     fn::Fn,
     world::World,
     filter::F;
@@ -519,7 +519,7 @@ end
     if _components_are_types(add)
         add, relations = _normalize_relations(add, Val(:type))
         rel_types, targets = _relation_types_and_targets(relations)
-        return @inline _exchange_components!(
+        return _exchange_components!(
             fn, world, filter,
             ntuple(i -> Val(add[i]), length(add)), (),
             ntuple(i -> Val(remove[i]), length(remove)),
@@ -529,7 +529,7 @@ end
     else
         add, relations = _normalize_relations(add, Val(:value))
         rel_types, targets = _relation_types_and_targets(relations)
-        return @inline _exchange_components!(
+        return _exchange_components!(
             fn, world, filter,
             Val{typeof(add)}(), add,
             ntuple(i -> Val(remove[i]), length(remove)),
@@ -539,7 +539,7 @@ end
     end
 end
 
-@inline Base.@constprop :aggressive function exchange_components!(
+Base.@constprop :aggressive function exchange_components!(
     world::World,
     filter::F;
     add::Tuple=(),
@@ -547,7 +547,7 @@ end
 ) where {F<:Filter}
     add, relations = _normalize_relations(add, Val(:value))
     rel_types, targets = _relation_types_and_targets(relations)
-    return @inline _exchange_components!(
+    return _exchange_components!(
         world, filter,
         Val{typeof(add)}(), add,
         ntuple(i -> Val(remove[i]), length(remove)),

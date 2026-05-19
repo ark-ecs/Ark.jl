@@ -1,12 +1,12 @@
 
 _swap!(v::AbstractArray, i, j) = @inbounds v[i] = v[j]
 
-@inline function _swap_indices!(v::AbstractArray, i, j)
+function _swap_indices!(v::AbstractArray, i, j)
     @inbounds v[i], v[j] = v[j], v[i]
     return
 end
 
-@inline function _swap_remove!(v::AbstractArray, i::UInt32)::Bool
+function _swap_remove!(v::AbstractArray, i::UInt32)::Bool
     last_index = length(v)
     swapped = i != last_index
     if swapped
@@ -16,23 +16,23 @@ end
     return swapped
 end
 
-@inline function _to_types(::Type{TS})::Vector{DataType} where {TS<:Tuple}
+function _to_types(::Type{TS})::Vector{DataType} where {TS<:Tuple}
     return [x.parameters[1] for x in TS.parameters]
 end
 
-@inline function _to_types(::Type{Val{TS}})::Vector{DataType} where {TS<:Tuple}
+function _to_types(::Type{Val{TS}})::Vector{DataType} where {TS<:Tuple}
     return [x <: Val ? x.parameters[1] : x for x in TS.parameters]
 end
 
-@inline function _to_types(::Type{Val{V}})::Vector{DataType} where {V<:Val}
+function _to_types(::Type{Val{V}})::Vector{DataType} where {V<:Val}
     return _to_types(V)
 end
 
-@inline function _to_types(vec::Core.SimpleVector)::Vector{DataType}
+function _to_types(vec::Core.SimpleVector)::Vector{DataType}
     return collect(vec)
 end
 
-@inline function _check_relations(types::Vector{DataType})
+function _check_relations(types::Vector{DataType})
     for T in types
         if !(T <: Relationship)
             throw(ArgumentError("component $(nameof(T)) is not a relationship"))
@@ -40,14 +40,14 @@ end
     end
 end
 
-@inline function _check_is_subset(subset::Vector{DataType}, types::Vector{DataType})
+function _check_is_subset(subset::Vector{DataType}, types::Vector{DataType})
     if !isempty(setdiff(subset, types))
         # TODO: improve error message
         throw(ArgumentError("all relations must be in the set of component types"))
     end
 end
 
-@inline function _check_no_duplicates(types::Vector{DataType})
+function _check_no_duplicates(types::Vector{DataType})
     unique_types = unique(types)
     if length(types) != length(unique_types)
         duplicates = [x for x in unique_types if count(==(x), types) > 1]
@@ -56,7 +56,7 @@ end
     end
 end
 
-@inline function _check_if_intersect(types_1::Vector{DataType}, types_2::Vector{DataType})
+function _check_if_intersect(types_1::Vector{DataType}, types_2::Vector{DataType})
     if !isempty(intersect(types_1, types_2))
         throw(ArgumentError("component added and removed in the same exchange operation"))
     end

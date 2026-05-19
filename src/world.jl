@@ -262,7 +262,7 @@ entity2 = copy_entity!(world, entity;
 Entity(5, 0)
 ```
 """
-@inline Base.@constprop :aggressive function copy_entity!(
+Base.@constprop :aggressive function copy_entity!(
     world::World, entity::Entity;
     add::Tuple=(), remove::Tuple=(),
     mode::Symbol=:copy,
@@ -270,10 +270,10 @@ Entity(5, 0)
 )
     add, relations = _normalize_relations(add, Val(:value))
     if isempty(add) && isempty(remove) && isempty(relations)
-        return @inline _copy_entity!(world, entity, Val(mode), Val(_unchecked))
+        return _copy_entity!(world, entity, Val(mode), Val(_unchecked))
     end
     rel_types, targets = _relation_types_and_targets(relations)
-    return @inline _copy_entity!(
+    return _copy_entity!(
         world,
         entity,
         Val{typeof(add)}(),
@@ -341,7 +341,7 @@ end
         for comp in archetype.components
             $(
                 inline_jtable ?
-                :(@inline _swap_remove_in_column_for_comp!(world, comp, index.table, index.row)) :
+                :(_swap_remove_in_column_for_comp!(world, comp, index.table, index.row)) :
                 :(_swap_remove_in_column_for_comp!(world, comp, index.table, index.row))
             )
         end
@@ -383,13 +383,13 @@ pos, vel = get_components(world, entity, (Position, Velocity))
 (Position(0.0, 0.0), Velocity(0.0, 0.0))
 ```
 """
-@inline Base.@constprop :aggressive function get_components(
+Base.@constprop :aggressive function get_components(
     world::World,
     entity::Entity,
     comp_types::Tuple;
     _unchecked::Bool=false,
 )
-    return @inline _get_components(world, entity, ntuple(i -> Val(comp_types[i]), length(comp_types)), Val(_unchecked))
+    return _get_components(world, entity, ntuple(i -> Val(comp_types[i]), length(comp_types)), Val(_unchecked))
 end
 
 """
@@ -407,13 +407,13 @@ has = has_components(world, entity, (Position, Velocity))
 true
 ```
 """
-@inline Base.@constprop :aggressive function has_components(
+Base.@constprop :aggressive function has_components(
     world::World,
     entity::Entity,
     comp_types::Tuple;
     _unchecked::Bool=false,
 )
-    return @inline _has_components(world, entity, ntuple(i -> Val(comp_types[i]), length(comp_types)), Val(_unchecked))
+    return _has_components(world, entity, ntuple(i -> Val(comp_types[i]), length(comp_types)), Val(_unchecked))
 end
 
 """
@@ -432,13 +432,13 @@ set_components!(world, entity, (Position(0, 0), Velocity(1, 1)))
 (Position(0.0, 0.0), Velocity(1.0, 1.0))
 ```
 """
-@inline Base.@constprop :aggressive function set_components!(
+Base.@constprop :aggressive function set_components!(
     world::World,
     entity::Entity,
     values::Tuple;
     _unchecked::Bool=false,
 )
-    return @inline _set_components!(world, entity, Val{typeof(values)}(), values, Val(_unchecked))
+    return _set_components!(world, entity, Val{typeof(values)}(), values, Val(_unchecked))
 end
 
 """
@@ -457,13 +457,13 @@ parent, = get_relations(world, entity, (ChildOf,))
 (Entity(2, 0),)
 ```
 """
-@inline Base.@constprop :aggressive function get_relations(
+Base.@constprop :aggressive function get_relations(
     world::W,
     entity::Entity,
     comp_types::Tuple;
     _unchecked::Bool=false,
 ) where {W<:World}
-    return @inline _get_relations(world, entity, ntuple(i -> Val(comp_types[i]), length(comp_types)), Val(_unchecked))
+    return _get_relations(world, entity, ntuple(i -> Val(comp_types[i]), length(comp_types)), Val(_unchecked))
 end
 
 """
@@ -482,7 +482,7 @@ set_relations!(world, entity, (ChildOf => parent,))
 (Entity(2, 0),)
 ```
 """
-@inline Base.@constprop :aggressive function set_relations!(
+Base.@constprop :aggressive function set_relations!(
     world::W,
     entity::Entity,
     relations::Tuple;
@@ -490,7 +490,7 @@ set_relations!(world, entity, (ChildOf => parent,))
 ) where {W<:World}
     rel_types = ntuple(i -> Val(relations[i].first), length(relations))
     targets = ntuple(i -> relations[i].second, length(relations))
-    return @inline _set_relations!(world, entity, rel_types, targets, Val(_unchecked))
+    return _set_relations!(world, entity, rel_types, targets, Val(_unchecked))
 end
 
 """
@@ -509,7 +509,7 @@ add_components!(world, entity, (Health(100),))
 
 ```
 """
-@inline Base.@constprop :aggressive function add_components!(
+Base.@constprop :aggressive function add_components!(
     world::World,
     entity::Entity,
     values::Tuple;
@@ -517,7 +517,7 @@ add_components!(world, entity, (Health(100),))
 )
     values, relations = _normalize_relations(values, Val(:value))
     rel_types, targets = _relation_types_and_targets(relations)
-    return @inline _exchange_components!(world, entity, Val{typeof(values)}(), values, (), rel_types, targets,
+    return _exchange_components!(world, entity, Val{typeof(values)}(), values, (), rel_types, targets,
         Val(_unchecked), Val(:add))
 end
 
@@ -535,13 +535,13 @@ remove_components!(world, entity, (Position, Velocity))
 
 ```
 """
-@inline Base.@constprop :aggressive function remove_components!(
+Base.@constprop :aggressive function remove_components!(
     world::World,
     entity::Entity,
     comp_types::Tuple;
     _unchecked::Bool=false,
 )
-    return @inline _exchange_components!(
+    return _exchange_components!(
         world,
         entity,
         Val{Tuple{}}(),
@@ -575,7 +575,7 @@ exchange_components!(world, entity;
 
 ```
 """
-@inline Base.@constprop :aggressive function exchange_components!(
+Base.@constprop :aggressive function exchange_components!(
     world::World,
     entity::Entity;
     add::Tuple=(),
@@ -584,7 +584,7 @@ exchange_components!(world, entity;
 )
     add, relations = _normalize_relations(add, Val(:value))
     rel_types, targets = _relation_types_and_targets(relations)
-    return @inline _exchange_components!(
+    return _exchange_components!(
         world,
         entity,
         Val{typeof(add)}(),
@@ -686,7 +686,7 @@ emit_event!(world, OnCollisionDetected, entity, (Position, Velocity))
 
 ```
 """
-@inline Base.@constprop :aggressive function emit_event!(
+Base.@constprop :aggressive function emit_event!(
     world::W,
     event::Event,
     entity::Entity,
@@ -868,7 +868,7 @@ end
     _generate_type_lookup(CS, C, i -> :(world._relations[$i]))
 end
 
-@inline function _find_or_create_archetype!(
+function _find_or_create_archetype!(
     world::World,
     start::_GraphNode,
     add::Tuple{Vararg{Int}},
@@ -888,7 +888,7 @@ end
     end
 end
 
-@inline function _find_or_create_table!(
+function _find_or_create_table!(
     world::World,
     old_table::_Table,
     add::Tuple{Vararg{Int}},
@@ -918,7 +918,7 @@ end
     return _find_or_create_table!(world, old_table, new_arch_hot, new_arch, relations, targets, !isempty(remove))
 end
 
-@inline function _find_or_create_table!(
+function _find_or_create_table!(
     world::World,
     old_table::_Table,
     add::Tuple{Vararg{Int}},
@@ -1108,7 +1108,7 @@ function _create_archetype!(world::World, node::_GraphNode, table::UInt32)::UInt
     return UInt32(index)
 end
 
-@inline function _get_exchange_targets(
+function _get_exchange_targets(
     world::World,
     old_table::_Table,
     relations::Tuple{Vararg{Int}},
@@ -1161,7 +1161,7 @@ function _get_exchange_targets_unchecked(
     return new_relations, mask
 end
 
-@inline function _get_table(world::World, arch::_Archetype, relations::Vector{Pair{Int32,Entity}})::Tuple{_Table,Bool}
+function _get_table(world::World, arch::_Archetype, relations::Vector{Pair{Int32,Entity}})::Tuple{_Table,Bool}
     if length(arch.tables) == 0
         return @inbounds world._tables[1], false
     end
@@ -1365,7 +1365,7 @@ end
     end
 end
 
-@inline @generated function _create_entity!(world::W, table_index::UInt32)::Tuple{Entity,Int} where {W<:World}
+@generated function _create_entity!(world::W, table_index::UInt32)::Tuple{Entity,Int} where {W<:World}
     CS = W.parameters[1]
     world_has_rel = _has_relations(CS)
     quote
@@ -1440,7 +1440,7 @@ end
     end
 end
 
-@inline @generated function _move_entity!(
+@generated function _move_entity!(
     world::W,
     entity::Entity,
     index::_EntityIndex,
@@ -1468,13 +1468,13 @@ end
             if _get_bit(new_archetype.node.mask, comp)
                 $(
                     inline_jtable ?
-                    :(@inline _move_component_data!(world, comp, index.table, table_index, index.row)) :
+                    :(_move_component_data!(world, comp, index.table, table_index, index.row)) :
                     :(_move_component_data!(world, comp, index.table, table_index, index.row))
                 )
             else
                 $(
                     inline_jtable ?
-                    :(@inline _swap_remove_in_column_for_comp!(world, comp, index.table, index.row)) :
+                    :(_swap_remove_in_column_for_comp!(world, comp, index.table, index.row)) :
                     :(_swap_remove_in_column_for_comp!(world, comp, index.table, index.row))
                 )
             end
@@ -1520,7 +1520,7 @@ function _move_entities!(world::World, old_table_index::UInt32, table_index::UIn
     return nothing
 end
 
-@inline @generated function _copy_entity!(
+@generated function _copy_entity!(
     world::W,
     entity::Entity,
     mode::Val,
@@ -1543,7 +1543,7 @@ end
         for comp in archetype.components
             $(
                 inline_jtable ?
-                :(@inline _copy_component_data!(world, comp, index.table, index.table, index.row, mode)) :
+                :(_copy_component_data!(world, comp, index.table, index.table, index.row, mode)) :
                 :(_copy_component_data!(world, comp, index.table, index.table, index.row, mode))
             )
         end
@@ -1877,7 +1877,7 @@ end
     end
 end
 
-@inline function _set_relations!(
+function _set_relations!(
     world::W,
     entity::Entity,
     relations::Tuple{Vararg{Int}},
@@ -2280,7 +2280,7 @@ end
         k -> :(_swap_component_data!(world._storages.$k, table, i, j)))
 end
 
-@inline function _swap_rows!(world::World, archetype::_Archetype, table::_Table, i::Int, j::Int)
+function _swap_rows!(world::World, archetype::_Archetype, table::_Table, i::Int, j::Int)
     @inbounds begin
         entity_i = table.entities._data[i]
         entity_j = table.entities._data[j]

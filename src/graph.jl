@@ -41,7 +41,7 @@ function _find_node(g::_Graph, start::_GraphNode, add::Tuple{Vararg{Int}}, remov
     _search_node(g, start, add, remove, add_mask, rem_mask, use_map)
 end
 
-@inline function _search_node(g::_Graph, start::_GraphNode, add::Tuple{Vararg{Int}}, remove::Tuple{Vararg{Int}},
+function _search_node(g::_Graph, start::_GraphNode, add::Tuple{Vararg{Int}}, remove::Tuple{Vararg{Int}},
     add_mask::_Mask, rem_mask::_Mask, use_map::_UseMap)
     new_mask = _clear_bits(_or(add_mask, start.mask), rem_mask)
     if new_mask.bits == g.last_node.mask.bits
@@ -52,7 +52,7 @@ end
     return node
 end
 
-@inline function _search_node(g::_Graph, start::_GraphNode, add::Tuple{Vararg{Int}}, remove::Tuple{Vararg{Int}},
+function _search_node(g::_Graph, start::_GraphNode, add::Tuple{Vararg{Int}}, remove::Tuple{Vararg{Int}},
     add_mask::_Mask, rem_mask::_Mask, use_map::_NoUseMap)
     new_mask = _clear_bits(_or(add_mask, start.mask), rem_mask)
     if new_mask.bits == g.last_node.mask.bits

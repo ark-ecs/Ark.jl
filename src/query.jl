@@ -143,7 +143,7 @@ end
     end
 end
 
-@inline function Base.iterate(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
+function Base.iterate(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
     if _is_cached(q._filter)
         return _iterate_registered(q, state)
     else
@@ -151,7 +151,7 @@ end
     end
 end
 
-@inline function _iterate(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
+function _iterate(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
     arch, tab = state
     while arch <= length(q._archetypes)
         if tab == 0
@@ -201,7 +201,7 @@ end
     return nothing
 end
 
-@inline function _iterate_registered(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
+function _iterate_registered(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
     index, _ = state
     while index <= length(q._filter.tables)
         @inbounds table_id = q._filter.tables[index]
@@ -217,7 +217,7 @@ end
     return nothing
 end
 
-@inline function Base.iterate(q::Q) where {Q<:Query}
+function Base.iterate(q::Q) where {Q<:Query}
     if q._q_lock.closed
         throw(InvalidStateException("query closed, queries can't be used multiple times", :batch_closed))
     end

@@ -162,7 +162,7 @@ function _ensure_capacity!(m::_EventManager{W,M}, id::Int) where {W<:_AbstractWo
     end
 end
 
-@inline function _has_observers(m::_EventManager, event::Event)
+function _has_observers(m::_EventManager, event::Event)
     return m.num_observers > 0 &&
            event._id <= length(m.observers) &&
            !isempty(@inbounds m.observers[event._id])
@@ -557,7 +557,7 @@ function _fire_custom_event(
     _do_fire_comps(m, event, entity, mask, entity_mask, true)
 end
 
-@inline function _do_fire_comps(
+function _do_fire_comps(
     m::_EventManager{W,M},
     event::Event,
     entity::Entity,
@@ -594,7 +594,7 @@ end
     return found
 end
 
-@inline function _do_fire_comps(
+function _do_fire_comps(
     m::_EventManager{W,M},
     event::Event,
     table::_BatchTable{M},
@@ -630,7 +630,7 @@ end
     end
 end
 
-@inline function _do_fire_no_comps(
+function _do_fire_no_comps(
     m::_EventManager{W,M},
     event::Event,
     entity::Entity,

@@ -91,7 +91,7 @@ end
     return :(_Mask{$M}(($(expr...),)))
 end
 
-@inline @generated function _clear_bits(a::_Mask{M}, b::_Mask{M})::_Mask{M} where M
+@generated function _clear_bits(a::_Mask{M}, b::_Mask{M})::_Mask{M} where M
     expr = Expr[]
     for i in 1:M
         push!(expr, :(a.bits[$i] & ~b.bits[$i]))
@@ -99,7 +99,7 @@ end
     return :(_Mask{$M}(($(expr...),)))
 end
 
-@inline function _is_zero(m::_Mask{M})::Bool where M
+function _is_zero(m::_Mask{M})::Bool where M
     return m == _Mask{M}()
 end
 
@@ -185,35 +185,35 @@ function _Mask(mask::_MutableMask)
     return _Mask(Tuple(mask.bits))
 end
 
-@inline function _set_bit!(mask::_MutableMask{1}, i::Int)
+function _set_bit!(mask::_MutableMask{1}, i::Int)
     offset = (i - 1) % UInt64
     val = UInt64(1) << offset
     mask.bits[1] |= val
 end
-@inline function _set_bit!(mask::_MutableMask, i::Int)
+function _set_bit!(mask::_MutableMask, i::Int)
     chunk = (i - 1) >>> 6
     offset = ((i - 1) % UInt64) & UInt64(0x3F)
     val = UInt64(1) << offset
     mask.bits[chunk+1] |= val
 end
 
-@inline function _clear_bit!(mask::_MutableMask{1}, i::Int)
+function _clear_bit!(mask::_MutableMask{1}, i::Int)
     offset = (i - 1) % UInt64
     val = ~(UInt64(1) << offset)
     mask.bits[1] &= val
 end
-@inline function _clear_bit!(mask::_MutableMask, i::Int)
+function _clear_bit!(mask::_MutableMask, i::Int)
     chunk = (i - 1) >>> 6
     offset = ((i - 1) % UInt64) & UInt64(0x3F)
     val = ~(UInt64(1) << offset)
     mask.bits[chunk+1] &= val
 end
 
-@inline function _get_bit(mask::Union{_Mask{1},_MutableMask{1}}, i::Int)::Bool
+function _get_bit(mask::Union{_Mask{1},_MutableMask{1}}, i::Int)::Bool
     offset = (i - 1) % UInt64 # which bit within that UInt64
     return ((mask.bits[1] >> offset) & UInt64(1)) % Bool
 end
-@inline function _get_bit(mask::Union{_Mask,_MutableMask}, i::Int)::Bool
+function _get_bit(mask::Union{_Mask,_MutableMask}, i::Int)::Bool
     chunk = (i - 1) >>> 6 # which UInt64 (0-based)
     offset = ((i - 1) % UInt64) & UInt64(0x3F) # which bit within that UInt64
     return ((mask.bits[chunk+1] >> offset) & UInt64(1)) % Bool
