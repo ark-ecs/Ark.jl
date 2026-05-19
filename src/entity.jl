@@ -74,10 +74,8 @@ Base.@propagate_inbounds function Base.getindex(c::Entities, i::Integer)
 end
 Base.length(c::Entities) = length(c._data)
 Base.eachindex(c::Entities) = eachindex(c._data)
-Base.enumerate(c::Entities) = enumerate(c._data)
 Base.iterate(c::Entities) = iterate(c._data)
 Base.iterate(c::Entities, state) = iterate(c._data, state)
-Base.eltype(::Type{Entities}) = Entity
 Base.IndexStyle(::Type{Entities}) = IndexLinear()
 Base.size(c::Entities) = (length(c),)
 Base.firstindex(c::Entities) = firstindex(c._data)
