@@ -6,6 +6,7 @@ using Random
 @testset "Compute gradients through Mooncake.jl" begin
     function run_world(args)
         alpha, beta = args
+
         world = World(Position, Velocity)
 
         entities = Entity[]
