@@ -122,9 +122,10 @@ end
     return quote
         relations = if length(targets) > 0
             # TODO: can/should we use an ntuple instead?
-            rel = Vector{Pair{Int,Entity}}()
-            for (c, e) in zip($rel_ids, targets)
-                push!(rel, c => e)
+            rel = Vector{Pair{Int32,Entity}}()
+            resize!(rel, $(length(rel_ids)))
+            @inbounds for (i, (c, e)) in enumerate(zip($rel_ids, targets))
+                rel[i] = c => e
             end
             rel
         else
