@@ -77,7 +77,7 @@ end
     components, relations = _normalize_relations(components, Val(:type))
     rel_types, targets = _relation_types_and_targets(relations)
     return _new_entities!(fn, world, n,
-        ntuple(i -> Val(components[i]), length(components)), (),
+        _valtuple(components), (),
         rel_types, targets, Val(false), Val(true))
 end
 
@@ -260,8 +260,7 @@ end
     filter::F,
     relations::Tuple,
 ) where {Fn,W<:World,F<:Filter}
-    rel_types = ntuple(i -> Val(relations[i].first), length(relations))
-    targets = ntuple(i -> relations[i].second, length(relations))
+    rel_types, targets = _relation_types_and_targets(relations)
     return @inline _set_relations_batch!(fn, world, filter, rel_types, targets, Val(true))
 end
 
@@ -270,8 +269,7 @@ end
     filter::F,
     relations::Tuple,
 ) where {W<:World,F<:Filter}
-    rel_types = ntuple(i -> Val(relations[i].first), length(relations))
-    targets = ntuple(i -> relations[i].second, length(relations))
+    rel_types, targets = _relation_types_and_targets(relations)
     return @inline _set_relations_batch!(world, filter, rel_types, targets, Val(false)) do _
     end
 end
@@ -340,7 +338,7 @@ end
         rel_types, targets = _relation_types_and_targets(relations)
         return @inline _exchange_components!(
             fn, world, filter,
-            ntuple(i -> Val(add[i]), length(add)), (),
+            _valtuple(add), (),
             (),
             rel_types, targets,
             Val(false), Val(true), Val(false),
@@ -428,7 +426,7 @@ end
     return @inline _exchange_components!(
         fn, world, filter,
         Val{Tuple{}}(), (),
-        ntuple(i -> Val(remove[i]), length(remove)),
+        _valtuple(remove),
         (), (),
         Val(false), Val(true), Val(true),
     )
@@ -442,7 +440,7 @@ end
     return @inline _exchange_components!(
         world, filter,
         Val{Tuple{}}(), (),
-        ntuple(i -> Val(remove[i]), length(remove)),
+        _valtuple(remove),
         (), (),
         Val(false), Val(false), Val(true),
     ) do _
@@ -521,8 +519,8 @@ end
         rel_types, targets = _relation_types_and_targets(relations)
         return @inline _exchange_components!(
             fn, world, filter,
-            ntuple(i -> Val(add[i]), length(add)), (),
-            ntuple(i -> Val(remove[i]), length(remove)),
+            _valtuple(add), (),
+            _valtuple(remove),
             rel_types, targets,
             Val(false), Val(true), Val(false),
         )
@@ -532,7 +530,7 @@ end
         return @inline _exchange_components!(
             fn, world, filter,
             Val{typeof(add)}(), add,
-            ntuple(i -> Val(remove[i]), length(remove)),
+            _valtuple(remove),
             rel_types, targets,
             Val(true), Val(true), Val(false),
         )
@@ -550,7 +548,7 @@ end
     return @inline _exchange_components!(
         world, filter,
         Val{typeof(add)}(), add,
-        ntuple(i -> Val(remove[i]), length(remove)),
+        _valtuple(remove),
         rel_types, targets,
         Val(true), Val(false), Val(false),
     ) do _

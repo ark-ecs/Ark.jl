@@ -287,7 +287,7 @@ Entity(5, 0)
         entity,
         Val{typeof(add)}(),
         add,
-        ntuple(i -> Val(remove[i]), length(remove)),
+        _valtuple(remove),
         rel_types, targets,
         Val(mode),
         Val(_unchecked),
@@ -398,7 +398,7 @@ pos, vel = get_components(world, entity, (Position, Velocity))
     comp_types::Tuple;
     _unchecked::Bool=false,
 )
-    return @inline _get_components(world, entity, ntuple(i -> Val(comp_types[i]), length(comp_types)), Val(_unchecked))
+    return @inline _get_components(world, entity, _valtuple(comp_types), Val(_unchecked))
 end
 
 """
@@ -422,7 +422,7 @@ true
     comp_types::Tuple;
     _unchecked::Bool=false,
 )
-    return @inline _has_components(world, entity, ntuple(i -> Val(comp_types[i]), length(comp_types)), Val(_unchecked))
+    return @inline _has_components(world, entity, _valtuple(comp_types), Val(_unchecked))
 end
 
 """
@@ -472,7 +472,7 @@ parent, = get_relations(world, entity, (ChildOf,))
     comp_types::Tuple;
     _unchecked::Bool=false,
 ) where {W<:World}
-    return @inline _get_relations(world, entity, ntuple(i -> Val(comp_types[i]), length(comp_types)), Val(_unchecked))
+    return @inline _get_relations(world, entity, _valtuple(comp_types), Val(_unchecked))
 end
 
 """
@@ -497,8 +497,7 @@ set_relations!(world, entity, (ChildOf => parent,))
     relations::Tuple;
     _unchecked::Bool=false,
 ) where {W<:World}
-    rel_types = ntuple(i -> Val(relations[i].first), length(relations))
-    targets = ntuple(i -> relations[i].second, length(relations))
+    rel_types, targets = _relation_types_and_targets(relations)
     return @inline _set_relations!(world, entity, rel_types, targets, Val(_unchecked))
 end
 
@@ -555,7 +554,7 @@ remove_components!(world, entity, (Position, Velocity))
         entity,
         Val{Tuple{}}(),
         (),
-        ntuple(i -> Val(comp_types[i]), length(comp_types)),
+        _valtuple(comp_types),
         (), (), Val(_unchecked), Val(:remove),
     )
 end
@@ -598,7 +597,7 @@ exchange_components!(world, entity;
         entity,
         Val{typeof(add)}(),
         add,
-        ntuple(i -> Val(remove[i]), length(remove)),
+        _valtuple(remove),
         rel_types, targets,
         Val(_unchecked), Val(:exchange),
     )
@@ -707,7 +706,7 @@ emit_event!(world, OnCollisionDetected, entity, (Position, Velocity))
     if !_has_observers(world._event_manager, event)
         return
     end
-    _emit_event!(world, event, entity, ntuple(i -> Val(components[i]), length(components)))
+    _emit_event!(world, event, entity, _valtuple(components))
     return nothing
 end
 

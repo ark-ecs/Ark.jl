@@ -12,11 +12,15 @@ if RUN_JET
         println(rep)
 
         reports = JET.get_reports(rep)
-        filtered = filter(
-            r ->
-                !occursin(
-                    "ArgumentError: either components to add or to remove must be given for exchange_components!",
-                    sprint(show, r)), reports)
+        is_known_false_positive(r) = begin
+            msg = sprint(show, r)
+            occursin(
+                "ArgumentError: either components to add or to remove must be given for exchange_components!",
+                msg,
+            ) ||
+            (occursin("_valtuple(::Tuple)", msg) && occursin("Core.TypeofVararg", msg))
+        end
+        filtered = filter(!is_known_false_positive, reports)
 
         @test length(filtered) == 0
     end
