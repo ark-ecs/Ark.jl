@@ -149,7 +149,9 @@ function _has_relations(declared_relations::Type{<:Tuple})
     return !isempty(declared_relations.parameters)
 end
 
-_relation_types_and_targets(::Tuple{}) = tuple()
+function _relation_types_and_targets(::Tuple{})
+    return tuple()
+end
 
 @inline @generated function _relation_types_and_targets(
     relations::Tuple{Vararg{Any,N}},
@@ -167,7 +169,9 @@ _relation_types_and_targets(::Tuple{}) = tuple()
     end
 end
 
-_valtuple(::Tuple{}) = tuple()
+function _valtuple(::Tuple{})
+    return tuple()
+end
 
 @inline @generated function _valtuple(t::Tuple{Vararg{Any,N}}) where {N<:Integer}
     return Expr(:tuple, (:(Val(getfield(t, $i))) for i in 1:N)...)
