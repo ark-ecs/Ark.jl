@@ -58,12 +58,12 @@ function _Mask{M}(::_Not, bits::T...) where {M,T<:Integer}
     return _Mask(chunks)
 end
 
-@generated function _contains_all(mask1::_Mask{M}, mask2::_Mask{M})::Bool where M
-    expr = Expr[]
+@generated function _contains_any(mask1::_Mask{M}, mask2::_MutableMask{M})::Bool where {M}
+    exprs = Expr[]
     for i in 1:M
-        push!(expr, :(((mask1.bits[$i] & mask2.bits[$i]) == mask2.bits[$i])))
+        push!(exprs, :(((mask1.bits[$i] & mask2.bits[$i]) != UInt64(0))))
     end
-    return Expr(:call, :*, expr...)
+    return Expr(:call, :|, exprs...)
 end
 
 @generated function _contains_any(mask1::_Mask{M}, mask2::_Mask{M})::Bool where M
@@ -173,12 +173,12 @@ function _clear_mask!(mask::_MutableMask{M}) where M
     return mask
 end
 
-@generated function _equals(mask1::_MutableMask{M}, mask2::_Mask{M})::Bool where M
-    expr = Expr[]
+@generated function _equals(mask1::_MutableMask{M}, mask2::_Mask{M})::Bool where {M}
+    exprs = Expr[]
     for i in 1:M
-        push!(expr, :((mask1.bits[$i] == mask2.bits[$i])))
+        push!(exprs, :((mask1.bits[$i] == mask2.bits[$i])))
     end
-    return Expr(:call, :*, expr...)
+    return Expr(:call, :&, exprs...)
 end
 
 function _Mask(mask::_MutableMask)
