@@ -51,9 +51,9 @@ Base.@constprop :aggressive function observe!(
     _Observer_from_types(
         world, event,
         FunctionWrapper{Nothing,Tuple{Entity}}(fn),
-        ntuple(i -> Val(components[i]), length(components)),
-        ntuple(i -> Val(with[i]), length(with)),
-        ntuple(i -> Val(without[i]), length(without)),
+        _valtuple(components),
+        _valtuple(with),
+        _valtuple(without),
         Val(exclusive), register)
 end
 
