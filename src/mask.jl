@@ -146,21 +146,20 @@ function _MutableMask(mask::_Mask{M}) where M
     return _MutableMask(MVector{M,UInt64}(mask.bits))
 end
 
-@generated function _contains_all(mask1::_MutableMask{M}, mask2::_Mask{M})::Bool where M
-    expr = Expr[]
+@generated function _contains_all(mask1::_MutableMask{M}, mask2::_Mask{M})::Bool where {M}
+    exprs = Expr[]
     for i in 1:M
-        push!(expr, :(((mask1.bits[$i] & mask2.bits[$i]) == mask2.bits[$i])))
+        push!(exprs, :(((mask1.bits[$i] & mask2.bits[$i]) == mask2.bits[$i])))
     end
-    return Expr(:call, :*, expr...)
+    return Expr(:call, :&, exprs...)
 end
 
-@generated function _contains_any(mask1::_Mask{M}, mask2::_MutableMask{M})::Bool where M
-    expr = Expr[]
+@generated function _contains_any(mask1::_Mask{M}, mask2::_MutableMask{M})::Bool where {M}
+    exprs = Expr[]
     for i in 1:M
-        push!(expr, :(((mask1.bits[$i] & mask2.bits[$i]) == 0)))
+        push!(exprs, :(((mask1.bits[$i] & mask2.bits[$i]) != UInt64(0))))
     end
-    expr_call = Expr(:call, :*, expr...)
-    return :(!(($expr_call)))
+    return Expr(:call, :|, exprs...)
 end
 
 function _set_mask!(mask::_MutableMask, other::_Mask)
