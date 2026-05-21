@@ -150,7 +150,7 @@ function _has_relations(declared_relations::Type{<:Tuple})
 end
 
 function _relation_types_and_targets(::Tuple{})
-    return ()
+    return (), ()
 end
 
 @inline @generated function _relation_types_and_targets(
