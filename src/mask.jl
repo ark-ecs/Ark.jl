@@ -149,10 +149,6 @@ function _MutableMask(mask::_Mask{M}) where {M}
     return _MutableMask{M}(mask.bits)
 end
 
-function _replace_chunk(bits::NTuple{1,UInt64}, k::Int, x::UInt64)::NTuple{1,UInt64}
-    return (x,)
-end
-
 @generated function _replace_chunk(bits::NTuple{M,UInt64}, k::Int, x::UInt64)::NTuple{M,UInt64} where {M}
     exprs = Expr[]
     for j in 1:M
