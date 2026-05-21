@@ -2,7 +2,7 @@ module Ark
 
 using FieldViews
 using Preferences
-using StaticArrays
+using StaticArraysCore
 using FunctionWrappers: FunctionWrapper
 using Random
 
