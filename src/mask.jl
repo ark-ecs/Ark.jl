@@ -134,88 +134,110 @@ _hash(::Tuple{}, h::UInt) = h ⊻ tuplehash_seed
 _hash(t::Tuple, h::UInt) = _hash(t[1], _hash(Base.tail(t), h))
 Base.hash(m::_Mask, h::UInt) = _hash(m.bits[1], _hash(Base.tail(m.bits), h))
 
-struct _MutableMask{M} <: _AbstractMask{M}
-    bits::MVector{M,UInt64}
+mutable struct _MutableMask{M} <: _AbstractMask{M}
+    bits::NTuple{M,UInt64}
 end
 
-@generated function _MutableMask{M}() where M
-    zs = Tuple(UInt64(0) for _ in 1:M)
-    return :(_MutableMask(MVector{M,UInt64}($zs...)))
+@inline _zero_bits(::Val{M}) where {M} =
+    ntuple(_ -> UInt64(0), Val(M))
+
+function _MutableMask{M}() where {M}
+    return _MutableMask{M}(_zero_bits(Val(M)))
 end
 
-function _MutableMask(mask::_Mask{M}) where M
-    return _MutableMask(MVector{M,UInt64}(mask.bits))
+function _MutableMask(mask::_Mask{M}) where {M}
+    return _MutableMask{M}(mask.bits)
 end
 
-@generated function _contains_all(mask1::_MutableMask{M}, mask2::_Mask{M})::Bool where M
-    expr = Expr[]
-    for i in 1:M
-        push!(expr, :(((mask1.bits[$i] & mask2.bits[$i]) == mask2.bits[$i])))
+@generated function _replace_chunk(
+    bits::NTuple{M,UInt64},
+    k::Int,
+    x::UInt64,
+)::NTuple{M,UInt64} where {M}
+    exprs = Expr[]
+    for j in 1:M
+        push!(exprs, :(ifelse(k == $j, x, bits[$j])))
     end
-    return Expr(:call, :*, expr...)
+    return Expr(:tuple, exprs...)
 end
 
-@generated function _contains_any(mask1::_Mask{M}, mask2::_MutableMask{M})::Bool where M
-    expr = Expr[]
+@generated function _contains_all(mask1::_MutableMask{M}, mask2::_Mask{M})::Bool where {M}
+    exprs = Expr[]
     for i in 1:M
-        push!(expr, :(((mask1.bits[$i] & mask2.bits[$i]) == 0)))
+        push!(exprs, :(((mask1.bits[$i] & mask2.bits[$i]) == mask2.bits[$i])))
     end
-    expr_call = Expr(:call, :*, expr...)
-    return :(!(($expr_call)))
+    return Expr(:call, :&, exprs...)
 end
 
-function _set_mask!(mask::_MutableMask, other::_Mask)
-    mask.bits.data = other.bits
+@generated function _contains_any(mask1::_Mask{M}, mask2::_MutableMask{M})::Bool where {M}
+    exprs = Expr[]
+    for i in 1:M
+        push!(exprs, :(((mask1.bits[$i] & mask2.bits[$i]) != 0)))
+    end
+    return Expr(:call, :|, exprs...)
+end
+
+function _set_mask!(mask::_MutableMask{M}, other::_Mask{M}) where {M}
+    mask.bits = other.bits
     return mask
 end
 
-function _clear_mask!(mask::_MutableMask{M}) where M
-    mask.bits.data = ntuple(_ -> UInt64(0), M)
+function _clear_mask!(mask::_MutableMask{M}) where {M}
+    mask.bits = _zero_bits(Val(M))
     return mask
 end
 
-@generated function _equals(mask1::_MutableMask{M}, mask2::_Mask{M})::Bool where M
-    expr = Expr[]
+@generated function _equals(mask1::_MutableMask{M}, mask2::_Mask{M})::Bool where {M}
+    exprs = Expr[]
     for i in 1:M
-        push!(expr, :((mask1.bits[$i] == mask2.bits[$i])))
+        push!(exprs, :((mask1.bits[$i] == mask2.bits[$i])))
     end
-    return Expr(:call, :*, expr...)
+    return Expr(:call, :&, exprs...)
 end
 
-function _Mask(mask::_MutableMask)
-    return _Mask(Tuple(mask.bits))
+function _Mask(mask::_MutableMask{M}) where {M}
+    return _Mask{M}(mask.bits)
 end
 
 @inline function _set_bit!(mask::_MutableMask{1}, i::Int)
-    offset = (i - 1) % UInt64
+    offset = (i - 1) & 63
     val = UInt64(1) << offset
-    mask.bits[1] |= val
+    mask.bits = (mask.bits[1] | val,)
+    return mask
 end
-@inline function _set_bit!(mask::_MutableMask, i::Int)
-    chunk = (i - 1) >>> 6
-    offset = ((i - 1) % UInt64) & UInt64(0x3F)
+
+@inline function _set_bit!(mask::_MutableMask{M}, i::Int) where {M}
+    chunk = ((i - 1) >>> 6) + 1
+    offset = (i - 1) & 63
     val = UInt64(1) << offset
-    mask.bits[chunk+1] |= val
+    bits = mask.bits
+    mask.bits = _replace_chunk(bits, chunk, bits[chunk] | val)
+    return mask
 end
 
 @inline function _clear_bit!(mask::_MutableMask{1}, i::Int)
-    offset = (i - 1) % UInt64
+    offset = (i - 1) & 63
     val = ~(UInt64(1) << offset)
-    mask.bits[1] &= val
+    mask.bits = (mask.bits[1] & val,)
+    return mask
 end
-@inline function _clear_bit!(mask::_MutableMask, i::Int)
-    chunk = (i - 1) >>> 6
-    offset = ((i - 1) % UInt64) & UInt64(0x3F)
+
+@inline function _clear_bit!(mask::_MutableMask{M}, i::Int) where {M}
+    chunk = ((i - 1) >>> 6) + 1
+    offset = (i - 1) & 63
     val = ~(UInt64(1) << offset)
-    mask.bits[chunk+1] &= val
+    bits = mask.bits
+    mask.bits = _replace_chunk(bits, chunk, bits[chunk] & val)
+    return mask
 end
 
 @inline function _get_bit(mask::Union{_Mask{1},_MutableMask{1}}, i::Int)::Bool
-    offset = (i - 1) % UInt64 # which bit within that UInt64
-    return ((mask.bits[1] >> offset) & UInt64(1)) % Bool
+    offset = (i - 1) & 63
+    return ((mask.bits[1] >> offset) & UInt64(1)) == UInt64(1)
 end
-@inline function _get_bit(mask::Union{_Mask,_MutableMask}, i::Int)::Bool
-    chunk = (i - 1) >>> 6 # which UInt64 (0-based)
-    offset = ((i - 1) % UInt64) & UInt64(0x3F) # which bit within that UInt64
-    return ((mask.bits[chunk+1] >> offset) & UInt64(1)) % Bool
+
+@inline function _get_bit(mask::Union{_Mask{M},_MutableMask{M}}, i::Int)::Bool where {M}
+    chunk = ((i - 1) >>> 6) + 1
+    offset = (i - 1) & 63
+    return ((mask.bits[chunk] >> offset) & UInt64(1)) == UInt64(1)
 end
