@@ -166,9 +166,5 @@ end
 end
 
 @inline @generated function _valtuple(t::Tuple{Vararg{Any,N}}) where {N}
-    if !(N isa Int)
-        return Expr(:tuple, (:(Val(getfield(t, $i))) for i in 1:N)...)
-    else
-        return :(map(Val, t))
-    end
+    return Expr(:tuple, (:(Val(getfield(t, $i))) for i in 1:N)...)
 end
