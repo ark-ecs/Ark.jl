@@ -149,6 +149,10 @@ function _has_relations(declared_relations::Type{<:Tuple})
     return !isempty(declared_relations.parameters)
 end
 
+function _relation_types_and_targets(::Tuple{})
+    return ()
+end
+
 @inline @generated function _relation_types_and_targets(
     relations::Tuple{Vararg{Any,N}},
 ) where {N}
@@ -163,6 +167,10 @@ end
     return quote
         return $rel_types, $targets
     end
+end
+
+function _valtuple(::Tuple{})
+    return ()
 end
 
 @inline @generated function _valtuple(t::Tuple{Vararg{Any,N}}) where {N}
