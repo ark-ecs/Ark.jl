@@ -138,8 +138,9 @@ struct _MutableMask{M} <: _AbstractMask{M}
     bits::MVector{M,UInt64}
 end
 
-function _MutableMask{M}() where M
-    return _MutableMask(zeros(MVector{M,UInt64}))
+@generated function _MutableMask{M}() where M
+    zs = Tuple(UInt64(0) for _ in 1:M)
+    return :(_MutableMask(MVector{M,UInt64}($zs...)))
 end
 
 function _MutableMask(mask::_Mask{M}) where M
