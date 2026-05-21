@@ -272,11 +272,13 @@ Entity(5, 0)
 ```
 """
 @inline Base.@constprop :aggressive function copy_entity!(
-    world::World, entity::Entity;
-    add::Tuple=(), remove::Tuple=(),
+    world::World,
+    entity::Entity;
+    add::Tuple{Vararg{Any,NA}}=(),
+    remove::Tuple{Vararg{Any,NR}}=(),
     mode::Symbol=:copy,
     _unchecked::Bool=false,
-)
+) where {NA,NR}
     add, relations = _normalize_relations(add, Val(:value))
     if isempty(add) && isempty(remove) && isempty(relations)
         return @inline _copy_entity!(world, entity, Val(mode), Val(_unchecked))
