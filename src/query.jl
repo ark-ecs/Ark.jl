@@ -153,6 +153,7 @@ end
 
 @inline function _iterate(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
     arch, tab = state
+    q_lock = q._q_lock
     while arch <= length(q._archetypes)
         if tab == 0
             @inbounds archetype_hot = q._archetypes_hot[arch]
@@ -178,12 +179,13 @@ end
                 continue
             end
 
-            q._q_lock.tables = _get_tables(q._world, archetype, q._filter.relations)
+            q_lock.tables = _get_tables(q._world, archetype, q._filter.relations)
             tab = 1
         end
 
-        while tab <= length(q._q_lock.tables)
-            table = @inbounds q._world._tables[Int(q._q_lock.tables[tab])]
+        tables = q_lock.tables
+        while tab <= length(tables)
+            table = @inbounds q._world._tables[Int(tables[tab])]
             # TODO we can probably optimize here if exactly one relation in archetype and one queried.
             if isempty(table.entities) || !_matches(q._world._relations, table, q._filter.relations)
                 tab += 1

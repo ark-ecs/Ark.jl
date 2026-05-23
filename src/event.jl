@@ -62,9 +62,10 @@ function EventRegistry()
 end
 
 function Base.show(io::IO, reg::EventRegistry)
-    symbols = map(x -> ":$(x[1])", (sort(collect(reg._event_types), by=x -> x[2])))
+    event_types = reg._event_types
+    symbols = map(x -> ":$(x[1])", (sort(collect(event_types), by=x -> x[2])))
 
-    print(io, "$(length(reg._event_types))-events EventRegistry()")
+    print(io, "$(length(event_types))-events EventRegistry()")
     print(io, "\n [$(join(symbols, ", "))]\n")
 end
 
@@ -205,18 +206,20 @@ function _add_observer!(m::_EventManager, o::Observer)
 end
 
 function _remove_observer!(m::_EventManager{W,M}, o::Observer{W,M}) where {W<:_AbstractWorld,M}
-    if o._id.id == 0
+    obs_id = o._id
+    id = obs_id.id
+    if id == 0
         throw(InvalidStateException("observer is not registered", :observer_not_registered))
     end
     m.num_observers -= 1
 
     e = o._event._id
     observers = m.observers[e]
-    swapped = _swap_remove!(observers, o._id.id)
+    swapped = _swap_remove!(observers, id)
     if swapped
-        observers[o._id.id]._id.id = o._id.id
+        observers[id]._id.id = id
     end
-    o._id.id = 0
+    obs_id.id = 0
 
     # rebuild mask unions
 

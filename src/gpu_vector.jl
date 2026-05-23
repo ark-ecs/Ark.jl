@@ -48,10 +48,11 @@ Base.@propagate_inbounds function Base.setindex!(gv::GPUVector, v, i::Int)
 end
 
 function _resize_mem!(gv::GPUVector, new_len::Integer)
-    if length(gv.mem) < new_len
-        new_cap = max(new_len, 2 * length(gv.mem))
-        new_mem = typeof(gv.mem)(undef, new_cap)
-        copyto!(new_mem, 1, gv.mem, 1, length(gv))
+    mem = gv.mem
+    if length(mem) < new_len
+        new_cap = max(new_len, 2 * length(mem))
+        new_mem = typeof(mem)(undef, new_cap)
+        copyto!(new_mem, 1, mem, 1, length(gv))
         gv.mem = new_mem
     end
     return
