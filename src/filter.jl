@@ -11,6 +11,10 @@ struct Filter{W<:World,TS<:Tuple,EX,OPT,REG,M}
     _world::W
 end
 
+@inline function _filter_relations(::Val{rel_ids}, targets::Tuple{Vararg{Entity,N}}) where {rel_ids,N}
+    return ntuple(i -> rel_ids[i] => targets[i], Val(N))
+end
+
 """
     Filter(
         world::World,
@@ -106,6 +110,7 @@ end
     without_ids = map(C -> _component_id(CS, C), without_types)
     non_exclude_ids = map(C -> _component_id(CS, C), non_exclude_types)
     rel_ids = map(C -> _component_id(CS, C), rel_types)
+    rel_ids32 = ntuple(i -> Int32(rel_ids[i]), length(rel_ids))
 
     M = max(1, cld(length(CS.parameters), 64))
     mask = _Mask{M}(required_ids..., with_ids...)
@@ -122,17 +127,7 @@ end
     optional_flags_type = Expr(:curly, :Tuple, optional_flag_type_elts...)
 
     return quote
-        relations = if length(targets) > 0
-            # TODO: can/should we use an ntuple instead?
-            rel = Vector{Pair{Int32,Entity}}()
-            resize!(rel, $(length(rel_ids)))
-            @inbounds for (i, (c, e)) in enumerate(zip($rel_ids, targets))
-                rel[i] = c => e
-            end
-            rel
-        else
-            _empty_relations
-        end
+        relations = _filter_relations(Val($(rel_ids32)), targets)
         filter = Filter{$W,$comp_tuple_type,$EX,$optional_flags_type,$REG,$M}(
             _MaskFilter{$M}(
                 $(mask),

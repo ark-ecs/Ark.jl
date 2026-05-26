@@ -22,7 +22,11 @@ end
 
 _has_relations(t::_Table) = !isempty(t.relations)
 
-function _matches(indices::Vector{_ComponentRelations}, t::_Table, relations::Vector{Pair{Int32,Entity}})
+function _matches(
+    indices::Vector{_ComponentRelations},
+    t::_Table,
+    relations::Tuple{Vararg{Pair{Int32,Entity}}},
+)
     if length(relations) == 0 || !_has_relations(t)
         return true
     end
@@ -35,7 +39,11 @@ function _matches(indices::Vector{_ComponentRelations}, t::_Table, relations::Ve
     return true
 end
 
-function _matches_exact(indices::Vector{_ComponentRelations}, t::_Table, relations::Vector{Pair{Int32,Entity}})
+function _matches_exact(
+    indices::Vector{_ComponentRelations},
+    t::_Table,
+    relations::Vector{Pair{Int32,Entity}},
+)
     # This check is done in _get_table_slow_path
     #if length(relations) < length(t.relations)
     #    throw(ArgumentError("relation targets must be fully specified"))

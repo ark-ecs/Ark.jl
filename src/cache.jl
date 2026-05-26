@@ -1,11 +1,22 @@
 
-struct _MaskFilter{M}
+struct _MaskFilter{M,R<:Tuple}
     mask::_Mask{M}
     exclude_mask::_Mask{M}
-    relations::Vector{Pair{Int32,Entity}}
+    relations::R
     tables::_IdCollection
     id::Base.RefValue{UInt32}
     has_excluded::Bool
+end
+
+function _MaskFilter{M}(
+    mask::_Mask{M},
+    exclude_mask::_Mask{M},
+    relations::R,
+    tables::_IdCollection,
+    id::Base.RefValue{UInt32},
+    has_excluded::Bool,
+) where {M,R<:Tuple}
+    return _MaskFilter{M,R}(mask, exclude_mask, relations, tables, id, has_excluded)
 end
 
 _is_cached(f::_MaskFilter) = f.id[] > 0
