@@ -25,9 +25,9 @@ _has_relations(t::_Table) = !isempty(t.relations)
 function _matches(
     indices::Vector{_ComponentRelations},
     t::_Table,
-    relations::Tuple{Vararg{Pair{Int32,Entity}}},
-)
-    if length(relations) == 0 || !_has_relations(t)
+    relations::NTuple{N, Pair{Int32,Entity}},
+) where {N}
+    if N == 0 || !_has_relations(t)
         return true
     end
     for (comp, target) in relations
