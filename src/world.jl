@@ -1216,9 +1216,9 @@ end
 function _get_tables(
     world::World,
     arch::_Archetype,
-    relations::Tuple{Vararg{Pair{Int32,Entity}}},
-)::Vector{UInt32}
-    if !_has_relations(arch) || isempty(relations)
+    relations::NTuple{N, Pair{Int32,Entity}},
+)::Vector{UInt32} where {N}
+    if !_has_relations(arch) || N == 0
         return arch.tables.ids
     end
 
