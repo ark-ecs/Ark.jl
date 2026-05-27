@@ -1172,7 +1172,11 @@ function _get_exchange_targets_unchecked(
     return new_relations, mask
 end
 
-@inline function _get_table(world::World, arch::_Archetype, relations::_RelationPairs)::Tuple{_Table,Bool}
+@inline function _get_table(
+    world::World,
+    arch::_Archetype,
+    relations::Vector{Pair{Int32,Entity}},
+)::Tuple{_Table,Bool}
     if length(arch.tables) == 0
         return @inbounds world._tables[1], false
     end
@@ -1210,7 +1214,11 @@ end
     return @inbounds world._tables[1], false
 end
 
-function _get_tables(world::World, arch::_Archetype, relations::_RelationPairs)::Vector{UInt32}
+function _get_tables(
+    world::World,
+    arch::_Archetype,
+    relations::_FilterRelations,
+)::Vector{UInt32}
     if !_has_relations(arch) || isempty(relations)
         return arch.tables.ids
     end
@@ -2278,12 +2286,6 @@ function _check_relation_targets(world::World, relations::Tuple{Vararg{Entity}})
 end
 
 function _check_relation_targets(world::World, relations::Vector{Pair{Int32,Entity}})
-    for rel in relations
-        _check_relation_target(world, rel.second)
-    end
-end
-
-function _check_relation_targets(world::World, relations::_FilterRelations)
     for rel in relations
         _check_relation_target(world, rel.second)
     end

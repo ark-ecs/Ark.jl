@@ -43,9 +43,7 @@ function Base.iterate(relations::_FilterRelations, state::Int)
     return rel, state + 1
 end
 
-const _RelationPairs = Union{Vector{Pair{Int32,Entity}},_FilterRelations}
-
-function _matches(indices::Vector{_ComponentRelations}, t::_Table, relations::_RelationPairs)
+function _matches(indices::Vector{_ComponentRelations}, t::_Table, relations::_FilterRelations)
     if length(relations) == 0 || !_has_relations(t)
         return true
     end
@@ -58,7 +56,7 @@ function _matches(indices::Vector{_ComponentRelations}, t::_Table, relations::_R
     return true
 end
 
-function _matches_exact(indices::Vector{_ComponentRelations}, t::_Table, relations::_RelationPairs)
+function _matches_exact(indices::Vector{_ComponentRelations}, t::_Table, relations::Vector{Pair{Int32,Entity}})
     # This check is done in _get_table_slow_path
     #if length(relations) < length(t.relations)
     #    throw(ArgumentError("relation targets must be fully specified"))

@@ -125,8 +125,8 @@ end
     relation_id_exprs = Expr(:tuple)
     relation_target_exprs = Expr(:tuple)
     for i in 1:K
-        id_expr = i <= length(rel_ids) ? :(Int32($(rel_ids[i]))) : :(Int32(0))
-        target_expr = i <= length(rel_ids) ? :(getfield(targets, $i)) : :(_new_entity(0, 0))
+        id_expr = i <= length(rel_ids) ? :($(Int32(rel_ids[i]))) : :(Int32(0))
+        target_expr = i <= length(rel_ids) ? :(targets[$i]) : :(zero_entity)
         push!(relation_id_exprs.args, id_expr)
         push!(relation_target_exprs.args, target_expr)
     end
@@ -134,12 +134,11 @@ end
         :(_FilterRelations{$K}($(length(rel_ids)), $relation_id_exprs, $relation_target_exprs))
 
     return quote
-        relations = $relations_expr
         filter = Filter{$W,$comp_tuple_type,$EX,$optional_flags_type,$REG,$M,$K}(
             _MaskFilter{$M,$K}(
                 $(mask),
                 $(exclude_mask),
-                relations,
+                $relations_expr,
                 $register ? _IdCollection() : _empty_table_ids,
                 Base.RefValue{UInt32}(UInt32(0)),
                 $(has_excluded),
