@@ -35,12 +35,12 @@ end
 
 function _sort_entities!(
     world::World,
-    filter::_MaskFilter,
-    archetypes::Vector{<:_Archetype},
-    archetypes_hot::Vector{<:_ArchetypeHot};
+    filter::_MaskFilter{M,R},
+    archetypes::Vector{<:_Archetype{M}},
+    archetypes_hot::Vector{<:_ArchetypeHot{M}};
     alg::Base.Sort.Algorithm,
     kwargs...,
-)
+) where {M,R}
     @_each_matching_table(
         world,
         filter,

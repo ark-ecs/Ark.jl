@@ -6,8 +6,8 @@ A filter for components. See function
 [Filter](@ref Filter(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)) for details.
 See also [Query](@ref).
 """
-struct Filter{W<:World,TS<:Tuple,EX,OPT,REG,M}
-    _filter::_MaskFilter{M}
+struct Filter{W<:World,TS<:Tuple,EX,OPT,REG,M,R<:Tuple}
+    _filter::_MaskFilter{M,R}
     _world::W
 end
 
@@ -125,15 +125,16 @@ end
     relations = Expr(:tuple, _filter_relations...)
 
     return quote
-        filter = Filter{$W,$comp_tuple_type,$EX,$optional_flags_type,$REG,$M}(
-            _MaskFilter{$M}(
-                $(mask),
-                $(exclude_mask),
-                $relations,
-                $register ? _IdCollection() : _empty_table_ids,
-                Base.RefValue{UInt32}(UInt32(0)),
-                $(has_excluded),
-            ),
+        local mf = _MaskFilter{$M}(
+            $(mask),
+            $(exclude_mask),
+            $relations,
+            $register ? _IdCollection() : _empty_table_ids,
+            Base.RefValue{UInt32}(UInt32(0)),
+            $(has_excluded),
+        )
+        filter = Filter{$W,$comp_tuple_type,$EX,$optional_flags_type,$REG,$M,typeof(mf.relations)}(
+            mf,
             world,
         )
         if $register
@@ -211,16 +212,16 @@ end
 
 function _length(
     world::W,
-    filter::_MaskFilter{M},
+    filter::_MaskFilter{M,R},
     archetypes::Vector{_Archetype{M}},
     archetypes_hot::Vector{_ArchetypeHot{M}},
-) where {W<:World,M}
+) where {W<:World,M,R}
     count = 0
     @_each_matching_table(world, filter, archetypes, archetypes_hot, table, count += 1)
     return count
 end
 
-function _length_registered(world::W, filter::_MaskFilter{M}) where {W<:World,M}
+function _length_registered(world::W, filter::_MaskFilter{M,R}) where {W<:World,M,R}
     count = 0
     @simd for table_id in filter.tables.ids
         table = @inbounds world._tables[table_id]
@@ -250,16 +251,16 @@ end
 
 function _count_entities(
     world::W,
-    filter::_MaskFilter{M},
+    filter::_MaskFilter{M,R},
     archetypes::Vector{_Archetype{M}},
     archetypes_hot::Vector{_ArchetypeHot{M}},
-) where {W<:World,M}
+) where {W<:World,M,R}
     count = 0
     @_each_matching_table(world, filter, archetypes, archetypes_hot, table, count += length(table.entities))
     return count
 end
 
-function _count_entities_registered(world::W, filter::_MaskFilter{M}) where {W<:World,M}
+function _count_entities_registered(world::W, filter::_MaskFilter{M,R}) where {W<:World,M,R}
     count = 0
     @simd for table_id in filter.tables.ids
         table = @inbounds world._tables[table_id]
@@ -268,7 +269,7 @@ function _count_entities_registered(world::W, filter::_MaskFilter{M}) where {W<:
     return count
 end
 
-function Base.show(io::IO, filter::Filter{W,CT,EX,OPT,REG,M}) where {W<:World,CT<:Tuple,EX<:Val,OPT,REG<:Val,M}
+function Base.show(io::IO, filter::Filter{W,CT,EX,OPT,REG,M,R}) where {W<:World,CT<:Tuple,EX<:Val,OPT,REG<:Val,M,R<:Tuple}
     world_types = W.parameters[2].parameters
     comp_types = CT.parameters
 
