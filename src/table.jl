@@ -22,7 +22,30 @@ end
 
 _has_relations(t::_Table) = !isempty(t.relations)
 
-function _matches(indices::Vector{_ComponentRelations}, t::_Table, relations::Vector{Pair{Int32,Entity}})
+struct _FilterRelations{K}
+    len::Int
+    ids::NTuple{K,Int32}
+    targets::NTuple{K,Entity}
+end
+
+Base.length(relations::_FilterRelations) = relations.len
+Base.isempty(relations::_FilterRelations) = relations.len == 0
+
+Base.@propagate_inbounds function Base.getindex(relations::_FilterRelations, i::Integer)
+    return relations.ids[i] => relations.targets[i]
+end
+
+Base.iterate(relations::_FilterRelations) = iterate(relations, 1)
+
+function Base.iterate(relations::_FilterRelations, state::Int)
+    state > relations.len && return nothing
+    rel = @inbounds relations[state]
+    return rel, state + 1
+end
+
+const _RelationPairs = Union{Vector{Pair{Int32,Entity}},_FilterRelations}
+
+function _matches(indices::Vector{_ComponentRelations}, t::_Table, relations::_RelationPairs)
     if length(relations) == 0 || !_has_relations(t)
         return true
     end
@@ -35,7 +58,7 @@ function _matches(indices::Vector{_ComponentRelations}, t::_Table, relations::Ve
     return true
 end
 
-function _matches_exact(indices::Vector{_ComponentRelations}, t::_Table, relations::Vector{Pair{Int32,Entity}})
+function _matches_exact(indices::Vector{_ComponentRelations}, t::_Table, relations::_RelationPairs)
     # This check is done in _get_table_slow_path
     #if length(relations) < length(t.relations)
     #    throw(ArgumentError("relation targets must be fully specified"))

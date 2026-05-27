@@ -6,8 +6,8 @@ A filter for components. See function
 [Filter](@ref Filter(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)) for details.
 See also [Query](@ref).
 """
-struct Filter{W<:World,TS<:Tuple,EX,OPT,REG,M}
-    _filter::_MaskFilter{M}
+struct Filter{W<:World,TS<:Tuple,EX,OPT,REG,M,K}
+    _filter::_MaskFilter{M,K}
     _world::W
 end
 
@@ -108,6 +108,7 @@ end
     rel_ids = map(C -> _component_id(CS, C), rel_types)
 
     M = max(1, cld(length(CS.parameters), 64))
+    K = length(relation_types.parameters)
     mask = _Mask{M}(required_ids..., with_ids...)
     exclude_mask = EX === Val{true} ? _Mask{M}(_Not(), non_exclude_ids...) : _Mask{M}(without_ids...)
     has_excluded = (length(without_ids) > 0) || (EX === Val{true})
@@ -121,20 +122,21 @@ end
     ]
     optional_flags_type = Expr(:curly, :Tuple, optional_flag_type_elts...)
 
+    relation_id_exprs = Expr(:tuple)
+    relation_target_exprs = Expr(:tuple)
+    for i in 1:K
+        id_expr = i <= length(rel_ids) ? :(Int32($(rel_ids[i]))) : :(Int32(0))
+        target_expr = i <= length(rel_ids) ? :(getfield(targets, $i)) : :(_new_entity(0, 0))
+        push!(relation_id_exprs.args, id_expr)
+        push!(relation_target_exprs.args, target_expr)
+    end
+    relations_expr =
+        :(_FilterRelations{$K}($(length(rel_ids)), $relation_id_exprs, $relation_target_exprs))
+
     return quote
-        relations = if length(targets) > 0
-            # TODO: can/should we use an ntuple instead?
-            rel = Vector{Pair{Int32,Entity}}()
-            resize!(rel, $(length(rel_ids)))
-            @inbounds for (i, (c, e)) in enumerate(zip($rel_ids, targets))
-                rel[i] = c => e
-            end
-            rel
-        else
-            _empty_relations
-        end
-        filter = Filter{$W,$comp_tuple_type,$EX,$optional_flags_type,$REG,$M}(
-            _MaskFilter{$M}(
+        relations = $relations_expr
+        filter = Filter{$W,$comp_tuple_type,$EX,$optional_flags_type,$REG,$M,$K}(
+            _MaskFilter{$M,$K}(
                 $(mask),
                 $(exclude_mask),
                 relations,
@@ -219,16 +221,16 @@ end
 
 function _length(
     world::W,
-    filter::_MaskFilter{M},
+    filter::_MaskFilter{M,K},
     archetypes::Vector{_Archetype{M}},
     archetypes_hot::Vector{_ArchetypeHot{M}},
-) where {W<:World,M}
+) where {W<:World,M,K}
     count = 0
     @_each_matching_table(world, filter, archetypes, archetypes_hot, table, count += 1)
     return count
 end
 
-function _length_registered(world::W, filter::_MaskFilter{M}) where {W<:World,M}
+function _length_registered(world::W, filter::_MaskFilter{M,K}) where {W<:World,M,K}
     count = 0
     @simd for table_id in filter.tables.ids
         table = @inbounds world._tables[table_id]
@@ -258,16 +260,16 @@ end
 
 function _count_entities(
     world::W,
-    filter::_MaskFilter{M},
+    filter::_MaskFilter{M,K},
     archetypes::Vector{_Archetype{M}},
     archetypes_hot::Vector{_ArchetypeHot{M}},
-) where {W<:World,M}
+) where {W<:World,M,K}
     count = 0
     @_each_matching_table(world, filter, archetypes, archetypes_hot, table, count += length(table.entities))
     return count
 end
 
-function _count_entities_registered(world::W, filter::_MaskFilter{M}) where {W<:World,M}
+function _count_entities_registered(world::W, filter::_MaskFilter{M,K}) where {W<:World,M,K}
     count = 0
     @simd for table_id in filter.tables.ids
         table = @inbounds world._tables[table_id]
@@ -276,7 +278,7 @@ function _count_entities_registered(world::W, filter::_MaskFilter{M}) where {W<:
     return count
 end
 
-function Base.show(io::IO, filter::Filter{W,CT,EX,OPT,REG,M}) where {W<:World,CT<:Tuple,EX<:Val,OPT,REG<:Val,M}
+function Base.show(io::IO, filter::Filter{W,CT,EX,OPT,REG,M,K}) where {W<:World,CT<:Tuple,EX<:Val,OPT,REG<:Val,M,K}
     world_types = W.parameters[2].parameters
     comp_types = CT.parameters
 

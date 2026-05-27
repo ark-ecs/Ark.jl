@@ -33,10 +33,10 @@ end
 function _shuffle(
     rng::AbstractRNG,
     world::W,
-    filter::_MaskFilter{M},
+    filter::_MaskFilter{M,K},
     archetypes::Vector{_Archetype{M}},
     archetypes_hot::Vector{_ArchetypeHot{M}},
-) where {W<:World,M}
+) where {W<:World,M,K}
     @_each_matching_table(world, filter, archetypes, archetypes_hot, table, _shuffle_table!(rng, world, table))
 end
 

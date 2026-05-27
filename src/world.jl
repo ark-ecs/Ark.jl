@@ -69,14 +69,14 @@ function _WorldPool{M}() where {M}
 end
 
 """
-    World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M,RT<:Tuple}
+    World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M,RT<:Tuple,K}
 
 The World is the central storage for [entities](@ref Entities),
 [components](@ref Components) and [resources](@ref Resources).
 
 See the constructor [World](@ref World(::Union{Type,Pair}...; ::Int, ::Bool)) for details.
 """
-mutable struct World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M,RT<:Tuple} <: _AbstractWorld
+mutable struct World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M,RT<:Tuple,K} <: _AbstractWorld
     const _entities::Vector{_EntityIndex}
     const _targets::BitVector
     const _storages::CS
@@ -92,8 +92,8 @@ mutable struct World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M,RT<:Tuple} <: _AbstractWo
     const _lock::_Lock
     const _graph::_Graph{M}
     const _resources::_Linear_Map{DataType,Any,false,false,DataType,NoResource}
-    const _event_manager::_EventManager{World{CS,CT,ST,N,M,RT},M}
-    const _cache::_Cache{M}
+    const _event_manager::_EventManager{World{CS,CT,ST,N,M,RT,K},M}
+    const _cache::_Cache{M,K}
     const _pool::_WorldPool{M}
     const _initial_capacity::Int
 end
@@ -764,6 +764,7 @@ end
     storage_val_types = ST.parameters
     allow_mutable = MUT::Bool
     relation_flags = [_is_relation_type(T, RT) for T in types]
+    K = length(RT.parameters)
 
     for (T, mode) in zip(types, storage_val_types)
         if !isconcretetype(T)
@@ -839,7 +840,7 @@ end
 
         node = graph.nodes[$start_mask]
 
-        World{$(storage_tuple_type),$(component_tuple_type),$(storage_mode_type),$(length(types)),$M,$RT}(
+        World{$(storage_tuple_type),$(component_tuple_type),$(storage_mode_type),$(length(types)),$M,$RT,$K}(
             index,
             targets,
             $storage_tuple,
@@ -856,10 +857,10 @@ end
             graph,
             _Linear_Map{DataType,Any}(; zero_key=NoResource, zero_value=NoResource()),
             _EventManager{
-                World{$(storage_tuple_type),$(component_tuple_type),$(storage_mode_type),$(length(types)),$M,$RT},
+                World{$(storage_tuple_type),$(component_tuple_type),$(storage_mode_type),$(length(types)),$M,$RT,$K},
                 $(M),
             }(),
-            _Cache{$M}(),
+            _Cache{$M,$K}(),
             _WorldPool{$M}(),
             initial_capacity,
         )
@@ -1171,7 +1172,7 @@ function _get_exchange_targets_unchecked(
     return new_relations, mask
 end
 
-@inline function _get_table(world::World, arch::_Archetype, relations::Vector{Pair{Int32,Entity}})::Tuple{_Table,Bool}
+@inline function _get_table(world::World, arch::_Archetype, relations::_RelationPairs)::Tuple{_Table,Bool}
     if length(arch.tables) == 0
         return @inbounds world._tables[1], false
     end
@@ -1209,7 +1210,7 @@ end
     return @inbounds world._tables[1], false
 end
 
-function _get_tables(world::World, arch::_Archetype, relations::Vector{Pair{Int32,Entity}})::Vector{UInt32}
+function _get_tables(world::World, arch::_Archetype, relations::_RelationPairs)::Vector{UInt32}
     if !_has_relations(arch) || isempty(relations)
         return arch.tables.ids
     end
@@ -2277,6 +2278,12 @@ function _check_relation_targets(world::World, relations::Tuple{Vararg{Entity}})
 end
 
 function _check_relation_targets(world::World, relations::Vector{Pair{Int32,Entity}})
+    for rel in relations
+        _check_relation_target(world, rel.second)
+    end
+end
+
+function _check_relation_targets(world::World, relations::_FilterRelations)
     for rel in relations
         _check_relation_target(world, rel.second)
     end
