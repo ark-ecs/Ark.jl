@@ -125,16 +125,15 @@ end
     relations = Expr(:tuple, _filter_relations...)
 
     return quote
-        local mf = _MaskFilter{$M}(
-            $(mask),
-            $(exclude_mask),
-            $relations,
-            $register ? _IdCollection() : _empty_table_ids,
-            Base.RefValue{UInt32}(UInt32(0)),
-            $(has_excluded),
-        )
         filter = Filter{$W,$comp_tuple_type,$EX,$optional_flags_type,$REG,$M,typeof(mf.relations)}(
-            mf,
+            _MaskFilter{$M}(
+                $(mask),
+                $(exclude_mask),
+                $relations,
+                $register ? _IdCollection() : _empty_table_ids,
+                Base.RefValue{UInt32}(UInt32(0)),
+                $(has_excluded),
+            ),
             world,
         )
         if $register
