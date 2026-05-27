@@ -123,9 +123,10 @@ end
 
     _filter_relations = [:($(rel_ids[i]) => targets[$i]) for i in 1:length(rel_ids)]
     relations = Expr(:tuple, _filter_relations...)
+    relations_type = NTuple{length(_filter_relations),Pair{Int32,Entity}}
 
     return quote
-        filter = Filter{$W,$comp_tuple_type,$EX,$optional_flags_type,$REG,$M,typeof(mf.relations)}(
+        filter = Filter{$W,$comp_tuple_type,$EX,$optional_flags_type,$REG,$M,$relations_type}(
             _MaskFilter{$M}(
                 $(mask),
                 $(exclude_mask),
