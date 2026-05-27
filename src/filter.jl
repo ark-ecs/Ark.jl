@@ -11,7 +11,7 @@ struct Filter{W<:World,TS<:Tuple,EX,OPT,REG,M}
     _world::W
 end
 
-@inline function _filter_relations(::Val{rel_ids}, targets::Tuple{Vararg{Entity,N}}) where {rel_ids,N}
+@inline function _filter_relations(rel_ids::Tuple{Vararg{Int32,N}}, targets::Tuple{Vararg{Entity,N}}) where {N}
     return ntuple(i -> rel_ids[i] => targets[i], Val(N))
 end
 
@@ -109,8 +109,7 @@ end
     with_ids = map(C -> _component_id(CS, C), with_types)
     without_ids = map(C -> _component_id(CS, C), without_types)
     non_exclude_ids = map(C -> _component_id(CS, C), non_exclude_types)
-    rel_ids = map(C -> _component_id(CS, C), rel_types)
-    rel_ids32 = ntuple(i -> Int32(rel_ids[i]), length(rel_ids))
+    rel_ids = map(C -> Int32(_component_id(CS, C)), rel_types)
 
     M = max(1, cld(length(CS.parameters), 64))
     mask = _Mask{M}(required_ids..., with_ids...)
@@ -127,7 +126,7 @@ end
     optional_flags_type = Expr(:curly, :Tuple, optional_flag_type_elts...)
 
     return quote
-        relations = _filter_relations(Val($(rel_ids32)), targets)
+        relations = _filter_relations(rel_ids, targets)
         filter = Filter{$W,$comp_tuple_type,$EX,$optional_flags_type,$REG,$M}(
             _MaskFilter{$M}(
                 $(mask),
