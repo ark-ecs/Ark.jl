@@ -11,10 +11,6 @@ struct Filter{W<:World,TS<:Tuple,EX,OPT,REG,M}
     _world::W
 end
 
-@inline function _filter_relations(rel_ids::Tuple{Vararg{Int32,N}}, targets::Tuple{Vararg{Entity,N}}) where {N}
-    return ntuple(i -> rel_ids[i] => targets[i], Val(N))
-end
-
 """
     Filter(
         world::World,
@@ -125,13 +121,15 @@ end
     ]
     optional_flags_type = Expr(:curly, :Tuple, optional_flag_type_elts...)
 
+    _filter_relations = [:($(rel_ids[i]) => targets[$i]) for i in 1:length(rel_ids)]
+    relations = Expr(:curly, :Tuple, _filter_relations...)
+
     return quote
-        relations = _filter_relations(rel_ids, targets)
         filter = Filter{$W,$comp_tuple_type,$EX,$optional_flags_type,$REG,$M}(
             _MaskFilter{$M}(
                 $(mask),
                 $(exclude_mask),
-                relations,
+                $relations,
                 $register ? _IdCollection() : _empty_table_ids,
                 Base.RefValue{UInt32}(UInt32(0)),
                 $(has_excluded),
