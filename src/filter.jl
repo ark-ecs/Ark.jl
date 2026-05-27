@@ -122,7 +122,7 @@ end
     optional_flags_type = Expr(:curly, :Tuple, optional_flag_type_elts...)
 
     _filter_relations = [:($(rel_ids[i]) => targets[$i]) for i in 1:length(rel_ids)]
-    relations = Expr(:curly, :Tuple, _filter_relations...)
+    relations = Expr(:tuple, _filter_relations...)
 
     return quote
         filter = Filter{$W,$comp_tuple_type,$EX,$optional_flags_type,$REG,$M}(
