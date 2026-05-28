@@ -1,8 +1,4 @@
 
-mutable struct _QueryCursor
-    closed::Bool
-end
-
 """
     Query
 
@@ -13,7 +9,7 @@ struct Query{W<:World,TS<:Tuple,SM<:Tuple,EX,OPT,REG,N,M,K,QS<:Tuple}
     _filter::_MaskFilter{M,K}
     _archetypes::Vector{_Archetype{M}}
     _archetypes_hot::Vector{_ArchetypeHot{M}}
-    _q_lock::_QueryCursor
+    _q_lock::_QueryHandle
     _world::W
     _storages::QS
 end
@@ -130,17 +126,22 @@ end
     )
 
     return quote
+        q_lock = _get_query(filter._world._query_pool)
         _lock(filter._world._lock)
         arches, hot = $(archetypes)
         Query{$W,$TS,$storage_tuple_mode,$EX,$OPT,$REG,$(length(comp_types)),$M,$K,$storage_tuple_type}(
             filter._filter,
             arches,
             hot,
-            _QueryCursor(false),
+            q_lock,
             filter._world,
             $storages_expr,
         )
     end
+end
+
+@inline function _is_open(q::Q)::Bool where {Q<:Query}
+    return _is_alive(q._world._query_pool, q._q_lock)
 end
 
 @inline function Base.iterate(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
@@ -222,7 +223,7 @@ end
 end
 
 @inline function Base.iterate(q::Q) where {Q<:Query}
-    if q._q_lock.closed
+    if !_is_open(q)
         throw(InvalidStateException("query closed, queries can't be used multiple times", :batch_closed))
     end
 
@@ -276,11 +277,9 @@ Closes the query and unlocks the world.
 Must be called if a query is not fully iterated.
 """
 function close!(q::Q) where {Q<:Query}
-    if q._q_lock.closed == true
-        return nothing
+    if _recycle(q._world._query_pool, q._q_lock)
+        _unlock(q._world._lock)
     end
-    _unlock(q._world._lock)
-    q._q_lock.closed = true
     return nothing
 end
 

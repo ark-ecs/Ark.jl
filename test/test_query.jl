@@ -32,11 +32,11 @@
                 new_entity!(world, (Altitude(1), Health(2)))
             )
             @test is_locked(world) == true
-            @test query._q_lock.closed == false
+            @test _is_alive(world._query_pool, query._q_lock) == true
         end
         @test count == 10
         @test is_locked(world) == false
-        @test query._q_lock.closed == true
+        @test _is_alive(world._query_pool, query._q_lock) == false
 
         # Should not raise
         close!(query)

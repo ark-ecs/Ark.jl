@@ -50,3 +50,34 @@ end
     # Test _recycle throws on reserved entity
     @test_throws "ArgumentError: can't recycle the reserved zero entity" _recycle(pool, zero_entity)
 end
+
+@testset "_QueryPool logic" begin
+    pool = _QueryPool(UInt32(2))
+
+    @test length(pool.queries) == 0
+    @test pool.next == 0
+
+    q1 = _get_query(pool)
+    @test q1._id == 1
+    @test q1._gen == UInt64(0)
+    @test q1._gen isa UInt64
+    @test _is_alive(pool, q1) == true
+
+    @test _recycle(pool, q1) == true
+    @test _is_alive(pool, q1) == false
+    @test pool.next == q1._id
+    @test pool.queries[q1._id]._gen == UInt64(1)
+    @test _recycle(pool, q1) == false
+
+    q2 = _get_query(pool)
+    @test q2._id == q1._id
+    @test q2._gen == UInt64(1)
+    @test q2._gen isa UInt64
+    @test _is_alive(pool, q2) == true
+    @test _is_alive(pool, q1) == false
+
+    q3 = _get_query(pool)
+    @test q3._id == 2
+    @test q3._gen == UInt64(0)
+    @test _is_alive(pool, q3) == true
+end

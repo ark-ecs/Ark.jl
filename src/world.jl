@@ -89,6 +89,7 @@ mutable struct World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M,RT<:Tuple,K} <: _Abstract
     const _index::_ComponentIndex{M}
     const _registry::_ComponentRegistry
     const _entity_pool::_EntityPool
+    const _query_pool::_QueryPool
     const _lock::_Lock
     const _graph::_Graph{M}
     const _resources::_Linear_Map{DataType,Any,false,false,DataType,NoResource}
@@ -725,6 +726,7 @@ function reset!(world::W) where {W<:World}
     resize!(world._entities, 1)
     resize!(world._targets, 1)
     _reset!(world._entity_pool)
+    _reset!(world._query_pool)
     _reset!(world._lock)
     _reset!(world._event_manager)
     _reset!(world._cache)
@@ -853,6 +855,7 @@ end
             _ComponentIndex{$(M)}($(length(types))),
             registry,
             _EntityPool(max(UInt32(initial_capacity), UInt32(1024))),
+            _QueryPool(),
             _Lock(),
             graph,
             _Linear_Map{DataType,Any}(; zero_key=NoResource, zero_value=NoResource()),

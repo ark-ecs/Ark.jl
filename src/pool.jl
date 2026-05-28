@@ -59,3 +59,106 @@ function _reset!(p::_EntityPool)
     resize!(p.entities, 1)
     p.next = 0
 end
+
+struct _QueryHandle
+    _id::UInt32
+    _gen::UInt64
+end
+
+mutable struct _QueryPool
+    const queries::Vector{_QueryHandle}
+    next::UInt32
+    const lock::ReentrantLock
+end
+
+function _QueryPool(cap::UInt32=UInt32(16))
+    queries = Vector{_QueryHandle}()
+    sizehint!(queries, cap)
+
+    return _QueryPool(queries, UInt32(0), ReentrantLock())
+end
+
+function _get_query(p::_QueryPool)::_QueryHandle
+    lock(p.lock)
+    try
+        return _get_query_unlocked(p)
+    finally
+        unlock(p.lock)
+    end
+end
+
+function _get_query_unlocked(p::_QueryPool)::_QueryHandle
+    if p.next == 0
+        return _get_new_query_unlocked(p)
+    end
+
+    curr = p.next
+    temp = p.queries[curr]
+
+    p.next = temp._id
+    query = _QueryHandle(curr, temp._gen)
+    p.queries[curr] = query
+
+    return query
+end
+
+function _get_new_query(p::_QueryPool)::_QueryHandle
+    lock(p.lock)
+    try
+        return _get_new_query_unlocked(p)
+    finally
+        unlock(p.lock)
+    end
+end
+
+function _get_new_query_unlocked(p::_QueryPool)::_QueryHandle
+    query = _QueryHandle(UInt32(length(p.queries) + 1), UInt64(0))
+    push!(p.queries, query)
+    return query
+end
+
+function _recycle(p::_QueryPool, query::_QueryHandle)::Bool
+    lock(p.lock)
+    try
+        if !_is_alive_unlocked(p, query)
+            return false
+        end
+
+        temp = p.next
+        p.next = query._id
+        p.queries[query._id] = _QueryHandle(temp, query._gen + UInt64(1))
+
+        return true
+    finally
+        unlock(p.lock)
+    end
+end
+
+function _is_alive(p::_QueryPool, query::_QueryHandle)::Bool
+    lock(p.lock)
+    try
+        return _is_alive_unlocked(p, query)
+    finally
+        unlock(p.lock)
+    end
+end
+
+function _is_alive_unlocked(p::_QueryPool, query::_QueryHandle)::Bool
+    id = query._id
+    if id == 0 || id > length(p.queries)
+        return false
+    end
+
+    @inbounds active_query = p.queries[id]
+    return active_query._id == id && active_query._gen == query._gen
+end
+
+function _reset!(p::_QueryPool)
+    lock(p.lock)
+    try
+        empty!(p.queries)
+        p.next = UInt32(0)
+    finally
+        unlock(p.lock)
+    end
+end
