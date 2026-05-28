@@ -1,6 +1,5 @@
 
 function setup_query_posvel_nested(n_entities::Int)
-
     n_parents = div(n_entities, 100)
 
     world = World(
@@ -20,31 +19,23 @@ function setup_query_posvel_nested(n_entities::Int)
         )
     end
 
-    parent_filter = Filter(world, (Position, Velocity); without=(ChildOf,))
-    first_child_filter = Filter(world, (Position, Velocity, ChildOf => parents[1]))
-    child_filters = Vector{typeof(first_child_filter)}(undef, n_parents)
-    child_filters[1] = first_child_filter
-    for i in 2:n_parents
-        child_filters[i] = Filter(world, (Position, Velocity, ChildOf => parents[i]))
-    end
-
-    sum = benchmark_query_posvel_nested((world, parent_filter, child_filters, 0), n_entities)
+    sum = benchmark_query_posvel_nested((world, parents, 0), n_entities)
     if sum != n_entities
         error("expected $n_entities child iterations, got $sum")
     end
 
-    return world, parent_filter, child_filters, sum
+    return world, parents, sum
 end
 
 function benchmark_query_posvel_nested(args, n)
-    _, parent_filter, child_filters, _ = args
+    world, parents, _ = args
     sum = 0
     parent_index = 1
 
-    for (_, parent_pos_column, parent_vel_column) in Query(parent_filter)
+    for (_, parent_pos_column, parent_vel_column) in Query(world, (Position, Velocity); without=(ChildOf,))
         for parent_i in eachindex(parent_pos_column)
-            @inbounds child_filter = child_filters[parent_index]
-            for (_, child_pos_column, child_vel_column, _) in Query(child_filter)
+            @inbounds parent = parents[parent_index]
+            for (_, child_pos_column, child_vel_column, _) in Query(world, (Position, Velocity, ChildOf => parent))
                 for child_i in eachindex(child_pos_column)
                     @inbounds pos = child_pos_column[child_i]
                     @inbounds vel = child_vel_column[child_i]
