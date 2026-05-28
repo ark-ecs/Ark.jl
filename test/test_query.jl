@@ -487,6 +487,19 @@ end
     )
 end
 
+@testset "Query close! is thread-safe" begin
+    world = World(Dummy, Position)
+    new_entity!(world, (Position(1, 2),))
+
+    query = Query(world, (Position,))
+    @sync for _ in 1:128
+        Threads.@spawn close!(query)
+    end
+
+    @test is_locked(world) == false
+    @test _is_alive(world._query_pool, query._q_lock) == false
+end
+
 @testset "Single eval of rhs for unpack" begin
     world = World(Position => Storage{StructArray})
     new_entity!(world, (Position(1.0, 2.0),))

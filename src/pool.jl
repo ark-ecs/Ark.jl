@@ -68,7 +68,7 @@ end
 mutable struct _QueryPool
     const queries::Vector{_QueryHandle}
     next::UInt32
-    const lock::ReentrantLock
+    const _lock::ReentrantLock
 end
 
 function _QueryPool(cap::UInt32=UInt32(16))
@@ -79,11 +79,11 @@ function _QueryPool(cap::UInt32=UInt32(16))
 end
 
 function _get_query(p::_QueryPool)::_QueryHandle
-    lock(p.lock)
+    lock(p._lock)
     try
         return _get_query_unlocked(p)
     finally
-        unlock(p.lock)
+        unlock(p._lock)
     end
 end
 
@@ -103,11 +103,11 @@ function _get_query_unlocked(p::_QueryPool)::_QueryHandle
 end
 
 function _get_new_query(p::_QueryPool)::_QueryHandle
-    lock(p.lock)
+    lock(p._lock)
     try
         return _get_new_query_unlocked(p)
     finally
-        unlock(p.lock)
+        unlock(p._lock)
     end
 end
 
@@ -118,7 +118,7 @@ function _get_new_query_unlocked(p::_QueryPool)::_QueryHandle
 end
 
 function _recycle(p::_QueryPool, query::_QueryHandle)::Bool
-    lock(p.lock)
+    lock(p._lock)
     try
         if !_is_alive_unlocked(p, query)
             return false
@@ -130,16 +130,16 @@ function _recycle(p::_QueryPool, query::_QueryHandle)::Bool
 
         return true
     finally
-        unlock(p.lock)
+        unlock(p._lock)
     end
 end
 
 function _is_alive(p::_QueryPool, query::_QueryHandle)::Bool
-    lock(p.lock)
+    lock(p._lock)
     try
         return _is_alive_unlocked(p, query)
     finally
-        unlock(p.lock)
+        unlock(p._lock)
     end
 end
 
@@ -154,11 +154,11 @@ function _is_alive_unlocked(p::_QueryPool, query::_QueryHandle)::Bool
 end
 
 function _reset!(p::_QueryPool)
-    lock(p.lock)
+    lock(p._lock)
     try
         empty!(p.queries)
         p.next = UInt32(0)
     finally
-        unlock(p.lock)
+        unlock(p._lock)
     end
 end

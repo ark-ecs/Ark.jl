@@ -56,6 +56,7 @@ end
 
     @test length(pool.queries) == 0
     @test pool.next == 0
+    @test pool._lock isa ReentrantLock
 
     q1 = _get_query(pool)
     @test q1._id == 1
