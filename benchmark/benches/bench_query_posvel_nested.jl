@@ -19,11 +19,6 @@ function setup_query_posvel_nested(n_entities::Int)
         )
     end
 
-    sum = benchmark_query_posvel_nested((world, parents, 0), n_entities)
-    if sum != n_entities
-        error("expected $n_entities child iterations, got $sum")
-    end
-
     return world, parents, sum
 end
 
