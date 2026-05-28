@@ -1,6 +1,5 @@
 
 mutable struct _QueryCursor
-    tables::Vector{UInt32}
     closed::Bool
 end
 
@@ -137,7 +136,7 @@ end
             filter._filter,
             arches,
             hot,
-            _QueryCursor(_empty_tables, false),
+            _QueryCursor(false),
             filter._world,
             $storages_expr,
         )
@@ -173,17 +172,17 @@ end
                 return result, (arch + 1, 0)
             end
 
-            @inbounds archetype = q._archetypes[arch]
+            
             if isempty(archetype.tables.ids)
                 arch += 1
                 continue
             end
 
-            q._q_lock.tables = _get_tables(q._world, archetype, q._filter.relations)
             tab = 1
         end
 
-        while tab <= length(q._q_lock.tables)
+        @inbounds archetype = q._archetypes[arch]
+        while tab <= length(_get_tables(q._world, archetype, q._filter.relations))
             table = @inbounds q._world._tables[Int(q._q_lock.tables[tab])]
             # TODO we can probably optimize here if exactly one relation in archetype and one queried.
             if isempty(table.entities) || !_matches(q._world._relations, table, q._filter.relations)
