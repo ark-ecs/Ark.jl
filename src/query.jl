@@ -229,10 +229,26 @@ end
     return Base.iterate(q, (1, 0))
 end
 
-@inline function Base.first(q::Q) where {Q<:Query}
+@inline function Base.first(q::Query)
     x = iterate(q)
     x === nothing && throw(ArgumentError("query must be non-empty"))
     return x[1]
+end
+
+@inline function Base.only(q::Query)
+    firstv = iterate(q)
+    if firstv === nothing
+        throw(ArgumentError("query must contain exactly one matching table"))
+    end
+
+    table, state = firstv
+    secondv = iterate(q, state)
+    if secondv !== nothing
+        close!(q)
+        throw(ArgumentError("query must contain exactly one matching table"))
+    end
+
+    return table
 end
 
 """
