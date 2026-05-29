@@ -284,6 +284,7 @@ end
     end
 
     query = Query(world, (Position, Velocity))
+    @test only(query) === first(query)
     @test length(query) == 0
     @test count_entities(query) == 0
 
@@ -308,6 +309,7 @@ end
     end
 
     query = Query(world, ())
+    @test_throws("ArgumentError: query must contain exactly one matching table", only(query))
     @test length(query) == 2
     @test count_entities(query) == 20
 
