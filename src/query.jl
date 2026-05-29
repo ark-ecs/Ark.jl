@@ -231,7 +231,7 @@ end
 
 @inline function Base.first(q::Q) where {Q<:Query}
     x = iterate(q)
-    x === nothing && throw(BoundsError("collection must be non-empty"))
+    x === nothing && throw(BoundsError("attempt to access empty query at index [1]"))
     return x[1]
 end
 
