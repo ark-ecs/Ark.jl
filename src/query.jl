@@ -229,6 +229,12 @@ end
     return Base.iterate(q, (1, 0))
 end
 
+@inline function Base.first(q::Q) where {Q<:Query}
+    x = iterate(q)
+    x === nothing && throw(ArgumentError("collection must be non-empty"))
+    return x[1]
+end
+
 """
     length(q::Query)
 
