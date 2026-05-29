@@ -231,7 +231,7 @@ end
 
 @inline function Base.first(q::Q) where {Q<:Query}
     x = iterate(q)
-    x === nothing && throw(ArgumentError("collection must be non-empty"))
+    x === nothing && throw(BoundsError("collection must be non-empty"))
     return x[1]
 end
 
