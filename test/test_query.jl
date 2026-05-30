@@ -287,9 +287,11 @@ end
     end
 
     query = Query(world, (Position, Velocity))
-    @test only(query) === first(query)
     @test length(query) == 0
     @test count_entities(query) == 0
+
+    query = Query(world, (Position,))
+    @test only(query) === first(query)
 
     count = 0
     arches = 0
