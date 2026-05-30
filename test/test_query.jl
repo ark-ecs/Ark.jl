@@ -291,7 +291,7 @@ end
     @test count_entities(query) == 0
 
     query = Query(world, (Position,))
-    @test only(query) === first(query)
+    @test first(query) === only(query)
 
     count = 0
     arches = 0
@@ -315,6 +315,8 @@ end
 
     query = Query(world, ())
     @test_throws("ArgumentError: query must contain exactly one matching table", only(query))
+
+    query = Query(world, ())
     @test length(query) == 2
     @test count_entities(query) == 20
 
