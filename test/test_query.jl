@@ -286,12 +286,12 @@ end
         new_entity!(world, (Position(i, i * 2),))
     end
 
+    query = Query(world, (Position,))
+    @test first(query) === only(query)
+
     query = Query(world, (Position, Velocity))
     @test length(query) == 0
     @test count_entities(query) == 0
-
-    query = Query(world, (Position,))
-    @test first(query) === only(query)
 
     count = 0
     arches = 0
