@@ -279,6 +279,8 @@ end
 @testset "Query empty" begin
     world = World(Dummy, Position, Velocity)
 
+    @test_throws("ArgumentError: query must contain exactly one matching table", only(query))
+
     for i in 1:10
         new_entity!(world, (Position(i, i * 2),))
     end
