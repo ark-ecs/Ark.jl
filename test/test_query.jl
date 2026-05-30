@@ -279,6 +279,7 @@ end
 @testset "Query empty" begin
     world = World(Dummy, Position, Velocity)
 
+    query = Query(world, (Position, Velocity))
     @test_throws("ArgumentError: query must contain exactly one matching table", only(query))
 
     for i in 1:10
