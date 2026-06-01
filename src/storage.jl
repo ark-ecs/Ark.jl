@@ -1,6 +1,7 @@
 
 struct _ComponentStorage{C,A<:AbstractArray{C,1}}
     data::Vector{A}
+    empty_column::A
 end
 
 function _new_storage(::Type{S}, ::Type{C}) where {S<:Storage,C}
@@ -29,6 +30,11 @@ end
 
 function _storage_type(::Type{Storage{GPUVector{B}}}, ::Type{C}) where {B,C}
     GPUVector{B,C,_gpuvector_type(C, Val{B}())}
+end
+
+function _new_component_storage(::Type{S}, ::Type{C}) where {S<:Storage,C}
+    empty_column = _new_storage(S, C)
+    return _ComponentStorage{C,typeof(empty_column)}([empty_column], empty_column)
 end
 
 @inline function _get_component(
@@ -77,23 +83,32 @@ end
     return @inbounds s.data[arch][row] = value
 end
 
-@generated function _add_column!(storage::_ComponentStorage{C,A}) where {C,A<:AbstractArray}
+@generated function _new_storage_column(::Type{C}, ::Type{A}) where {C,A<:AbstractArray}
     if A <: GPUStructArray
         QB = QuoteNode(A.parameters[1])
-        return :(push!(storage.data, GPUStructArray{$QB}(C)))
+        return :(GPUStructArray{$QB}(C))
     elseif A <: StructArray
-        return :(push!(storage.data, StructArray(C)))
+        return :(StructArray(C))
     else
-        return :(push!(storage.data, A()))
+        return :(A())
     end
 end
 
+function _add_column!(storage::_ComponentStorage)
+    push!(storage.data, storage.empty_column)
+end
+
 function _activate_column!(storage::_ComponentStorage{C,A}, arch::Int, cap::Int) where {C,A<:AbstractArray}
-    sizehint!(storage.data[arch], cap)
+    @inbounds if storage.data[arch] === storage.empty_column
+        storage.data[arch] = _new_storage_column(C, A)
+    end
+    @inbounds sizehint!(storage.data[arch], cap)
 end
 
 function _clear_column!(storage::_ComponentStorage{C,A}, arch::UInt32) where {C,A<:AbstractArray}
-    empty!(storage.data[arch])
+    @inbounds if storage.data[arch] !== storage.empty_column
+        empty!(storage.data[arch])
+    end
 end
 
 function _ensure_column_size!(storage::_ComponentStorage{C,A}, arch::UInt32, needed::Int) where {C,A<:AbstractArray}
