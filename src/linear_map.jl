@@ -278,7 +278,5 @@ Base.eltype(::Type{<:_Linear_Map_Keys{K,V}}) where {K,V} = K
 Base.eltype(::Type{<:_Linear_Map_Values{K,V}}) where {K,V} = V
 
 function Base.in(key, dk::_Linear_Map_Keys)
-    d = dk.d
-    @_get_value_loop(true)
-    return false
+    return haskey(dk.d)
 end
