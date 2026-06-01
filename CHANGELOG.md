@@ -18,6 +18,8 @@ relation in one statement (#614, #625).
 
 ### Performance
 
+- Inference on API has been improved substantially, fixing some issues with dynamic dispatch (#637)
+- Queries with relations are now non-allocating (#641)
 - Many batch operations are up to 3x faster thanks to simd (#575)
 - Many single entity operations are now 10-20% faster thanks to table caching in transitions (#555)
 
