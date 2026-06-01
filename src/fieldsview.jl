@@ -17,7 +17,7 @@ See also [@unpack](@ref).
 """
 @generated function unpack(v::FieldViewable{T}) where {T}
     props = fieldnames(T)
-    exprs = [:(FieldView{$(QuoteNode(p))}(v)) for p in props]
+    exprs = Expr[:(FieldView{$(QuoteNode(p))}(v)) for p in props]
     return :(tuple($(exprs...)))
 end
 

@@ -70,7 +70,7 @@ end
     comp_types = _to_types(CT)
     with_types = _to_types(WT)
     without_types = _to_types(WO)
-    relation_types = W.parameters[6]
+    relation_types = _world_relation_types(W)
 
     _check_no_duplicates(comp_types)
     _check_no_duplicates(with_types)
@@ -81,10 +81,10 @@ end
         throw(ArgumentError("cannot use 'exclusive' together with 'without'"))
     end
 
-    CS = W.parameters[1]
-    ids = map(C -> _component_id(CS, C), comp_types)
-    with_ids = map(C -> _component_id(CS, C), with_types)
-    without_ids = map(C -> _component_id(CS, C), without_types)
+    CS = _world_storage_types(W)
+    ids = Int[_component_id(CS, C) for C in comp_types]
+    with_ids = Int[_component_id(CS, C) for C in with_types]
+    without_ids = Int[_component_id(CS, C) for C in without_types]
 
     all_comps_relations = true
     for T in comp_types
@@ -93,7 +93,7 @@ end
         end
     end
 
-    M = max(1, cld(length(CS.parameters), 64))
+    M = max(1, cld(fieldcount(CS), 64))
     mask = _Mask{M}(ids...)
     with_mask = _Mask{M}(with_ids...)
     exclude_mask = EX === Val{true} ? _Mask{M}(_Not(), with_ids...) : _Mask{M}(without_ids...)
@@ -155,12 +155,12 @@ function unregister!(observer::Observer)
 end
 
 function Base.show(io::IO, obs::Observer{W}) where {W<:_AbstractWorld}
-    world_types = W.parameters[2].parameters
+    world_types = fieldtypes(_world_component_types(W))
 
     mask_ids = _active_bit_indices(obs._comps)
-    mask_types = tuple(map(i -> world_types[Int(i)].parameters[1], mask_ids)...)
+    mask_types = tuple(map(i -> _type_parameter(world_types[Int(i)]), mask_ids)...)
     with_ids = _active_bit_indices(obs._with)
-    with_types = tuple(map(i -> world_types[Int(i)].parameters[1], with_ids)...)
+    with_types = tuple(map(i -> _type_parameter(world_types[Int(i)]), with_ids)...)
 
     mask_names = join(map(_format_type, mask_types), ", ")
     with_names = join(map(_format_type, with_types), ", ")
@@ -169,7 +169,7 @@ function Base.show(io::IO, obs::Observer{W}) where {W<:_AbstractWorld}
     without_names = ""
     if !obs._is_exclusive
         excl_ids = _active_bit_indices(obs._without)
-        excl_types = tuple(map(i -> world_types[Int(i)].parameters[1], excl_ids)...)
+        excl_types = tuple(map(i -> _type_parameter(world_types[Int(i)]), excl_ids)...)
         without_names = join(map(_format_type, excl_types), ", ")
     end
 

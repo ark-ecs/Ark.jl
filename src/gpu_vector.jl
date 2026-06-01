@@ -23,6 +23,8 @@ mutable struct GPUVector{B,T,M} <: AbstractVector{T}
     len::Int
 end
 
+@inline _gpu_backend(::Type{<:GPUVector{B}}) where {B} = B
+
 function _gpuvector_type end
 
 function _gpuvectorview_type(t::Type, k::Val)

@@ -21,6 +21,8 @@ struct GPUStructArray{B,C,CS<:NamedTuple,N} <: _AbstractStructArray{C,CS,N}
     _components::CS
 end
 
+@inline _gpu_backend(::Type{<:GPUStructArray{B}}) where {B} = B
+
 function GPUStructArray{B}(tp::Type{C}) where {B,C}
     _GPUStructArray_from_type(tp, Val{B}())
 end
@@ -32,9 +34,10 @@ end
     num_fields == 0 && error("GPUStructArray storage not allowed for components without fields")
 
     QB = QuoteNode(B)
-    vec_types = [:(GPUVector{$QB,$t,_gpuvector_type($t, Val{$QB}())}) for t in types]
-    nt_type = :(NamedTuple{($(map(QuoteNode, names)...),),Tuple{$(vec_types...)}})
-    kv_exprs = [
+    vec_types = Expr[:(GPUVector{$QB,$t,_gpuvector_type($t, Val{$QB}())}) for t in types]
+    quoted_names = QuoteNode[QuoteNode(name) for name in names]
+    nt_type = :(NamedTuple{($(quoted_names...),),Tuple{$(vec_types...)}})
+    kv_exprs = Expr[
         :($name = GPUVector{$QB,$t,_gpuvector_type($t, Val{$QB}())}()) for (name, t) in zip(names, types)
     ]
 
@@ -50,7 +53,7 @@ end
     num_fields == 0 && error("GPUStructArray storage not allowed for components without fields")
 
     QB = QuoteNode(B)
-    vec_types = [:(GPUVector{$QB,$t,_gpuvector_type($t, Val{$QB}())}) for t in types]
+    vec_types = Expr[:(GPUVector{$QB,$t,_gpuvector_type($t, Val{$QB}())}) for t in types]
     nt_type = :(NamedTuple{$names,Tuple{$(vec_types...)}})
 
     return quote
@@ -66,7 +69,7 @@ end
     names = fieldnames(C)
     types = fieldtypes(C)
     QB = Val{B}()
-    vec_types = [:(_gpuvectorview_type($t, $QB)) for t in types]
+    vec_types = Expr[:(_gpuvectorview_type($t, $QB)) for t in types]
     nt_type = :(NamedTuple{$names,Tuple{$(vec_types...)}})
     return quote
         _StructArrayView{C,$nt_type}
@@ -80,8 +83,8 @@ end
     names = fieldnames(C)
     types = fieldtypes(C)
     QB = Val{B}()
-    vec_types = [:(_gpuvectorview_type($t, $QB)) for t in types]
-    view_exprs = [:($name = view(getfield(sa, :_components).$name.mem, idx)) for name in names]
+    vec_types = Expr[:(_gpuvectorview_type($t, $QB)) for t in types]
+    view_exprs = Expr[:($name = view(getfield(sa, :_components).$name.mem, idx)) for name in names]
     nt_type = :(NamedTuple{$names,Tuple{$(vec_types...)}})
     return quote
         _StructArrayView{C,$nt_type}((; $(view_exprs...)))

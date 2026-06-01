@@ -163,14 +163,14 @@ function _get_tables(
 end
 
 @generated function _get_archetypes(world::W, filter::F) where {W<:World,F<:Filter}
-    CS = W.parameters[1]
-    TS = F.parameters[2]
-    OPT = F.parameters[4]
+    CS = _world_storage_types(W)
+    TS = _filter_component_types(F)
+    OPT = _filter_optional_flags(F)
 
-    comp_types = _to_types(TS.parameters)
-    optional_flags = OPT.parameters
+    comp_types = _to_types(fieldtypes(TS))
+    optional_flags = fieldtypes(OPT)
 
-    required_ids = [_component_id(CS, comp_types[i]) for i in 1:length(comp_types) if optional_flags[i] === Val{false}]
+    required_ids = Int[_component_id(CS, comp_types[i]) for i in 1:length(comp_types) if optional_flags[i] === Val{false}]
     ids_tuple = tuple(required_ids...)
 
     # TODO: skip this for cached filters
@@ -564,12 +564,12 @@ end
     ::HFN,
 ) where {Fn,W<:World,F<:Filter,TR<:Tuple,HFN<:Val}
     rel_types = _to_types(TR)
-    relation_types = W.parameters[6]
+    relation_types = _world_relation_types(W)
 
     _check_no_duplicates(rel_types)
     _check_relations(rel_types, relation_types)
 
-    rel_ids = tuple([_component_id(W.parameters[1], T) for T in rel_types]...)
+    rel_ids = tuple(Int[_component_id(_world_storage_types(W), T) for T in rel_types]...)
 
     has_fn = HFN == Val{true}
     return quote
@@ -669,7 +669,7 @@ end
     add_types = _to_types(ATS)
     rem_types = _to_types(RTS)
     rel_types = _to_types(TR)
-    relation_types = W.parameters[6]
+    relation_types = _world_relation_types(W)
 
     if isempty(add_types) && isempty(rem_types)
         throw(ArgumentError("either components to add or to remove must be given for exchange_components!"))
@@ -735,19 +735,19 @@ end
     add_types = _to_types(ATS)
     rem_types = _to_types(RTS)
     rel_types = _to_types(TR)
-    relation_types = W.parameters[6]
+    relation_types = _world_relation_types(W)
 
-    exprs = []
+    exprs = Expr[]
 
-    CS = W.parameters[1]
-    add_ids = tuple([_component_id(CS, T) for T in add_types]...)
-    rem_ids = tuple([_component_id(CS, T) for T in rem_types]...)
-    rel_ids = tuple([_component_id(CS, T) for T in rel_types]...)
+    CS = _world_storage_types(W)
+    add_ids = tuple(Int[_component_id(CS, T) for T in add_types]...)
+    rem_ids = tuple(Int[_component_id(CS, T) for T in rem_types]...)
+    rel_ids = tuple(Int[_component_id(CS, T) for T in rel_types]...)
 
     num_ids = length(add_ids) + length(rem_ids)
     use_map = num_ids >= 4 ? _UseMap() : _NoUseMap()
 
-    M = max(1, cld(length(CS.parameters), 64))
+    M = max(1, cld(fieldcount(CS), 64))
     add_mask = _Mask{M}(add_ids...)
     rem_mask = _Mask{M}(rem_ids...)
 
@@ -814,7 +814,7 @@ end
         end
     end
 
-    types_tuple_type_expr = Expr(:curly, :Tuple, [:($T) for T in add_types]...)
+    types_tuple_type_expr = Expr(:curly, :Tuple, add_types...)
     ts_val_expr = :(Val{$(types_tuple_type_expr)}())
 
     if HFN == Val{true}
@@ -878,7 +878,7 @@ end
 end
 
 @generated function _remove_entities!(fn::Fn, world::W, filter::F, ::HFN) where {Fn,W<:World,F<:Filter,HFN<:Val}
-    world_has_rel = _has_relations(W.parameters[6])
+    world_has_rel = _has_relations(_world_relation_types(W))
     has_fn = HFN == Val{true}
     quote
         _check_locked(world)
@@ -996,26 +996,26 @@ end
 ) where {F,W<:World,TS,TR<:Tuple,DEF<:Val,HFN<:Val}
     types = _to_types(TS)
     rel_types = _to_types(TR)
-    relation_types = W.parameters[6]
+    relation_types = _world_relation_types(W)
 
     _check_no_duplicates(types)
     _check_no_duplicates(rel_types)
     _check_relations(rel_types, relation_types)
     _check_is_subset(rel_types, types)
 
-    CS = W.parameters[1]
-    ids = tuple([_component_id(CS, T) for T in types]...)
-    rel_ids = tuple([_component_id(CS, T) for T in rel_types]...)
+    CS = _world_storage_types(W)
+    ids = tuple(Int[_component_id(CS, T) for T in types]...)
+    rel_ids = tuple(Int[_component_id(CS, T) for T in rel_types]...)
     num_ids = length(ids)
     use_map = num_ids >= 4 ? _UseMap() : _NoUseMap()
 
-    M = max(1, cld(length(CS.parameters), 64))
+    M = max(1, cld(fieldcount(CS), 64))
     add_mask = _Mask{M}(ids...)
     rem_mask = _Mask{M}()
 
     world_has_rel = Val{_has_relations(relation_types)}()
 
-    exprs = []
+    exprs = Expr[]
     push!(exprs, :(_check_relation_targets(world, targets)))
     push!(exprs, :(_check_locked(world)))
     push!(
@@ -1057,7 +1057,7 @@ end
         ))
     end
 
-    types_tuple_type_expr = Expr(:curly, :Tuple, [:($T) for T in types]...)
+    types_tuple_type_expr = Expr(:curly, :Tuple, types...)
     ts_val_expr = :(Val{$(types_tuple_type_expr)}())
 
     if HFN == Val{true}
@@ -1119,11 +1119,11 @@ end
     start_idx::Int,
     end_idx::Int,
 ) where {W<:World,TS<:Tuple}
-    CS = W.parameters[1]
-    comp_types = TS.parameters
-    world_storage_modes = W.parameters[3].parameters
+    CS = _world_storage_types(W)
+    comp_types = fieldtypes(TS)
+    world_storage_modes = fieldtypes(_world_storage_modes(W))
 
-    storage_modes = [
+    storage_modes = Type[
         world_storage_modes[_component_id(CS, T)]
         for T in comp_types
     ]
@@ -1137,20 +1137,19 @@ end
         push!(exprs, :(@inbounds $stor_sym = _get_storage(world, $(comp_types[i]))))
         push!(exprs, :(@inbounds $col_sym = $stor_sym.data[Int(table.id)]))
 
-        if storage_modes[i].parameters[1] <: GPUVector
+        if _storage_vector_type(storage_modes[i]) <: GPUVector
             push!(exprs, :($vec_sym = view(($col_sym).mem, Int(start_idx):Int(end_idx))))
-        elseif storage_modes[i] == Storage{StructArray} || storage_modes[i].parameters[1] <: GPUStructArray ||
+        elseif storage_modes[i] == Storage{StructArray} || _storage_vector_type(storage_modes[i]) <: GPUStructArray ||
                fieldcount(comp_types[i]) == 0
             push!(exprs, :($vec_sym = view($col_sym, Int(start_idx):Int(end_idx))))
         else
             push!(exprs, :($vec_sym = FieldViewable(view($col_sym, Int(start_idx):Int(end_idx)))))
         end
     end
-    result_exprs = [:entities]
+    result_exprs = Symbol[:entities]
     for i in 1:length(comp_types)
         push!(result_exprs, Symbol("vec", i))
     end
-    result_exprs = map(x -> :($x), result_exprs)
     push!(exprs, Expr(:return, Expr(:tuple, result_exprs...)))
 
     return quote

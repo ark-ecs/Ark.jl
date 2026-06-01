@@ -4,6 +4,8 @@ struct _ComponentStorage{C,A<:AbstractArray{C,1}}
     empty_column::A
 end
 
+@inline _component_type(::Type{<:_ComponentStorage{C}}) where {C} = C
+
 function _new_storage(::Type{S}, ::Type{C}) where {S<:Storage,C}
     _storage_type(S, C)()
 end
@@ -85,7 +87,7 @@ end
 
 @generated function _new_storage_column(::Type{C}, ::Type{A}) where {C,A<:AbstractArray}
     if A <: GPUStructArray
-        QB = QuoteNode(A.parameters[1])
+        QB = QuoteNode(_gpu_backend(A))
         return :(GPUStructArray{$QB}(C))
     elseif A <: StructArray
         return :(StructArray(C))
@@ -137,7 +139,7 @@ end
     new_table::UInt32,
     row::UInt32,
 ) where {C,A<:_AbstractStructArray}
-    names = fieldnames(A.parameters[A <: StructArray ? 1 : 2])
+    names = fieldnames(eltype(A))
     exprs_push_remove = Expr[]
     for name in names
         push!(exprs_push_remove, :(@inbounds push!(new_vec_comp.$name, old_vec_comp.$name[row])))
@@ -161,7 +163,7 @@ end
 ) where {C,A<:AbstractArray,CP<:Val}
     # TODO: this can probably be optimized for StructArray storage
     # by moving per component instead of unpacking/packing.
-    exprs = []
+    exprs = Expr[]
     push!(exprs, :(@inbounds old_vec = s.data[old_table]))
     push!(exprs, :(@inbounds new_vec = s.data[new_table]))
 
@@ -249,7 +251,7 @@ end
     arch::UInt32,
     row::UInt32,
 ) where {C,A<:_AbstractStructArray}
-    names = fieldnames(A.parameters[A <: StructArray ? 1 : 2])
+    names = fieldnames(eltype(A))
     exprs_remove = Expr[]
     for name in names
         push!(exprs_remove, :(_swap_remove!(getfield(col, :_components).$name, row)))
@@ -305,7 +307,7 @@ end
     i::Int,
     j::Int,
 ) where {C,A<:_AbstractStructArray}
-    names = fieldnames(A.parameters[A <: StructArray ? 1 : 2])
+    names = fieldnames(eltype(A))
     exprs_swap = Expr[]
     for name in names
         push!(exprs_swap, :(_swap_indices!(getfield(col, :_components).$name, i, j)))
@@ -326,26 +328,26 @@ end
     names = fieldnames(C)
 
     if A <: _AbstractStructArray
-        tmp_syms = [gensym(:tmp) for _ in names]
+        tmp_syms = Symbol[gensym(:tmp) for _ in names]
 
-        tmp_exprs = [
+        tmp_exprs = Expr[
             :(@inbounds $(tmp_syms[i]) = getfield(comps, $(QuoteNode(names[i])))[start]) for i in eachindex(names)
         ]
 
-        shift_exprs = [
+        shift_exprs = Expr[
             :(getfield(comps, $(QuoteNode(name)))[row] = getfield(comps, $(QuoteNode(name)))[next_row]) for
             name in names
         ]
 
-        final_exprs = [
+        final_exprs = Expr[
             :(getfield(comps, $(QuoteNode(names[i])))[row] = $(tmp_syms[i])) for i in eachindex(names)
         ]
     else
-        tmp_exprs = [:(@inbounds tmp = col[start])]
+        tmp_exprs = Expr[:(@inbounds tmp = col[start])]
 
-        shift_exprs = [:(col[row] = col[next_row])]
+        shift_exprs = Expr[:(col[row] = col[next_row])]
 
-        final_exprs = [:(col[row] = tmp)]
+        final_exprs = Expr[:(col[row] = tmp)]
     end
 
     return quote
