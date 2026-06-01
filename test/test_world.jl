@@ -167,6 +167,55 @@ end
     @test length(world._tables) == 3
 end
 
+@testset "World shares inactive storage columns" begin
+    world = World(Position, Velocity => Storage{StructArray}, Relation{ChildOf})
+    pos_storage = _get_storage(world, Position)
+    vel_storage = _get_storage(world, Velocity)
+    child_storage = _get_storage(world, ChildOf)
+
+    @test pos_storage.data[1] === pos_storage.empty_column
+    @test vel_storage.data[1] === vel_storage.empty_column
+    @test child_storage.data[1] === child_storage.empty_column
+
+    parent1 = new_entity!(world, ())
+    parent2 = new_entity!(world, ())
+    child1 = new_entity!(world, (ChildOf() => parent1,))
+    child2 = new_entity!(world, (ChildOf() => parent2,))
+    child_table1 = world._entities[child1._id].table
+    child_table2 = world._entities[child2._id].table
+
+    @test child_table1 != child_table2
+    for table in (child_table1, child_table2)
+        @test pos_storage.data[table] === pos_storage.empty_column
+        @test vel_storage.data[table] === vel_storage.empty_column
+        @test child_storage.data[table] !== child_storage.empty_column
+    end
+    @test child_storage.data[child_table1] !== child_storage.data[child_table2]
+
+    entity1 = new_entity!(world, (Position(1, 1), Velocity(1, 1), ChildOf() => parent1))
+    entity2 = new_entity!(world, (Position(2, 2), Velocity(2, 2), ChildOf() => parent2))
+    table1 = world._entities[entity1._id].table
+    table2 = world._entities[entity2._id].table
+
+    @test table1 != table2
+    for storage in (pos_storage, vel_storage, child_storage)
+        @test storage.data[table1] !== storage.empty_column
+        @test storage.data[table2] !== storage.empty_column
+        @test storage.data[table1] !== storage.data[table2]
+    end
+
+    pos_column = pos_storage.data[table1]
+    vel_column = vel_storage.data[table1]
+    reset!(world)
+
+    @test pos_storage.data[table1] === pos_column
+    @test vel_storage.data[table1] === vel_column
+    @test isempty(pos_column)
+    @test isempty(vel_column)
+    @test isempty(pos_storage.empty_column)
+    @test isempty(vel_storage.empty_column)
+end
+
 @testset "World Component Registration" begin
     world = World(Int, Position)
     params = typeof(world).parameters[1]

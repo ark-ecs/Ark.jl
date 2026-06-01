@@ -22,6 +22,7 @@ relation in one statement (#614, #625).
 - Queries with relations are now non-allocating (#641)
 - Many batch operations are up to 3x faster thanks to simd (#575)
 - Many single entity operations are now 10-20% faster thanks to table caching in transitions (#555)
+- Inactive component columns are shared between tables to reduce memory usage in fragmented worlds (#648)
 
 ### Bugfixes
 
