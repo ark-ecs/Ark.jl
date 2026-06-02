@@ -8,7 +8,7 @@ struct _Mask{M} <: _AbstractMask{M}
 end
 
 function _Mask{M}() where M
-    return _Mask(ntuple(_ -> UInt64(0), M))
+    return _Mask(ntuple(Returns(UInt64(0)), M))
 end
 
 function _Mask{1}(bits::Integer...)
@@ -22,7 +22,7 @@ function _Mask{1}(bits::Integer...)
 end
 
 function _Mask{M}(bits::T...) where {M,T<:Integer}
-    chunks = ntuple(_ -> UInt64(0), M)
+    chunks = ntuple(Returns(UInt64(0)), M)
     for b in bits
         @check 1 ≤ b ≤ M * 64
         chunk = (b - 1) >>> 6
@@ -33,7 +33,7 @@ function _Mask{M}(bits::T...) where {M,T<:Integer}
 end
 
 function _Mask{M}(::_Not) where M
-    return _Mask(ntuple(_ -> typemax(UInt64), M))
+    return _Mask(ntuple(Returns(typemax(UInt64)), M))
 end
 
 function _Mask{1}(::_Not, bits::Integer...)
@@ -47,7 +47,7 @@ function _Mask{1}(::_Not, bits::Integer...)
 end
 
 function _Mask{M}(::_Not, bits::T...) where {M,T<:Integer}
-    chunks = ntuple(_ -> typemax(UInt64), M)  # 0xFFFFFFFFFFFFFFFF
+    chunks = ntuple(Returns(typemax(UInt64)), M)  # 0xFFFFFFFFFFFFFFFF
     for b in bits
         @check 1 ≤ b ≤ M * 64
         chunk = (b - 1) >>> 6
@@ -167,7 +167,7 @@ function _set_mask!(mask::_MutableMask, other::_Mask)
 end
 
 function _clear_mask!(mask::_MutableMask{M}) where M
-    mask.bits.data = ntuple(_ -> UInt64(0), M)
+    mask.bits.data = ntuple(Returns(UInt64(0)), M)
     return mask
 end
 

@@ -124,11 +124,9 @@ _format_type(T) = string(T)
     return Expr(:new, T, field_exprs...)
 end
 
-function _generate_component_switch(CS::Type{<:Tuple}, comp_idx_sym::Symbol, func_generator::Function)
-    N = fieldcount(CS)
+function _generate_component_switch(comp_idx_sym::Symbol, call_exprs::Vector{Expr})
     exprs = Expr[]
-    for i in 1:N
-        call_expr = func_generator(i)
+    for (i, call_expr) in enumerate(call_exprs)
         push!(exprs, :(
             if $comp_idx_sym == $i
                 return $call_expr
@@ -138,13 +136,25 @@ function _generate_component_switch(CS::Type{<:Tuple}, comp_idx_sym::Symbol, fun
     return Expr(:block, exprs...)
 end
 
-function _generate_type_lookup(CS::Type{<:Tuple}, TargetType::Type, result_generator::Function)
+function _component_index(CS::Type{<:Tuple}, TargetType::Type)::Union{Int,Nothing}
     _storage_types = fieldtypes(CS)
     for (i, S) in enumerate(_storage_types)
         if S <: _ComponentStorage && _component_type(S) === TargetType
-            return result_generator(i)
+            return i
         end
     end
+    return nothing
+end
+
+function _require_component_index(CS::Type{<:Tuple}, TargetType::Type)::Int
+    index = _component_index(CS, TargetType)
+    if isnothing(index)
+        throw(ArgumentError(lazy"Component type $(TargetType) not found in the World"))
+    end
+    return index
+end
+
+function _component_lookup_error(TargetType::Type)
     return :(throw(ArgumentError($(lazy"Component type $(TargetType) not found in the World"))))
 end
 
@@ -169,5 +179,6 @@ end
 end
 
 @inline @generated function _valtuple(t::Tuple{Vararg{Any,N}}) where {N}
-    return Expr(:tuple, (:(Val(getfield(t, $i))) for i in 1:N)...)
+    exprs = Expr[:(Val(getfield(t, $i))) for i in 1:N]
+    return Expr(:tuple, exprs...)
 end

@@ -873,15 +873,18 @@ end
 end
 
 @generated function _component_id(::Type{CS}, ::Type{C})::Int where {CS<:Tuple,C}
-    _generate_type_lookup(CS, C, i -> :($i))
+    index = _component_index(CS, C)
+    return isnothing(index) ? _component_lookup_error(C) : :($index)
 end
 
 @generated function _get_storage(world::World{CS}, ::Type{C}) where {CS<:Tuple,C}
-    _generate_type_lookup(CS, C, i -> :(world._storages.$i))
+    index = _component_index(CS, C)
+    return isnothing(index) ? _component_lookup_error(C) : :(world._storages.$index)
 end
 
 @generated function _get_relations_storage(world::World{CS}, ::Type{C}) where {CS<:Tuple,C}
-    _generate_type_lookup(CS, C, i -> :(world._relations[$i]))
+    index = _component_index(CS, C)
+    return isnothing(index) ? _component_lookup_error(C) : :(world._relations[$index])
 end
 
 @inline function _find_or_create_archetype!(
@@ -1333,8 +1336,8 @@ end
     _check_is_subset(rel_types, types)
 
     CS = _world_storage_types(W)
-    ids = tuple(Int[_component_id(CS, T) for T in types]...)
-    rel_ids = tuple(Int[_component_id(CS, T) for T in rel_types]...)
+    ids = tuple(Int[_require_component_index(CS, T) for T in types]...)
+    rel_ids = tuple(Int[_require_component_index(CS, T) for T in rel_types]...)
     num_ids = length(ids)
     use_map = num_ids >= 4 ? _UseMap() : _NoUseMap()
 
@@ -1608,9 +1611,9 @@ end
     _check_is_subset(rel_types, add_types)
 
     CS = _world_storage_types(W)
-    add_ids = tuple(Int[_component_id(CS, T) for T in add_types]...)
-    rem_ids = tuple(Int[_component_id(CS, T) for T in rem_types]...)
-    rel_ids = tuple(Int[_component_id(CS, T) for T in rel_types]...)
+    add_ids = tuple(Int[_require_component_index(CS, T) for T in add_types]...)
+    rem_ids = tuple(Int[_require_component_index(CS, T) for T in rem_types]...)
+    rel_ids = tuple(Int[_require_component_index(CS, T) for T in rel_types]...)
 
     num_ids = length(add_ids) + length(rem_ids)
     use_map = num_ids >= 4 ? _UseMap() : _NoUseMap()
@@ -1749,7 +1752,7 @@ end
 
     if length(types) >= 3
         CS = _world_storage_types(W)
-        ids = tuple(Int[_component_id(CS, T) for T in types]...)
+        ids = tuple(Int[_require_component_index(CS, T) for T in types]...)
         M = max(1, cld(fieldcount(CS), 64))
         query_mask = _Mask{M}(ids...)
 
@@ -1884,7 +1887,7 @@ end
     _check_no_duplicates(rel_types)
     _check_relations(rel_types, relation_types)
 
-    rel_ids = tuple(Int[_component_id(_world_storage_types(W), T) for T in rel_types]...)
+    rel_ids = tuple(Int[_require_component_index(_world_storage_types(W), T) for T in rel_types]...)
 
     exprs = Expr[]
 
@@ -1998,9 +2001,9 @@ end
     push!(exprs, :(_check_locked(world)))
 
     CS = _world_storage_types(W)
-    add_ids = tuple(Int[_component_id(CS, T) for T in add_types]...)
-    rem_ids = tuple(Int[_component_id(CS, T) for T in rem_types]...)
-    rel_ids = tuple(Int[_component_id(CS, T) for T in rel_types]...)
+    add_ids = tuple(Int[_require_component_index(CS, T) for T in add_types]...)
+    rem_ids = tuple(Int[_require_component_index(CS, T) for T in rem_types]...)
+    rel_ids = tuple(Int[_require_component_index(CS, T) for T in rel_types]...)
 
     num_ids = length(add_ids) + length(rem_ids)
     use_map = num_ids >= 4 ? _UseMap() : _NoUseMap()
@@ -2118,7 +2121,7 @@ end
 
     CS = _world_storage_types(W)
     has_comps = (length(comp_types) > 0) ? :(true) : (false)
-    ids = Int[_component_id(CS, C) for C in comp_types]
+    ids = Int[_require_component_index(CS, C) for C in comp_types]
     M = max(1, cld(fieldcount(CS), 64))
     mask = _Mask{M}(ids...)
 
@@ -2185,8 +2188,8 @@ end
 end
 
 @generated function _activate_new_column_for_comp!(world::World{CS}, comp::Int, index::Int) where CS
-    _generate_component_switch(CS, :comp,
-        i -> :(_activate_column!(world._storages.$i, index, world._initial_capacity)))
+    call_exprs = Expr[:(_activate_column!(world._storages.$i, index, world._initial_capacity)) for i in 1:fieldcount(CS)]
+    _generate_component_switch(:comp, call_exprs)
 end
 
 function _activate_archetype_relation_for_comp!(
@@ -2213,8 +2216,8 @@ end
     arch::UInt32,
     needed::Int,
 ) where CS
-    _generate_component_switch(CS, :comp,
-        i -> :(_ensure_column_size!(world._storages.$i, arch, needed)))
+    call_exprs = Expr[:(_ensure_column_size!(world._storages.$i, arch, needed)) for i in 1:fieldcount(CS)]
+    _generate_component_switch(:comp, call_exprs)
 end
 
 @generated function _move_component_data!(
@@ -2224,8 +2227,8 @@ end
     new_table::UInt32,
     row::UInt32,
 ) where CS
-    _generate_component_switch(CS, :comp,
-        i -> :(_move_component_data!(world._storages.$i, old_table, new_table, row)))
+    call_exprs = Expr[:(_move_component_data!(world._storages.$i, old_table, new_table, row)) for i in 1:fieldcount(CS)]
+    _generate_component_switch(:comp, call_exprs)
 end
 
 @generated function _copy_component_data!(
@@ -2240,8 +2243,11 @@ end
         mode = _val_parameter(CP)
         throw(ArgumentError(":$mode is not a valid copy mode, must be :ref, :copy or :deepcopy"))
     end
-    _generate_component_switch(CS, :comp,
-        i -> :(_copy_component_data!(world._storages.$i, old_table, new_table, old_row, mode)))
+    call_exprs = Expr[
+        :(_copy_component_data!(world._storages.$i, old_table, new_table, old_row, mode))
+        for i in 1:fieldcount(CS)
+    ]
+    _generate_component_switch(:comp, call_exprs)
 end
 
 @generated function _copy_component_data_to_end!(
@@ -2250,8 +2256,8 @@ end
     old_table::UInt32,
     new_table::UInt32,
 ) where {CS<:Tuple}
-    _generate_component_switch(CS, :comp,
-        i -> :(_copy_component_data_to_end!(world._storages.$i, old_table, new_table)))
+    call_exprs = Expr[:(_copy_component_data_to_end!(world._storages.$i, old_table, new_table)) for i in 1:fieldcount(CS)]
+    _generate_component_switch(:comp, call_exprs)
 end
 
 @generated function _clear_component_data!(
@@ -2259,8 +2265,8 @@ end
     comp::Int,
     table::UInt32,
 ) where {CS<:Tuple}
-    _generate_component_switch(CS, :comp,
-        i -> :(_clear_column!(world._storages.$i, table)))
+    call_exprs = Expr[:(_clear_column!(world._storages.$i, table)) for i in 1:fieldcount(CS)]
+    _generate_component_switch(:comp, call_exprs)
 end
 
 @generated function _swap_remove_in_column_for_comp!(
@@ -2269,8 +2275,8 @@ end
     table::UInt32,
     row::UInt32,
 ) where {CS<:Tuple}
-    _generate_component_switch(CS, :comp,
-        i -> :(_remove_component_data!(world._storages.$i, table, row)))
+    call_exprs = Expr[:(_remove_component_data!(world._storages.$i, table, row)) for i in 1:fieldcount(CS)]
+    _generate_component_switch(:comp, call_exprs)
 end
 
 function _check_locked(world::World)
@@ -2309,8 +2315,8 @@ end
     i::Int,
     j::Int,
 ) where {CS<:Tuple}
-    _generate_component_switch(CS, :comp,
-        k -> :(_swap_component_data!(world._storages.$k, table, i, j)))
+    call_exprs = Expr[:(_swap_component_data!(world._storages.$k, table, i, j)) for k in 1:fieldcount(CS)]
+    _generate_component_switch(:comp, call_exprs)
 end
 
 @inline function _swap_rows!(world::World, archetype::_Archetype, table::_Table, i::Int, j::Int)
@@ -2338,15 +2344,15 @@ end
     entity_index::Vector{_EntityIndex},
     start::Int,
 ) where {CS<:Tuple}
-    _generate_component_switch(
-        CS,
-        :comp,
-        i -> :(_permute_component_cycle!(
+    call_exprs = Expr[
+        :(_permute_component_cycle!(
             world._storages.$i,
             table,
             entities,
             entity_index,
             start,
-        )),
-    )
+        ))
+        for i in 1:fieldcount(CS)
+    ]
+    _generate_component_switch(:comp, call_exprs)
 end
