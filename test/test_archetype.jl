@@ -1,11 +1,11 @@
 
 @testset "_IdCollection" begin
-    t1 = _new_table(UInt32(1), UInt32(1))
-    t2 = _new_table(UInt32(2), UInt32(1))
-    t3 = _new_table(UInt32(3), UInt32(1))
-    t4 = _new_table(UInt32(4), UInt32(1))
-    t5 = _new_table(UInt32(5), UInt32(1))
-    t6 = _new_table(UInt32(6), UInt32(1))
+    t1 = _new_table(UInt32(1), UInt32(1), 0, _empty_relations)
+    t2 = _new_table(UInt32(2), UInt32(1), 0, _empty_relations)
+    t3 = _new_table(UInt32(3), UInt32(1), 0, _empty_relations)
+    t4 = _new_table(UInt32(4), UInt32(1), 0, _empty_relations)
+    t5 = _new_table(UInt32(5), UInt32(1), 0, _empty_relations)
+    t6 = _new_table(UInt32(6), UInt32(1), 0, _empty_relations)
 
     @test length(t1) == 0
     @test isempty(t1) == true

@@ -1627,7 +1627,7 @@ end
 
     for t in 2:6
         @test length(world._tables[t].entities) == 0
-        @test length(world._tables[t].filters) == 0
+        @test length(world._tables[t].filters[]) == 0
     end
 
     for s in 2:4
