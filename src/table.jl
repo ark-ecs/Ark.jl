@@ -34,7 +34,7 @@ function _remove_table_filter!(table::_Table, filter_id::UInt32)
     end
     removed = _remove_id!(filters, filter_id)
     return removed
-end 
+end
 
 struct _FilterRelations{K}
     len::Int
