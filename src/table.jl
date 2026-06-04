@@ -29,9 +29,7 @@ end
 
 function _remove_table_filter!(table::_Table, filter_id::UInt32)
     filters = table.filters[]
-    if filters === _empty_id_collection
-        return false
-    end
+    @check filters !== _empty_id_collection
     removed = _remove_id!(filters, filter_id)
     return removed
 end
