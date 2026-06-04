@@ -7,20 +7,34 @@ end
 struct _Table
     entities::Entities
     relations::Vector{Pair{Int32,Entity}}
-    filters::_IdCollection
+    filters::Base.RefValue{_IdCollection}
     id::UInt32
     archetype::UInt32
 end
 
-function _new_table(id::UInt32, archetype::UInt32)
-    return _Table(Entities(0), Pair{Int32,Entity}[], _IdCollection(), id, archetype)
-end
-
 function _new_table(id::UInt32, archetype::UInt32, cap::Int, relations::Vector{Pair{Int32,Entity}})
-    return _Table(Entities(cap), relations, _IdCollection(), id, archetype)
+    return _Table(Entities(cap), relations, Ref(_empty_id_collection), id, archetype)
 end
 
 _has_relations(t::_Table) = !isempty(t.relations)
+
+function _add_table_filters!(table::_Table)
+    filters = table.filters[]
+    if filters === _empty_id_collection
+        filters = _IdCollection()
+        table.filters[] = filters
+    end
+    return filters
+end
+
+function _remove_table_filter!(table::_Table, filter_id::UInt32)
+    filters = table.filters[]
+    if filters === _empty_id_collection
+        return false
+    end
+    removed = _remove_id!(filters, filter_id)
+    return removed
+end 
 
 struct _FilterRelations{K}
     len::Int

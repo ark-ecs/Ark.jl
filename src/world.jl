@@ -731,7 +731,7 @@ function reset!(world::W) where {W<:World}
 
     for table in world._tables
         empty!(table)
-        _clear!(table.filters)
+        _clear!(table.filters[])
         archetype = world._archetypes[table.archetype]
         for comp in archetype.components
             _clear_component_data!(world, comp, table.id)
@@ -848,7 +848,7 @@ end
             [_Archetype(UInt32(1), node, UInt32(1))],
             [_ArchetypeHot(node, UInt32(1))],
             Vector{UInt32}(),
-            [_new_table(UInt32(1), UInt32(1))],
+            [_new_table(UInt32(1), UInt32(1), 0, _empty_relations)],
             _LastTable{$M}(_Mask{$M}(), UInt32(1)),
             _ComponentIndex{$(M)}($(length(types))),
             registry,

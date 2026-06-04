@@ -12,7 +12,8 @@ _is_cached(f::_MaskFilter) = f.id[] > 0
 
 function _add_table!(filter::F, table::_Table) where {F<:_MaskFilter}
     _add_id!(filter.tables, table.id)
-    _add_id!(table.filters, filter.id[])
+    table_filters = _add_table_filters!(table)
+    _add_id!(table_filters, filter.id[])
 end
 
 struct _Cache{M,K}
@@ -71,7 +72,7 @@ function _unregister_filter!(world::W, filter::F) where {W<:_AbstractWorld,F<:_M
 
     for table_id in filter.tables.ids
         table = world._tables[table_id]
-        _remove_id!(table.filters, filter.id[])
+        _remove_table_filter!(table, filter.id[])
     end
 
     if filter.id[] == length(world._cache.filters)
@@ -110,11 +111,16 @@ function _add_table!(
 end
 
 function _remove_table!(cache::_Cache, table::_Table)
-    for filter_id in table.filters.ids
+    table_filters = table.filters[]
+    if table_filters === _empty_id_collection
+        return nothing
+    end
+
+    for filter_id in table_filters.ids
         filter = cache.filters[filter_id]
         _remove_id!(filter.tables, table.id)
     end
-    _clear!(table.filters)
+    _clear!(table.filters[])
 end
 
 function _reset!(cache::_Cache)
