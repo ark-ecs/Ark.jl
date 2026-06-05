@@ -2,6 +2,12 @@
 
 ## [[unpublished]](https://github.com/ark-ecs/Ark.jl/compare/v0.5.0...main)
 
+## [[v0.5.1]](https://github.com/ark-ecs/Ark.jl/compare/v0.5.0...v0.5.1)
+
+### Bugfixes
+
+- Fixed some unsound usages of internals and function not respecting assumptions in generated functions (#651)
+
 ## [[v0.5.0]](https://github.com/ark-ecs/Ark.jl/compare/v0.4.0...v0.5.0)
 
 ### Breaking changes
