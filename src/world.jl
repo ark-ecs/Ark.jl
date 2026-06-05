@@ -98,10 +98,21 @@ mutable struct World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M,RT<:Tuple,K} <: _Abstract
     const _initial_capacity::Int
 end
 
-@inline _world_storage_types(::Type{<:World{CS}}) where {CS} = CS
-@inline _world_component_types(::Type{<:World{CS,CT}}) where {CS,CT} = CT
-@inline _world_storage_modes(::Type{<:World{CS,CT,ST}}) where {CS,CT,ST} = ST
-@inline _world_relation_types(::Type{<:World{CS,CT,ST,N,M,RT}}) where {CS,CT,ST,N,M,RT} = RT
+function _world_storage_types(::Type{<:World{CS}}) where {CS}
+    return CS
+end
+
+function _world_component_types(::Type{<:World{CS,CT}}) where {CS,CT}
+    return CT
+end
+
+function _world_storage_modes(::Type{<:World{CS,CT,ST}}) where {CS,CT,ST}
+    return ST
+end
+
+function _world_relation_types(::Type{<:World{CS,CT,ST,N,M,RT}}) where {CS,CT,ST,N,M,RT}
+    return RT
+end
 
 """
     World(
@@ -872,19 +883,14 @@ end
     end
 end
 
-@generated function _component_id(::Type{CS}, ::Type{C})::Int where {CS<:Tuple,C}
-    index = _component_index(CS, C)
-    return isnothing(index) ? _component_lookup_error(C) : :($index)
-end
-
 @generated function _get_storage(world::World{CS}, ::Type{C}) where {CS<:Tuple,C}
     index = _component_index(CS, C)
-    return isnothing(index) ? _component_lookup_error(C) : :(world._storages.$index)
+    return :(world._storages.$index)
 end
 
 @generated function _get_relations_storage(world::World{CS}, ::Type{C}) where {CS<:Tuple,C}
     index = _component_index(CS, C)
-    return isnothing(index) ? _component_lookup_error(C) : :(world._relations[$index])
+    return :(world._relations[$index])
 end
 
 @inline function _find_or_create_archetype!(

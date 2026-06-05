@@ -18,11 +18,11 @@ end
     @test isa(world, World)
     params = typeof(world).parameters[1]
 
-    @test _component_id(params, Velocity) == offset_ID + 2
-    @test _component_id(params, Position) == offset_ID + 1
+    @test _component_index(params, Velocity) == offset_ID + 2
+    @test _component_index(params, Position) == offset_ID + 1
     @test_throws(
         "ArgumentError: Component type Health not found in the World",
-        _component_id(params, Health))
+        _component_index(params, Health))
 
     @test isa(_get_storage(world, Position), _ComponentStorage{Position,_storage_from_component(world, Position)})
     @test isa(_get_storage(world, Position).data[1], _storage_from_component(world, Position))
@@ -221,7 +221,7 @@ end
     params = typeof(world).parameters[1]
 
     # Register Int component
-    id_int = _component_id(params, Int)
+    id_int = _component_index(params, Int)
     @test isa(id_int, Int)
     @test world._registry.types[id_int] == Int
     @test length(world._storages) == N_fake + 2
@@ -229,7 +229,7 @@ end
     @test length(world._storages[id_int].data) == 1
 
     # Register Position component
-    id_pos = _component_id(params, Position)
+    id_pos = _component_index(params, Position)
     @test isa(id_pos, Int)
     @test world._registry.types[id_pos] == Position
     @test length(world._storages) == N_fake + 2
@@ -237,12 +237,12 @@ end
     @test length(world._storages[id_pos].data) == 1
 
     # Re-register Int component (should not add new storage)
-    id_int2 = _component_id(params, Int)
+    id_int2 = _component_index(params, Int)
     @test id_int2 == id_int
     @test length(world._storages) == N_fake + 2
 
     @test_throws("ArgumentError: Component type Velocity not found in the World",
-        _component_id(params, Velocity))
+        _component_index(params, Velocity))
 
     @test_throws("ArgumentError: Component type MutableComponent must be immutable unless 'allow_mutable' is used",
         World(Position, MutableComponent))
@@ -260,7 +260,7 @@ end
     storage1 = _get_storage(world, Int)
     @test storage1 isa _ComponentStorage{Int,_storage_from_component(world, Int)}
 
-    id = _component_id(params, Int)
+    id = _component_index(params, Int)
     storage2 = _get_storage(world, Int)
     @test storage2 isa _ComponentStorage{Int,_storage_from_component(world, Int)}
 
@@ -277,7 +277,7 @@ end
     world = World(Position, Velocity)
     params = typeof(world).parameters[1]
 
-    pos_id = _component_id(params, Position)
+    pos_id = _component_index(params, Position)
     @test pos_id == offset_ID + UInt8(1)
 
     index = _find_or_create_table!(
@@ -296,7 +296,7 @@ end
     @test length(world._tables) == 2
     @test length(world._archetypes) == 2
 
-    vel_id = _component_id(params, Velocity)
+    vel_id = _component_index(params, Velocity)
     @test vel_id == offset_ID + UInt8(2)
 
     index = _find_or_create_table!(
@@ -349,8 +349,8 @@ end
 @testset "_create_entity! Tests" begin
     world = World(Position, Velocity)
     params = typeof(world).parameters[1]
-    pos_id = _component_id(params, Position)
-    vel_id = _component_id(params, Velocity)
+    pos_id = _component_index(params, Position)
+    vel_id = _component_index(params, Velocity)
     table_index = _find_or_create_table!(
         world,
         world._tables[1],

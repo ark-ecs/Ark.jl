@@ -16,10 +16,21 @@ end
     return swapped
 end
 
-@inline _type_parameter(::Type{Type{T}}) where {T} = T
-@inline _val_parameter(::Type{Val{T}}) where {T} = T
-@inline _pair_first_type(::Type{<:Pair{T}}) where {T} = T
-@inline _storage_vector_type(::Type{<:Storage{T}}) where {T} = T
+function _type_parameter(::Type{Type{T}}) where {T}
+    return T
+end
+
+function _val_parameter(::Type{Val{T}}) where {T}
+    return T
+end
+
+function _pair_first_type(::Type{<:Pair{T}}) where {T}
+    return T
+end
+
+function _storage_vector_type(::Type{<:Storage{T}}) where {T}
+    return T
+end
 
 @inline function _to_types(::Type{TS})::Vector{DataType} where {TS<:Tuple}
     return DataType[_val_parameter(x) for x in fieldtypes(TS)]
