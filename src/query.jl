@@ -406,7 +406,7 @@ function Base.show(
     comp_types = fieldtypes(CT)
 
     mask_ids = _active_bit_indices(query._filter.mask)
-    mask_types = tuple(map(i -> _type_parameter(world_types[Int(i)]), mask_ids)...)
+    mask_types = tuple(DataType[_type_parameter(world_types[Int(i)]) for i in mask_ids]...)
 
     required_types = intersect(mask_types, comp_types)
     optional_types = setdiff(comp_types, mask_types)
@@ -421,7 +421,7 @@ function Base.show(
     without_names = ""
     if !is_exclusive
         excl_ids = _active_bit_indices(query._filter.exclude_mask)
-        excl_types = tuple(map(i -> _type_parameter(world_types[Int(i)]), excl_ids)...)
+        excl_types = tuple(DataType[_type_parameter(world_types[Int(i)]) for i in excl_ids]...)
         without_names = join(map(_format_type, excl_types), ", ")
     end
 

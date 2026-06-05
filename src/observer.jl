@@ -158,9 +158,9 @@ function Base.show(io::IO, obs::Observer{W}) where {W<:_AbstractWorld}
     world_types = fieldtypes(_world_component_types(W))
 
     mask_ids = _active_bit_indices(obs._comps)
-    mask_types = tuple(map(i -> _type_parameter(world_types[Int(i)]), mask_ids)...)
+    mask_types = tuple(DataType[_type_parameter(world_types[Int(i)]) for i in mask_ids]...)
     with_ids = _active_bit_indices(obs._with)
-    with_types = tuple(map(i -> _type_parameter(world_types[Int(i)]), with_ids)...)
+    with_types = tuple(DataType[_type_parameter(world_types[Int(i)]) for i in with_ids]...)
 
     mask_names = join(map(_format_type, mask_types), ", ")
     with_names = join(map(_format_type, with_types), ", ")
@@ -169,7 +169,7 @@ function Base.show(io::IO, obs::Observer{W}) where {W<:_AbstractWorld}
     without_names = ""
     if !obs._is_exclusive
         excl_ids = _active_bit_indices(obs._without)
-        excl_types = tuple(map(i -> _type_parameter(world_types[Int(i)]), excl_ids)...)
+        excl_types = tuple(DataType[_type_parameter(world_types[Int(i)]) for i in excl_ids]...)
         without_names = join(map(_format_type, excl_types), ", ")
     end
 
