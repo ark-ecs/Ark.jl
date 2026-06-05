@@ -146,14 +146,6 @@ function _component_index(CS::Type{<:Tuple}, TargetType::Type)::Union{Int,Nothin
     return nothing
 end
 
-function _require_component_index(CS::Type{<:Tuple}, TargetType::Type)::Int
-    index = _component_index(CS, TargetType)
-    if isnothing(index)
-        throw(ArgumentError(lazy"Component type $(TargetType) not found in the World"))
-    end
-    return index
-end
-
 function _component_lookup_error(TargetType::Type)
     return :(throw(ArgumentError($(lazy"Component type $(TargetType) not found in the World"))))
 end
