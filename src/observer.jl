@@ -82,9 +82,9 @@ end
     end
 
     CS = _world_storage_types(W)
-    ids = Int[_require_component_index(CS, C) for C in comp_types]
-    with_ids = Int[_require_component_index(CS, C) for C in with_types]
-    without_ids = Int[_require_component_index(CS, C) for C in without_types]
+    ids = Int[_component_index(CS, C) for C in comp_types]
+    with_ids = Int[_component_index(CS, C) for C in with_types]
+    without_ids = Int[_component_index(CS, C) for C in without_types]
 
     all_comps_relations = true
     for T in comp_types

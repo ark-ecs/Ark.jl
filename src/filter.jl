@@ -108,11 +108,11 @@ end
     end
 
     CS = _world_storage_types(W)
-    required_ids = Int[_require_component_index(CS, C) for C in required_types]
-    with_ids = Int[_require_component_index(CS, C) for C in with_types]
-    without_ids = Int[_require_component_index(CS, C) for C in without_types]
-    non_exclude_ids = Int[_require_component_index(CS, C) for C in non_exclude_types]
-    rel_ids = Int[_require_component_index(CS, C) for C in rel_types]
+    required_ids = Int[_component_index(CS, C) for C in required_types]
+    with_ids = Int[_component_index(CS, C) for C in with_types]
+    without_ids = Int[_component_index(CS, C) for C in without_types]
+    non_exclude_ids = Int[_component_index(CS, C) for C in non_exclude_types]
+    rel_ids = Int[_component_index(CS, C) for C in rel_types]
 
     M = max(1, cld(fieldcount(CS), 64))
     K = fieldcount(relation_types)

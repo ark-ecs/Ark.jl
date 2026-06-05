@@ -1336,8 +1336,8 @@ end
     _check_is_subset(rel_types, types)
 
     CS = _world_storage_types(W)
-    ids = tuple(Int[_require_component_index(CS, T) for T in types]...)
-    rel_ids = tuple(Int[_require_component_index(CS, T) for T in rel_types]...)
+    ids = tuple(Int[_component_index(CS, T) for T in types]...)
+    rel_ids = tuple(Int[_component_index(CS, T) for T in rel_types]...)
     num_ids = length(ids)
     use_map = num_ids >= 4 ? _UseMap() : _NoUseMap()
 
@@ -1611,9 +1611,9 @@ end
     _check_is_subset(rel_types, add_types)
 
     CS = _world_storage_types(W)
-    add_ids = tuple(Int[_require_component_index(CS, T) for T in add_types]...)
-    rem_ids = tuple(Int[_require_component_index(CS, T) for T in rem_types]...)
-    rel_ids = tuple(Int[_require_component_index(CS, T) for T in rel_types]...)
+    add_ids = tuple(Int[_component_index(CS, T) for T in add_types]...)
+    rem_ids = tuple(Int[_component_index(CS, T) for T in rem_types]...)
+    rel_ids = tuple(Int[_component_index(CS, T) for T in rel_types]...)
 
     num_ids = length(add_ids) + length(rem_ids)
     use_map = num_ids >= 4 ? _UseMap() : _NoUseMap()
@@ -1752,7 +1752,7 @@ end
 
     if length(types) >= 3
         CS = _world_storage_types(W)
-        ids = tuple(Int[_require_component_index(CS, T) for T in types]...)
+        ids = tuple(Int[_component_index(CS, T) for T in types]...)
         M = max(1, cld(fieldcount(CS), 64))
         query_mask = _Mask{M}(ids...)
 
@@ -1887,7 +1887,7 @@ end
     _check_no_duplicates(rel_types)
     _check_relations(rel_types, relation_types)
 
-    rel_ids = tuple(Int[_require_component_index(_world_storage_types(W), T) for T in rel_types]...)
+    rel_ids = tuple(Int[_component_index(_world_storage_types(W), T) for T in rel_types]...)
 
     exprs = Expr[]
 
@@ -2001,9 +2001,9 @@ end
     push!(exprs, :(_check_locked(world)))
 
     CS = _world_storage_types(W)
-    add_ids = tuple(Int[_require_component_index(CS, T) for T in add_types]...)
-    rem_ids = tuple(Int[_require_component_index(CS, T) for T in rem_types]...)
-    rel_ids = tuple(Int[_require_component_index(CS, T) for T in rel_types]...)
+    add_ids = tuple(Int[_component_index(CS, T) for T in add_types]...)
+    rem_ids = tuple(Int[_component_index(CS, T) for T in rem_types]...)
+    rel_ids = tuple(Int[_component_index(CS, T) for T in rel_types]...)
 
     num_ids = length(add_ids) + length(rem_ids)
     use_map = num_ids >= 4 ? _UseMap() : _NoUseMap()
@@ -2121,7 +2121,7 @@ end
 
     CS = _world_storage_types(W)
     has_comps = (length(comp_types) > 0) ? :(true) : (false)
-    ids = Int[_require_component_index(CS, C) for C in comp_types]
+    ids = Int[_component_index(CS, C) for C in comp_types]
     M = max(1, cld(fieldcount(CS), 64))
     mask = _Mask{M}(ids...)
 

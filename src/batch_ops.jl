@@ -170,7 +170,7 @@ end
     comp_types = _to_types(fieldtypes(TS))
     optional_flags = fieldtypes(OPT)
 
-    required_ids = Int[_require_component_index(CS, comp_types[i]) for i in 1:length(comp_types) if optional_flags[i] === Val{false}]
+    required_ids = Int[_component_index(CS, comp_types[i]) for i in 1:length(comp_types) if optional_flags[i] === Val{false}]
     ids_tuple = tuple(required_ids...)
 
     # TODO: skip this for cached filters
@@ -569,7 +569,7 @@ end
     _check_no_duplicates(rel_types)
     _check_relations(rel_types, relation_types)
 
-    rel_ids = tuple(Int[_require_component_index(_world_storage_types(W), T) for T in rel_types]...)
+    rel_ids = tuple(Int[_component_index(_world_storage_types(W), T) for T in rel_types]...)
 
     has_fn = HFN == Val{true}
     return quote
@@ -740,9 +740,9 @@ end
     exprs = Expr[]
 
     CS = _world_storage_types(W)
-    add_ids = tuple(Int[_require_component_index(CS, T) for T in add_types]...)
-    rem_ids = tuple(Int[_require_component_index(CS, T) for T in rem_types]...)
-    rel_ids = tuple(Int[_require_component_index(CS, T) for T in rel_types]...)
+    add_ids = tuple(Int[_component_index(CS, T) for T in add_types]...)
+    rem_ids = tuple(Int[_component_index(CS, T) for T in rem_types]...)
+    rel_ids = tuple(Int[_component_index(CS, T) for T in rel_types]...)
 
     num_ids = length(add_ids) + length(rem_ids)
     use_map = num_ids >= 4 ? _UseMap() : _NoUseMap()
@@ -1004,8 +1004,8 @@ end
     _check_is_subset(rel_types, types)
 
     CS = _world_storage_types(W)
-    ids = tuple(Int[_require_component_index(CS, T) for T in types]...)
-    rel_ids = tuple(Int[_require_component_index(CS, T) for T in rel_types]...)
+    ids = tuple(Int[_component_index(CS, T) for T in types]...)
+    rel_ids = tuple(Int[_component_index(CS, T) for T in rel_types]...)
     num_ids = length(ids)
     use_map = num_ids >= 4 ? _UseMap() : _NoUseMap()
 
@@ -1123,8 +1123,8 @@ end
     comp_types = fieldtypes(TS)
     world_storage_modes = fieldtypes(_world_storage_modes(W))
 
-    storage_modes = Type[
-        world_storage_modes[_require_component_index(CS, T)]
+    storage_modes = DataType[
+        world_storage_modes[_component_index(CS, T)]
         for T in comp_types
     ]
 

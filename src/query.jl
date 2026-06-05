@@ -109,13 +109,13 @@ end
     comp_types = _to_types(fieldtypes(TS))
     optional_flags = fieldtypes(OPT)
 
-    storage_modes = Type[
-        world_storage_modes[_require_component_index(CS, T)]
+    storage_modes = DataType[
+        world_storage_modes[_component_index(CS, T)]
         for T in comp_types
     ]
     storage_tuple_mode = Expr(:curly, :Tuple, storage_modes...)
 
-    required_ids = Int[_require_component_index(CS, comp_types[i]) for i in 1:length(comp_types) if optional_flags[i] === Val{false}]
+    required_ids = Int[_component_index(CS, comp_types[i]) for i in 1:length(comp_types) if optional_flags[i] === Val{false}]
     ids_tuple = tuple(required_ids...)
 
     # TODO: skip this for cached filters
@@ -124,10 +124,10 @@ end
         :(_get_archetypes(filter._world, $ids_tuple))
 
     component_storage_types = fieldtypes(CS)
-    storages_types = Type[component_storage_types[_require_component_index(CS, T)] for T in comp_types]
+    storages_types = DataType[component_storage_types[_component_index(CS, T)] for T in comp_types]
     storage_tuple_type = Expr(:curly, :Tuple, storages_types...)
     storages_expr = Expr(:tuple,
-        Expr[:(filter._world._storages[$(_require_component_index(CS, T))]) for T in comp_types]...,
+        Expr[:(filter._world._storages[$(_component_index(CS, T))]) for T in comp_types]...,
     )
 
     return quote
