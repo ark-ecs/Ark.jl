@@ -115,7 +115,8 @@ end
     ]
     storage_tuple_mode = Expr(:curly, :Tuple, storage_modes...)
 
-    required_ids = Int[_component_index(CS, comp_types[i]) for i in 1:length(comp_types) if optional_flags[i] === Val{false}]
+    required_ids =
+        Int[_component_index(CS, comp_types[i]) for i in 1:length(comp_types) if optional_flags[i] === Val{false}]
     ids_tuple = tuple(required_ids...)
 
     # TODO: skip this for cached filters
@@ -327,7 +328,8 @@ end
         if is_optional[i] === Val{true}
             if _storage_vector_type(storage_modes[i]) <: GPUVector
                 push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : view(($col_sym).mem, 1:($col_sym).len)))
-            elseif storage_modes[i] == Storage{StructArray} || _storage_vector_type(storage_modes[i]) <: GPUStructArray ||
+            elseif storage_modes[i] == Storage{StructArray} ||
+                   _storage_vector_type(storage_modes[i]) <: GPUStructArray ||
                    fieldcount(comp_types[i]) == 0
                 push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : view($col_sym, :)))
             else
@@ -336,7 +338,8 @@ end
         else
             if _storage_vector_type(storage_modes[i]) <: GPUVector
                 push!(exprs, :($vec_sym = view(($col_sym).mem, 1:($col_sym).len)))
-            elseif storage_modes[i] == Storage{StructArray} || _storage_vector_type(storage_modes[i]) <: GPUStructArray ||
+            elseif storage_modes[i] == Storage{StructArray} ||
+                   _storage_vector_type(storage_modes[i]) <: GPUStructArray ||
                    fieldcount(comp_types[i]) == 0
                 push!(exprs, :($vec_sym = view($col_sym, :)))
             else

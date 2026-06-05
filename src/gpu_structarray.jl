@@ -21,7 +21,9 @@ struct GPUStructArray{B,C,CS<:NamedTuple,N} <: _AbstractStructArray{C,CS,N}
     _components::CS
 end
 
-@inline _gpu_backend(::Type{<:GPUStructArray{B}}) where {B} = B
+function _gpu_backend(::Type{<:GPUStructArray{B}}) where {B}
+    return B
+end
 
 function GPUStructArray{B}(tp::Type{C}) where {B,C}
     _GPUStructArray_from_type(tp, Val{B}())

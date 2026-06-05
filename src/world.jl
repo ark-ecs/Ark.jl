@@ -2194,7 +2194,8 @@ end
 end
 
 @generated function _activate_new_column_for_comp!(world::World{CS}, comp::Int, index::Int) where CS
-    call_exprs = Expr[:(_activate_column!(world._storages.$i, index, world._initial_capacity)) for i in 1:fieldcount(CS)]
+    call_exprs =
+        Expr[:(_activate_column!(world._storages.$i, index, world._initial_capacity)) for i in 1:fieldcount(CS)]
     _generate_component_switch(:comp, call_exprs)
 end
 
@@ -2262,7 +2263,8 @@ end
     old_table::UInt32,
     new_table::UInt32,
 ) where {CS<:Tuple}
-    call_exprs = Expr[:(_copy_component_data_to_end!(world._storages.$i, old_table, new_table)) for i in 1:fieldcount(CS)]
+    call_exprs =
+        Expr[:(_copy_component_data_to_end!(world._storages.$i, old_table, new_table)) for i in 1:fieldcount(CS)]
     _generate_component_switch(:comp, call_exprs)
 end
 

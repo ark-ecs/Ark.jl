@@ -124,7 +124,9 @@ function _format_type(T::Type)
     return sprint(show, T; context=:module => parentmodule(T))
 end
 
-_format_type(T) = string(T)
+function _format_type(T)
+    return string(T)
+end
 
 @generated function _shallow_copy(x::T) where T
     if T == Symbol || T == String

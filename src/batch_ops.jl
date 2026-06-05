@@ -170,7 +170,8 @@ end
     comp_types = _to_types(fieldtypes(TS))
     optional_flags = fieldtypes(OPT)
 
-    required_ids = Int[_component_index(CS, comp_types[i]) for i in 1:length(comp_types) if optional_flags[i] === Val{false}]
+    required_ids =
+        Int[_component_index(CS, comp_types[i]) for i in 1:length(comp_types) if optional_flags[i] === Val{false}]
     ids_tuple = tuple(required_ids...)
 
     # TODO: skip this for cached filters
