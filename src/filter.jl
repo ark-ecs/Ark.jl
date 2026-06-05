@@ -289,7 +289,7 @@ function Base.show(io::IO, filter::Filter{W,CT,EX,OPT,REG,M,K}) where {W<:World,
     comp_types = fieldtypes(CT)
 
     mask_ids = _active_bit_indices(filter._filter.mask)
-    mask_types = tuple(DataType[_type_parameter(world_types[Int(i)]) i for i in mask_ids]...)
+    mask_types = tuple(DataType[_type_parameter(world_types[Int(i)]) for i in mask_ids]...)
 
     required_types = intersect(mask_types, comp_types)
     optional_types = setdiff(comp_types, mask_types)
