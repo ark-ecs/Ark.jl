@@ -16,20 +16,36 @@ end
     return swapped
 end
 
+function _type_parameter(::Type{Type{T}}) where {T}
+    return T
+end
+
+function _val_parameter(::Type{Val{T}}) where {T}
+    return T
+end
+
+function _pair_first_type(::Type{<:Pair{T}}) where {T}
+    return T
+end
+
+function _storage_vector_type(::Type{<:Storage{T}}) where {T}
+    return T
+end
+
 @inline function _to_types(::Type{TS})::Vector{DataType} where {TS<:Tuple}
-    return [x.parameters[1] for x in TS.parameters]
+    return DataType[_val_parameter(x) for x in fieldtypes(TS)]
 end
 
 @inline function _to_types(::Type{Val{TS}})::Vector{DataType} where {TS<:Tuple}
-    return [x <: Val ? x.parameters[1] : x for x in TS.parameters]
+    return DataType[x <: Val ? _val_parameter(x) : x for x in fieldtypes(TS)]
 end
 
 @inline function _to_types(::Type{Val{V}})::Vector{DataType} where {V<:Val}
     return _to_types(V)
 end
 
-@inline function _to_types(vec::Core.SimpleVector)::Vector{DataType}
-    return collect(vec)
+@inline function _to_types(types::Tuple)::Vector{DataType}
+    return DataType[types...]
 end
 
 function _unwrap_relation_type(::Type{Relation{T}}) where {T}
@@ -49,7 +65,7 @@ function _declares_relation(::Type{T}) where {T}
 end
 
 @inline function _is_relation_type(::Type{T}, declared_relations::Type{<:Tuple})::Bool where {T}
-    for relation_type in declared_relations.parameters
+    for relation_type in fieldtypes(declared_relations)
         if T === relation_type
             return true
         end
@@ -75,8 +91,8 @@ end
 @inline function _check_no_duplicates(types::Vector{DataType})
     unique_types = unique(types)
     if length(types) != length(unique_types)
-        duplicates = [x for x in unique_types if count(==(x), types) > 1]
-        names = join(map(nameof, duplicates), ", ")
+        duplicates = DataType[x for x in unique_types if count(==(x), types) > 1]
+        names = join(Symbol[nameof(x) for x in duplicates], ", ")
         throw(ArgumentError("duplicate component types: $names"))
     end
 end
@@ -100,16 +116,16 @@ macro check(arg)
     _DEBUG == "true" ? esc(:(@assert $arg)) : nothing
 end
 
+function _format_type(::Type{Type{T}}) where {T}
+    return _format_type(T)
+end
+
+function _format_type(T::Type)
+    return sprint(show, T; context=:module => parentmodule(T))
+end
+
 function _format_type(T)
-    if T isa Type && T <: Type
-        return _format_type(T.parameters[1])
-    elseif T isa DataType && isempty(T.parameters)
-        return string(nameof(T))
-    elseif T isa DataType
-        return string(nameof(T), "{", join(map(_format_type, T.parameters), ", "), "}")
-    else
-        return string(T)
-    end
+    return string(T)
 end
 
 @generated function _shallow_copy(x::T) where T
@@ -117,15 +133,13 @@ end
         return :(x)
     end
     n = fieldcount(T)
-    field_exprs = [:(getfield(x, $i)) for i in 1:n]
+    field_exprs = Expr[:(getfield(x, $i)) for i in 1:n]
     return Expr(:new, T, field_exprs...)
 end
 
-function _generate_component_switch(CS::Type{<:Tuple}, comp_idx_sym::Symbol, func_generator::Function)
-    N = length(CS.parameters)
+function _generate_component_switch(comp_idx_sym::Symbol, call_exprs::Vector{Expr})
     exprs = Expr[]
-    for i in 1:N
-        call_expr = func_generator(i)
+    for (i, call_expr) in enumerate(call_exprs)
         push!(exprs, :(
             if $comp_idx_sym == $i
                 return $call_expr
@@ -135,18 +149,18 @@ function _generate_component_switch(CS::Type{<:Tuple}, comp_idx_sym::Symbol, fun
     return Expr(:block, exprs...)
 end
 
-function _generate_type_lookup(CS::Type{<:Tuple}, TargetType::Type, result_generator::Function)
-    _storage_types = CS.parameters
+function _component_index(CS::Type{<:Tuple}, TargetType::Type)::Union{Int,Nothing}
+    _storage_types = fieldtypes(CS)
     for (i, S) in enumerate(_storage_types)
-        if S <: _ComponentStorage && S.parameters[1] === TargetType
-            return result_generator(i)
+        if S <: _ComponentStorage && _component_type(S) === TargetType
+            return i
         end
     end
-    return :(throw(ArgumentError($(lazy"Component type $(TargetType) not found in the World"))))
+    return throw(ArgumentError(lazy"Component type $(TargetType) not found in the World"))
 end
 
 function _has_relations(declared_relations::Type{<:Tuple})
-    return !isempty(declared_relations.parameters)
+    return fieldcount(declared_relations) > 0
 end
 
 @inline @generated function _relation_types_and_targets(
@@ -166,5 +180,6 @@ end
 end
 
 @inline @generated function _valtuple(t::Tuple{Vararg{Any,N}}) where {N}
-    return Expr(:tuple, (:(Val(getfield(t, $i))) for i in 1:N)...)
+    exprs = Expr[:(Val(getfield(t, $i))) for i in 1:N]
+    return Expr(:tuple, exprs...)
 end

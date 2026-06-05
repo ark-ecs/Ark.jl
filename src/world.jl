@@ -1,13 +1,13 @@
 
 @generated function _normalize_relations(values::CT, ::Val{Mode}) where {CT<:Tuple,Mode}
-    types = _to_types(CT.parameters)
-    comps, rels = [], []
+    types = _to_types(fieldtypes(CT))
+    comps, rels = Expr[], Expr[]
     for i in eachindex(types)
         if types[i] <: Pair{<:Any,Entity}
             if Mode === :type
                 push!(rels, :(values[$i]))
             else
-                push!(rels, :($(types[i].parameters[1]) => values[$i].second))
+                push!(rels, :($(_pair_first_type(types[i])) => values[$i].second))
             end
             push!(comps, :(values[$i].first))
         else
@@ -18,7 +18,7 @@
 end
 
 @generated function _components_are_types(values::Tuple)
-    types = _to_types(values.parameters)
+    types = _to_types(fieldtypes(values))
     c = 0
     for t in types
         if t == DataType || t == Pair{DataType,Entity}
@@ -96,6 +96,22 @@ mutable struct World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M,RT<:Tuple,K} <: _Abstract
     const _cache::_Cache{M,K}
     const _pool::_WorldPool{M}
     const _initial_capacity::Int
+end
+
+function _world_storage_types(::Type{<:World{CS}}) where {CS}
+    return CS
+end
+
+function _world_component_types(::Type{<:World{CS,CT}}) where {CS,CT}
+    return CT
+end
+
+function _world_storage_modes(::Type{<:World{CS,CT,ST}}) where {CS,CT,ST}
+    return ST
+end
+
+function _world_relation_types(::Type{<:World{CS,CT,ST,N,M,RT}}) where {CS,CT,ST,N,M,RT}
+    return RT
 end
 
 """
@@ -313,9 +329,9 @@ Base.@constprop :aggressive function remove_entity!(world::World, entity::Entity
 end
 
 @generated function _remove_entity!(world::W, entity::Entity, ::Val{Unchecked}) where {W<:World,Unchecked}
-    CS = W.parameters[1]
-    inline_jtable = length(CS.parameters) <= 10
-    world_has_rel = _has_relations(W.parameters[6])
+    CS = _world_storage_types(W)
+    inline_jtable = fieldcount(CS) <= 10
+    world_has_rel = _has_relations(_world_relation_types(W))
 
     check_expr = Unchecked ? :() : :(
         if !is_alive(world, entity)
@@ -747,7 +763,7 @@ function reset!(world::W) where {W<:World}
 end
 
 function Base.show(io::IO, world::World{CS,CT}) where {CS<:Tuple,CT<:Tuple}
-    comp_types = CT.parameters
+    comp_types = fieldtypes(CT)
     type_names = join(map(_format_type, comp_types), ", ")
     entities = sum(length(arch.entities) for arch in world._tables)
     print(io, "World(entities=$entities, comp_types=($type_names))")
@@ -760,11 +776,11 @@ end
     ::Val{MUT},
     initial_capacity::Int,
 ) where {CS<:Tuple,ST<:Tuple,RT<:Tuple,MUT}
-    types = CS.parameters
-    storage_val_types = ST.parameters
+    types = fieldtypes(CS)
+    storage_val_types = fieldtypes(ST)
     allow_mutable = MUT::Bool
-    relation_flags = [_is_relation_type(T, RT) for T in types]
-    K = length(RT.parameters)
+    relation_flags = Bool[_is_relation_type(T, RT) for T in types]
+    K = fieldcount(RT)
 
     for (T, mode) in zip(types, storage_val_types)
         if !isconcretetype(T)
@@ -800,12 +816,12 @@ end
     end
 
     # Component type tuple
-    component_types = map(T -> :(Type{$T}), types)
+    component_types = Expr[:(Type{$T}) for T in types]
     component_tuple_type = :(Tuple{$(component_types...)})
 
     # Storage type logic (based on resolved Val{...} types)
-    _storage_types = Vector{Any}(undef, length(types))
-    storage_exprs = Vector{Any}(undef, length(types))
+    _storage_types = Vector{Expr}(undef, length(types))
+    storage_exprs = Vector{Expr}(undef, length(types))
 
     for i in 1:length(types)
         T = types[i]
@@ -821,10 +837,10 @@ end
     storage_mode_type = :(Tuple{$(storage_val_types...)})
 
     # Component registration
-    id_exprs = [:(_register_component!(registry, $(types[i]), $(relation_flags[i]))) for i in eachindex(types)]
+    id_exprs = Expr[:(_register_component!(registry, $(types[i]), $(relation_flags[i]))) for i in eachindex(types)]
     id_tuple = Expr(:tuple, id_exprs...)
 
-    relations_expr = [:(_new_component_relations($(relation_flags[i]))) for i in eachindex(types)]
+    relations_expr = Expr[:(_new_component_relations($(relation_flags[i]))) for i in eachindex(types)]
     relations_vec = Expr(:vect, relations_expr...)
 
     M = max(1, cld(length(types), 64))
@@ -867,16 +883,14 @@ end
     end
 end
 
-@generated function _component_id(::Type{CS}, ::Type{C})::Int where {CS<:Tuple,C}
-    _generate_type_lookup(CS, C, i -> :($i))
-end
-
 @generated function _get_storage(world::World{CS}, ::Type{C}) where {CS<:Tuple,C}
-    _generate_type_lookup(CS, C, i -> :(world._storages.$i))
+    index = _component_index(CS, C)
+    return :(world._storages.$index)
 end
 
 @generated function _get_relations_storage(world::World{CS}, ::Type{C}) where {CS<:Tuple,C}
-    _generate_type_lookup(CS, C, i -> :(world._relations[$i]))
+    index = _component_index(CS, C)
+    return :(world._relations[$index])
 end
 
 @inline function _find_or_create_archetype!(
@@ -1318,28 +1332,28 @@ end
     targets::Tuple{Vararg{Entity}},
     ::Val{Unchecked},
 ) where {W<:World,TS<:Tuple,TR<:Tuple,Unchecked}
-    types = _to_types(TS.parameters)
+    types = _to_types(fieldtypes(TS))
     rel_types = _to_types(TR)
-    relation_types = W.parameters[6]
+    relation_types = _world_relation_types(W)
 
     _check_no_duplicates(types)
     _check_no_duplicates(rel_types)
     _check_relations(rel_types, relation_types)
     _check_is_subset(rel_types, types)
 
-    CS = W.parameters[1]
-    ids = tuple([_component_id(CS, T) for T in types]...)
-    rel_ids = tuple([_component_id(CS, T) for T in rel_types]...)
+    CS = _world_storage_types(W)
+    ids = tuple(Int[_component_index(CS, T) for T in types]...)
+    rel_ids = tuple(Int[_component_index(CS, T) for T in rel_types]...)
     num_ids = length(ids)
     use_map = num_ids >= 4 ? _UseMap() : _NoUseMap()
 
-    M = max(1, cld(length(CS.parameters), 64))
+    M = max(1, cld(fieldcount(CS), 64))
     add_mask = _Mask{M}(ids...)
     rem_mask = _Mask{M}()
 
     world_has_rel = Val{_has_relations(relation_types)}()
 
-    exprs = []
+    exprs = Expr[]
     if !Unchecked
         push!(exprs, :(_check_relation_targets(world, targets)))
     end
@@ -1386,7 +1400,7 @@ end
 end
 
 @inline @generated function _create_entity!(world::W, table_index::UInt32)::Tuple{Entity,Int} where {W<:World}
-    world_has_rel = _has_relations(W.parameters[6])
+    world_has_rel = _has_relations(_world_relation_types(W))
     quote
         entity = _get_entity(world._entity_pool)
         @inbounds table = world._tables[table_index]
@@ -1406,7 +1420,7 @@ end
 end
 
 @generated function _create_entities!(world::W, table_index::UInt32, n::Int)::Tuple{Int,Int} where {W<:World}
-    world_has_rel = _has_relations(W.parameters[6])
+    world_has_rel = _has_relations(_world_relation_types(W))
     quote
         table = world._tables[Int(table_index)]
         archetype = world._archetypes[table.archetype]
@@ -1466,7 +1480,7 @@ end
     new_table::_Table,
     table_index::UInt32,
 )::Nothing where {W<:World}
-    inline_jtable = length(W.parameters[1].parameters) <= 10
+    inline_jtable = fieldcount(_world_storage_types(W)) <= 10
     quote
         new_row = _add_entity!(new_table, entity)
         swapped = _swap_remove!(old_table.entities._data, index.row)
@@ -1544,7 +1558,7 @@ end
     mode::Val,
     ::Val{Unchecked},
 )::Entity where {W<:World,Unchecked}
-    inline_jtable = length(W.parameters[1].parameters) <= 10
+    inline_jtable = fieldcount(_world_storage_types(W)) <= 10
     quote
         $(!Unchecked ? :(
             if !is_alive(world, entity)
@@ -1589,11 +1603,11 @@ end
     mode::CP,
     ::Val{Unchecked},
 )::Entity where {W<:World,ATS<:Tuple,RTS<:Tuple,TR<:Tuple,CP<:Val,Unchecked}
-    add_types = _to_types(ATS.parameters)
+    add_types = _to_types(fieldtypes(ATS))
     rem_types = _to_types(RTS)
     rel_types = _to_types(TR)
-    relation_types = W.parameters[6]
-    exprs = []
+    relation_types = _world_relation_types(W)
+    exprs = Expr[]
 
     _check_no_duplicates(add_types)
     _check_no_duplicates(rem_types)
@@ -1602,15 +1616,15 @@ end
     _check_relations(rel_types, relation_types)
     _check_is_subset(rel_types, add_types)
 
-    CS = W.parameters[1]
-    add_ids = tuple([_component_id(CS, T) for T in add_types]...)
-    rem_ids = tuple([_component_id(CS, T) for T in rem_types]...)
-    rel_ids = tuple([_component_id(CS, T) for T in rel_types]...)
+    CS = _world_storage_types(W)
+    add_ids = tuple(Int[_component_index(CS, T) for T in add_types]...)
+    rem_ids = tuple(Int[_component_index(CS, T) for T in rem_types]...)
+    rel_ids = tuple(Int[_component_index(CS, T) for T in rel_types]...)
 
     num_ids = length(add_ids) + length(rem_ids)
     use_map = num_ids >= 4 ? _UseMap() : _NoUseMap()
 
-    M = max(1, cld(length(CS.parameters), 64))
+    M = max(1, cld(fieldcount(CS), 64))
     add_mask = _Mask{M}(add_ids...)
     rem_mask = _Mask{M}(rem_ids...)
 
@@ -1716,7 +1730,7 @@ end
         push!(exprs, :($(val_sym) = _get_component($(stor_sym), idx.table, idx.row, $(Val(Unchecked)))))
     end
 
-    vals = [:($(Symbol("v", i))) for i in 1:length(types)]
+    vals = Symbol[Symbol("v", i) for i in 1:length(types)]
     push!(exprs, Expr(:return, Expr(:tuple, vals...)))
 
     return quote
@@ -1732,7 +1746,7 @@ end
     types = _to_types(TS)
     _check_no_duplicates(types)
 
-    exprs = []
+    exprs = Expr[]
 
     if !Unchecked
         push!(exprs, :(
@@ -1743,9 +1757,9 @@ end
     end
 
     if length(types) >= 3
-        CS = W.parameters[1]
-        ids = tuple([_component_id(CS, T) for T in types]...)
-        M = max(1, cld(length(CS.parameters), 64))
+        CS = _world_storage_types(W)
+        ids = tuple(Int[_component_index(CS, T) for T in types]...)
+        M = max(1, cld(fieldcount(CS), 64))
         query_mask = _Mask{M}(ids...)
 
         push!(exprs, :(
@@ -1786,7 +1800,7 @@ end
     values::Tuple,
     ::Val{Unchecked},
 ) where {TS<:Tuple,Unchecked}
-    types = _to_types(TS.parameters)
+    types = _to_types(fieldtypes(TS))
     _check_no_duplicates(types)
 
     exprs = Expr[]
@@ -1828,7 +1842,7 @@ end
         return :(())
     end
 
-    _check_relations(types, W.parameters[6])
+    _check_relations(types, _world_relation_types(W))
     _check_no_duplicates(types)
 
     exprs = Expr[]
@@ -1856,7 +1870,7 @@ end
         end
     end
 
-    vals = [:($(Symbol("t", i))) for i in 1:length(types)]
+    vals = Symbol[Symbol("t", i) for i in 1:length(types)]
     push!(exprs, Expr(:return, Expr(:tuple, vals...)))
 
     return quote
@@ -1874,14 +1888,14 @@ end
     ::Val{Unchecked},
 ) where {W<:World,TR<:Tuple,Unchecked}
     rel_types = _to_types(TR)
-    relation_types = W.parameters[6]
+    relation_types = _world_relation_types(W)
 
     _check_no_duplicates(rel_types)
     _check_relations(rel_types, relation_types)
 
-    rel_ids = tuple([_component_id(W.parameters[1], T) for T in rel_types]...)
+    rel_ids = tuple(Int[_component_index(_world_storage_types(W), T) for T in rel_types]...)
 
-    exprs = []
+    exprs = Expr[]
 
     if !Unchecked
         push!(exprs, :(
@@ -1965,10 +1979,10 @@ end
     ::Val{Unchecked},
     ::Val{FuncName},
 ) where {W<:World,ATS<:Tuple,RTS<:Tuple,TR<:Tuple,Unchecked,FuncName}
-    add_types = _to_types(ATS.parameters)
+    add_types = _to_types(fieldtypes(ATS))
     rem_types = _to_types(RTS)
     rel_types = _to_types(TR)
-    relation_types = W.parameters[6]
+    relation_types = _world_relation_types(W)
 
     if isempty(add_types) && isempty(rem_types)
         throw(ArgumentError("either components to add or to remove must be given for exchange_components!"))
@@ -1981,7 +1995,7 @@ end
     _check_relations(rel_types, relation_types)
     _check_is_subset(rel_types, add_types)
 
-    exprs = []
+    exprs = Expr[]
     if !Unchecked
         push!(exprs, :(
             if !is_alive(world, entity)
@@ -1992,15 +2006,15 @@ end
     end
     push!(exprs, :(_check_locked(world)))
 
-    CS = W.parameters[1]
-    add_ids = tuple([_component_id(CS, T) for T in add_types]...)
-    rem_ids = tuple([_component_id(CS, T) for T in rem_types]...)
-    rel_ids = tuple([_component_id(CS, T) for T in rel_types]...)
+    CS = _world_storage_types(W)
+    add_ids = tuple(Int[_component_index(CS, T) for T in add_types]...)
+    rem_ids = tuple(Int[_component_index(CS, T) for T in rem_types]...)
+    rel_ids = tuple(Int[_component_index(CS, T) for T in rel_types]...)
 
     num_ids = length(add_ids) + length(rem_ids)
     use_map = num_ids >= 4 ? _UseMap() : _NoUseMap()
 
-    M = max(1, cld(length(CS.parameters), 64))
+    M = max(1, cld(fieldcount(CS), 64))
     add_mask = _Mask{M}(add_ids...)
     rem_mask = _Mask{M}(rem_ids...)
 
@@ -2109,12 +2123,12 @@ end
 end
 
 @generated function _emit_event!(world::W, event::Event, entity::Entity, ::CT) where {W<:World,CT<:Tuple}
-    comp_types = [x.parameters[1] for x in CT.parameters]
+    comp_types = _to_types(CT)
 
-    CS = W.parameters[1]
+    CS = _world_storage_types(W)
     has_comps = (length(comp_types) > 0) ? :(true) : (false)
-    ids = map(C -> _component_id(CS, C), comp_types)
-    M = max(1, cld(length(CS.parameters), 64))
+    ids = Int[_component_index(CS, C) for C in comp_types]
+    M = max(1, cld(fieldcount(CS), 64))
     mask = _Mask{M}(ids...)
 
     return quote
@@ -2144,7 +2158,7 @@ function _do_emit_event!(world::World, event::Event, mask::_Mask, has_comps::Boo
 end
 
 @generated function _push_empty_to_all_storages!(world::World{CS,CT}) where {CS<:Tuple,CT<:Tuple}
-    comp_types = CT.parameters
+    comp_types = fieldtypes(CT)
     n = length(comp_types)
     exprs = Expr[]
     for i in 1:n
@@ -2154,12 +2168,12 @@ end
 end
 
 @generated function _push_zero_to_all_archetype_relations!(world::W) where {W<:World}
-    comp_types = W.parameters[2].parameters
-    relation_types = W.parameters[6]
+    comp_types = fieldtypes(_world_component_types(W))
+    relation_types = _world_relation_types(W)
     n = length(comp_types)
     exprs = Expr[]
     for i in 1:n
-        if _is_relation_type(comp_types[i].parameters[1], relation_types)
+        if _is_relation_type(_type_parameter(comp_types[i]), relation_types)
             push!(exprs, :(_add_archetype_column!(world._relations[$i])))
         end
     end
@@ -2167,12 +2181,12 @@ end
 end
 
 @generated function _push_zero_to_all_table_relations!(world::W) where {W<:World}
-    comp_types = W.parameters[2].parameters
-    relation_types = W.parameters[6]
+    comp_types = fieldtypes(_world_component_types(W))
+    relation_types = _world_relation_types(W)
     n = length(comp_types)
     exprs = Expr[]
     for i in 1:n
-        if _is_relation_type(comp_types[i].parameters[1], relation_types)
+        if _is_relation_type(_type_parameter(comp_types[i]), relation_types)
             push!(exprs, :(_add_table_column!(world._relations[$i])))
         end
     end
@@ -2180,8 +2194,9 @@ end
 end
 
 @generated function _activate_new_column_for_comp!(world::World{CS}, comp::Int, index::Int) where CS
-    _generate_component_switch(CS, :comp,
-        i -> :(_activate_column!(world._storages.$i, index, world._initial_capacity)))
+    call_exprs =
+        Expr[:(_activate_column!(world._storages.$i, index, world._initial_capacity)) for i in 1:fieldcount(CS)]
+    _generate_component_switch(:comp, call_exprs)
 end
 
 function _activate_archetype_relation_for_comp!(
@@ -2208,8 +2223,8 @@ end
     arch::UInt32,
     needed::Int,
 ) where CS
-    _generate_component_switch(CS, :comp,
-        i -> :(_ensure_column_size!(world._storages.$i, arch, needed)))
+    call_exprs = Expr[:(_ensure_column_size!(world._storages.$i, arch, needed)) for i in 1:fieldcount(CS)]
+    _generate_component_switch(:comp, call_exprs)
 end
 
 @generated function _move_component_data!(
@@ -2219,8 +2234,8 @@ end
     new_table::UInt32,
     row::UInt32,
 ) where CS
-    _generate_component_switch(CS, :comp,
-        i -> :(_move_component_data!(world._storages.$i, old_table, new_table, row)))
+    call_exprs = Expr[:(_move_component_data!(world._storages.$i, old_table, new_table, row)) for i in 1:fieldcount(CS)]
+    _generate_component_switch(:comp, call_exprs)
 end
 
 @generated function _copy_component_data!(
@@ -2231,12 +2246,15 @@ end
     old_row::UInt32,
     mode::CP,
 ) where {CS<:Tuple,CP<:Val}
-    if !(CP in [Val{:ref}, Val{:copy}, Val{:deepcopy}])
-        mode = CP.parameters[1]
+    if !(CP in (Val{:ref}, Val{:copy}, Val{:deepcopy}))
+        mode = _val_parameter(CP)
         throw(ArgumentError(":$mode is not a valid copy mode, must be :ref, :copy or :deepcopy"))
     end
-    _generate_component_switch(CS, :comp,
-        i -> :(_copy_component_data!(world._storages.$i, old_table, new_table, old_row, mode)))
+    call_exprs = Expr[
+        :(_copy_component_data!(world._storages.$i, old_table, new_table, old_row, mode))
+        for i in 1:fieldcount(CS)
+    ]
+    _generate_component_switch(:comp, call_exprs)
 end
 
 @generated function _copy_component_data_to_end!(
@@ -2245,8 +2263,9 @@ end
     old_table::UInt32,
     new_table::UInt32,
 ) where {CS<:Tuple}
-    _generate_component_switch(CS, :comp,
-        i -> :(_copy_component_data_to_end!(world._storages.$i, old_table, new_table)))
+    call_exprs =
+        Expr[:(_copy_component_data_to_end!(world._storages.$i, old_table, new_table)) for i in 1:fieldcount(CS)]
+    _generate_component_switch(:comp, call_exprs)
 end
 
 @generated function _clear_component_data!(
@@ -2254,8 +2273,8 @@ end
     comp::Int,
     table::UInt32,
 ) where {CS<:Tuple}
-    _generate_component_switch(CS, :comp,
-        i -> :(_clear_column!(world._storages.$i, table)))
+    call_exprs = Expr[:(_clear_column!(world._storages.$i, table)) for i in 1:fieldcount(CS)]
+    _generate_component_switch(:comp, call_exprs)
 end
 
 @generated function _swap_remove_in_column_for_comp!(
@@ -2264,8 +2283,8 @@ end
     table::UInt32,
     row::UInt32,
 ) where {CS<:Tuple}
-    _generate_component_switch(CS, :comp,
-        i -> :(_remove_component_data!(world._storages.$i, table, row)))
+    call_exprs = Expr[:(_remove_component_data!(world._storages.$i, table, row)) for i in 1:fieldcount(CS)]
+    _generate_component_switch(:comp, call_exprs)
 end
 
 function _check_locked(world::World)
@@ -2304,8 +2323,8 @@ end
     i::Int,
     j::Int,
 ) where {CS<:Tuple}
-    _generate_component_switch(CS, :comp,
-        k -> :(_swap_component_data!(world._storages.$k, table, i, j)))
+    call_exprs = Expr[:(_swap_component_data!(world._storages.$k, table, i, j)) for k in 1:fieldcount(CS)]
+    _generate_component_switch(:comp, call_exprs)
 end
 
 @inline function _swap_rows!(world::World, archetype::_Archetype, table::_Table, i::Int, j::Int)
@@ -2333,15 +2352,15 @@ end
     entity_index::Vector{_EntityIndex},
     start::Int,
 ) where {CS<:Tuple}
-    _generate_component_switch(
-        CS,
-        :comp,
-        i -> :(_permute_component_cycle!(
+    call_exprs = Expr[
+        :(_permute_component_cycle!(
             world._storages.$i,
             table,
             entities,
             entity_index,
             start,
-        )),
-    )
+        ))
+        for i in 1:fieldcount(CS)
+    ]
+    _generate_component_switch(:comp, call_exprs)
 end

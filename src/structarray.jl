@@ -20,8 +20,9 @@ end
     num_fields = length(types)
     num_fields == 0 && error("StructArray storage not allowed for components without fields")
 
-    nt_type = :(NamedTuple{$names,Tuple{$(map(t -> :(Vector{$t}), types)...)}})
-    kv_exprs = [:($name = Vector{$t}()) for (name, t) in zip(names, types)]
+    vec_types = Expr[:(Vector{$t}) for t in types]
+    nt_type = :(NamedTuple{$names,Tuple{$(vec_types...)}})
+    kv_exprs = Expr[:($name = Vector{$t}()) for (name, t) in zip(names, types)]
 
     return quote
         StructArray{C,$nt_type,$num_fields}((; $(kv_exprs...)))
@@ -34,7 +35,8 @@ end
     num_fields = length(types)
     num_fields == 0 && error("StructArray storage not allowed for components without fields")
 
-    nt_type = :(NamedTuple{$names,Tuple{$(map(t -> :(Vector{$t}), types)...)}})
+    vec_types = Expr[:(Vector{$t}) for t in types]
+    nt_type = :(NamedTuple{$names,Tuple{$(vec_types...)}})
 
     return quote
         StructArray{C,$nt_type,$num_fields}
@@ -45,9 +47,10 @@ end
     names = fieldnames(C)
     types = fieldtypes(C)
 
+    subarray_types = Expr[:(SubArray{$t,1,Vector{$t},Tuple{I},true}) for t in types]
     nt_type = :(NamedTuple{
         $names,
-        Tuple{$(map(t -> :(SubArray{$t,1,Vector{$t},Tuple{I},true}), types)...)},
+        Tuple{$(subarray_types...)},
     })
     return quote
         _StructArrayView{C,$nt_type}
@@ -59,9 +62,9 @@ end
     idx::I,
 ) where {S<:StructArray{C,CS,N},I<:AbstractUnitRange{T}} where {C,CS<:NamedTuple,N,T<:Integer}
     names = fieldnames(C)
-    vec_types = CS.parameters[2].parameters
-    view_exprs = [:($name = @view getfield(sa, :_components).$name[idx]) for name in names]
-    subarray_types = [:(SubArray{$(eltype(vt)),1,$vt,Tuple{I},true}) for vt in vec_types]
+    vec_types = fieldtypes(CS)
+    view_exprs = Expr[:($name = @view getfield(sa, :_components).$name[idx]) for name in names]
+    subarray_types = Expr[:(SubArray{$(eltype(vt)),1,$vt,Tuple{I},true}) for vt in vec_types]
     nt_type = :(NamedTuple{$names,Tuple{$(subarray_types...)}})
     return quote
         _StructArrayView{C,$nt_type}((; $(view_exprs...)))

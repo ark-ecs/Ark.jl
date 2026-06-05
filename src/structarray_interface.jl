@@ -1,7 +1,7 @@
 
 @generated function Base.getproperty(sa::_AbstractStructArray{C}, name::Symbol) where {C}
     component_names = fieldnames(C)
-    cases = [
+    cases = Expr[
         :(name === $(QuoteNode(n)) && return getfield(sa, :_components).$n) for n in component_names
     ]
     return Expr(:block, cases..., :(throw(ErrorException(lazy"type $C has no field $name"))))
@@ -9,31 +9,31 @@ end
 
 @generated function Base.resize!(sa::_AbstractStructArray{C}, n::Integer) where {C}
     names = fieldnames(C)
-    resize_exprs = [:(resize!(getfield(sa, :_components).$name, n)) for name in names]
+    resize_exprs = Expr[:(resize!(getfield(sa, :_components).$name, n)) for name in names]
     return Expr(:block, resize_exprs..., :(sa))
 end
 
 @generated function Base.sizehint!(sa::_AbstractStructArray{C}, n::Integer) where {C}
     names = fieldnames(C)
-    sizehint_exprs = [:(sizehint!(getfield(sa, :_components).$name, n)) for name in names]
+    sizehint_exprs = Expr[:(sizehint!(getfield(sa, :_components).$name, n)) for name in names]
     return Expr(:block, sizehint_exprs..., :(sa))
 end
 
 @generated function Base.push!(sa::_AbstractStructArray{C}, c::C) where {C}
     names = fieldnames(C)
-    push_exprs = [:(push!(getfield(sa, :_components).$name, getfield(c, $(QuoteNode(name))))) for name in names]
+    push_exprs = Expr[:(push!(getfield(sa, :_components).$name, getfield(c, $(QuoteNode(name))))) for name in names]
     return Expr(:block, push_exprs..., :(sa))
 end
 
 @generated function Base.pop!(sa::_AbstractStructArray{C}) where {C}
     names = fieldnames(C)
-    pop_exprs = [:(pop!(getfield(sa, :_components).$name)) for name in names]
+    pop_exprs = Expr[:(pop!(getfield(sa, :_components).$name)) for name in names]
     return Expr(:block, pop_exprs..., :(sa))
 end
 
 @generated function Base.fill!(sa::_AbstractStructArray{C}, value::C) where {C}
     names = fieldnames(C)
-    fill_exprs = [:(fill!(getfield(sa, :_components).$name, getfield(value, $(QuoteNode(name))))) for name in names]
+    fill_exprs = Expr[:(fill!(getfield(sa, :_components).$name, getfield(value, $(QuoteNode(name))))) for name in names]
     return Expr(:block, fill_exprs..., :(sa))
 end
 
@@ -41,7 +41,7 @@ end
     dest::_AbstractStructArray{C}, doffs::Integer, src::_AbstractStructArray{C}, soffs::Integer, n::Integer,
 ) where {C}
     names = fieldnames(C)
-    copy_exprs = [
+    copy_exprs = Expr[
         :(unsafe_copyto!(getfield(dest, :_components).$name, doffs, getfield(src, :_components).$name, soffs, n))
         for name in names
     ]
@@ -52,13 +52,13 @@ Base.view(sa::_AbstractStructArray, ::Colon) = view(sa, 1:length(sa))
 
 Base.@propagate_inbounds @generated function Base.getindex(sa::_AbstractStructArray{C}, i::Int) where {C}
     names = fieldnames(C)
-    field_exprs = [:($(name) = getfield(sa, :_components).$name[i]) for name in names]
+    field_exprs = Expr[:($(name) = getfield(sa, :_components).$name[i]) for name in names]
     return Expr(:block, Expr(:new, C, field_exprs...))
 end
 
 Base.@propagate_inbounds @generated function Base.setindex!(sa::_AbstractStructArray{C}, c::C, i::Int) where {C}
     names = fieldnames(C)
-    set_exprs = [:(getfield(sa, :_components).$name[i] = getfield(c, $(QuoteNode(name)))) for name in names]
+    set_exprs = Expr[:(getfield(sa, :_components).$name[i] = getfield(c, $(QuoteNode(name)))) for name in names]
     return Expr(:block, set_exprs..., :(c))
 end
 
@@ -92,19 +92,19 @@ end
 
 Base.@propagate_inbounds @generated function Base.getindex(sa::_StructArrayView{C}, i::Int) where {C}
     names = fieldnames(C)
-    field_exprs = [:($(name) = getfield(sa, :_components).$name[i]) for name in names]
+    field_exprs = Expr[:($(name) = getfield(sa, :_components).$name[i]) for name in names]
     return Expr(:block, Expr(:new, C, field_exprs...))
 end
 
 Base.@propagate_inbounds @generated function Base.setindex!(sa::_StructArrayView{C}, c::C, i::Int) where {C}
     names = fieldnames(C)
-    set_exprs = [:(getfield(sa, :_components).$name[i] = getfield(c, $(QuoteNode(name)))) for name in names]
+    set_exprs = Expr[:(getfield(sa, :_components).$name[i] = getfield(c, $(QuoteNode(name)))) for name in names]
     return Expr(:block, set_exprs..., :(c))
 end
 
 @generated function Base.getproperty(sa::_StructArrayView{C}, name::Symbol) where {C}
     names = fieldnames(C)
-    cases = [
+    cases = Expr[
         :(name === $(QuoteNode(n)) && return getfield(sa, :_components).$n) for n in names
     ]
     return Expr(:block, cases..., :(throw(ErrorException(lazy"type $C has no field $name"))))
@@ -112,7 +112,7 @@ end
 
 @generated function Base.fill!(sa::_StructArrayView{C}, value::C) where {C}
     names = fieldnames(C)
-    fill_exprs = [:(fill!(getfield(sa, :_components).$name, getfield(value, $(QuoteNode(name))))) for name in names]
+    fill_exprs = Expr[:(fill!(getfield(sa, :_components).$name, getfield(value, $(QuoteNode(name))))) for name in names]
     return Expr(:block, fill_exprs..., :(sa))
 end
 
@@ -139,9 +139,9 @@ end
 Base.lastindex(sa::_StructArrayView) = length(sa)
 
 function Base.show(io::IO, a::_StructArrayView{C,CS}) where {C,CS<:NamedTuple}
-    names = CS.parameters[1]
-    types = CS.parameters[2].parameters
-    fields = map(((n, t),) -> "$(n)::SubArray{$(_format_type(t.parameters[1]))}", zip(names, types))
+    names = fieldnames(CS)
+    types = fieldtypes(CS)
+    fields = map(((n, t),) -> "$(n)::SubArray{$(_format_type(eltype(t)))}", zip(names, types))
     fields_string = join(fields, ", ")
     eltype_name = _format_type(C)
     print(io, "$(length(a))-element StructArrayView($fields_string) with eltype $eltype_name")

@@ -96,26 +96,27 @@ end
 @generated function _Query_from_filter(
     filter::F,
 ) where {F<:Filter}
-    W = F.parameters[1]
-    CS = W.parameters[1]
-    TS = F.parameters[2]
-    EX = F.parameters[3]
-    OPT = F.parameters[4]
-    REG = F.parameters[5]
-    M = F.parameters[6]
-    K = F.parameters[7]
+    W = _filter_world(F)
+    CS = _world_storage_types(W)
+    TS = _filter_component_types(F)
+    EX = _filter_exclusive(F)
+    OPT = _filter_optional_flags(F)
+    REG = _filter_registered(F)
+    M = _filter_mask_chunks(F)
+    K = _filter_relation_count(F)
 
-    world_storage_modes = W.parameters[3].parameters
-    comp_types = _to_types(TS.parameters)
-    optional_flags = OPT.parameters
+    world_storage_modes = fieldtypes(_world_storage_modes(W))
+    comp_types = _to_types(fieldtypes(TS))
+    optional_flags = fieldtypes(OPT)
 
-    storage_modes = [
-        world_storage_modes[_component_id(W.parameters[1], T)]
+    storage_modes = DataType[
+        world_storage_modes[_component_index(CS, T)]
         for T in comp_types
     ]
     storage_tuple_mode = Expr(:curly, :Tuple, storage_modes...)
 
-    required_ids = [_component_id(CS, comp_types[i]) for i in 1:length(comp_types) if optional_flags[i] === Val{false}]
+    required_ids =
+        Int[_component_index(CS, comp_types[i]) for i in 1:length(comp_types) if optional_flags[i] === Val{false}]
     ids_tuple = tuple(required_ids...)
 
     # TODO: skip this for cached filters
@@ -123,10 +124,11 @@ end
         length(ids_tuple) == 0 ? :((filter._world._archetypes, filter._world._archetypes_hot)) :
         :(_get_archetypes(filter._world, $ids_tuple))
 
-    storages_types = [CS.parameters[_component_id(W.parameters[1], T)] for T in comp_types]
+    component_storage_types = fieldtypes(CS)
+    storages_types = DataType[component_storage_types[_component_index(CS, T)] for T in comp_types]
     storage_tuple_type = Expr(:curly, :Tuple, storages_types...)
     storages_expr = Expr(:tuple,
-        [:(filter._world._storages[$(_component_id(W.parameters[1], T))]) for T in comp_types]...,
+        Expr[:(filter._world._storages[$(_component_index(CS, T))]) for T in comp_types]...,
     )
 
     return quote
@@ -310,9 +312,9 @@ end
     q::Query{W,TS,SM,EX,OPT,REG,N,M,K,QS},
     table::_Table,
 ) where {W<:World,TS<:Tuple,SM<:Tuple,EX,OPT,REG,N,M,K,QS}
-    comp_types = TS.parameters
-    storage_modes = SM.parameters
-    is_optional = OPT.parameters
+    comp_types = fieldtypes(TS)
+    storage_modes = fieldtypes(SM)
+    is_optional = fieldtypes(OPT)
 
     exprs = Expr[]
     push!(exprs, :(entities = table.entities))
@@ -324,18 +326,20 @@ end
         push!(exprs, :(@inbounds $col_sym = $stor_sym.data[table.id]))
 
         if is_optional[i] === Val{true}
-            if storage_modes[i].parameters[1] <: GPUVector
+            if _storage_vector_type(storage_modes[i]) <: GPUVector
                 push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : view(($col_sym).mem, 1:($col_sym).len)))
-            elseif storage_modes[i] == Storage{StructArray} || storage_modes[i].parameters[1] <: GPUStructArray ||
+            elseif storage_modes[i] == Storage{StructArray} ||
+                   _storage_vector_type(storage_modes[i]) <: GPUStructArray ||
                    fieldcount(comp_types[i]) == 0
                 push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : view($col_sym, :)))
             else
                 push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : FieldViewable($col_sym)))
             end
         else
-            if storage_modes[i].parameters[1] <: GPUVector
+            if _storage_vector_type(storage_modes[i]) <: GPUVector
                 push!(exprs, :($vec_sym = view(($col_sym).mem, 1:($col_sym).len)))
-            elseif storage_modes[i] == Storage{StructArray} || storage_modes[i].parameters[1] <: GPUStructArray ||
+            elseif storage_modes[i] == Storage{StructArray} ||
+                   _storage_vector_type(storage_modes[i]) <: GPUStructArray ||
                    fieldcount(comp_types[i]) == 0
                 push!(exprs, :($vec_sym = view($col_sym, :)))
             else
@@ -343,14 +347,13 @@ end
             end
         end
     end
-    result_exprs = [:entities]
+    result_exprs = Symbol[:entities]
     for i in 1:N
         push!(result_exprs, Symbol("vec", i))
     end
 
     element_type = :(Base.eltype(Query{W,TS,SM,EX,OPT,REG,N,M,K,QS}))
 
-    result_exprs = map(x -> :($x), result_exprs)
     tuple_expr = Expr(:tuple, result_exprs...)
     push!(exprs, Expr(:return, Expr(:(::), tuple_expr, element_type)))
 
@@ -366,24 +369,25 @@ Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
 @generated function Base.eltype(
     ::Type{Query{W,TS,SM,EX,OPT,REG,N,M,K,QS}},
 ) where {W<:World,TS<:Tuple,SM<:Tuple,EX,OPT,REG,N,M,K,QS}
-    comp_types = TS.parameters
-    storage_modes = SM.parameters
-    is_optional = OPT.parameters
+    comp_types = fieldtypes(TS)
+    storage_modes = fieldtypes(SM)
+    is_optional = fieldtypes(OPT)
 
     result_types = Any[:Entities]
     for i in 1:N
         T = comp_types[i]
 
         ST = :(_storage_type($(storage_modes[i]), $T))
-        base_view = if storage_modes[i].parameters[1] <: GPUVector
-            B = Val{storage_modes[i].parameters[1].body.body.parameters[1]}()
+        storage_vector_type = _storage_vector_type(storage_modes[i])
+        base_view = if storage_vector_type <: GPUVector
+            B = Val{_gpu_backend(storage_vector_type)}()
             :(_gpuvectorview_type($T, $B))
         elseif fieldcount(comp_types[i]) == 0
             :(SubArray{$T,1,$ST,Tuple{Base.Slice{Base.OneTo{Int}}},IndexStyle($ST) == IndexLinear()})
         elseif storage_modes[i] == Storage{StructArray}
             :(_StructArrayView_type($T, UnitRange{Int}))
-        elseif storage_modes[i].parameters[1] <: GPUStructArray
-            B = Val{storage_modes[i].parameters[1].body.body.body.parameters[1]}()
+        elseif storage_vector_type <: GPUStructArray
+            B = Val{_gpu_backend(storage_vector_type)}()
             :(_GPUStructArrayView_type($T, UnitRange{Int}, $B))
         else
             :(_FieldsViewable_type($ST))
@@ -401,11 +405,11 @@ end
 function Base.show(
     io::IO, query::Query{W,CT,SM,EX,OPT,REG,N,M,K,QS},
 ) where {W<:World,CT<:Tuple,SM<:Tuple,EX<:Val,OPT,REG,N,M,K,QS}
-    world_types = W.parameters[2].parameters
-    comp_types = CT.parameters
+    world_types = fieldtypes(_world_component_types(W))
+    comp_types = fieldtypes(CT)
 
     mask_ids = _active_bit_indices(query._filter.mask)
-    mask_types = tuple(map(i -> world_types[Int(i)].parameters[1], mask_ids)...)
+    mask_types = tuple(DataType[_type_parameter(world_types[Int(i)]) for i in mask_ids]...)
 
     required_types = intersect(mask_types, comp_types)
     optional_types = setdiff(comp_types, mask_types)
@@ -420,7 +424,7 @@ function Base.show(
     without_names = ""
     if !is_exclusive
         excl_ids = _active_bit_indices(query._filter.exclude_mask)
-        excl_types = tuple(map(i -> world_types[Int(i)].parameters[1], excl_ids)...)
+        excl_types = tuple(DataType[_type_parameter(world_types[Int(i)]) for i in excl_ids]...)
         without_names = join(map(_format_type, excl_types), ", ")
     end
 
