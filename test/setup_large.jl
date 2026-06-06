@@ -18,7 +18,7 @@ function Ark.World(comp_types::Union{Type,Pair{<:Type,<:Type}}...; initial_capac
     end
     for i in 1:length(storages)
         if storages[i] == Storage{WrappedVector} && isbitstype(types[i])
-            storages[i] = Storage{DiskVector{types[i]}}
+            storages[i] = Storage{DiskVector}
             break
         end
     end
