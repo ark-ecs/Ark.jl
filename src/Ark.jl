@@ -1,6 +1,7 @@
 module Ark
 
 using FieldViews
+using Mmap
 using Preferences
 using StaticArrays
 using FunctionWrappers: FunctionWrapper
@@ -17,6 +18,7 @@ include("collections.jl")
 include("structarray.jl")
 include("gpu_vector.jl")
 include("gpu_structarray.jl")
+include("disk_vector.jl")
 include("structarray_interface.jl")
 include("fieldsview.jl")
 include("entity.jl")
@@ -76,6 +78,6 @@ export @unchecked
 
 export Relation
 
-export Storage, StructArray, GPUStructArray, GPUVector
+export Storage, StructArray, GPUStructArray, GPUVector, DiskVector
 
 end

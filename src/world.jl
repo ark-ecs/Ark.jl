@@ -800,6 +800,9 @@ end
                 ArgumentError("can't use $(mode) for $(nameof(T)) because it has no fields"),
             )
         end
+        if mode <: Storage{DiskVector}
+            _check_diskvector_eltype(T)
+        end
     end
 
     # Immutability checks
