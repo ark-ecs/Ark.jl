@@ -28,7 +28,8 @@ struct Relation{T} end
     Storage{T}
 
 Marks component types for using `T` as a [storage](@ref component-storages) in the
-world constructor. The default storages supported by `Ark` are `Vector` and `StructArray`.
+world constructor. Built-in storages include `Vector`, `StructArray`, `DiskVector`,
+`GPUVector` and `GPUStructArray`.
 
 If, during world construction, the storage mode is not specified, it defaults to `Storage{Vector}`.
 

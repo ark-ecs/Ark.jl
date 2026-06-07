@@ -17,6 +17,12 @@ function Ark.World(comp_types::Union{Type,Pair{<:Type,<:Type}}...; initial_capac
         end
     end
     for i in 1:length(storages)
+        if storages[i] == Storage{WrappedVector} && isbitstype(types[i]) && fieldcount(types[i]) > 0
+            storages[i] = Storage{DiskVector}
+            break
+        end
+    end
+    for i in 1:length(storages)
         if storages[i] == Storage{StructArray}
             storages[i] = Storage{GPUStructArray{:CPU}}
         end
