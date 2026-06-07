@@ -6,14 +6,14 @@ A disk-backed vector implementation for isbits component storage.
 `DiskVector` uses a temporary memory-mapped file as backing storage. Files are
 managed by Ark and deleted automatically when the vector is garbage-collected.
 """
-const DISKVECTOR_MEMORY_LENGTH = 128
-
 mutable struct DiskVector{T} <: AbstractVector{T}
     path::String
     mem::Vector{T}
     len::Int
     capacity::Int
 end
+
+const DISKVECTOR_MEMORY_LENGTH = 128
 
 function _check_diskvector_eltype(::Type{T}) where {T}
     if !isbitstype(T)
