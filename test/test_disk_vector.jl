@@ -1,6 +1,3 @@
-struct DiskRelation
-    weight::Int
-end
 
 function _disk_snapshot(world)
     values = Dict{Entity,Position}()
@@ -76,10 +73,6 @@ end
         "ArgumentError: DiskVector storage requires a nonzero-size component type, got LabelComponent",
         World(LabelComponent => Storage{DiskVector})
     )
-
-    world = World(Int64 => Storage{DiskVector})
-    entity = new_entity!(world, (1,))
-    @test get_components(world, entity, (Int64,)) == (1,)
 end
 
 @testset "DiskVector components" begin

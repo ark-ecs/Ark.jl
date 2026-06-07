@@ -139,13 +139,12 @@ For these columns, Ark offers storage types for both CPU anf GPU computing by de
   - Slower component access with [get_components](@ref) and [set_components!](@ref).
 
 - **[DiskVector](@ref) storage** stores components in temporary memory-mapped files on disk.
-  It can be useful for large isbits component columns that should not be backed by ordinary
+  It can be useful for large component columns that cannot be backed by ordinary
   Julia heap arrays. [DiskVector](@ref) is working storage, not persistent world serialization:
   files are managed by Ark and removed automatically when the storage is garbage-collected.
   [DiskVector](@ref) storage has some limitations:
   - Only allowed for isbits component types.
   - Not allowed for zero-size component types, like label components.
-  - Slower than `Vector` for workloads that page data in and out frequently.
 
 ### GPU Storages
 
@@ -193,7 +192,7 @@ world = World(
 )
 ```
 
-To use [DiskVector](@ref) storage, pass it as the storage mode:
+To use [DiskVector](@ref) storage, simply pass it as the storage mode:
 
 ```julia
 world = World(
