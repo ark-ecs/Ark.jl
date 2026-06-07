@@ -17,8 +17,9 @@ end
 
     sizehint!(dv, 4)
     @test length(dv) == 0
-    @test isfile(getfield(dv, :path))
-    @test basename(dirname(getfield(dv, :path))) == "tmp_ark"
+    @test isempty(getfield(dv, :path))
+
+    sizehint!(dv, 1024)
 
     push!(dv, 1)
     push!(dv, 2)
@@ -79,7 +80,8 @@ end
     world = World(
         A => Storage{DiskVector},
         B => Storage{DiskVector},
-        Relation{DiskRelation} => Storage{DiskVector},
+        Relation{DiskRelation} => Storage{DiskVector};
+        capacity=1024,
     )
 
     e1 = new_entity!(world, (A(2.0), B(2.0)))
@@ -118,7 +120,8 @@ end
         Position => Storage{DiskVector},
         Velocity => Storage{DiskVector},
         Health => Storage{DiskVector},
-        Int64 => Storage{DiskVector},
+        Int64 => Storage{DiskVector};
+        capacity=1024,
     )
 
     new_entities!(world, 10, (Position, Velocity, Health, Int64)) do (entities, positions, velocities, healths, ints)

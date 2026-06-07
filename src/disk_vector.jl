@@ -6,9 +6,10 @@ A disk-backed vector implementation for isbits component storage.
 `DiskVector` uses a temporary memory-mapped file as backing storage. Files are
 managed by Ark and deleted automatically when the vector is garbage-collected.
 """
+const DISKVECTOR_MEMORY_LENGTH = 128
+
 mutable struct DiskVector{T} <: AbstractVector{T}
     path::String
-    io::Union{Nothing,IOStream}
     mem::Vector{T}
     len::Int
     capacity::Int
@@ -25,7 +26,7 @@ end
 
 function DiskVector{T}() where {T}
     _check_diskvector_eltype(T)
-    dv = DiskVector{T}("", nothing, Vector{T}(), 0, 0)
+    dv = DiskVector{T}("", Vector{T}(), 0, 0)
     finalizer(_finalize_diskvector!, dv)
     return dv
 end
@@ -37,29 +38,17 @@ function DiskVector{T}(::UndefInitializer, n::Integer) where {T}
 end
 
 function _finalize_diskvector!(dv::DiskVector)
-    io = dv.io
     mem = dv.mem
     capacity = dv.capacity
     path = dv.path
-    @async _cleanup_diskvector_resources!(io, mem, capacity, path)
+    @async _cleanup_diskvector_resources!(mem, capacity, path)
     return nothing
 end
 
-function _cleanup_diskvector_resources!(
-    io::Union{Nothing,IOStream},
-    mem::Vector,
-    capacity::Int,
-    path::String,
-)
-    if io !== nothing
-        if capacity > 0
-            try
-                Mmap.sync!(mem)
-            catch
-            end
-        end
+function _cleanup_diskvector_resources!(mem::Vector, capacity::Int, path::String)
+    if !isempty(path) && capacity > 0
         try
-            close(io)
+            _release_diskvector_mem!(mem, capacity)
         catch
         end
     end
@@ -73,26 +62,126 @@ function _cleanup_diskvector_resources!(
 end
 
 function _ensure_diskvector_file!(dv::DiskVector)
-    if dv.io === nothing
+    if isempty(dv.path)
         mkpath(TMP_ARK_DIR)
         path, io = mktemp(TMP_ARK_DIR)
+        try
+            close(io)
+        catch
+            rm(path; force=true)
+            rethrow()
+        end
         dv.path = path
-        dv.io = io
     end
-    return dv.io::IOStream
+    return dv.path
+end
+
+function _mmap_diskvector(::Type{T}, path::String, capacity::Int) where {T}
+    return open(path, "r+") do io
+        Mmap.mmap(io, Vector{T}, capacity, 0; grow=true, shared=true)
+    end
+end
+
+function _unmap_diskvector_mem!(mem::Vector, capacity::Int)
+    capacity == 0 && return nothing
+    finalize(mem.ref.mem)
+    return nothing
+end
+
+function _release_diskvector_mem!(mem::Vector, capacity::Int)
+    capacity == 0 && return nothing
+    Mmap.sync!(mem)
+    _unmap_diskvector_mem!(mem, capacity)
+    return nothing
+end
+
+function _diskvector_uses_disk(dv::DiskVector, requested::Int)
+    return !isempty(dv.path) || requested > DISKVECTOR_MEMORY_LENGTH
+end
+
+function _ensure_diskvector_memory_capacity!(dv::DiskVector{T}, requested::Int) where {T}
+    requested <= dv.capacity && return nothing
+
+    new_capacity = min(max(requested, 2 * dv.capacity, 1), DISKVECTOR_MEMORY_LENGTH)
+    new_mem = Vector{T}(undef, new_capacity)
+    if dv.len > 0
+        copyto!(new_mem, 1, dv.mem, 1, dv.len)
+    end
+    dv.mem = new_mem
+    dv.capacity = new_capacity
+    return nothing
+end
+
+function _move_diskvector_to_disk!(dv::DiskVector{T}, requested::Int) where {T}
+    old_path = dv.path
+    path = _ensure_diskvector_file!(dv)
+    new_capacity = max(requested, 2 * dv.capacity, DISKVECTOR_MEMORY_LENGTH + 1)
+    old_mem = dv.mem
+
+    try
+        new_mem = _mmap_diskvector(T, path, new_capacity)
+        if dv.len > 0
+            copyto!(new_mem, 1, old_mem, 1, dv.len)
+        end
+        dv.mem = new_mem
+        dv.capacity = new_capacity
+    catch
+        if isempty(old_path)
+            try
+                rm(path; force=true)
+            catch
+            end
+            dv.path = ""
+        end
+        rethrow()
+    end
+    return nothing
 end
 
 function _ensure_diskvector_capacity!(dv::DiskVector{T}, requested::Int) where {T}
     requested <= dv.capacity && return nothing
 
-    io = _ensure_diskvector_file!(dv)
+    if !_diskvector_uses_disk(dv, requested)
+        _ensure_diskvector_memory_capacity!(dv, requested)
+        return nothing
+    elseif isempty(dv.path)
+        _move_diskvector_to_disk!(dv, requested)
+        return nothing
+    end
+
+    path = _ensure_diskvector_file!(dv)
     new_capacity = max(requested, 2 * dv.capacity, 1)
 
+    old_mem = dv.mem
+    old_capacity = dv.capacity
     if dv.capacity > 0
-        Mmap.sync!(dv.mem)
+        try
+            Mmap.sync!(old_mem)
+            dv.mem = Vector{T}()
+            dv.capacity = 0
+            _unmap_diskvector_mem!(old_mem, old_capacity)
+        catch
+            dv.mem = old_mem
+            dv.capacity = old_capacity
+            rethrow()
+        end
     end
-    dv.mem = Mmap.mmap(io, Vector{T}, new_capacity, 0; grow=true, shared=true)
-    dv.capacity = new_capacity
+
+    try
+        dv.mem = _mmap_diskvector(T, path, new_capacity)
+        dv.capacity = new_capacity
+    catch
+        if old_capacity > 0
+            try
+                dv.mem = _mmap_diskvector(T, path, old_capacity)
+                dv.capacity = old_capacity
+            catch
+                dv.mem = Vector{T}()
+                dv.capacity = 0
+            end
+        end
+        rethrow()
+    end
     return nothing
 end
 
@@ -118,7 +207,9 @@ function Base.resize!(dv::DiskVector, new_len::Int)
 end
 
 function Base.sizehint!(dv::DiskVector, capacity::Int)
-    capacity > 0 && _ensure_diskvector_capacity!(dv, capacity)
+    if capacity > 0 && isempty(dv.path)
+        _ensure_diskvector_memory_capacity!(dv, min(capacity, DISKVECTOR_MEMORY_LENGTH))
+    end
     return dv
 end
 
