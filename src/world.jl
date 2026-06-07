@@ -117,7 +117,7 @@ end
 """
     World(
         comp_types::Type...;
-        initial_capacity::Int=128,
+        initial_capacity::Int=16,
         allow_mutable::Bool=false,
     )
 
@@ -167,7 +167,7 @@ world = World(
 World(entities=0, comp_types=(Position, Velocity, Health))
 ```
 """
-function World(comp_types::Union{Type,Pair{<:Type,<:Type}}...; initial_capacity::Int=128, allow_mutable=false)
+function World(comp_types::Union{Type,Pair{<:Type,<:Type}}...; initial_capacity::Int=16, allow_mutable=false)
     raw_types = map(arg -> arg isa Type ? arg : arg.first, comp_types)
     types = map(_unwrap_relation_type, raw_types)
     storages = map(arg -> arg isa Type ? Storage{Vector} : arg.second, comp_types)
