@@ -74,7 +74,8 @@ end
 
 function _ensure_diskvector_file!(dv::DiskVector)
     if dv.io === nothing
-        path, io = mktemp()
+        mkpath(TMP_ARK_DIR)
+        path, io = mktemp(TMP_ARK_DIR)
         dv.path = path
         dv.io = io
     end

@@ -21,6 +21,7 @@ end
     sizehint!(dv, 4)
     @test length(dv) == 0
     @test isfile(getfield(dv, :path))
+    @test basename(dirname(getfield(dv, :path))) == "tmp_ark"
 
     push!(dv, 1)
     push!(dv, 2)

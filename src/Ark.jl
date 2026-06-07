@@ -8,6 +8,7 @@ using FunctionWrappers: FunctionWrapper
 using Random
 
 const THREAD_SAFE_LOCK = @load_preference("THREAD_SAFE_LOCK", default = "true")
+const TMP_ARK_DIR = @load_preference("TMP_ARK_DIR", default = joinpath(@__DIR__, "tmp_ark"))
 
 isdefined(@__MODULE__, :Memory) || const Memory = Vector # Compat for Julia < 1.11
 
