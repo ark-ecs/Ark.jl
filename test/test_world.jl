@@ -122,6 +122,7 @@ end
 
     table1 = _find_or_create_table!(
         world,
+        world._graph, world._tables, world._archetypes, world._archetypes_hot,
         world._tables[1],
         (offset_ID + 1,),
         (),
@@ -138,6 +139,7 @@ end
 
     table2 = _find_or_create_table!(
         world,
+        world._graph, world._tables, world._archetypes, world._archetypes_hot,
         world._tables[1],
         (offset_ID + 1, offset_ID + 2),
         (),
@@ -154,6 +156,7 @@ end
 
     table3 = _find_or_create_table!(
         world,
+        world._graph, world._tables, world._archetypes, world._archetypes_hot,
         world._tables[1],
         (offset_ID + 1,),
         (),
@@ -283,6 +286,7 @@ end
 
     index = _find_or_create_table!(
         world,
+        world._graph, world._tables, world._archetypes, world._archetypes_hot,
         world._tables[1],
         (pos_id,),
         (),
@@ -302,6 +306,7 @@ end
 
     index = _find_or_create_table!(
         world,
+        world._graph, world._tables, world._archetypes, world._archetypes_hot,
         world._tables[1],
         (pos_id, vel_id),
         (),
@@ -318,6 +323,7 @@ end
 
     index = _find_or_create_table!(
         world,
+        world._graph, world._tables, world._archetypes, world._archetypes_hot,
         world._tables[1],
         (pos_id, vel_id),
         (),
@@ -354,6 +360,7 @@ end
     vel_id = _component_index(params, Velocity)
     table_index = _find_or_create_table!(
         world,
+        world._graph, world._tables, world._archetypes, world._archetypes_hot,
         world._tables[1],
         (pos_id, vel_id),
         (),

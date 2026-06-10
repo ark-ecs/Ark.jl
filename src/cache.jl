@@ -63,22 +63,22 @@ function _register_filter!(
     end
 end
 
-function _unregister_filter!(world::W, filter::F) where {W<:_AbstractWorld,F<:_MaskFilter}
-    _check_locked(world._lock)
+function _unregister_filter!(lock::_Lock, tables::Vector{_Table}, cache::_Cache, filter::F) where {F<:_MaskFilter}
+    _check_locked(lock)
 
     if !_is_cached(filter)
         throw(InvalidStateException("filter is not registered to the cache", :filter_not_registered))
     end
 
     for table_id in filter.tables.ids
-        table = world._tables[table_id]
+        table = tables[table_id]
         _remove_table_filter!(table, filter.id[])
     end
 
-    if filter.id[] == length(world._cache.filters)
-        pop!(world._cache.filters)
+    if filter.id[] == length(cache.filters)
+        pop!(cache.filters)
     else
-        push!(world._cache.free_indices, filter.id[])
+        push!(cache.free_indices, filter.id[])
     end
 
     _clear!(filter.tables)

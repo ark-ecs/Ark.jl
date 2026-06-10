@@ -21,7 +21,7 @@ function sort_entities!(filter::Filter; alg=Base.Sort.QuickSort, kwargs...)
         for table_id in filter._filter.tables.ids
             table = @inbounds world._tables[table_id]
             if !isempty(table.entities)
-                _sort_table_entities!(world, table; alg, kwargs...)
+                _sort_table_entities!(world._archetypes, world._entities, world._storages, table; alg, kwargs...)
             end
         end
     else
@@ -47,13 +47,20 @@ function _sort_entities!(
         archetypes,
         archetypes_hot,
         table,
-        _sort_table_entities!(world, table; alg, kwargs...)
+        _sort_table_entities!(world._archetypes, world._entities, world._storages, table; alg, kwargs...)
     )
 
     return
 end
 
-function _sort_table_entities!(world::World, table::_Table; alg::Base.Sort.Algorithm, kwargs...)
+function _sort_table_entities!(
+    archetypes::Vector{_Archetype{M}},
+    world_entities::Vector{_EntityIndex},
+    storages::CS,
+    table::_Table;
+    alg::Base.Sort.Algorithm,
+    kwargs...,
+) where {M,CS}
     len = length(table)
     if len <= 1
         return
@@ -62,13 +69,13 @@ function _sort_table_entities!(world::World, table::_Table; alg::Base.Sort.Algor
     @inbounds begin
         sort!(table.entities._data; alg, kwargs...)
 
-        archetype = world._archetypes[table.archetype]
-        entities = table.entities
+        archetype = archetypes[table.archetype]
+        table_entities = table.entities
 
         # Components still have the old order
         for start in 1:len
-            entity = entities[start]
-            index = world._entities[entity._id]
+            entity = table_entities[start]
+            index = world_entities[entity._id]
 
             # table == 0 means this row's cycle was already processed
             if index.table == UInt32(0)
@@ -80,11 +87,11 @@ function _sort_table_entities!(world::World, table::_Table; alg::Base.Sort.Algor
             if old_row != start
                 for comp in archetype.components
                     _permute_component_cycle!(
-                        world._storages,
+                        storages,
                         comp,
                         table.id,
-                        entities,
-                        world._entities,
+                        table_entities,
+                        world_entities,
                         start,
                     )
                 end
@@ -93,8 +100,8 @@ function _sort_table_entities!(world::World, table::_Table; alg::Base.Sort.Algor
 
         # Restore the entity index to the final shuffled positions
         for row in 1:len
-            entity = entities[row]
-            world._entities[entity._id] = _EntityIndex(table.id, UInt32(row))
+            entity = table_entities[row]
+            world_entities[entity._id] = _EntityIndex(table.id, UInt32(row))
         end
     end
 

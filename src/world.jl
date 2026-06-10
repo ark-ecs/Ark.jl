@@ -414,7 +414,7 @@ pos, vel = get_components(world, entity, (Position, Velocity))
     comp_types::Tuple;
     _unchecked::Bool=false,
 )
-    return @inline _get_components(world, entity, _valtuple(comp_types), Val(_unchecked))
+    return @inline _get_components(world._entities, world._storages, world._entity_pool, entity, _valtuple(comp_types), Val(_unchecked))
 end
 
 """
@@ -463,7 +463,7 @@ set_components!(world, entity, (Position(0, 0), Velocity(1, 1)))
     values::Tuple;
     _unchecked::Bool=false,
 )
-    return @inline _set_components!(world, entity, Val{typeof(values)}(), values, Val(_unchecked))
+    return @inline _set_components!(world._entities, world._storages, world._entity_pool, entity, Val{typeof(values)}(), values, Val(_unchecked))
 end
 
 """
@@ -488,7 +488,7 @@ parent, = get_relations(world, entity, (ChildOf,))
     comp_types::Tuple;
     _unchecked::Bool=false,
 ) where {W<:World}
-    return @inline _get_relations(world, entity, _valtuple(comp_types), Val(_unchecked))
+    return @inline _get_relations(world._entities, world._relations, world._entity_pool, entity, _valtuple(comp_types), Val(_unchecked), _world_storage_types(typeof(world)), _world_relation_types(typeof(world)))
 end
 
 """
@@ -895,6 +895,8 @@ end
 
 @inline function _find_or_create_archetype!(
     world::World,
+    graph::_Graph{M},
+    tables::Vector{_Table},
     start::_GraphNode,
     add::Tuple{Vararg{Int}},
     remove::Tuple{Vararg{Int}},
@@ -902,11 +904,11 @@ end
     add_mask::_Mask,
     rem_mask::_Mask,
     use_map::Union{_NoUseMap,_UseMap},
-)::Tuple{UInt32,Bool}
-    node = _find_node(world._graph, start, add, remove, add_mask, rem_mask, use_map)
+)::Tuple{UInt32,Bool} where M
+    node = _find_node(graph, start, add, remove, add_mask, rem_mask, use_map)
 
     if node.archetype[] == typemax(UInt32)
-        table = ifelse(isempty(relations), UInt32(length(world._tables) + 1), UInt32(0))
+        table = ifelse(isempty(relations), UInt32(length(tables) + 1), UInt32(0))
         return (_create_archetype!(world, node, table), true)
     else
         return (node.archetype[], false)
@@ -915,6 +917,10 @@ end
 
 @inline function _find_or_create_table!(
     world::World,
+    graph::_Graph{M},
+    tables::Vector{_Table},
+    archetypes::Vector{_Archetype{M}},
+    archetypes_hot::Vector{_ArchetypeHot{M}},
     old_table::_Table,
     add::Tuple{Vararg{Int}},
     remove::Tuple{Vararg{Int}},
@@ -924,27 +930,31 @@ end
     rem_mask::_Mask,
     use_map::Union{_NoUseMap,_UseMap},
     world_has_rel::Val{true},
-)::Tuple{UInt32,Bool}
-    @inbounds old_arch = world._archetypes[old_table.archetype]
+)::Tuple{UInt32,Bool} where M
+    @inbounds old_arch = archetypes[old_table.archetype]
     new_arch_index, is_new = _find_or_create_archetype!(
-        world, old_arch.node, add, remove, relations, add_mask, rem_mask, use_map,
+        world, graph, tables, old_arch.node, add, remove, relations, add_mask, rem_mask, use_map,
     )
-    @inbounds new_arch_hot = world._archetypes_hot[new_arch_index]
+    @inbounds new_arch_hot = archetypes_hot[new_arch_index]
 
     if !new_arch_hot.has_relations && isempty(relations)
         if is_new
-            @inbounds new_arch = world._archetypes[new_arch_index]
+            @inbounds new_arch = archetypes[new_arch_index]
             return _create_table!(world, new_arch, _empty_relations), _has_relations(old_arch)
         end
         return new_arch_hot.table, _has_relations(old_arch)
     end
 
-    @inbounds new_arch = world._archetypes[new_arch_index]
+    @inbounds new_arch = archetypes[new_arch_index]
     return _find_or_create_table!(world, old_table, new_arch_hot, new_arch, relations, targets, !isempty(remove))
 end
 
 @inline function _find_or_create_table!(
     world::World,
+    graph::_Graph{M},
+    tables::Vector{_Table},
+    archetypes::Vector{_Archetype{M}},
+    archetypes_hot::Vector{_ArchetypeHot{M}},
     old_table::_Table,
     add::Tuple{Vararg{Int}},
     remove::Tuple{Vararg{Int}},
@@ -954,8 +964,8 @@ end
     rem_mask::_Mask,
     use_map::Union{_NoUseMap,_UseMap},
     world_has_rel::Val{false},
-)::Tuple{UInt32,Bool}
-    @inbounds old_arch_hot = world._archetypes_hot[old_table.archetype]
+)::Tuple{UInt32,Bool} where M
+    @inbounds old_arch_hot = archetypes_hot[old_table.archetype]
     old_mask = old_arch_hot.mask
     if !_contains_all(old_mask, rem_mask)
         throw(ArgumentError("entity does not have component to remove"))
@@ -968,9 +978,9 @@ end
     if new_mask.bits == last_mask.bits
         return last_table.id, false
     end
-    @inbounds old_arch = world._archetypes[old_table.archetype]
+    @inbounds old_arch = archetypes[old_table.archetype]
     new_arch_index, is_new = _find_or_create_archetype!(
-        world, old_arch.node, add, remove, relations, add_mask, rem_mask, use_map,
+        world, graph, tables, old_arch.node, add, remove, relations, add_mask, rem_mask, use_map,
     )
     if is_new
         @inbounds new_arch = world._archetypes[new_arch_index]
@@ -1310,7 +1320,7 @@ function _cleanup_archetypes(world::World, entity::Entity)
                 empty!(new_relations)
 
                 start_index = length(new_table) + 1
-                _move_entities_cleanup!(world, table.id, new_table.id)
+                _move_entities_cleanup!(world._tables, world._archetypes, world._storages, world._entities, table.id, new_table.id)
 
                 if _has_observers(world._event_manager, OnAddRelations)
                     _fire_set_relations(world._event_manager, OnAddRelations,
@@ -1365,7 +1375,7 @@ end
         exprs,
         :(
             table = _find_or_create_table!(
-                world,
+                world, world._graph, world._tables, world._archetypes, world._archetypes_hot,
                 world._tables[1],
                 $ids,
                 (),
@@ -1519,36 +1529,51 @@ end
     end
 end
 
-function _move_entities_cleanup!(world::World, old_table_index::UInt32, table_index::UInt32)
-    old_table = world._tables[old_table_index]
-    _move_entities!(world, old_table_index, table_index, length(old_table.entities))
+function _move_entities_cleanup!(
+    tables::Vector{_Table},
+    archetypes::Vector{_Archetype{M}},
+    storages::CS,
+    entities::Vector{_EntityIndex},
+    old_table_index::UInt32,
+    table_index::UInt32,
+) where {M,CS}
+    old_table = tables[old_table_index]
+    _move_entities!(tables, archetypes, storages, entities, old_table_index, table_index, length(old_table.entities))
 end
 
-function _move_entities!(world::World, old_table_index::UInt32, table_index::UInt32, num_entities::Int)
-    old_table = world._tables[old_table_index]
-    new_table = world._tables[table_index]
-    old_archetype = world._archetypes[old_table.archetype]
-    new_archetype = world._archetypes[new_table.archetype]
+function _move_entities!(
+    tables::Vector{_Table},
+    archetypes::Vector{_Archetype{M}},
+    storages::CS,
+    entities::Vector{_EntityIndex},
+    old_table_index::UInt32,
+    table_index::UInt32,
+    num_entities::Int,
+) where {M,CS}
+    old_table = tables[old_table_index]
+    new_table = tables[table_index]
+    old_archetype = archetypes[old_table.archetype]
+    new_archetype = archetypes[new_table.archetype]
 
     old_entities = length(new_table.entities)
     total_entities = old_entities + num_entities
 
     resize!(new_table, total_entities)
     for comp in new_archetype.components
-        _ensure_column_size_for_comp!(world._storages, comp, table_index, total_entities)
+        _ensure_column_size_for_comp!(storages, comp, table_index, total_entities)
     end
 
     @inbounds @simd for from in 1:num_entities
         to = old_entities + from
         entity = old_table.entities[from]
         new_table.entities._data[to] = entity
-        world._entities[entity._id] = _EntityIndex(new_table.id, to)
+        entities[entity._id] = _EntityIndex(new_table.id, to)
     end
     for comp in old_archetype.components
         if _get_bit(new_archetype.node.mask, comp)
-            _copy_component_data_to_end!(world._storages, comp, old_table_index, table_index)
+            _copy_component_data_to_end!(storages, comp, old_table_index, table_index)
         end
-        _clear_component_data!(world._storages, comp, old_table_index)
+        _clear_component_data!(storages, comp, old_table_index)
     end
 
     empty!(old_table)
@@ -1650,7 +1675,8 @@ end
         :(
             new_table_index =
                 _find_or_create_table!(
-                    world, old_table, $add_ids, $rem_ids, $rel_ids, targets, $add_mask, $rem_mask, $use_map,
+                    world, world._graph, world._tables, world._archetypes, world._archetypes_hot,
+                    old_table, $add_ids, $rem_ids, $rel_ids, targets, $add_mask, $rem_mask, $use_map,
                     $world_has_rel,
                 )[1]
         ),
@@ -1704,7 +1730,14 @@ end
     end
 end
 
-@generated function _get_components(world::World, entity::Entity, ::TS, ::Val{Unchecked}) where {TS<:Tuple,Unchecked}
+@generated function _get_components(
+    entities::Vector{_EntityIndex},
+    storages::CS,
+    entity_pool::_EntityPool,
+    entity::Entity,
+    ::TS,
+    ::Val{Unchecked},
+) where {CS<:Tuple,TS<:Tuple,Unchecked}
     types = _to_types(TS)
     _check_no_duplicates(types)
 
@@ -1716,20 +1749,20 @@ end
 
     if !Unchecked
         push!(exprs, :(
-            if !is_alive(world, entity)
+            if !_is_alive(entity_pool, entity)
                 throw(ArgumentError("can't get components of a dead entity"))
             end
         ))
     end
 
-    push!(exprs, :(@inbounds idx = world._entities[entity._id]))
+    push!(exprs, :(@inbounds idx = entities[entity._id]))
 
     for i in 1:length(types)
         T = types[i]
         stor_sym = Symbol("stor", i)
         val_sym = Symbol("v", i)
 
-        push!(exprs, :($(stor_sym) = _get_storage(world._storages, $T)))
+        push!(exprs, :($(stor_sym) = _get_storage(storages, $T)))
         push!(exprs, :($(val_sym) = _get_component($(stor_sym), idx.table, idx.row, $(Val(Unchecked)))))
     end
 
@@ -1797,31 +1830,33 @@ end
 end
 
 @generated function _set_components!(
-    world::World,
+    entities::Vector{_EntityIndex},
+    storages::CS,
+    entity_pool::_EntityPool,
     entity::Entity,
     ::Val{TS},
     values::Tuple,
     ::Val{Unchecked},
-) where {TS<:Tuple,Unchecked}
+) where {CS<:Tuple,TS<:Tuple,Unchecked}
     types = _to_types(fieldtypes(TS))
     _check_no_duplicates(types)
 
     exprs = Expr[]
     if !Unchecked
         push!(exprs, :(
-            if !is_alive(world, entity)
+            if !_is_alive(entity_pool, entity)
                 throw(ArgumentError("can't set components of a dead entity"))
             end
         ))
     end
-    push!(exprs, :(@inbounds idx = world._entities[entity._id]))
+    push!(exprs, :(@inbounds idx = entities[entity._id]))
 
     for i in 1:length(types)
         T = types[i]
         stor_sym = Symbol("stor", i)
         val_expr = :(values.$i)
 
-        push!(exprs, :($stor_sym = _get_storage(world._storages, $T)))
+        push!(exprs, :($stor_sym = _get_storage(storages, $T)))
         push!(exprs, :(_set_component!($stor_sym, idx.table, idx.row, $val_expr, $(Val(Unchecked)))))
     end
 
@@ -1835,35 +1870,38 @@ end
 end
 
 @generated function _get_relations(
-    world::W,
+    entities::Vector{_EntityIndex},
+    comp_relations::Vector{_ComponentRelations},
+    entity_pool::_EntityPool,
     entity::Entity,
     ::TS,
     ::Val{Unchecked},
-) where {W<:World,TS<:Tuple,Unchecked}
+    ::Type{CS},
+    ::Type{RT},
+) where {CS<:Tuple,RT<:Tuple,TS<:Tuple,Unchecked}
     types = _to_types(TS)
     if length(types) == 0
         return :(())
     end
 
-    CS = _world_storage_types(W)
-    _check_relations(types, _world_relation_types(W))
+    _check_relations(types, RT)
     _check_no_duplicates(types)
 
     exprs = Expr[]
     if !Unchecked
         push!(exprs, :(
-            if !is_alive(world, entity)
+            if !_is_alive(entity_pool, entity)
                 throw(ArgumentError("can't get relations of a dead entity"))
             end
         ))
     end
-    push!(exprs, :(@inbounds idx = world._entities[entity._id]))
+    push!(exprs, :(@inbounds idx = entities[entity._id]))
 
     for i in 1:length(types)
         T = types[i]
         target_sym = Symbol("t", i)
 
-        push!(exprs, :($(target_sym) = @inbounds _get_relations_storage(world._relations, $T, $CS).targets[idx.table]))
+        push!(exprs, :($(target_sym) = @inbounds _get_relations_storage(comp_relations, $T, $CS).targets[idx.table]))
         if !Unchecked
             push!(exprs, :(
                 if $(target_sym)._id == 0
@@ -2031,7 +2069,8 @@ end
         :(
             new_table_tuple =
                 _find_or_create_table!(
-                    world, old_table, $add_ids, $rem_ids, $rel_ids, targets, $add_mask, $rem_mask, $use_map,
+                    world, world._graph, world._tables, world._archetypes, world._archetypes_hot,
+                    old_table, $add_ids, $rem_ids, $rel_ids, targets, $add_mask, $rem_mask, $use_map,
                     $world_has_rel,
                 )
         ),

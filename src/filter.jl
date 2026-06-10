@@ -165,7 +165,7 @@ end
 Un-registers a [Filter](@ref).
 """
 function unregister!(filter::F) where {F<:Filter}
-    _unregister_filter!(filter._world, filter._filter)
+    _unregister_filter!(filter._world._lock, filter._world._tables, filter._world._cache, filter._filter)
 end
 
 function _matches(filter::F, archetype::_ArchetypeHot) where {F<:_MaskFilter}

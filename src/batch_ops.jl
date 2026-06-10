@@ -638,7 +638,7 @@ function _set_relations_table!(
     end
 
     start_idx = length(new_table) + 1
-    _move_entities!(world, batch.table.id, new_table.id, batch.end_idx)
+    _move_entities!(world._tables, world._archetypes, world._storages, world._entities, batch.table.id, new_table.id, batch.end_idx)
     if has_fn
         fn(view(new_table.entities, start_idx:length(new_table)))
     end
@@ -762,7 +762,8 @@ end
         :(
             new_table_tuple =
                 _find_or_create_table!(
-                    world, batch.table, $add_ids, $rem_ids, $rel_ids, targets, $add_mask, $rem_mask, $use_map,
+                    world, world._graph, world._tables, world._archetypes, world._archetypes_hot,
+                    batch.table, $add_ids, $rem_ids, $rel_ids, targets, $add_mask, $rem_mask, $use_map,
                     $world_has_rel,
                 )
         ),
@@ -802,7 +803,7 @@ end
     end
 
     push!(exprs, :(start_idx = length(new_table) + 1))
-    push!(exprs, :(_move_entities!(world, batch.table.id, new_table.id, batch.end_idx)))
+    push!(exprs, :(_move_entities!(world._tables, world._archetypes, world._storages, world._entities, batch.table.id, new_table.id, batch.end_idx)))
 
     if DEF === Val{true}
         for i in 1:length(add_types)
@@ -1025,7 +1026,7 @@ end
         exprs,
         :(
             table_idx = _find_or_create_table!(
-                world,
+                world, world._graph, world._tables, world._archetypes, world._archetypes_hot,
                 world._tables[1],
                 $ids,
                 (),
