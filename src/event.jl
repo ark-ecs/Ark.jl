@@ -108,8 +108,7 @@ Observer for reacting on built-in and custom events.
 See [observe!](@ref) for details.
 See [Event](@ref) for built-in, and [EventRegistry](@ref) for custom event types.
 """
-struct Observer{W<:_AbstractWorld,M}
-    _world::W
+struct Observer{M}
     _id::_ObserverID
     _event::Event
     _comps::_Mask{M}
@@ -120,27 +119,30 @@ struct Observer{W<:_AbstractWorld,M}
     _has_without::Bool
     _is_exclusive::Bool
     _fn::FunctionWrapper{Nothing,Tuple{Entity}}
+    _show_mask_str::String
+    _show_with_str::String
+    _show_without_str::String
 end
 
-mutable struct _EventManager{W<:_AbstractWorld,M}
-    const observers::Vector{Vector{Observer{W,M}}}
+mutable struct _EventManager{M}
+    const observers::Vector{Vector{Observer{M}}}
     const comps::Vector{Tuple{_Mask{M},Bool}}
     const with::Vector{Tuple{_Mask{M},Bool}}
     num_observers::Int
     max_event_type::Int
 end
 
-function _EventManager{W,M}() where {W<:_AbstractWorld,M}
+function _EventManager{M}() where {M}
     len = _EVENT_MANAGER_INITIAL_CAPACITY
-    _EventManager{W,M}(
-        [Vector{Observer{W,M}}() for _ in 1:len],
+    _EventManager{M}(
+        [Vector{Observer{M}}() for _ in 1:len],
         [(_Mask{M}(), false) for _ in 1:len],
         [(_Mask{M}(), false) for _ in 1:len],
         0, 0,
     )
 end
 
-function _ensure_capacity!(m::_EventManager{W,M}, id::Int) where {W<:_AbstractWorld,M}
+function _ensure_capacity!(m::_EventManager{M}, id::Int) where {M}
     cap = length(m.observers)
     if id <= cap
         return
@@ -148,7 +150,7 @@ function _ensure_capacity!(m::_EventManager{W,M}, id::Int) where {W<:_AbstractWo
 
     resize!(m.observers, id)
     @inbounds for i in (cap+1):id
-        m.observers[i] = Vector{Observer{W,M}}()
+        m.observers[i] = Vector{Observer{M}}()
     end
 
     resize!(m.comps, id)
@@ -204,7 +206,7 @@ function _add_observer!(m::_EventManager, o::Observer)
     m.comps[e] = (comps, any_no_comps)
 end
 
-function _remove_observer!(m::_EventManager{W,M}, o::Observer{W,M}) where {W<:_AbstractWorld,M}
+function _remove_observer!(m::_EventManager{M}, o::Observer{M}) where {M}
     if o._id.id == 0
         throw(InvalidStateException("observer is not registered", :observer_not_registered))
     end
@@ -247,7 +249,7 @@ function _remove_observer!(m::_EventManager{W,M}, o::Observer{W,M}) where {W<:_A
     m.comps[e] = (comps_mask, any_no_comps)
 end
 
-function _reset!(m::_EventManager{W,M}) where {W<:_AbstractWorld,M}
+function _reset!(m::_EventManager{M}) where {M}
     for e in 1:m.max_event_type
         if length(m.observers[e]) == 0
             continue
@@ -264,31 +266,31 @@ function _reset!(m::_EventManager{W,M}) where {W<:_AbstractWorld,M}
     m.num_observers = 0
 end
 
-function _fire_create_entity(m::_EventManager{W,M}, entity::Entity, mask::_Mask{M}) where {W<:_AbstractWorld,M}
+function _fire_create_entity(m::_EventManager{M}, entity::Entity, mask::_Mask{M}) where {M}
     _do_fire_no_comps(m, OnCreateEntity, entity, mask, true)
 end
 
-function _fire_remove_entity(m::_EventManager{W,M}, entity::Entity, mask::_Mask{M}) where {W<:_AbstractWorld,M}
+function _fire_remove_entity(m::_EventManager{M}, entity::Entity, mask::_Mask{M}) where {M}
     _do_fire_no_comps(m, OnRemoveEntity, entity, mask, true)
 end
 
 function _fire_create_entity_relations(
-    m::_EventManager{W,M},
+    m::_EventManager{M},
     entity::Entity,
     mask::_Mask{M},
-) where {W<:_AbstractWorld,M}
+) where {M}
     _do_fire_comps(m, OnAddRelations, entity, mask, mask, true)
 end
 
 function _fire_remove_entity_relations(
-    m::_EventManager{W,M},
+    m::_EventManager{M},
     entity::Entity,
     mask::_Mask{M},
-) where {W<:_AbstractWorld,M}
+) where {M}
     _do_fire_comps(m, OnRemoveRelations, entity, mask, mask, true)
 end
 
-function _fire_create_entities(m::_EventManager{W,M}, table::_BatchTable{M}) where {W<:_AbstractWorld,M}
+function _fire_create_entities(m::_EventManager{M}, table::_BatchTable{M}) where {M}
     evt = OnCreateEntity._id
     observers = m.observers[evt]
     mask = table.archetype.node.mask
@@ -312,15 +314,15 @@ function _fire_create_entities(m::_EventManager{W,M}, table::_BatchTable{M}) whe
     end
 end
 
-function _fire_create_entities_relations(m::_EventManager{W,M}, table::_BatchTable{M}) where {W<:_AbstractWorld,M}
+function _fire_create_entities_relations(m::_EventManager{M}, table::_BatchTable{M}) where {M}
     _do_fire_comps(m, OnAddRelations, table, table.archetype.node.mask)
 end
 
 function _fire_remove_entities(
-    m::_EventManager{W,M},
+    m::_EventManager{M},
     table::_Table,
     mask::_Mask{M},
-) where {W<:_AbstractWorld,M}
+) where {M}
     evt = OnRemoveEntity._id
     observers = m.observers[evt]
     if length(observers) > 1
@@ -343,10 +345,10 @@ function _fire_remove_entities(
 end
 
 function _fire_remove_entities_relations(
-    m::_EventManager{W,M},
+    m::_EventManager{M},
     table::_Table,
     mask::_Mask{M},
-) where {W<:_AbstractWorld,M}
+) where {M}
     evt = OnRemoveRelations._id
     observers = m.observers[evt]
     if length(observers) > 1
@@ -376,13 +378,13 @@ function _fire_remove_entities_relations(
 end
 
 function _fire_add(
-    m::_EventManager{W,M},
+    m::_EventManager{M},
     event::Event,
     entity::Entity,
     old_mask::_Mask{M},
     new_mask::_Mask{M},
     early_out::Bool,
-)::Bool where {W<:_AbstractWorld,M}
+)::Bool where {M}
     evt = event._id
     observers = m.observers[evt]
     if early_out && length(observers) > 1
@@ -414,12 +416,12 @@ function _fire_add(
 end
 
 function _fire_add(
-    m::_EventManager{W,M},
+    m::_EventManager{M},
     event::Event,
     table::_BatchTable,
     old_mask::_Mask{M},
     new_mask::_Mask{M},
-) where {W<:_AbstractWorld,M}
+) where {M}
     evt = event._id
     observers = m.observers[evt]
     if length(observers) > 1
@@ -452,13 +454,13 @@ function _fire_add(
 end
 
 function _fire_remove(
-    m::_EventManager{W,M},
+    m::_EventManager{M},
     event::Event,
     entity::Entity,
     old_mask::_Mask{M},
     new_mask::_Mask{M},
     early_out::Bool,
-)::Bool where {W<:_AbstractWorld,M}
+)::Bool where {M}
     evt = event._id
     observers = m.observers[evt]
     if early_out && length(observers) > 1
@@ -490,12 +492,12 @@ function _fire_remove(
 end
 
 function _fire_remove(
-    m::_EventManager{W,M},
+    m::_EventManager{M},
     event::Event,
     table::_BatchTable,
     old_mask::_Mask{M},
     new_mask::_Mask{M},
-) where {W<:_AbstractWorld,M}
+) where {M}
     evt = event._id
     observers = m.observers[evt]
     if length(observers) > 1
@@ -528,43 +530,43 @@ function _fire_remove(
 end
 
 function _fire_set_relations(
-    m::_EventManager{W,M},
+    m::_EventManager{M},
     event::Event,
     entity::Entity,
     mask::_MutableMask{M},
     entity_mask::_Mask{M},
     early_out::Bool,
-) where {W<:_AbstractWorld,M}
+) where {M}
     _do_fire_comps(m, event, entity, mask, entity_mask, early_out)
 end
 
 function _fire_set_relations(
-    m::_EventManager{W,M},
+    m::_EventManager{M},
     event::Event,
     table::_BatchTable{M},
     mask::_MutableMask{M},
-) where {W<:_AbstractWorld,M}
+) where {M}
     _do_fire_comps(m, event, table, mask)
 end
 
 function _fire_custom_event(
-    m::_EventManager{W,M},
+    m::_EventManager{M},
     event::Event,
     entity::Entity,
     mask::_Mask{M},
     entity_mask::_Mask{M},
-) where {W<:_AbstractWorld,M}
+) where {M}
     _do_fire_comps(m, event, entity, mask, entity_mask, true)
 end
 
 @inline function _do_fire_comps(
-    m::_EventManager{W,M},
+    m::_EventManager{M},
     event::Event,
     entity::Entity,
     mask::MK,
     entity_mask::_Mask{M},
     early_out::Bool,
-) where {W<:_AbstractWorld,MK<:_AbstractMask{M}} where {M}
+) where {MK<:_AbstractMask{M}} where {M}
     evt = event._id
     observers = m.observers[evt]
     if early_out && length(observers) > 1
@@ -595,11 +597,11 @@ end
 end
 
 @inline function _do_fire_comps(
-    m::_EventManager{W,M},
+    m::_EventManager{M},
     event::Event,
     table::_BatchTable{M},
     mask::MK,
-) where {W<:_AbstractWorld,MK<:_AbstractMask{M}} where {M}
+) where {MK<:_AbstractMask{M}} where {M}
     evt = event._id
     observers = m.observers[evt]
     entity_mask = table.archetype.node.mask
@@ -631,12 +633,12 @@ end
 end
 
 @inline function _do_fire_no_comps(
-    m::_EventManager{W,M},
+    m::_EventManager{M},
     event::Event,
     entity::Entity,
     mask::_Mask{M},
     early_out::Bool,
-) where {W<:_AbstractWorld,M}
+) where {M}
     evt = event._id
     observers = m.observers[evt]
     if early_out && length(observers) > 1
