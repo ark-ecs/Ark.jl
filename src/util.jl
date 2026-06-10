@@ -159,6 +159,8 @@ function _component_index(CS::Type{<:Tuple}, TargetType::Type)::Union{Int,Nothin
     return throw(ArgumentError(lazy"Component type $(TargetType) not found in the World"))
 end
 
+
+
 function _has_relations(declared_relations::Type{<:Tuple})
     return fieldcount(declared_relations) > 0
 end
