@@ -22,6 +22,7 @@ using Ark: GPUStructArray, _GPUStructArray_type, _AbstractStructArray
 using Ark: _GPUStructArrayView_type, _gpuvectorview_type
 using Ark: _format_type
 using Ark: _IdCollection, _add_id!, _remove_id!, _get_table, _new_table, _no_entity
+using Ark: _world_component_types, _world_relation_types, _world_storage_types, _world_storage_modes
 using Ark: _EVENT_MANAGER_INITIAL_CAPACITY, _DEBUG
 
 using FieldViews

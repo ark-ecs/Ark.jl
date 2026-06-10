@@ -20,7 +20,7 @@ function partition_entities!(filter::Filter; pred::P) where P
         end
     else
         arches, arches_hot = _get_archetypes(filter._world, filter)
-        _partition_entities!(filter._world, filter._filter, arches, arches_hot, pred)
+        _partition_entities!(filter._world._entities, filter._world._storages, filter._world._archetypes, filter._filter, arches, arches_hot, filter._world._tables, filter._world._relations, pred)
     end
     _unlock(filter._world._lock)
 
@@ -28,16 +28,44 @@ function partition_entities!(filter::Filter; pred::P) where P
 end
 
 function _partition_entities!(
-    world::World,
-    filter::_MaskFilter,
-    archetypes::Vector{<:_Archetype},
-    archetypes_hot::Vector{<:_ArchetypeHot},
+    entities::Vector{_EntityIndex},
+    storages::CS,
+    all_archetypes::Vector{_Archetype{M}},
+    filter::_MaskFilter{M,K},
+    filtered_archetypes::Vector{_Archetype{M}},
+    filtered_archetypes_hot::Vector{_ArchetypeHot{M}},
+    tables::Vector{_Table},
+    comp_relations::Vector{_ComponentRelations},
     pred::P,
-) where P
-    @_each_matching_table(
-        world, filter, archetypes, archetypes_hot, table,
-        _partition_table!(world._entities, world._storages, world._archetypes, table, pred),
-    )
+) where {M,K,CS,P}
+    for i in eachindex(filtered_archetypes)
+        archetype_hot = @inbounds filtered_archetypes_hot[i]
+        if !_matches(filter, archetype_hot)
+            continue
+        end
+
+        if !archetype_hot.has_relations
+            table_id = archetype_hot.table
+            table = @inbounds tables[Int(table_id)]
+            if !isempty(table.entities)
+                _partition_table!(entities, storages, all_archetypes, table, pred)
+            end
+            continue
+        end
+
+        archetype = @inbounds filtered_archetypes[i]
+        if isempty(archetype.tables)
+            continue
+        end
+
+        tbl_ids = _get_tables(comp_relations, archetype, filter.relations)
+        for table_id in tbl_ids
+            table = @inbounds tables[Int(table_id)]
+            if !isempty(table.entities) && _matches(comp_relations, table, filter.relations)
+                _partition_table!(entities, storages, all_archetypes, table, pred)
+            end
+        end
+    end
 end
 
 function _partition_table!(

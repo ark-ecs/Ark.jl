@@ -74,42 +74,50 @@ end
 @inline Base.@constprop :aggressive function _new_entities_dispatch!(
     fn::F, world::World, n::Int, components::Tuple, ::Val{true},
 ) where {F}
+    CS = _world_storage_types(typeof(world))
+    RT = _world_relation_types(typeof(world))
     components, relations = _normalize_relations(components, Val(:type))
     rel_types, targets = _relation_types_and_targets(relations)
-    return _new_entities!(fn, world, n,
+    return _new_entities!(fn, world._entity_pool, world._lock, world._tables, world._relations, world._pool, world._archetypes, world._archetypes_hot, world._event_manager, world._storages, world._entities, world._targets, world._last_table, world._graph, world._registry, world._relation_archetypes, world._index, world._initial_capacity, world._cache, n,
         _valtuple(components), (),
-        rel_types, targets, Val(false), Val(true))
+        rel_types, targets, Val(false), Val(true), CS, RT, _world_component_types(typeof(world)), _world_storage_modes(typeof(world)))
 end
 
 @inline Base.@constprop :aggressive function _new_entities_dispatch!(
     fn::F, world::World, n::Int, components::Tuple, ::Val{false},
 ) where {F}
+    CS = _world_storage_types(typeof(world))
+    RT = _world_relation_types(typeof(world))
     components, relations = _normalize_relations(components, Val(:value))
     rel_types, targets = _relation_types_and_targets(relations)
-    return _new_entities!(fn, world, n,
+    return _new_entities!(fn, world._entity_pool, world._lock, world._tables, world._relations, world._pool, world._archetypes, world._archetypes_hot, world._event_manager, world._storages, world._entities, world._targets, world._last_table, world._graph, world._registry, world._relation_archetypes, world._index, world._initial_capacity, world._cache, n,
         Val{typeof(components)}(), components,
-        rel_types, targets, Val(true), Val(true))
+        rel_types, targets, Val(true), Val(true), CS, RT, _world_component_types(typeof(world)), _world_storage_modes(typeof(world)))
 end
 
 @inline Base.@constprop :aggressive function _new_entities_dispatch!(
     world::World, n::Int, components::Tuple, ::Val{true},
 )
+    CS = _world_storage_types(typeof(world))
+    RT = _world_relation_types(typeof(world))
     components, relations = _normalize_relations(components, Val(:type))
     rel_types, targets = _relation_types_and_targets(relations)
-    return _new_entities!(world, n,
+    return _new_entities!(world._entity_pool, world._lock, world._tables, world._relations, world._pool, world._archetypes, world._archetypes_hot, world._event_manager, world._storages, world._entities, world._targets, world._last_table, world._graph, world._registry, world._relation_archetypes, world._index, world._initial_capacity, world._cache, n,
         Val{typeof(components)}(), components,
-        rel_types, targets, Val(true), Val(false)) do tuple
+        rel_types, targets, Val(true), Val(false), CS, RT, _world_component_types(typeof(world)), _world_storage_modes(typeof(world))) do tuple
     end
 end
 
 @inline Base.@constprop :aggressive function _new_entities_dispatch!(
     world::World, n::Int, components::Tuple, ::Val{false},
 )
+    CS = _world_storage_types(typeof(world))
+    RT = _world_relation_types(typeof(world))
     components, relations = _normalize_relations(components, Val(:value))
     rel_types, targets = _relation_types_and_targets(relations)
-    return _new_entities!(world, n,
+    return _new_entities!(world._entity_pool, world._lock, world._tables, world._relations, world._pool, world._archetypes, world._archetypes_hot, world._event_manager, world._storages, world._entities, world._targets, world._last_table, world._graph, world._registry, world._relation_archetypes, world._index, world._initial_capacity, world._cache, n,
         Val{typeof(components)}(), components,
-        rel_types, targets, Val(true), Val(false)) do tuple
+        rel_types, targets, Val(true), Val(false), CS, RT, _world_component_types(typeof(world)), _world_storage_modes(typeof(world))) do tuple
     end
 end
 
@@ -264,7 +272,9 @@ end
     relations::Tuple,
 ) where {Fn,W<:World,F<:Filter}
     rel_types, targets = _relation_types_and_targets(relations)
-    return @inline _set_relations_batch!(fn, world, filter, rel_types, targets, Val(true))
+    CS = _world_storage_types(typeof(world))
+    RT = _world_relation_types(typeof(world))
+    return @inline _set_relations_batch!(fn, world._entity_pool, world._lock, world._tables, world._relations, world._pool, world._archetypes, world._archetypes_hot, world._event_manager, world._storages, world._entities, world, filter, rel_types, targets, Val(true), CS, RT)
 end
 
 @inline Base.@constprop :aggressive function set_relations!(
@@ -273,7 +283,9 @@ end
     relations::Tuple,
 ) where {W<:World,F<:Filter}
     rel_types, targets = _relation_types_and_targets(relations)
-    return @inline _set_relations_batch!(world, filter, rel_types, targets, Val(false)) do _
+    CS = _world_storage_types(typeof(world))
+    RT = _world_relation_types(typeof(world))
+    return @inline _set_relations_batch!(world._entity_pool, world._lock, world._tables, world._relations, world._pool, world._archetypes, world._archetypes_hot, world._event_manager, world._storages, world._entities, world, filter, rel_types, targets, Val(false), CS, RT) do _
     end
 end
 
@@ -336,25 +348,27 @@ end
     filter::F,
     add::Tuple;
 ) where {Fn,F<:Filter}
+    CS = _world_storage_types(typeof(world))
+    RT = _world_relation_types(typeof(world))
     if _components_are_types(add)
         add, relations = _normalize_relations(add, Val(:type))
         rel_types, targets = _relation_types_and_targets(relations)
         return @inline _exchange_components!(
-            fn, world, filter,
+            fn, world._entity_pool, world._lock, world._tables, world._relations, world._pool, world._archetypes, world._archetypes_hot, world._event_manager, world._storages, world._entities, world, filter,
             _valtuple(add), (),
             (),
             rel_types, targets,
-            Val(false), Val(true), Val(false),
+            Val(false), Val(true), Val(false), CS, RT,
         )
     else
         add, relations = _normalize_relations(add, Val(:value))
         rel_types, targets = _relation_types_and_targets(relations)
         return @inline _exchange_components!(
-            fn, world, filter,
+            fn, world._entity_pool, world._lock, world._tables, world._relations, world._pool, world._archetypes, world._archetypes_hot, world._event_manager, world._storages, world._entities, world, filter,
             Val{typeof(add)}(), add,
             (),
             rel_types, targets,
-            Val(true), Val(true), Val(false),
+            Val(true), Val(true), Val(false), CS, RT,
         )
     end
 end
@@ -364,14 +378,16 @@ end
     filter::F,
     add::Tuple;
 ) where {F<:Filter}
+    CS = _world_storage_types(typeof(world))
+    RT = _world_relation_types(typeof(world))
     add, relations = _normalize_relations(add, Val(:value))
     rel_types, targets = _relation_types_and_targets(relations)
     return @inline _exchange_components!(
-        world, filter,
+        world._entity_pool, world._lock, world._tables, world._relations, world._pool, world._archetypes, world._archetypes_hot, world._event_manager, world._storages, world._entities, world, filter,
         Val{typeof(add)}(), add,
         (),
         rel_types, targets,
-        Val(true), Val(false), Val(false),
+        Val(true), Val(false), Val(false), CS, RT,
     ) do _
     end
 end
@@ -426,12 +442,14 @@ end
     filter::F,
     remove::Tuple,
 ) where {Fn,F<:Filter}
+    CS = _world_storage_types(typeof(world))
+    RT = _world_relation_types(typeof(world))
     return @inline _exchange_components!(
-        fn, world, filter,
+        fn, world._entity_pool, world._lock, world._tables, world._relations, world._pool, world._archetypes, world._archetypes_hot, world._event_manager, world._storages, world._entities, world, filter,
         Val{Tuple{}}(), (),
         _valtuple(remove),
         (), (),
-        Val(false), Val(true), Val(true),
+        Val(false), Val(true), Val(true), CS, RT,
     )
 end
 
@@ -440,12 +458,14 @@ end
     filter::F,
     remove::Tuple,
 ) where {F<:Filter}
+    CS = _world_storage_types(typeof(world))
+    RT = _world_relation_types(typeof(world))
     return @inline _exchange_components!(
-        world, filter,
+        world._entity_pool, world._lock, world._tables, world._relations, world._pool, world._archetypes, world._archetypes_hot, world._event_manager, world._storages, world._entities, world, filter,
         Val{Tuple{}}(), (),
         _valtuple(remove),
         (), (),
-        Val(false), Val(false), Val(true),
+        Val(false), Val(false), Val(true), CS, RT,
     ) do _
     end
 end
@@ -517,25 +537,27 @@ end
     add::Tuple=(),
     remove::Tuple=(),
 ) where {Fn,F<:Filter}
+    CS = _world_storage_types(typeof(world))
+    RT = _world_relation_types(typeof(world))
     if _components_are_types(add)
         add, relations = _normalize_relations(add, Val(:type))
         rel_types, targets = _relation_types_and_targets(relations)
         return @inline _exchange_components!(
-            fn, world, filter,
+            fn, world._entity_pool, world._lock, world._tables, world._relations, world._pool, world._archetypes, world._archetypes_hot, world._event_manager, world._storages, world._entities, world, filter,
             _valtuple(add), (),
             _valtuple(remove),
             rel_types, targets,
-            Val(false), Val(true), Val(false),
+            Val(false), Val(true), Val(false), CS, RT,
         )
     else
         add, relations = _normalize_relations(add, Val(:value))
         rel_types, targets = _relation_types_and_targets(relations)
         return @inline _exchange_components!(
-            fn, world, filter,
+            fn, world._entity_pool, world._lock, world._tables, world._relations, world._pool, world._archetypes, world._archetypes_hot, world._event_manager, world._storages, world._entities, world, filter,
             Val{typeof(add)}(), add,
             _valtuple(remove),
             rel_types, targets,
-            Val(true), Val(true), Val(false),
+            Val(true), Val(true), Val(false), CS, RT,
         )
     end
 end
@@ -546,67 +568,78 @@ end
     add::Tuple=(),
     remove::Tuple=(),
 ) where {F<:Filter}
+    CS = _world_storage_types(typeof(world))
+    RT = _world_relation_types(typeof(world))
     add, relations = _normalize_relations(add, Val(:value))
     rel_types, targets = _relation_types_and_targets(relations)
     return @inline _exchange_components!(
-        world, filter,
+        world._entity_pool, world._lock, world._tables, world._relations, world._pool, world._archetypes, world._archetypes_hot, world._event_manager, world._storages, world._entities, world, filter,
         Val{typeof(add)}(), add,
         _valtuple(remove),
         rel_types, targets,
-        Val(true), Val(false), Val(false),
+        Val(true), Val(false), Val(false), CS, RT,
     ) do _
     end
 end
 
 @generated function _set_relations_batch!(
     fn::Fn,
-    world::W,
+    entity_pool::_EntityPool,
+    lock::_Lock,
+    tables::Vector{_Table},
+    comp_relations::Vector{_ComponentRelations},
+    pool::_WorldPool{M},
+    archetypes::Vector{_Archetype{M}},
+    archetypes_hot::Vector{_ArchetypeHot{M}},
+    event_manager::_EventManager,
+    storages::CS,
+    entities::Vector{_EntityIndex},
+    world::World,
     filter::F,
     ::TR,
     targets::Tuple{Vararg{Entity}},
     ::HFN,
-) where {Fn,W<:World,F<:Filter,TR<:Tuple,HFN<:Val}
+    ::Type{CS},
+    ::Type{RT},
+) where {Fn,M,F<:Filter,TR<:Tuple,HFN<:Val,CS<:Tuple,RT<:Tuple}
     rel_types = _to_types(TR)
-    relation_types = _world_relation_types(W)
 
     _check_no_duplicates(rel_types)
-    _check_relations(rel_types, relation_types)
+    _check_relations(rel_types, RT)
 
-    rel_ids = tuple(Int[_component_index(_world_storage_types(W), T) for T in rel_types]...)
+    rel_ids = tuple(Int[_component_index(CS, T) for T in rel_types]...)
 
     has_fn = HFN == Val{true}
     return quote
-        _check_relation_targets(world._entity_pool, targets)
+        _check_relation_targets(entity_pool, targets)
 
-        _check_locked(world._lock)
-        _lock(world._lock)
+        _check_locked(lock)
+        _lock(lock)
 
-        arches, arches_hot = _get_archetypes(world, filter)
-        tables, _ = _get_tables(world._tables, world._relations, world._pool, arches, arches_hot, filter)
-        batches = world._pool.batches
+        tbls, _ = _get_tables(tables, comp_relations, pool, archetypes, archetypes_hot, filter)
+        batches = pool.batches
 
-        for table_id in tables
-            old_table = world._tables[table_id]
+        for table_id in tbls
+            old_table = tables[table_id]
             if isempty(old_table)
                 continue
             end
-            # TODO: use a simplified data structure?
             push!(
                 batches,
-                _BatchTable(old_table, world._archetypes[old_table.archetype], 1, length(old_table)),
+                _BatchTable(old_table, archetypes[old_table.archetype], 1, length(old_table)),
             )
         end
-        if !_is_cached(filter._filter) # Do not clear for cached filters!!!
-            empty!(tables)
+        if !_is_cached(filter._filter)
+            empty!(tbls)
         end
 
         for batch in batches
-            _set_relations_table!(fn, world, batch, $rel_ids, targets, $has_fn)
+            _set_relations_table!(fn, entity_pool, lock, tables, comp_relations, pool, archetypes, archetypes_hot, event_manager, storages, entities, batch, $rel_ids, targets, $has_fn, CS, world)
         end
 
         empty!(batches)
 
-        _unlock(world._lock)
+        _unlock(lock)
 
         return nothing
     end
@@ -614,41 +647,52 @@ end
 
 function _set_relations_table!(
     fn::Fn,
-    world::W,
+    entity_pool::_EntityPool,
+    lock::_Lock,
+    tables::Vector{_Table},
+    comp_relations::Vector{_ComponentRelations},
+    pool::_WorldPool,
+    archetypes::Vector{_Archetype{M}},
+    archetypes_hot::Vector{_ArchetypeHot{M}},
+    event_manager::_EventManager,
+    storages::CS,
+    entities::Vector{_EntityIndex},
     batch::_BatchTable,
     relations::Tuple{Vararg{Int}},
     targets::Tuple{Vararg{Entity}},
     has_fn::Bool,
-) where {Fn,W<:World}
-    new_relations, changed, mask = _get_exchange_targets(world._pool, world._relations, batch.table, relations, targets)
+    ::Type{CS},
+    world::World,
+) where {Fn,M,CS<:Tuple}
+    new_relations, changed, mask = _get_exchange_targets(pool, comp_relations, batch.table, relations, targets)
     if !changed
         empty!(new_relations)
         return nothing
     end
 
-    new_table, found = _get_table(world._tables, world._relations, batch.archetype, new_relations)
+    new_table, found = _get_table(tables, comp_relations, batch.archetype, new_relations)
     if !found
-        new_table_id = _create_table!(world, batch.archetype, copy(new_relations))
-        new_table = world._tables[new_table_id]
+        new_table_id = _create_table!(entity_pool, tables, world._initial_capacity, storages, comp_relations, world._targets, world._cache, archetypes_hot, batch.archetype, copy(new_relations), _world_component_types(typeof(world)), _world_relation_types(typeof(world)))
+        new_table = tables[new_table_id]
     end
     empty!(new_relations)
 
-    if _has_observers(world._event_manager, OnRemoveRelations)
-        _fire_set_relations(world._event_manager, OnRemoveRelations, batch, mask)
+    if _has_observers(event_manager, OnRemoveRelations)
+        _fire_set_relations(event_manager, OnRemoveRelations, batch, mask)
     end
 
     start_idx = length(new_table) + 1
-    _move_entities!(world._tables, world._archetypes, world._storages, world._entities, batch.table.id, new_table.id, batch.end_idx)
+    _move_entities!(tables, archetypes, storages, entities, batch.table.id, new_table.id, batch.end_idx)
     if has_fn
         fn(view(new_table.entities, start_idx:length(new_table)))
     end
 
-    if _has_observers(world._event_manager, OnAddRelations)
+    if _has_observers(event_manager, OnAddRelations)
         _fire_set_relations(
-            world._event_manager,
+            event_manager,
             OnAddRelations,
             _BatchTable(
-                new_table, world._archetypes[new_table.archetype],
+                new_table, archetypes[new_table.archetype],
                 start_idx, length(new_table),
             ),
             mask,
@@ -658,7 +702,17 @@ end
 
 @generated function _exchange_components!(
     fn::Fn,
-    world::W,
+    entity_pool::_EntityPool,
+    lock::_Lock,
+    tables::Vector{_Table},
+    comp_relations::Vector{_ComponentRelations},
+    pool::_WorldPool{M},
+    archetypes::Vector{_Archetype{M}},
+    archetypes_hot::Vector{_ArchetypeHot{M}},
+    event_manager::_EventManager,
+    storages::CS,
+    entities::Vector{_EntityIndex},
+    world::World,
     filter::F,
     ::ATS,
     add::Tuple,
@@ -668,11 +722,12 @@ end
     ::DEF,
     ::HFN,
     ::REM,
-) where {Fn,W<:World,F<:Filter,ATS,RTS<:Tuple,TR<:Tuple,DEF<:Val,HFN<:Val,REM<:Val}
+    ::Type{CS},
+    ::Type{RT},
+) where {Fn,M,F<:Filter,ATS,RTS<:Tuple,TR<:Tuple,DEF<:Val,HFN<:Val,REM<:Val,CS<:Tuple,RT<:Tuple}
     add_types = _to_types(ATS)
     rem_types = _to_types(RTS)
     rel_types = _to_types(TR)
-    relation_types = _world_relation_types(W)
 
     if isempty(add_types) && isempty(rem_types)
         throw(ArgumentError("either components to add or to remove must be given for exchange_components!"))
@@ -682,41 +737,39 @@ end
     _check_no_duplicates(rem_types)
     _check_if_intersect(add_types, rem_types)
     _check_no_duplicates(rel_types)
-    _check_relations(rel_types, relation_types)
+    _check_relations(rel_types, RT)
     _check_is_subset(rel_types, add_types)
 
     return quote
-        _check_relation_targets(world._entity_pool, targets)
-        _check_locked(world._lock)
-        _lock(world._lock)
+        _check_relation_targets(entity_pool, targets)
+        _check_locked(lock)
+        _lock(lock)
 
-        arches, arches_hot = _get_archetypes(world, filter)
-        tables, _ = _get_tables(world._tables, world._relations, world._pool, arches, arches_hot, filter)
-        batches = world._pool.batches
+        tbls, _ = _get_tables(tables, comp_relations, pool, archetypes, archetypes_hot, filter)
+        batches = pool.batches
 
-        for table_id in tables
-            old_table = world._tables[table_id]
+        for table_id in tbls
+            old_table = tables[table_id]
             if isempty(old_table)
                 continue
             end
-            # TODO: use a simplified data structure?
             push!(
                 batches,
-                _BatchTable(old_table, world._archetypes[old_table.archetype], 1, length(old_table)),
+                _BatchTable(old_table, archetypes[old_table.archetype], 1, length(old_table)),
             )
         end
-        if !_is_cached(filter._filter) # Do not clear for cached filters!!!
-            empty!(tables)
+        if !_is_cached(filter._filter)
+            empty!(tbls)
         end
 
         for batch in batches
-            _exchange_components_table!(fn, world, batch,
-                Val{$ATS}(), add, Val{$RTS}(), Val{$TR}(), targets, Val{$DEF}(), Val{$HFN}(), Val{$REM}())
+            _exchange_components_table!(fn, entity_pool, lock, tables, comp_relations, pool, archetypes, archetypes_hot, event_manager, storages, entities, world, batch,
+                Val{$ATS}(), add, Val{$RTS}(), Val{$TR}(), targets, Val{$DEF}(), Val{$HFN}(), Val{$REM}(), CS, RT)
         end
 
         empty!(batches)
 
-        _unlock(world._lock)
+        _unlock(lock)
 
         return nothing
     end
@@ -724,7 +777,17 @@ end
 
 @generated function _exchange_components_table!(
     fn::Fn,
-    world::W,
+    entity_pool::_EntityPool,
+    lock::_Lock,
+    tables::Vector{_Table},
+    comp_relations::Vector{_ComponentRelations},
+    pool::_WorldPool{M},
+    archetypes::Vector{_Archetype{M}},
+    archetypes_hot::Vector{_ArchetypeHot{M}},
+    event_manager::_EventManager,
+    storages::CS,
+    entities::Vector{_EntityIndex},
+    world::World,
     batch::_BatchTable,
     ::ATS,
     add::Tuple,
@@ -734,15 +797,15 @@ end
     ::Val{DEF},
     ::Val{HFN},
     ::Val{REM},
-) where {Fn,W<:World,ATS,RTS<:Tuple,TR<:Tuple,DEF<:Val,HFN<:Val,REM<:Val}
+    ::Type{CS},
+    ::Type{RT},
+) where {Fn,M,ATS,RTS<:Tuple,TR<:Tuple,DEF<:Val,HFN<:Val,REM<:Val,CS<:Tuple,RT<:Tuple}
     add_types = _to_types(ATS)
     rem_types = _to_types(RTS)
     rel_types = _to_types(TR)
-    relation_types = _world_relation_types(W)
 
     exprs = Expr[]
 
-    CS = _world_storage_types(W)
     add_ids = tuple(Int[_component_index(CS, T) for T in add_types]...)
     rem_ids = tuple(Int[_component_index(CS, T) for T in rem_types]...)
     rel_ids = tuple(Int[_component_index(CS, T) for T in rel_types]...)
@@ -750,11 +813,11 @@ end
     num_ids = length(add_ids) + length(rem_ids)
     use_map = num_ids >= 4 ? _UseMap() : _NoUseMap()
 
-    M = max(1, cld(fieldcount(CS), 64))
-    add_mask = _Mask{M}(add_ids...)
-    rem_mask = _Mask{M}(rem_ids...)
+    mask_M = max(1, cld(fieldcount(CS), 64))
+    add_mask = _Mask{mask_M}(add_ids...)
+    rem_mask = _Mask{mask_M}(rem_ids...)
 
-    world_has_rel = Val{_has_relations(relation_types)}()
+    world_has_rel = Val{_has_relations(RT)}()
     adds_relations = !isempty(rel_types)
 
     push!(
@@ -762,36 +825,42 @@ end
         :(
             new_table_tuple =
                 _find_or_create_table!(
-                    world, world._graph, world._tables, world._archetypes, world._archetypes_hot,
+                    world._last_table, archetypes, archetypes_hot,
+                    world._registry, world._relation_archetypes, comp_relations,
+                    world._index,
+                    entity_pool, world._initial_capacity, storages,
+                    world._targets, world._cache, pool,
+                    world._graph, tables,
                     batch.table, $add_ids, $rem_ids, $rel_ids, targets, $add_mask, $rem_mask, $use_map,
                     $world_has_rel,
+                    _world_component_types(typeof(world)), $RT,
                 )
         ),
     )
     push!(exprs, :(new_table_index = new_table_tuple[1]))
     push!(exprs, :(relations_removed = new_table_tuple[2]))
-    push!(exprs, :(new_table = world._tables[new_table_index]))
+    push!(exprs, :(new_table = tables[new_table_index]))
 
     if length(rem_types) > 0
         push!(
             exprs,
             :(
                 begin
-                    has_comp_obs = _has_observers(world._event_manager, OnRemoveComponents)
-                    has_rel_obs = relations_removed && _has_observers(world._event_manager, OnRemoveRelations)
+                    has_comp_obs = _has_observers(event_manager, OnRemoveComponents)
+                    has_rel_obs = relations_removed && _has_observers(event_manager, OnRemoveRelations)
                     if has_comp_obs || has_rel_obs
-                        old_mask = world._archetypes_hot[batch.table.archetype].mask
-                        new_mask = world._archetypes_hot[new_table.archetype].mask
+                        old_mask = archetypes_hot[batch.table.archetype].mask
+                        new_mask = archetypes_hot[new_table.archetype].mask
                         if has_comp_obs
                             _fire_remove(
-                                world._event_manager,
+                                event_manager,
                                 OnRemoveComponents, batch,
                                 old_mask, new_mask,
                             )
                         end
                         if has_rel_obs
                             _fire_remove(
-                                world._event_manager,
+                                event_manager,
                                 OnRemoveRelations, batch,
                                 old_mask, new_mask,
                             )
@@ -803,7 +872,7 @@ end
     end
 
     push!(exprs, :(start_idx = length(new_table) + 1))
-    push!(exprs, :(_move_entities!(world._tables, world._archetypes, world._storages, world._entities, batch.table.id, new_table.id, batch.end_idx)))
+    push!(exprs, :(_move_entities!(tables, archetypes, storages, entities, batch.table.id, new_table.id, batch.end_idx)))
 
     if DEF === Val{true}
         for i in 1:length(add_types)
@@ -812,7 +881,7 @@ end
             col_sym = Symbol("col", i)
             val_expr = :(add.$i)
 
-            push!(exprs, :($stor_sym = _get_storage(world._storages, $T)))
+            push!(exprs, :($stor_sym = _get_storage(storages, $T)))
             push!(exprs, :(@inbounds $col_sym = $stor_sym.data[new_table_index]))
             push!(exprs, :(@inbounds fill!(view($col_sym, start_idx:length($col_sym)), $val_expr)))
         end
@@ -830,7 +899,7 @@ end
                 :(
                     begin
                         columns =
-                            _get_columns(world, $ts_val_expr, new_table, start_idx, length(new_table))
+                            _get_columns(storages, $ts_val_expr, _world_storage_modes(typeof(world)), new_table, start_idx, length(new_table))
                         fn(columns)
                     end
                 ),
@@ -843,25 +912,25 @@ end
             exprs,
             :(
                 begin
-                    has_comp_obs = _has_observers(world._event_manager, OnAddComponents)
-                    has_rel_obs = $adds_relations && _has_observers(world._event_manager, OnAddRelations)
+                    has_comp_obs = _has_observers(event_manager, OnAddComponents)
+                    has_rel_obs = $adds_relations && _has_observers(event_manager, OnAddRelations)
                     if has_comp_obs || has_rel_obs
-                        new_archetype = world._archetypes[new_table.archetype]
-                        old_mask = world._archetypes_hot[batch.table.archetype].mask
+                        new_archetype = archetypes[new_table.archetype]
+                        old_mask = archetypes_hot[batch.table.archetype].mask
                         batch_table = _BatchTable(
                             new_table, new_archetype,
                             start_idx, length(new_table),
                         )
                         if has_comp_obs
                             _fire_add(
-                                world._event_manager,
+                                event_manager,
                                 OnAddComponents, batch_table,
                                 old_mask, new_archetype.node.mask,
                             )
                         end
                         if has_rel_obs
                             _fire_add(
-                                world._event_manager,
+                                event_manager,
                                 OnAddRelations, batch_table,
                                 old_mask, new_archetype.node.mask,
                             )
@@ -989,7 +1058,24 @@ end
 
 @generated function _new_entities!(
     fn::F,
-    world::W,
+    entity_pool::_EntityPool,
+    lock::_Lock,
+    tables::Vector{_Table},
+    comp_relations::Vector{_ComponentRelations},
+    pool::_WorldPool{M},
+    archetypes::Vector{_Archetype{M}},
+    archetypes_hot::Vector{_ArchetypeHot{M}},
+    event_manager::_EventManager,
+    storages::CS,
+    entities::Vector{_EntityIndex},
+    targets_bv::BitVector,
+    last_table::_LastTable{M},
+    graph::_Graph{M},
+    registry::_ComponentRegistry,
+    relation_archetypes::Vector{UInt32},
+    idx::_ComponentIndex{M},
+    initial_capacity::Int,
+    cache::_Cache{M,K},
     n::Int,
     ::TS,
     values::Tuple,
@@ -997,37 +1083,44 @@ end
     targets::Tuple{Vararg{Entity}},
     ::DEF,
     ::HFN,
-) where {F,W<:World,TS,TR<:Tuple,DEF<:Val,HFN<:Val}
+    ::Type{CS},
+    ::Type{RT},
+    ::Type{CT},
+    ::Type{ST},
+) where {F,M,TS,TR<:Tuple,DEF<:Val,HFN<:Val,CS<:Tuple,RT<:Tuple,CT<:Tuple,ST<:Tuple,K}
     types = _to_types(TS)
     rel_types = _to_types(TR)
-    relation_types = _world_relation_types(W)
 
     _check_no_duplicates(types)
     _check_no_duplicates(rel_types)
-    _check_relations(rel_types, relation_types)
+    _check_relations(rel_types, RT)
     _check_is_subset(rel_types, types)
 
-    CS = _world_storage_types(W)
     ids = tuple(Int[_component_index(CS, T) for T in types]...)
     rel_ids = tuple(Int[_component_index(CS, T) for T in rel_types]...)
     num_ids = length(ids)
     use_map = num_ids >= 4 ? _UseMap() : _NoUseMap()
 
-    M = max(1, cld(fieldcount(CS), 64))
-    add_mask = _Mask{M}(ids...)
-    rem_mask = _Mask{M}()
+    mask_M = max(1, cld(fieldcount(CS), 64))
+    add_mask = _Mask{mask_M}(ids...)
+    rem_mask = _Mask{mask_M}()
 
-    world_has_rel = Val{_has_relations(relation_types)}()
+    world_has_rel = Val{_has_relations(RT)}()
 
     exprs = Expr[]
-    push!(exprs, :(_check_relation_targets(world._entity_pool, targets)))
-    push!(exprs, :(_check_locked(world._lock)))
+    push!(exprs, :(_check_relation_targets(entity_pool, targets)))
+    push!(exprs, :(_check_locked(lock)))
     push!(
         exprs,
         :(
             table_idx = _find_or_create_table!(
-                world, world._graph, world._tables, world._archetypes, world._archetypes_hot,
-                world._tables[1],
+                last_table, archetypes, archetypes_hot,
+                registry, relation_archetypes, comp_relations,
+                idx,
+                entity_pool, initial_capacity, storages,
+                targets_bv, cache, pool,
+                graph, tables,
+                tables[1],
                 $ids,
                 (),
                 $rel_ids,
@@ -1036,11 +1129,12 @@ end
                 $rem_mask,
                 $use_map,
                 $world_has_rel,
+                $CT, $RT,
             )[1]
         ),
     )
-    push!(exprs, :(indices = _create_entities!(world, table_idx, n)))
-    push!(exprs, :(table = world._tables[table_idx]))
+    push!(exprs, :(indices = _create_entities!(tables, archetypes, entity_pool, entities, targets_bv, storages, table_idx, n, $world_has_rel)))
+    push!(exprs, :(table = tables[table_idx]))
 
     if length(types) > 0 && DEF === Val{true}
         body_exprs = Expr(:block)
@@ -1050,7 +1144,7 @@ end
             col_sym = Symbol("col", i)
             val_expr = :(values.$i)
 
-            push!(body_exprs.args, :($stor_sym = _get_storage(world._storages, $T)))
+            push!(body_exprs.args, :($stor_sym = _get_storage(storages, $T)))
             push!(body_exprs.args, :(@inbounds $col_sym = $stor_sym.data[table_idx]))
             push!(body_exprs.args, :(fill!(view($col_sym, indices[1]:indices[2]), $val_expr)))
         end
@@ -1069,18 +1163,18 @@ end
             exprs,
             :(
                 begin
-                    _lock(world._lock)
-                    columns = _get_columns(world, $ts_val_expr, table, indices...)
+                    _lock(lock)
+                    columns = _get_columns(storages, $ts_val_expr, $ST, table, indices...)
                     fn(columns)
 
-                    batch = _BatchTable(table, world._archetypes[table.archetype], indices...)
-                    if _has_observers(world._event_manager, OnCreateEntity)
-                        _fire_create_entities(world._event_manager, batch)
+                    batch = _BatchTable(table, archetypes[table.archetype], indices...)
+                    if _has_observers(event_manager, OnCreateEntity)
+                        _fire_create_entities(event_manager, batch)
                     end
-                    if _has_relations(table) && _has_observers(world._event_manager, OnAddRelations)
-                        _fire_create_entities_relations(world._event_manager, batch)
+                    if _has_relations(table) && _has_observers(event_manager, OnAddRelations)
+                        _fire_create_entities_relations(event_manager, batch)
                     end
-                    _unlock(world._lock)
+                    _unlock(lock)
                     return nothing
                 end
             ),
@@ -1090,18 +1184,18 @@ end
             exprs,
             :(
                 begin
-                    has_entity_obs = _has_observers(world._event_manager, OnCreateEntity)
-                    has_rel_obs = _has_relations(table) && _has_observers(world._event_manager, OnAddRelations)
+                    has_entity_obs = _has_observers(event_manager, OnCreateEntity)
+                    has_rel_obs = _has_relations(table) && _has_observers(event_manager, OnAddRelations)
                     if has_entity_obs || has_rel_obs
-                        _lock(world._lock)
-                        batch = _BatchTable(table, world._archetypes[table.archetype], indices...)
+                        _lock(lock)
+                        batch = _BatchTable(table, archetypes[table.archetype], indices...)
                         if has_entity_obs
-                            _fire_create_entities(world._event_manager, batch)
+                            _fire_create_entities(event_manager, batch)
                         end
                         if has_rel_obs
-                            _fire_create_entities_relations(world._event_manager, batch)
+                            _fire_create_entities_relations(event_manager, batch)
                         end
-                        _unlock(world._lock)
+                        _unlock(lock)
                     end
                     return nothing
                 end
@@ -1117,15 +1211,15 @@ end
 end
 
 @generated function _get_columns(
-    world::W,
+    storages::CS,
     ::Val{TS},
+    ::Type{ST},
     table::_Table,
     start_idx::Int,
     end_idx::Int,
-) where {W<:World,TS<:Tuple}
-    CS = _world_storage_types(W)
+) where {CS<:Tuple,TS<:Tuple,ST<:Tuple}
     comp_types = fieldtypes(TS)
-    world_storage_modes = fieldtypes(_world_storage_modes(W))
+    world_storage_modes = fieldtypes(ST)
 
     storage_modes = DataType[
         world_storage_modes[_component_index(CS, T)]
@@ -1138,7 +1232,7 @@ end
         stor_sym = Symbol("stor", i)
         col_sym = Symbol("col", i)
         vec_sym = Symbol("vec", i)
-        push!(exprs, :(@inbounds $stor_sym = _get_storage(world._storages, $(comp_types[i]))))
+        push!(exprs, :(@inbounds $stor_sym = _get_storage(storages, $(comp_types[i]))))
         push!(exprs, :(@inbounds $col_sym = $stor_sym.data[Int(table.id)]))
 
         if _storage_vector_type(storage_modes[i]) <: GPUVector

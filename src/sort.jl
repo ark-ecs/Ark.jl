@@ -26,7 +26,7 @@ function sort_entities!(filter::Filter; alg=Base.Sort.QuickSort, kwargs...)
         end
     else
         arches, arches_hot = _get_archetypes(world, filter)
-        _sort_entities!(world, filter._filter, arches, arches_hot; alg, kwargs...)
+        _sort_entities!(world._archetypes, world._entities, world._storages, filter._filter, arches, arches_hot, world._tables, world._relations; alg, kwargs...)
     end
     _unlock(world._lock)
 
@@ -34,21 +34,45 @@ function sort_entities!(filter::Filter; alg=Base.Sort.QuickSort, kwargs...)
 end
 
 function _sort_entities!(
-    world::World,
-    filter::_MaskFilter,
-    archetypes::Vector{<:_Archetype},
-    archetypes_hot::Vector{<:_ArchetypeHot};
+    all_archetypes::Vector{_Archetype{M}},
+    world_entities::Vector{_EntityIndex},
+    storages::CS,
+    filter::_MaskFilter{M,K},
+    filtered_archetypes::Vector{_Archetype{M}},
+    filtered_archetypes_hot::Vector{_ArchetypeHot{M}},
+    tables::Vector{_Table},
+    comp_relations::Vector{_ComponentRelations};
     alg::Base.Sort.Algorithm,
     kwargs...,
-)
-    @_each_matching_table(
-        world,
-        filter,
-        archetypes,
-        archetypes_hot,
-        table,
-        _sort_table_entities!(world._archetypes, world._entities, world._storages, table; alg, kwargs...)
-    )
+) where {M,K,CS}
+    for i in eachindex(filtered_archetypes)
+        archetype_hot = @inbounds filtered_archetypes_hot[i]
+        if !_matches(filter, archetype_hot)
+            continue
+        end
+
+        if !archetype_hot.has_relations
+            table_id = archetype_hot.table
+            table = @inbounds tables[Int(table_id)]
+            if !isempty(table.entities)
+                _sort_table_entities!(all_archetypes, world_entities, storages, table; alg, kwargs...)
+            end
+            continue
+        end
+
+        archetype = @inbounds filtered_archetypes[i]
+        if isempty(archetype.tables)
+            continue
+        end
+
+        tbl_ids = _get_tables(comp_relations, archetype, filter.relations)
+        for table_id in tbl_ids
+            table = @inbounds tables[Int(table_id)]
+            if !isempty(table.entities) && _matches(comp_relations, table, filter.relations)
+                _sort_table_entities!(all_archetypes, world_entities, storages, table; alg, kwargs...)
+            end
+        end
+    end
 
     return
 end

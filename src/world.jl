@@ -167,7 +167,7 @@ world = World(
 World(entities=0, comp_types=(Position, Velocity, Health))
 ```
 """
-Base.@constprop :aggressive function World(comp_types::Union{Type,Pair{<:Type,<:Type}}...; initial_capacity::Int=16, allow_mutable=false)
+function World(comp_types::Union{Type,Pair{<:Type,<:Type}}...; initial_capacity::Int=16, allow_mutable=false)
     raw_types = map(arg -> arg isa Type ? arg : arg.first, comp_types)
     types = map(_unwrap_relation_type, raw_types)
     storages = map(arg -> arg isa Type ? Storage{Vector} : arg.second, comp_types)
@@ -438,7 +438,7 @@ true
     comp_types::Tuple;
     _unchecked::Bool=false,
 )
-    return @inline _has_components(world, entity, _valtuple(comp_types), Val(_unchecked))
+    return @inline _has_components(world._entities, world._tables, world._archetypes_hot, world._storages, entity, _valtuple(comp_types), Val(_unchecked), world._entity_pool, _world_storage_types(typeof(world)))
 end
 
 """
@@ -894,7 +894,12 @@ end
 end
 
 @inline function _find_or_create_archetype!(
-    world::World,
+    registry::_ComponentRegistry,
+    archetypes::Vector{_Archetype{M}},
+    archetypes_hot::Vector{_ArchetypeHot{M}},
+    relation_archetypes::Vector{UInt32},
+    comp_relations::Vector{_ComponentRelations},
+    idx::_ComponentIndex{M},
     graph::_Graph{M},
     tables::Vector{_Table},
     start::_GraphNode,
@@ -904,23 +909,35 @@ end
     add_mask::_Mask,
     rem_mask::_Mask,
     use_map::Union{_NoUseMap,_UseMap},
-)::Tuple{UInt32,Bool} where M
+    ::Type{CT},
+    ::Type{RT},
+)::Tuple{UInt32,Bool} where {M,CT,RT}
     node = _find_node(graph, start, add, remove, add_mask, rem_mask, use_map)
 
     if node.archetype[] == typemax(UInt32)
         table = ifelse(isempty(relations), UInt32(length(tables) + 1), UInt32(0))
-        return (_create_archetype!(world, node, table), true)
+        return (_create_archetype!(registry, archetypes, archetypes_hot, relation_archetypes, comp_relations, idx, node, table, CT, RT), true)
     else
         return (node.archetype[], false)
     end
 end
 
 @inline function _find_or_create_table!(
-    world::World,
-    graph::_Graph{M},
-    tables::Vector{_Table},
+    last_table::_LastTable{M},
     archetypes::Vector{_Archetype{M}},
     archetypes_hot::Vector{_ArchetypeHot{M}},
+    registry::_ComponentRegistry,
+    relation_archetypes::Vector{UInt32},
+    comp_relations::Vector{_ComponentRelations},
+    idx::_ComponentIndex{M},
+    entity_pool::_EntityPool,
+    initial_capacity::Int,
+    storages::CS,
+    targets_bv::BitVector,
+    cache::_Cache{M,K},
+    pool::_WorldPool{M},
+    graph::_Graph{M},
+    tables::Vector{_Table},
     old_table::_Table,
     add::Tuple{Vararg{Int}},
     remove::Tuple{Vararg{Int}},
@@ -930,31 +947,44 @@ end
     rem_mask::_Mask,
     use_map::Union{_NoUseMap,_UseMap},
     world_has_rel::Val{true},
-)::Tuple{UInt32,Bool} where M
+    ::Type{CT},
+    ::Type{RT},
+)::Tuple{UInt32,Bool} where {M,CS,CT,RT,K}
     @inbounds old_arch = archetypes[old_table.archetype]
     new_arch_index, is_new = _find_or_create_archetype!(
-        world, graph, tables, old_arch.node, add, remove, relations, add_mask, rem_mask, use_map,
+        registry, archetypes, archetypes_hot, relation_archetypes, comp_relations, idx,
+        graph, tables, old_arch.node, add, remove, relations, add_mask, rem_mask, use_map, CT, RT,
     )
     @inbounds new_arch_hot = archetypes_hot[new_arch_index]
 
     if !new_arch_hot.has_relations && isempty(relations)
         if is_new
             @inbounds new_arch = archetypes[new_arch_index]
-            return _create_table!(world, new_arch, _empty_relations), _has_relations(old_arch)
+            return _create_table!(entity_pool, tables, initial_capacity, storages, comp_relations, targets_bv, cache, archetypes_hot, new_arch, _empty_relations, CT, RT), _has_relations(old_arch)
         end
         return new_arch_hot.table, _has_relations(old_arch)
     end
 
     @inbounds new_arch = archetypes[new_arch_index]
-    return _find_or_create_table!(world, old_table, new_arch_hot, new_arch, relations, targets, !isempty(remove))
+    return _find_or_create_table!(pool, tables, comp_relations, old_table, new_arch_hot, new_arch, relations, targets, !isempty(remove), entity_pool, targets_bv, archetypes_hot, cache, initial_capacity, storages, CT, RT)
 end
 
 @inline function _find_or_create_table!(
-    world::World,
-    graph::_Graph{M},
-    tables::Vector{_Table},
+    last_table::_LastTable{M},
     archetypes::Vector{_Archetype{M}},
     archetypes_hot::Vector{_ArchetypeHot{M}},
+    registry::_ComponentRegistry,
+    relation_archetypes::Vector{UInt32},
+    comp_relations::Vector{_ComponentRelations},
+    idx::_ComponentIndex{M},
+    entity_pool::_EntityPool,
+    initial_capacity::Int,
+    storages::CS,
+    targets_bv::BitVector,
+    cache::_Cache{M,K},
+    pool::_WorldPool{M},
+    graph::_Graph{M},
+    tables::Vector{_Table},
     old_table::_Table,
     add::Tuple{Vararg{Int}},
     remove::Tuple{Vararg{Int}},
@@ -963,8 +993,10 @@ end
     add_mask::_Mask,
     rem_mask::_Mask,
     use_map::Union{_NoUseMap,_UseMap},
-    world_has_rel::Val{false},
-)::Tuple{UInt32,Bool} where M
+    ::Val{false},
+    ::Type{CT},
+    ::Type{RT},
+)::Tuple{UInt32,Bool} where {M,CS,CT,RT,K}
     @inbounds old_arch_hot = archetypes_hot[old_table.archetype]
     old_mask = old_arch_hot.mask
     if !_contains_all(old_mask, rem_mask)
@@ -972,7 +1004,6 @@ end
     elseif _contains_any(old_mask, add_mask)
         throw(ArgumentError("entity already has component to add"))
     end
-    last_table = world._last_table
     last_mask = last_table.mask
     new_mask = _clear_bits(_or(add_mask, old_mask), rem_mask)
     if new_mask.bits == last_mask.bits
@@ -980,13 +1011,14 @@ end
     end
     @inbounds old_arch = archetypes[old_table.archetype]
     new_arch_index, is_new = _find_or_create_archetype!(
-        world, graph, tables, old_arch.node, add, remove, relations, add_mask, rem_mask, use_map,
+        registry, archetypes, archetypes_hot, relation_archetypes, comp_relations, idx,
+        graph, tables, old_arch.node, add, remove, relations, add_mask, rem_mask, use_map, CT, RT,
     )
     if is_new
-        @inbounds new_arch = world._archetypes[new_arch_index]
-        table_id = _create_table!(world, new_arch, _empty_relations)
+        @inbounds new_arch = archetypes[new_arch_index]
+        table_id = _create_table!(entity_pool, tables, initial_capacity, storages, comp_relations, targets_bv, cache, archetypes_hot, new_arch, _empty_relations, CT, RT)
     else
-        @inbounds new_arch_hot = world._archetypes_hot[new_arch_index]
+        @inbounds new_arch_hot = archetypes_hot[new_arch_index]
         table_id = new_arch_hot.table
     end
     last_table.mask = new_mask
@@ -996,16 +1028,26 @@ end
 
 # internal for handling relations
 function _find_or_create_table!(
-    world::World,
+    pool::_WorldPool,
+    tables::Vector{_Table},
+    comp_relations::Vector{_ComponentRelations},
     old_table::_Table,
     new_arch_hot::_ArchetypeHot,
     new_arch::_Archetype,
     relations::Tuple{Vararg{Int}},
     targets::Tuple{Vararg{Entity}},
     has_remove::Bool,
-)::Tuple{UInt32,Bool}
+    entity_pool::_EntityPool,
+    targets_bv::BitVector,
+    archetypes_hot::Vector{_ArchetypeHot{M}},
+    cache::_Cache{M,K},
+    initial_capacity::Int,
+    storages::CS,
+    ::Type{CT},
+    ::Type{RT},
+)::Tuple{UInt32,Bool} where {M,CS,CT,RT,K}
     # Find existing relations that were not removed, and add new relations.
-    all_relations = world._pool.relations
+    all_relations = pool.relations
     requires_free = true
     relation_removed = false
     if _has_relations(old_table) || !isempty(relations)
@@ -1033,7 +1075,7 @@ function _find_or_create_table!(
         end
     end
 
-    new_table, found = _get_table(world._tables, world._relations, new_arch, all_relations)
+    new_table, found = _get_table(tables, comp_relations, new_arch, all_relations)
 
     if found
         if requires_free
@@ -1048,9 +1090,9 @@ function _find_or_create_table!(
 
     new_table_id, found = _get_free_table!(new_arch)
     if found
-        _recycle_table!(world, new_arch, new_table_id, all_relations)
+        _recycle_table!(entity_pool, tables, comp_relations, targets_bv, archetypes_hot, cache, new_arch, new_table_id, all_relations)
     else
-        new_table_id = _create_table!(world, new_arch, copy(all_relations))
+        new_table_id = _create_table!(entity_pool, tables, initial_capacity, storages, comp_relations, targets_bv, cache, archetypes_hot, new_arch, copy(all_relations), CT, RT)
     end
     if requires_free
         empty!(all_relations)
@@ -1059,88 +1101,121 @@ function _find_or_create_table!(
     return new_table_id, relation_removed
 end
 
-function _recycle_table!(world::World, arch::_Archetype, table_id::UInt32, relations::Vector{Pair{Int32,Entity}})
+function _recycle_table!(
+    entity_pool::_EntityPool,
+    tables::Vector{_Table},
+    comp_relations::Vector{_ComponentRelations},
+    targets::BitVector,
+    archetypes_hot::Vector{_ArchetypeHot{M}},
+    cache::_Cache{M,K},
+    arch::_Archetype,
+    table_id::UInt32,
+    relations::Vector{Pair{Int32,Entity}},
+) where {M,K}
     if length(relations) < arch.num_relations
         throw(ArgumentError("relation targets must be fully specified"))
     end
 
-    _check_relation_targets(world._entity_pool, relations)
-    table = world._tables[table_id]
+    _check_relation_targets(entity_pool, relations)
+    table = tables[table_id]
 
     for (i, comp) in enumerate(relations)
         entity = comp.second
-        _activate_table_relation_for_comp!(world._relations, comp.first % Int, table_id % Int, entity)
+        _activate_table_relation_for_comp!(comp_relations, comp.first % Int, table_id % Int, entity)
         table.relations[i] = comp
-        world._targets[entity._id] = true
+        targets[entity._id] = true
     end
 
-    _add_table!(world._relations, arch, table)
-    _add_table!(world._cache, world._relations, world._archetypes_hot[arch.id], table)
+    _add_table!(comp_relations, arch, table)
+    _add_table!(cache, comp_relations, archetypes_hot[arch.id], table)
 end
 
-function _create_table!(world::World, arch::_Archetype, relations::Vector{Pair{Int32,Entity}})::UInt32
+function _create_table!(
+    entity_pool::_EntityPool,
+    tables::Vector{_Table},
+    initial_capacity::Int,
+    storages::CS,
+    comp_relations::Vector{_ComponentRelations},
+    targets_bv::BitVector,
+    cache::_Cache{M,K},
+    archetypes_hot::Vector{_ArchetypeHot{M}},
+    arch::_Archetype,
+    relations::Vector{Pair{Int32,Entity}},
+    ::Type{CT},
+    ::Type{RT},
+)::UInt32 where {CS,CT,RT,M,K}
     if length(relations) < arch.num_relations
         throw(ArgumentError("relation targets must be fully specified"))
     end
-    # TODO: check that the archetype contains all components
 
-    _check_relation_targets(world._entity_pool, relations)
+    _check_relation_targets(entity_pool, relations)
 
-    new_table_id = length(world._tables) + 1
-    table = _new_table(UInt32(new_table_id), arch.id, world._initial_capacity, relations)
-    push!(world._tables, table)
+    new_table_id = length(tables) + 1
+    table = _new_table(UInt32(new_table_id), arch.id, initial_capacity, relations)
+    push!(tables, table)
 
-    _push_empty_to_all_storages!(world._storages)
+    _push_empty_to_all_storages!(storages)
     for comp in arch.components
-        _activate_new_column_for_comp!(world._storages, comp, new_table_id, world._initial_capacity)
+        _activate_new_column_for_comp!(storages, comp, new_table_id, initial_capacity)
     end
 
-    _push_zero_to_all_table_relations!(world._relations, _world_component_types(typeof(world)), _world_relation_types(typeof(world)))
+    _push_zero_to_all_table_relations!(comp_relations, CT, RT)
     for (i, comp) in enumerate(relations)
         entity = comp.second
-        _activate_table_relation_for_comp!(world._relations, comp.first % Int, new_table_id, entity)
-        world._targets[entity._id] = true
+        _activate_table_relation_for_comp!(comp_relations, comp.first % Int, new_table_id, entity)
+        targets_bv[entity._id] = true
     end
 
-    _add_table!(world._relations, arch, table)
-    _add_table!(world._cache, world._relations, world._archetypes_hot[arch.id], table)
+    _add_table!(comp_relations, arch, table)
+    _add_table!(cache, comp_relations, archetypes_hot[arch.id], table)
 
     return UInt32(new_table_id)
 end
 
-function _create_archetype!(world::World, node::_GraphNode, table::UInt32)::UInt32
+function _create_archetype!(
+    registry::_ComponentRegistry,
+    archetypes::Vector{_Archetype{M}},
+    archetypes_hot::Vector{_ArchetypeHot{M}},
+    relation_archetypes::Vector{UInt32},
+    comp_relations::Vector{_ComponentRelations},
+    idx::_ComponentIndex{M},
+    node::_GraphNode,
+    table::UInt32,
+    ::Type{CT},
+    ::Type{RT},
+)::UInt32 where {M,CT,RT}
     components = _active_bit_indices(node.mask)
     relations = Int[]
     for id in components
-        if _is_relation(world._registry, id)
+        if _is_relation(registry, id)
             push!(relations, id)
         end
     end
 
-    arch = _Archetype(UInt32(length(world._archetypes) + 1), node, table, relations, components)
-    push!(world._archetypes, arch)
+    arch = _Archetype(UInt32(length(archetypes) + 1), node, table, relations, components)
+    push!(archetypes, arch)
     arch_hot = _ArchetypeHot(node, table, relations)
-    push!(world._archetypes_hot, arch_hot)
+    push!(archetypes_hot, arch_hot)
 
     if _has_relations(arch)
-        push!(world._relation_archetypes, arch.id)
+        push!(relation_archetypes, arch.id)
     end
 
-    index = length(world._archetypes)
-    node.archetype[] = UInt32(index)
+    arch_index = length(archetypes)
+    node.archetype[] = UInt32(arch_index)
 
-    _push_zero_to_all_archetype_relations!(world._relations, _world_component_types(typeof(world)), _world_relation_types(typeof(world)))
+    _push_zero_to_all_archetype_relations!(comp_relations, CT, RT)
 
     for comp in arch.components
-        push!(world._index.archetypes[comp], arch)
-        push!(world._index.archetypes_hot[comp], arch_hot)
+        push!(idx.archetypes[comp], arch)
+        push!(idx.archetypes_hot[comp], arch_hot)
     end
 
     for (i, comp) in enumerate(relations)
-        _activate_archetype_relation_for_comp!(world._relations, comp, index, i)
+        _activate_archetype_relation_for_comp!(comp_relations, comp, arch_index, i)
     end
 
-    return UInt32(index)
+    return UInt32(arch_index)
 end
 
 @inline function _get_exchange_targets(
@@ -1314,7 +1389,7 @@ function _cleanup_archetypes(world::World, entity::Entity)
 
                 new_table, found = _get_table(world._tables, world._relations, archetype, new_relations)
                 if !found
-                    new_table_id = _create_table!(world, archetype, copy(new_relations))
+                    new_table_id = _create_table!(world._entity_pool, world._tables, world._initial_capacity, world._storages, world._relations, world._targets, world._cache, world._archetypes_hot, archetype, copy(new_relations), _world_component_types(typeof(world)), _world_relation_types(typeof(world)))
                     new_table = world._tables[new_table_id]
                 end
                 empty!(new_relations)
@@ -1375,7 +1450,12 @@ end
         exprs,
         :(
             table = _find_or_create_table!(
-                world, world._graph, world._tables, world._archetypes, world._archetypes_hot,
+                world._last_table, world._archetypes, world._archetypes_hot,
+                world._registry, world._relation_archetypes, world._relations,
+                world._index,
+                world._entity_pool, world._initial_capacity, world._storages,
+                world._targets, world._cache, world._pool,
+                world._graph, world._tables,
                 world._tables[1],
                 $ids,
                 (),
@@ -1385,10 +1465,11 @@ end
                 $rem_mask,
                 $use_map,
                 $world_has_rel,
+                _world_component_types(typeof(world)), _world_relation_types(typeof(world)),
             )[1]
         ),
     )
-    push!(exprs, :(tmp = _create_entity!(world, table)))
+    push!(exprs, :(tmp = _create_entity!(world._entity_pool, world._tables, world._archetypes, world._entities, world._targets, $world_has_rel, table)))
     push!(exprs, :(entity = tmp[1]))
 
     # Set each component
@@ -1412,47 +1493,63 @@ end
     end
 end
 
-@inline @generated function _create_entity!(world::W, table_index::UInt32)::Tuple{Entity,Int} where {W<:World}
-    world_has_rel = _has_relations(_world_relation_types(W))
+@inline @generated function _create_entity!(
+    entity_pool::_EntityPool,
+    tables::Vector{_Table},
+    archetypes::Vector{_Archetype{M}},
+    entities::Vector{_EntityIndex},
+    targets::BitVector,
+    ::Val{HasRel},
+    table_index::UInt32,
+)::Tuple{Entity,Int} where {M,HasRel}
     quote
-        entity = _get_entity(world._entity_pool)
-        @inbounds table = world._tables[table_index]
-        @inbounds archetype = world._archetypes[table.archetype]
+        entity = _get_entity(entity_pool)
+        @inbounds table = tables[table_index]
+        @inbounds archetype = archetypes[table.archetype]
 
         index = _add_entity!(table, entity)
 
-        if entity._id > length(world._entities)
-            push!(world._entities, _EntityIndex(table_index, UInt32(index)))
-            $(world_has_rel ? :(push!(world._targets, false)) : (:(nothing)))
+        if entity._id > length(entities)
+            push!(entities, _EntityIndex(table_index, UInt32(index)))
+            $(HasRel ? :(push!(targets, false)) : (:(nothing)))
         else
-            @inbounds world._entities[Int(entity._id)] = _EntityIndex(table_index, UInt32(index))
-            $(world_has_rel ? :(@inbounds world._targets[Int(entity._id)] = false) : (:(nothing)))
+            @inbounds entities[Int(entity._id)] = _EntityIndex(table_index, UInt32(index))
+            $(HasRel ? :(@inbounds targets[Int(entity._id)] = false) : (:(nothing)))
         end
         return entity, index
     end
 end
 
-@generated function _create_entities!(world::W, table_index::UInt32, n::Int)::Tuple{Int,Int} where {W<:World}
-    world_has_rel = _has_relations(_world_relation_types(W))
+@generated function _create_entities!(
+    tables::Vector{_Table},
+    archetypes::Vector{_Archetype{M}},
+    entity_pool::_EntityPool,
+    entities::Vector{_EntityIndex},
+    targets::BitVector,
+    storages::CS,
+    table_index::UInt32,
+    n::Int,
+    ::Val{HasRel},
+)::Tuple{Int,Int} where {M,CS,HasRel}
     quote
-        table = world._tables[Int(table_index)]
-        archetype = world._archetypes[table.archetype]
+        table = tables[Int(table_index)]
+        archetype = archetypes[table.archetype]
         old_length = length(table.entities)
         new_length = old_length + n
 
         resize!(table, new_length)
 
-        pool = world._entity_pool
-        entities = table.entities._data
+        pool = entity_pool
+        tbl_entities = table.entities._data
 
         i = old_length + 1
         # Pop from free list
         @inbounds while i <= new_length && pool.next != 0
             entity = _get_entity(pool)
-            entities[i] = entity
+            tbl_entities[i] = entity
             id = Int(entity._id)
-            world._entities[id] = _EntityIndex(table_index, UInt32(i))
-            $(world_has_rel ? :(world._targets[id] = false) : (:(nothing)))
+            entities[id] = _EntityIndex(table_index, UInt32(i))
+            $(HasRel ? :(targets[id] = false) : (:(nothing)))
             i += 1
         end
 
@@ -1460,25 +1557,25 @@ end
         if i <= new_length
             rem = new_length - i + 1
             old_pool_len = length(pool.entities)
-            @check old_pool_len == length(world._entities)
+            @check old_pool_len == length(entities)
             _get_new_entities!(pool, rem)
 
             new_pool_len = length(pool.entities)
-            resize!(world._entities, new_pool_len)
-            $(world_has_rel ? :(resize!(world._targets, new_pool_len)) : nothing)
-            $(world_has_rel ? :(view(world._targets, (old_pool_len+1):new_pool_len) .= false) : nothing)
+            resize!(entities, new_pool_len)
+            $(HasRel ? :(resize!(targets, new_pool_len)) : nothing)
+            $(HasRel ? :(view(targets, (old_pool_len+1):new_pool_len) .= false) : nothing)
 
             @inbounds @simd for j in 1:rem
                 id = old_pool_len + j
                 entity = pool.entities[id]
-                entities[i] = entity
-                world._entities[id] = _EntityIndex(table_index, UInt32(i))
+                tbl_entities[i] = entity
+                entities[id] = _EntityIndex(table_index, UInt32(i))
                 i += 1
             end
         end
 
         for comp in archetype.components
-            _ensure_column_size_for_comp!(world._storages, comp, table_index, new_length)
+            _ensure_column_size_for_comp!(storages, comp, table_index, new_length)
         end
 
         return old_length + 1, new_length
@@ -1486,41 +1583,43 @@ end
 end
 
 @inline @generated function _move_entity!(
-    world::W,
+    entities::Vector{_EntityIndex},
+    archetypes::Vector{_Archetype{M}},
+    storages::CS,
     entity::Entity,
     index::_EntityIndex,
     old_table::_Table,
     new_table::_Table,
     table_index::UInt32,
-)::Nothing where {W<:World}
-    inline_jtable = fieldcount(_world_storage_types(W)) <= 10
+    ::Val{InlineJTable},
+)::Nothing where {M,CS,InlineJTable}
     quote
         new_row = _add_entity!(new_table, entity)
         swapped = _swap_remove!(old_table.entities._data, index.row)
 
         if swapped
             @inbounds swap_entity = old_table.entities[index.row]
-            @inbounds world._entities[swap_entity._id] = index
+            @inbounds entities[swap_entity._id] = index
         end
 
-        @inbounds world._entities[entity._id] = _EntityIndex(table_index, UInt32(new_row))
+        @inbounds entities[entity._id] = _EntityIndex(table_index, UInt32(new_row))
 
-        @inbounds old_archetype = world._archetypes[old_table.archetype]
-        @inbounds new_archetype = world._archetypes[new_table.archetype]
+        @inbounds old_archetype = archetypes[old_table.archetype]
+        @inbounds new_archetype = archetypes[new_table.archetype]
 
         # Move component data only for components present in old_archetype that are also present in new_archetype
         for comp in old_archetype.components
             if _get_bit(new_archetype.node.mask, comp)
                 $(
-                    inline_jtable ?
-                    :(@inline _move_component_data!(world._storages, comp, index.table, table_index, index.row)) :
-                    :(_move_component_data!(world._storages, comp, index.table, table_index, index.row))
+                    InlineJTable ?
+                    :(@inline _move_component_data!(storages, comp, index.table, table_index, index.row)) :
+                    :(_move_component_data!(storages, comp, index.table, table_index, index.row))
                 )
             else
                 $(
-                    inline_jtable ?
-                    :(@inline _swap_remove_in_column_for_comp!(world._storages, comp, index.table, index.row)) :
-                    :(_swap_remove_in_column_for_comp!(world._storages, comp, index.table, index.row))
+                    InlineJTable ?
+                    :(@inline _swap_remove_in_column_for_comp!(storages, comp, index.table, index.row)) :
+                    :(_swap_remove_in_column_for_comp!(storages, comp, index.table, index.row))
                 )
             end
         end
@@ -1587,6 +1686,7 @@ end
     ::Val{Unchecked},
 )::Entity where {W<:World,Unchecked}
     inline_jtable = fieldcount(_world_storage_types(W)) <= 10
+    world_has_rel = Val{_has_relations(_world_relation_types(W))}()
     quote
         $(!Unchecked ? :(
             if !is_alive(world, entity)
@@ -1596,7 +1696,7 @@ end
         _check_locked(world._lock)
 
         index = world._entities[entity._id]
-        new_entity, new_row = _create_entity!(world, index.table)
+        new_entity, new_row = _create_entity!(world._entity_pool, world._tables, world._archetypes, world._entities, world._targets, $world_has_rel, index.table)
         table = world._tables[index.table]
         archetype = world._archetypes[table.archetype]
 
@@ -1675,16 +1775,22 @@ end
         :(
             new_table_index =
                 _find_or_create_table!(
-                    world, world._graph, world._tables, world._archetypes, world._archetypes_hot,
+                    world._last_table, world._archetypes, world._archetypes_hot,
+                    world._registry, world._relation_archetypes, world._relations,
+                    world._index,
+                    world._entity_pool, world._initial_capacity, world._storages,
+                    world._targets, world._cache, world._pool,
+                    world._graph, world._tables,
                     old_table, $add_ids, $rem_ids, $rel_ids, targets, $add_mask, $rem_mask, $use_map,
                     $world_has_rel,
+                    _world_component_types(typeof(world)), _world_relation_types(typeof(world)),
                 )[1]
         ),
     )
     push!(exprs, :(new_table = world._tables[new_table_index]))
     push!(exprs, :(new_archetype = world._archetypes_hot[new_table.archetype]))
 
-    push!(exprs, :(entity_and_row = _create_entity!(world, new_table_index)))
+    push!(exprs, :(entity_and_row = _create_entity!(world._entity_pool, world._tables, world._archetypes, world._entities, world._targets, $world_has_rel, new_table_index)))
     push!(exprs, :(new_entity = entity_and_row[1]))
 
     push!(
@@ -1777,8 +1883,16 @@ end
 end
 
 @generated function _has_components(
-    world::W, entity::Entity, ::TS, ::Val{Unchecked},
-) where {W<:World,TS<:Tuple,Unchecked}
+    entities::Vector{_EntityIndex},
+    tables::Vector{_Table},
+    archetypes_hot::Vector{_ArchetypeHot{M}},
+    storages::CS,
+    entity::Entity,
+    ::TS,
+    ::Val{Unchecked},
+    entity_pool::_EntityPool,
+    ::Type{CS},
+) where {M,CS<:Tuple,TS<:Tuple,Unchecked}
     types = _to_types(TS)
     _check_no_duplicates(types)
 
@@ -1786,34 +1900,33 @@ end
 
     if !Unchecked
         push!(exprs, :(
-            if !is_alive(world, entity)
+            if !_is_alive(entity_pool, entity)
                 throw(ArgumentError("can't check components of a dead entity"))
             end
         ))
     end
 
     if length(types) >= 3
-        CS = _world_storage_types(W)
         ids = tuple(Int[_component_index(CS, T) for T in types]...)
-        M = max(1, cld(fieldcount(CS), 64))
-        query_mask = _Mask{M}(ids...)
+        mask_M = max(1, cld(fieldcount(CS), 64))
+        query_mask = _Mask{mask_M}(ids...)
 
         push!(exprs, :(
             @inbounds begin
-            index = world._entities[entity._id]
-            table = world._tables[index.table]
-            arch_hot = world._archetypes_hot[table.archetype]
+            index = entities[entity._id]
+            table = tables[index.table]
+            arch_hot = archetypes_hot[table.archetype]
         end
         ))
         push!(exprs, :(return _contains_all(arch_hot.mask, $query_mask)))
     else
-        push!(exprs, :(@inbounds index = world._entities[entity._id]))
+        push!(exprs, :(@inbounds index = entities[entity._id]))
         for i in 1:length(types)
             T = types[i]
             stor_sym = Symbol("stor", i)
             col_sym = Symbol("col", i)
 
-            push!(exprs, :($stor_sym = _get_storage(world._storages, $T)))
+            push!(exprs, :($stor_sym = _get_storage(storages, $T)))
             push!(exprs, :(@inbounds $col_sym = $stor_sym.data[index.table]))
             push!(exprs, :(
                 if length($col_sym) == 0
@@ -1976,7 +2089,7 @@ end
 
     new_table, found = _get_table(world._tables, world._relations, archetype, new_relations)
     if !found
-        new_table_id = _create_table!(world, archetype, copy(new_relations))
+        new_table_id = _create_table!(world._entity_pool, world._tables, world._initial_capacity, world._storages, world._relations, world._targets, world._cache, world._archetypes_hot, archetype, copy(new_relations), _world_component_types(typeof(world)), _world_relation_types(typeof(world)))
         new_table = world._tables[new_table_id]
     end
 
@@ -1994,7 +2107,7 @@ end
     end
 
     empty!(new_relations)
-    _move_entity!(world, entity, index, old_table, new_table, new_table.id)
+    _move_entity!(world._entities, world._archetypes, world._storages, entity, index, old_table, new_table, new_table.id, Val{fieldcount(_world_storage_types(W)) <= 10}())
 
     if _has_observers(world._event_manager, OnAddRelations)
         _fire_set_relations(
@@ -2064,14 +2177,22 @@ end
 
     push!(exprs, :(@inbounds index = world._entities[entity._id]))
     push!(exprs, :(@inbounds old_table = world._tables[index.table]))
+    CT = _world_component_types(W)
+    RT = _world_relation_types(W)
     push!(
         exprs,
         :(
             new_table_tuple =
                 _find_or_create_table!(
-                    world, world._graph, world._tables, world._archetypes, world._archetypes_hot,
+                    world._last_table, world._archetypes, world._archetypes_hot,
+                    world._registry, world._relation_archetypes, world._relations,
+                    world._index,
+                    world._entity_pool, world._initial_capacity, world._storages,
+                    world._targets, world._cache, world._pool,
+                    world._graph, world._tables,
                     old_table, $add_ids, $rem_ids, $rel_ids, targets, $add_mask, $rem_mask, $use_map,
                     $world_has_rel,
+                    $CT, $RT,
                 )
         ),
     )
@@ -2111,7 +2232,7 @@ end
         )
     end
 
-    push!(exprs, :(row = _move_entity!(world, entity, index, old_table, new_table, new_table_index)))
+    push!(exprs, :(row = _move_entity!(world._entities, world._archetypes, world._storages, entity, index, old_table, new_table, new_table_index, Val{$(fieldcount(CS) <= 10)}())))
     for i in 1:length(add_types)
         T = add_types[i]
         stor_sym = Symbol("stor", i)
@@ -2175,29 +2296,39 @@ end
     mask = _Mask{M}(ids...)
 
     return quote
-        _do_emit_event!(world, event, $mask, $has_comps, entity)
+        _do_emit_event!(world._event_manager, world._archetypes_hot, world._entities, world._tables, event, $mask, $has_comps, entity, world._entity_pool)
     end
 end
 
-function _do_emit_event!(world::World, event::Event, mask::_Mask, has_comps::Bool, entity::Entity)
+function _do_emit_event!(
+    event_manager::_EventManager,
+    archetypes_hot::Vector{_ArchetypeHot{M}},
+    entities::Vector{_EntityIndex},
+    tables::Vector{_Table},
+    event::Event,
+    mask::_Mask,
+    has_comps::Bool,
+    entity::Entity,
+    entity_pool::_EntityPool,
+) where M
     if is_zero(entity)
         if has_comps
             throw(ArgumentError("can't emit event with components for the zero entity"))
         end
-        return _fire_custom_event(world._event_manager, event, entity, mask, world._archetypes_hot[1].mask)
+        return _fire_custom_event(event_manager, event, entity, mask, archetypes_hot[1].mask)
     end
 
-    if !is_alive(world, entity)
+    if !_is_alive(entity_pool, entity)
         throw(ArgumentError("can't emit event for a dead entity"))
     end
-    index = world._entities[entity._id]
-    table = world._tables[index.table]
-    entity_mask = world._archetypes_hot[table.archetype].mask
+    index = entities[entity._id]
+    table = tables[index.table]
+    entity_mask = archetypes_hot[table.archetype].mask
 
     if !_contains_all(entity_mask, mask)
         throw(ArgumentError("entity does not have all components of the event emitted for it"))
     end
-    return _fire_custom_event(world._event_manager, event, entity, mask, entity_mask)
+    return _fire_custom_event(event_manager, event, entity, mask, entity_mask)
 end
 
 @generated function _push_empty_to_all_storages!(storages::CS) where {CS<:Tuple}

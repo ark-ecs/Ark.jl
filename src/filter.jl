@@ -153,7 +153,7 @@ end
             world,
         )
         if $register
-            _register_filter!(world, filter._filter)
+            _register_filter!(world._cache, world._archetypes, world._archetypes_hot, world._tables, world._relations, filter._filter)
         end
         return filter
     end

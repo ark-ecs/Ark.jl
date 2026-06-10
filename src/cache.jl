@@ -24,39 +24,38 @@ end
 _Cache{M,K}() where {M,K} = _Cache{M,K}(Vector{_MaskFilter{M,K}}(), Vector{UInt32}())
 
 function _register_filter!(
-    world::W,
+    cache::_Cache{M,K},
+    archetypes::Vector{_Archetype{M}},
+    archetypes_hot::Vector{_ArchetypeHot{M}},
+    tables::Vector{_Table},
+    comp_relations::Vector{_ComponentRelations},
     filter::F,
-) where {W<:_AbstractWorld,F<:_MaskFilter}
-    # TODO: re-enable this check in case re-registration is allowed.
-    #if _is_cached(filter)
-    #    throw(InvalidStateException("filter is already registered to the cache", :filter_registered))
-    #end
-
-    if isempty(world._cache.free_indices)
-        push!(world._cache.filters, filter)
-        filter.id[] = UInt32(length(world._cache.filters))
+) where {M,K,F<:_MaskFilter}
+    if isempty(cache.free_indices)
+        push!(cache.filters, filter)
+        filter.id[] = UInt32(length(cache.filters))
     else
-        index = pop!(world._cache.free_indices)
-        world._cache.filters[index] = filter
+        index = pop!(cache.free_indices)
+        cache.filters[index] = filter
         filter.id[] = index
     end
 
-    for i in eachindex(world._archetypes)
-        arch_hot = @inbounds world._archetypes_hot[i]
+    for i in eachindex(archetypes)
+        arch_hot = @inbounds archetypes_hot[i]
         if !_matches(filter, arch_hot)
             continue
         end
 
         if !arch_hot.has_relations
-            _add_table!(filter, world._tables[arch_hot.table])
+            _add_table!(filter, tables[arch_hot.table])
             continue
         end
 
-        arch = @inbounds world._archetypes[i]
-        tables = _get_tables(world._relations, arch, filter.relations)
-        for table_id in tables
-            table = @inbounds world._tables[Int(table_id)]
-            if _matches(world._relations, table, filter.relations)
+        arch = @inbounds archetypes[i]
+        tbl_ids = _get_tables(comp_relations, arch, filter.relations)
+        for table_id in tbl_ids
+            table = @inbounds tables[Int(table_id)]
+            if _matches(comp_relations, table, filter.relations)
                 _add_table!(filter, table)
             end
         end
