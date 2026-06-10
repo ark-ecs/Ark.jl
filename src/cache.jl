@@ -53,7 +53,7 @@ function _register_filter!(
         end
 
         arch = @inbounds world._archetypes[i]
-        tables = _get_tables(world, arch, filter.relations)
+        tables = _get_tables(_state(world), arch, filter.relations)
         for table_id in tables
             table = @inbounds world._tables[Int(table_id)]
             if _matches(world._relations, table, filter.relations)
@@ -64,14 +64,14 @@ function _register_filter!(
 end
 
 function _unregister_filter!(world::W, filter::F) where {W<:_AbstractWorld,F<:_MaskFilter}
-    _check_locked(world)
+    _check_locked(_state(world))
 
     if !_is_cached(filter)
         throw(InvalidStateException("filter is not registered to the cache", :filter_not_registered))
     end
 
     for table_id in filter.tables.ids
-        table = world._tables[table_id]
+        table = _state(world)._tables[table_id]
         _remove_table_filter!(table, filter.id[])
     end
 

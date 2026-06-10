@@ -424,7 +424,7 @@ end
 
     quote
         $check_expr
-        _check_locked(world)
+        _check_locked(_state(world))
 
         @inbounds index = world._entities[entity._id]
         @inbounds table = world._tables[index.table]
@@ -449,8 +449,8 @@ end
         for comp in archetype.components
             $(
                 inline_jtable ?
-                :(@inline _swap_remove_in_column_for_comp!(world, comp, index.table, index.row)) :
-                :(_swap_remove_in_column_for_comp!(world, comp, index.table, index.row))
+                :(@inline _swap_remove_in_column_for_comp!(_stores(world), comp, index.table, index.row)) :
+                :(_swap_remove_in_column_for_comp!(_stores(world), comp, index.table, index.row))
             )
         end
 
@@ -827,7 +827,7 @@ Can be used to run systematic simulations without the need to re-allocate memory
 Accelerates re-populating the world by a factor of 2-3.
 """
 function reset!(world::W) where {W<:World}
-    _check_locked(world)
+    _check_locked(_state(world))
 
     resize!(world._entities, 1)
     resize!(world._targets, 1)
@@ -841,7 +841,7 @@ function reset!(world::W) where {W<:World}
         _clear!(table.filters[])
         archetype = world._archetypes[table.archetype]
         for comp in archetype.components
-            _clear_component_data!(world, comp, table.id)
+            _clear_component_data!(_stores(world), comp, table.id)
         end
     end
 
@@ -1032,10 +1032,6 @@ end
     return :(stores._storages.$index)
 end
 
-@inline function _get_storage(world::World, ::Type{C}) where {C}
-    return _get_storage(_stores(world), C)
-end
-
 @generated function _get_relations_storage(
     state::_WorldState,
     ::Type{C},
@@ -1044,11 +1040,6 @@ end
     CS = _schema_storage_types(S)
     index = _component_index(CS, C)
     return :(state._relations[$index])
-end
-
-@inline function _get_relations_storage(world::W, ::Type{C}) where {W<:World,C}
-    S = _world_schema(W)
-    return _get_relations_storage(_state(world), C, S)
 end
 
 @inline function _find_or_create_archetype!(
@@ -1283,10 +1274,6 @@ function _recycle_table!(state::_WorldState{M,K}, stores::_WorldStores, arch::_A
     _add_table_for_state!(state._cache, state, state._archetypes_hot[arch.id], table)
 end
 
-function _recycle_table!(world::World, arch::_Archetype, table_id::UInt32, relations::Vector{Pair{Int32,Entity}})
-    return _recycle_table!(_state(world), _stores(world), arch, table_id, relations)
-end
-
 function _create_table!(state::_WorldState{M,K}, stores::_WorldStores, arch::_Archetype, relations::Vector{Pair{Int32,Entity}})::UInt32 where {M,K}
     if length(relations) < arch.num_relations
         throw(ArgumentError("relation targets must be fully specified"))
@@ -1340,10 +1327,6 @@ function _add_table_for_state!(cache::_Cache, state::_WorldState, archetype::_Ar
     end
 end
 
-function _create_table!(world::World, arch::_Archetype, relations::Vector{Pair{Int32,Entity}})::UInt32
-    return _create_table!(_state(world), _stores(world), arch, relations)
-end
-
 function _create_archetype!(state::_WorldState{M,K}, node::_GraphNode, table::UInt32)::UInt32 where {M,K}
     components = _active_bit_indices(node.mask)
     relations = Int[]
@@ -1382,10 +1365,6 @@ function _create_archetype!(state::_WorldState{M,K}, node::_GraphNode, table::UI
     end
 
     return UInt32(index)
-end
-
-function _create_archetype!(world::World, node::_GraphNode, table::UInt32)::UInt32
-    return _create_archetype!(_state(world), node, table)
 end
 
 @inline function _get_exchange_targets(
@@ -1579,7 +1558,7 @@ function _cleanup_archetypes(world::World, entity::Entity)
             @check has_target == true
 
             if !isempty(table.entities)
-                new_relations, mask = _get_exchange_targets_unchecked(world, table, relations)
+                new_relations, mask = _get_exchange_targets_unchecked(_state(world), table, relations)
 
                 if _has_observers(world._event_manager, OnRemoveRelations)
                     _fire_set_relations(world._event_manager, OnRemoveRelations,
@@ -1587,9 +1566,9 @@ function _cleanup_archetypes(world::World, entity::Entity)
                         mask)
                 end
 
-                new_table, found = _get_table(world, archetype, new_relations)
+                new_table, found = _get_table(_state(world), archetype, new_relations)
                 if !found
-                    new_table_id = _create_table!(world, archetype, copy(new_relations))
+                    new_table_id = _create_table!(_state(world), _stores(world), archetype, copy(new_relations))
                     new_table = world._tables[new_table_id]
                 end
                 empty!(new_relations)
@@ -1643,9 +1622,9 @@ end
 
     exprs = Expr[]
     if !Unchecked
-        push!(exprs, :(_check_relation_targets(world, targets)))
+        push!(exprs, :(_check_relation_targets(_state(world), targets)))
     end
-    push!(exprs, :(_check_locked(world)))
+    push!(exprs, :(_check_locked(_state(world))))
     push!(
         exprs,
         :(
@@ -1673,7 +1652,7 @@ end
         col_sym = Symbol("col", i)
         val_expr = :(values.$i)
 
-        push!(exprs, :($stor_sym = _get_storage(world, $T)))
+        push!(exprs, :($stor_sym = _get_storage(_stores(world), $T)))
         push!(exprs, :(@inbounds $col_sym = $stor_sym.data[table]))
         push!(exprs, :(push!($col_sym, $val_expr)))
     end
@@ -1753,7 +1732,7 @@ end
         end
 
         for comp in archetype.components
-            _ensure_column_size_for_comp!(world, comp, table_index, new_length)
+            _ensure_column_size_for_comp!(_stores(world), comp, table_index, new_length)
         end
 
         return old_length + 1, new_length
@@ -1788,14 +1767,14 @@ end
             if _get_bit(new_archetype.node.mask, comp)
                 $(
                     inline_jtable ?
-                    :(@inline _move_component_data!(world, comp, index.table, table_index, index.row)) :
-                    :(_move_component_data!(world, comp, index.table, table_index, index.row))
+                    :(@inline _move_component_data!(_stores(world), comp, index.table, table_index, index.row)) :
+                    :(_move_component_data!(_stores(world), comp, index.table, table_index, index.row))
                 )
             else
                 $(
                     inline_jtable ?
-                    :(@inline _swap_remove_in_column_for_comp!(world, comp, index.table, index.row)) :
-                    :(_swap_remove_in_column_for_comp!(world, comp, index.table, index.row))
+                    :(@inline _swap_remove_in_column_for_comp!(_stores(world), comp, index.table, index.row)) :
+                    :(_swap_remove_in_column_for_comp!(_stores(world), comp, index.table, index.row))
                 )
             end
         end
@@ -1820,7 +1799,7 @@ function _move_entities!(world::World, old_table_index::UInt32, table_index::UIn
 
     resize!(new_table, total_entities)
     for comp in new_archetype.components
-        _ensure_column_size_for_comp!(world, comp, table_index, total_entities)
+        _ensure_column_size_for_comp!(_stores(world), comp, table_index, total_entities)
     end
 
     @inbounds @simd for from in 1:num_entities
@@ -1831,9 +1810,9 @@ function _move_entities!(world::World, old_table_index::UInt32, table_index::UIn
     end
     for comp in old_archetype.components
         if _get_bit(new_archetype.node.mask, comp)
-            _copy_component_data_to_end!(world, comp, old_table_index, table_index)
+            _copy_component_data_to_end!(_stores(world), comp, old_table_index, table_index)
         end
-        _clear_component_data!(world, comp, old_table_index)
+        _clear_component_data!(_stores(world), comp, old_table_index)
     end
 
     empty!(old_table)
@@ -1853,7 +1832,7 @@ end
                 throw(ArgumentError("can't copy a dead entity"))
             end
         ) : nothing)
-        _check_locked(world)
+        _check_locked(_state(world))
 
         index = world._entities[entity._id]
         new_entity, new_row = _create_entity!(world, index.table)
@@ -1863,8 +1842,8 @@ end
         for comp in archetype.components
             $(
                 inline_jtable ?
-                :(@inline _copy_component_data!(world, comp, index.table, index.table, index.row, mode)) :
-                :(_copy_component_data!(world, comp, index.table, index.table, index.row, mode))
+                :(@inline _copy_component_data!(_stores(world), comp, index.table, index.table, index.row, mode)) :
+                :(_copy_component_data!(_stores(world), comp, index.table, index.table, index.row, mode))
             )
         end
 
@@ -1922,9 +1901,9 @@ end
                 throw(ArgumentError("can't copy a dead entity"))
             end
         ))
-        push!(exprs, :(_check_relation_targets(world, targets)))
+        push!(exprs, :(_check_relation_targets(_state(world), targets)))
     end
-    push!(exprs, :(_check_locked(world)))
+    push!(exprs, :(_check_locked(_state(world))))
 
     world_has_rel = Val{_has_relations(relation_types)}()
     push!(exprs, :(index = world._entities[entity._id]))
@@ -1953,7 +1932,7 @@ end
                 if !_get_bit(new_archetype.mask, comp)
                     continue
                 end
-                _copy_component_data!(world, comp, index.table, new_table_index, index.row, mode)
+                _copy_component_data!(_stores(world), comp, index.table, new_table_index, index.row, mode)
             end
         ),
     )
@@ -1964,7 +1943,7 @@ end
         col_sym = Symbol("col", i)
         val_expr = :(add.$i)
 
-        push!(exprs, :($stor_sym = _get_storage(world, $T)))
+        push!(exprs, :($stor_sym = _get_storage(_stores(world), $T)))
         push!(exprs, :(@inbounds $col_sym = $stor_sym.data[new_table_index]))
         push!(exprs, :(@inbounds push!($col_sym, $val_expr)))
     end
@@ -2014,7 +1993,7 @@ end
         stor_sym = Symbol("stor", i)
         val_sym = Symbol("v", i)
 
-        push!(exprs, :($(stor_sym) = _get_storage(world, $T)))
+        push!(exprs, :($(stor_sym) = _get_storage(_stores(world), $T)))
         push!(exprs, :($(val_sym) = _get_component($(stor_sym), idx.table, idx.row, $(Val(Unchecked)))))
     end
 
@@ -2065,7 +2044,7 @@ end
             stor_sym = Symbol("stor", i)
             col_sym = Symbol("col", i)
 
-            push!(exprs, :($stor_sym = _get_storage(world, $T)))
+            push!(exprs, :($stor_sym = _get_storage(_stores(world), $T)))
             push!(exprs, :(@inbounds $col_sym = $stor_sym.data[index.table]))
             push!(exprs, :(
                 if length($col_sym) == 0
@@ -2106,7 +2085,7 @@ end
         stor_sym = Symbol("stor", i)
         val_expr = :(values.$i)
 
-        push!(exprs, :($stor_sym = _get_storage(world, $T)))
+        push!(exprs, :($stor_sym = _get_storage(_stores(world), $T)))
         push!(exprs, :(_set_component!($stor_sym, idx.table, idx.row, $val_expr, $(Val(Unchecked)))))
     end
 
@@ -2191,7 +2170,7 @@ end
                 throw(ArgumentError("can't set relation targets of a dead entity"))
             end
         ))
-        push!(exprs, :(_check_relation_targets(world, targets)))
+        push!(exprs, :(_check_relation_targets(_state(world), targets)))
     end
 
     push!(exprs, :(_set_relations!(world, entity, $rel_ids, targets)))
@@ -2210,19 +2189,19 @@ end
     relations::Tuple{Vararg{Int}},
     targets::Tuple{Vararg{Entity}},
 ) where {W<:World}
-    _check_locked(world)
+    _check_locked(_state(world))
     index = world._entities[entity._id]
     old_table = world._tables[index.table]
     archetype = world._archetypes[old_table.archetype]
-    new_relations, changed, mask = _get_exchange_targets(world, old_table, relations, targets)
+    new_relations, changed, mask = _get_exchange_targets(_state(world), old_table, relations, targets)
     if !changed
         empty!(new_relations)
         return nothing
     end
 
-    new_table, found = _get_table(world, archetype, new_relations)
+    new_table, found = _get_table(_state(world), archetype, new_relations)
     if !found
-        new_table_id = _create_table!(world, archetype, copy(new_relations))
+        new_table_id = _create_table!(_state(world), _stores(world), archetype, copy(new_relations))
         new_table = world._tables[new_table_id]
     end
 
@@ -2290,9 +2269,9 @@ end
                 throw(ArgumentError("can't $FuncName components on a dead entity"))
             end
         ))
-        push!(exprs, :(_check_relation_targets(world, targets)))
+        push!(exprs, :(_check_relation_targets(_state(world), targets)))
     end
-    push!(exprs, :(_check_locked(world)))
+    push!(exprs, :(_check_locked(_state(world))))
 
     CS = _world_storage_types(W)
     add_ids = tuple(Int[_component_index(CS, T) for T in add_types]...)
@@ -2363,7 +2342,7 @@ end
         col_sym = Symbol("col", i)
         val_expr = :(add.$i)
 
-        push!(exprs, :($stor_sym = _get_storage(world, $T)))
+        push!(exprs, :($stor_sym = _get_storage(_stores(world), $T)))
         push!(exprs, :(@inbounds $col_sym = $stor_sym.data[new_table_index]))
         push!(exprs, :(push!($col_sym, $val_expr)))
     end
@@ -2455,10 +2434,6 @@ end
     return Expr(:block, exprs...)
 end
 
-@inline function _push_empty_to_all_storages!(world::World)
-    _push_empty_to_all_storages!(_stores(world))
-end
-
 @generated function _activate_new_column_for_comp!(
     stores::_WorldStores{CS},
     comp::Int,
@@ -2468,10 +2443,6 @@ end
     call_exprs =
         Expr[:(_activate_column!(stores._storages.$i, index, initial_capacity)) for i in 1:fieldcount(CS)]
     _generate_component_switch(:comp, call_exprs)
-end
-
-@inline function _activate_new_column_for_comp!(world::World, comp::Int, index::Int)
-    _activate_new_column_for_comp!(_stores(world), comp, index, _initial_capacity(world))
 end
 
 @generated function _ensure_column_size_for_comp!(
@@ -2484,10 +2455,6 @@ end
     _generate_component_switch(:comp, call_exprs)
 end
 
-@inline function _ensure_column_size_for_comp!(world::World, comp::Int, arch::UInt32, needed::Int)
-    _ensure_column_size_for_comp!(_stores(world), comp, arch, needed)
-end
-
 @generated function _move_component_data!(
     stores::_WorldStores{CS},
     comp::Int,
@@ -2497,10 +2464,6 @@ end
 ) where CS
     call_exprs = Expr[:(_move_component_data!(stores._storages.$i, old_table, new_table, row)) for i in 1:fieldcount(CS)]
     _generate_component_switch(:comp, call_exprs)
-end
-
-@inline function _move_component_data!(world::World, comp::Int, old_table::UInt32, new_table::UInt32, row::UInt32)
-    _move_component_data!(_stores(world), comp, old_table, new_table, row)
 end
 
 @generated function _copy_component_data!(
@@ -2522,10 +2485,6 @@ end
     _generate_component_switch(:comp, call_exprs)
 end
 
-@inline function _copy_component_data!(world::World, comp::Int, old_table::UInt32, new_table::UInt32, old_row::UInt32, mode::CP) where {CP<:Val}
-    _copy_component_data!(_stores(world), comp, old_table, new_table, old_row, mode)
-end
-
 @generated function _copy_component_data_to_end!(
     stores::_WorldStores{CS},
     comp::Int,
@@ -2537,10 +2496,6 @@ end
     _generate_component_switch(:comp, call_exprs)
 end
 
-@inline function _copy_component_data_to_end!(world::World, comp::Int, old_table::UInt32, new_table::UInt32)
-    _copy_component_data_to_end!(_stores(world), comp, old_table, new_table)
-end
-
 @generated function _clear_component_data!(
     stores::_WorldStores{CS},
     comp::Int,
@@ -2548,10 +2503,6 @@ end
 ) where {CS<:Tuple}
     call_exprs = Expr[:(_clear_column!(stores._storages.$i, table)) for i in 1:fieldcount(CS)]
     _generate_component_switch(:comp, call_exprs)
-end
-
-@inline function _clear_component_data!(world::World, comp::Int, table::UInt32)
-    _clear_component_data!(_stores(world), comp, table)
 end
 
 @generated function _swap_remove_in_column_for_comp!(
@@ -2564,10 +2515,6 @@ end
     _generate_component_switch(:comp, call_exprs)
 end
 
-@inline function _swap_remove_in_column_for_comp!(world::World, comp::Int, table::UInt32, row::UInt32)
-    _swap_remove_in_column_for_comp!(_stores(world), comp, table, row)
-end
-
 @generated function _swap_components!(
     stores::_WorldStores{CS},
     comp::Int,
@@ -2577,10 +2524,6 @@ end
 ) where {CS<:Tuple}
     call_exprs = Expr[:(_swap_component_data!(stores._storages.$k, table, i, j)) for k in 1:fieldcount(CS)]
     _generate_component_switch(:comp, call_exprs)
-end
-
-@inline function _swap_components!(world::World, comp::Int, table::UInt32, i::Int, j::Int)
-    _swap_components!(_stores(world), comp, table, i, j)
 end
 
 @generated function _permute_component_cycle!(
@@ -2604,10 +2547,6 @@ end
     _generate_component_switch(:comp, call_exprs)
 end
 
-@inline function _permute_component_cycle!(world::World, comp::Int, table::UInt32, entities::Entities, entity_index::Vector{_EntityIndex}, start::Int)
-    _permute_component_cycle!(_stores(world), comp, table, entities, entity_index, start)
-end
-
 function _activate_archetype_relation_for_comp!(
     state::_WorldState,
     comp::Int,
@@ -2617,10 +2556,6 @@ function _activate_archetype_relation_for_comp!(
     _activate_archetype_column!(state._relations[comp], arch, index)
 end
 
-@inline function _activate_archetype_relation_for_comp!(world::World, comp::Int, arch::Int, index::Int)
-    _activate_archetype_relation_for_comp!(_state(world), comp, arch, index)
-end
-
 function _activate_table_relation_for_comp!(
     state::_WorldState,
     comp::Int,
@@ -2628,10 +2563,6 @@ function _activate_table_relation_for_comp!(
     target::Entity,
 )
     _activate_table_column!(state._relations[comp], table, target)
-end
-
-@inline function _activate_table_relation_for_comp!(world::World, comp::Int, table::Int, target::Entity)
-    _activate_table_relation_for_comp!(_state(world), comp, table, target)
 end
 
 # State-based helpers
@@ -2646,10 +2577,6 @@ function _check_locked(state::_WorldState)
     end
 end
 
-@inline function _check_locked(world::World)
-    _check_locked(_state(world))
-end
-
 function _check_relation_targets(state::_WorldState, relations::Tuple{Vararg{Entity}})
     for rel in relations
         _check_relation_target(state, rel)
@@ -2662,22 +2589,10 @@ function _check_relation_targets(state::_WorldState, relations::Vector{Pair{Int3
     end
 end
 
-@inline function _check_relation_targets(world::World, relations::Tuple{Vararg{Entity}})
-    _check_relation_targets(_state(world), relations)
-end
-
-@inline function _check_relation_targets(world::World, relations::Vector{Pair{Int32,Entity}})
-    _check_relation_targets(_state(world), relations)
-end
-
 function _check_relation_target(state::_WorldState, target::Entity)
     if !is_zero(target) && !is_alive(state, target)
         throw(ArgumentError("can't use a dead entity as relation target, except for the zero entity"))
     end
-end
-
-@inline function _check_relation_target(world::World, target::Entity)
-    _check_relation_target(_state(world), target)
 end
 
 function _swap_rows!(state::_WorldState, stores::_WorldStores, archetype::_Archetype, table::_Table, i::Int, j::Int)
@@ -2695,8 +2610,4 @@ function _swap_rows!(state::_WorldState, stores::_WorldStores, archetype::_Arche
         end
     end
     return
-end
-
-@inline function _swap_rows!(world::World, archetype::_Archetype, table::_Table, i::Int, j::Int)
-    _swap_rows!(_state(world), _stores(world), archetype, table, i, j)
 end

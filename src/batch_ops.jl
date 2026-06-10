@@ -149,7 +149,7 @@ function _get_tables(
         if isempty(archetype.tables)
             continue
         end
-        arch_tables = _get_tables(world, archetype, filter._filter.relations)
+        arch_tables = _get_tables(_state(world), archetype, filter._filter.relations)
         for table_id in arch_tables
             table = @inbounds world._tables[Int(table_id)]
             if !isempty(table.entities) && _matches(world._relations, table, filter._filter.relations)
@@ -576,11 +576,11 @@ end
     return quote
         _check_relation_targets(world, targets)
 
-        _check_locked(world)
+        _check_locked(_state(world))
         _lock(world._lock)
 
         arches, arches_hot = _get_archetypes(world, filter)
-        tables, _ = _get_tables(world, arches, arches_hot, filter)
+        tables, _ = _get_tables(_state(world), arches, arches_hot, filter)
         batches = world._pool.batches
 
         for table_id in tables
@@ -618,15 +618,15 @@ function _set_relations_table!(
     targets::Tuple{Vararg{Entity}},
     has_fn::Bool,
 ) where {Fn,W<:World}
-    new_relations, changed, mask = _get_exchange_targets(world, batch.table, relations, targets)
+    new_relations, changed, mask = _get_exchange_targets(_state(world), batch.table, relations, targets)
     if !changed
         empty!(new_relations)
         return nothing
     end
 
-    new_table, found = _get_table(world, batch.archetype, new_relations)
+    new_table, found = _get_table(_state(world), batch.archetype, new_relations)
     if !found
-        new_table_id = _create_table!(world, batch.archetype, copy(new_relations))
+        new_table_id = _create_table!(_state(world), _stores(world), batch.archetype, copy(new_relations))
         new_table = world._tables[new_table_id]
     end
     empty!(new_relations)
@@ -685,11 +685,11 @@ end
 
     return quote
         _check_relation_targets(world, targets)
-        _check_locked(world)
+        _check_locked(_state(world))
         _lock(world._lock)
 
         arches, arches_hot = _get_archetypes(world, filter)
-        tables, _ = _get_tables(world, arches, arches_hot, filter)
+        tables, _ = _get_tables(_state(world), arches, arches_hot, filter)
         batches = world._pool.batches
 
         for table_id in tables
@@ -809,7 +809,7 @@ end
             col_sym = Symbol("col", i)
             val_expr = :(add.$i)
 
-            push!(exprs, :($stor_sym = _get_storage(world, $T)))
+            push!(exprs, :($stor_sym = _get_storage(_stores(world), $T)))
             push!(exprs, :(@inbounds $col_sym = $stor_sym.data[new_table_index]))
             push!(exprs, :(@inbounds fill!(view($col_sym, start_idx:length($col_sym)), $val_expr)))
         end
@@ -882,10 +882,10 @@ end
     world_has_rel = _has_relations(_world_relation_types(W))
     has_fn = HFN == Val{true}
     quote
-        _check_locked(world)
+        _check_locked(_state(world))
 
         arches, arches_hot = _get_archetypes(world, filter)
-        tables, any_relations = _get_tables(world, arches, arches_hot, filter)
+        tables, any_relations = _get_tables(_state(world), arches, arches_hot, filter)
 
         has_entity_obs = _has_observers(world._event_manager, OnRemoveEntity)
         has_rel_obs = any_relations && _has_observers(world._event_manager, OnRemoveRelations)
@@ -1018,7 +1018,7 @@ end
 
     exprs = Expr[]
     push!(exprs, :(_check_relation_targets(world, targets)))
-    push!(exprs, :(_check_locked(world)))
+    push!(exprs, :(_check_locked(_state(world))))
     push!(
         exprs,
         :(
@@ -1047,7 +1047,7 @@ end
             col_sym = Symbol("col", i)
             val_expr = :(values.$i)
 
-            push!(body_exprs.args, :($stor_sym = _get_storage(world, $T)))
+            push!(body_exprs.args, :($stor_sym = _get_storage(_stores(world), $T)))
             push!(body_exprs.args, :(@inbounds $col_sym = $stor_sym.data[table_idx]))
             push!(body_exprs.args, :(fill!(view($col_sym, indices[1]:indices[2]), $val_expr)))
         end
@@ -1135,7 +1135,7 @@ end
         stor_sym = Symbol("stor", i)
         col_sym = Symbol("col", i)
         vec_sym = Symbol("vec", i)
-        push!(exprs, :(@inbounds $stor_sym = _get_storage(world, $(comp_types[i]))))
+        push!(exprs, :(@inbounds $stor_sym = _get_storage(_stores(world), $(comp_types[i]))))
         push!(exprs, :(@inbounds $col_sym = $stor_sym.data[Int(table.id)]))
 
         if _storage_vector_type(storage_modes[i]) <: GPUVector

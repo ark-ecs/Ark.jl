@@ -195,7 +195,7 @@ macro _each_matching_table(world, filter, archetypes, archetypes_hot, table, act
                 continue
             end
 
-            tables = _get_tables(world, archetype, filter.relations)
+            tables = _get_tables(_state(world), archetype, filter.relations)
             for table_id in tables
                 # TODO we can probably optimize here if exactly one relation in archetype and one queried.
                 table = @inbounds world._tables[Int(table_id)]
