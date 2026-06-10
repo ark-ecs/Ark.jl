@@ -164,7 +164,7 @@ end
 
 Un-registers a [Filter](@ref).
 """
-function unregister!(world::World, filter::F) where {F<:Filter}
+function unregister!(world::World, filter::Filter)
     _unregister_filter!(filter._world, filter._filter)
 end
 
