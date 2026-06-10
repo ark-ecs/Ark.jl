@@ -185,7 +185,7 @@ end
         end
 
         @inbounds archetype = q._archetypes[arch]
-        tables = _get_tables(q._world, archetype, q._filter.relations)
+        tables = _get_tables(_state(q._world), archetype, q._filter.relations)
 
         while tab <= length(tables)
             table = @inbounds q._world._tables[Int(tables[tab])]

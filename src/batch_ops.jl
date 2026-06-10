@@ -574,13 +574,13 @@ end
 
     has_fn = HFN == Val{true}
     return quote
-        _check_relation_targets(world, targets)
+        _check_relation_targets(_state(world), targets)
 
         _check_locked(_state(world))
         _lock(world._lock)
 
         arches, arches_hot = _get_archetypes(world, filter)
-        tables, _ = _get_tables(_state(world), arches, arches_hot, filter)
+        tables, _ = _get_tables(world, arches, arches_hot, filter)
         batches = world._pool.batches
 
         for table_id in tables
@@ -588,13 +588,12 @@ end
             if isempty(old_table)
                 continue
             end
-            # TODO: use a simplified data structure?
             push!(
                 batches,
                 _BatchTable(old_table, world._archetypes[old_table.archetype], 1, length(old_table)),
             )
         end
-        if !_is_cached(filter._filter) # Do not clear for cached filters!!!
+        if !_is_cached(filter._filter)
             empty!(tables)
         end
 
@@ -684,12 +683,12 @@ end
     _check_is_subset(rel_types, add_types)
 
     return quote
-        _check_relation_targets(world, targets)
+        _check_relation_targets(_state(world), targets)
         _check_locked(_state(world))
         _lock(world._lock)
 
         arches, arches_hot = _get_archetypes(world, filter)
-        tables, _ = _get_tables(_state(world), arches, arches_hot, filter)
+        tables, _ = _get_tables(world, arches, arches_hot, filter)
         batches = world._pool.batches
 
         for table_id in tables
@@ -697,13 +696,12 @@ end
             if isempty(old_table)
                 continue
             end
-            # TODO: use a simplified data structure?
             push!(
                 batches,
                 _BatchTable(old_table, world._archetypes[old_table.archetype], 1, length(old_table)),
             )
         end
-        if !_is_cached(filter._filter) # Do not clear for cached filters!!!
+        if !_is_cached(filter._filter)
             empty!(tables)
         end
 
@@ -885,7 +883,7 @@ end
         _check_locked(_state(world))
 
         arches, arches_hot = _get_archetypes(world, filter)
-        tables, any_relations = _get_tables(_state(world), arches, arches_hot, filter)
+        tables, any_relations = _get_tables(world, arches, arches_hot, filter)
 
         has_entity_obs = _has_observers(world._event_manager, OnRemoveEntity)
         has_rel_obs = any_relations && _has_observers(world._event_manager, OnRemoveRelations)
@@ -957,7 +955,7 @@ end
             end
             empty!(table)
             for comp in world._archetypes[table.archetype].components
-                _clear_component_data!(world, comp, table.id)
+                _clear_component_data!(_stores(world), comp, table.id)
             end
         end
 
@@ -1017,7 +1015,7 @@ end
     world_has_rel = Val{_has_relations(relation_types)}()
 
     exprs = Expr[]
-    push!(exprs, :(_check_relation_targets(world, targets)))
+    push!(exprs, :(_check_relation_targets(_state(world), targets)))
     push!(exprs, :(_check_locked(_state(world))))
     push!(
         exprs,

@@ -2111,6 +2111,7 @@ end
 
     _check_relations(types, _world_relation_types(W))
     _check_no_duplicates(types)
+    S = _world_schema(W)
 
     exprs = Expr[]
     if !Unchecked
@@ -2126,7 +2127,7 @@ end
         T = types[i]
         target_sym = Symbol("t", i)
 
-        push!(exprs, :($(target_sym) = @inbounds _get_relations_storage(world, $T).targets[idx.table]))
+        push!(exprs, :($(target_sym) = @inbounds _get_relations_storage(_state(world), $T, $S).targets[idx.table]))
         if !Unchecked
             push!(exprs, :(
                 if $(target_sym)._id == 0
