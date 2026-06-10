@@ -23,20 +23,20 @@
     @test length(filter3._filter.tables) == 1
     @test filter3._filter.id[] == 3
 
-    unregister!(filter1)
+    unregister!(world, filter1)
     @test world._cache.free_indices == [UInt32(1)]
     @test length(filter1._filter.tables) == 0
     @test filter1._filter.id[] == 0
     @test world._tables[1].filters[].ids == []
 
-    unregister!(filter3)
+    unregister!(world, filter3)
     @test world._cache.free_indices == [UInt32(1)]
     @test length(world._cache.filters) == 2
     @test length(filter3._filter.tables) == 0
 
     @test_throws(
         "InvalidStateException: filter is not registered to the cache",
-        unregister!(filter3)
+        unregister!(world, filter3)
     )
 
     filter3 = Filter(world, (Position, Velocity); register=true)
@@ -86,7 +86,7 @@ end
     world = World(Position, Relation{ChildOf})
     f1 = Filter(world, (Position,); register=true)
     f2 = Filter(world, (Position,); register=true)
-    unregister!(f1)
+    unregister!(world, f1)
     parent = new_entity!(world, ())
     child = new_entity!(world, (Position(1.1, 1.1), ChildOf() => parent))
 

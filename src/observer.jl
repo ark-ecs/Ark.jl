@@ -24,7 +24,7 @@ See [Event](@ref) for built-in, and [EventRegistry](@ref) for custom event types
   - `with::Tuple=()`: Components the entity must have.
   - `without::Tuple=()`: Components the entity must not have.
   - `exclusive::Bool=false`: Makes the observer exclusive for entities that have exactly the components given by `with`.
-  - `register::Bool=true`: Whether the observer is registered immediately. Alternatively, register later with [register!](@ref register!(::Observer, ::World)).
+  - `register::Bool=true`: Whether the observer is registered immediately. Alternatively, register later with [register!](@ref register!(::World, ::Observer)).
 
 # Example
 
@@ -141,21 +141,21 @@ end
 end
 
 """
-    register!(observer::Observer, world::World)
+    register!(world::World, observer::Observer)
 
 Registers the given [Observer](@ref) with the specified world.
 Note that observers created with [observe!](@ref) are automatically registered by default.
 """
-function register!(observer::Observer, world::World)
+function register!(world::World, observer::Observer)
     _add_observer!(world._event_manager, observer)
 end
 
 """
-    unregister!(observer::Observer, world::World)
+    unregister!(world::World, observer::Observer)
 
 Un-registers the given [Observer](@ref) from the specified world.
 """
-function unregister!(observer::Observer, world::World)
+function unregister!(world::World, observer::Observer)
     _remove_observer!(world._event_manager, observer)
 end
 
