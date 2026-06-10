@@ -76,26 +76,26 @@ The World is the central storage for [entities](@ref Entities),
 
 See the constructor [World](@ref World(::Union{Type,Pair}...; ::Int, ::Bool)) for details.
 """
-mutable struct World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M,RT<:Tuple,K} <: _AbstractWorld
-    const _entities::Vector{_EntityIndex}
-    const _targets::BitVector
-    const _storages::CS
-    const _relations::Vector{_ComponentRelations}
-    const _archetypes::Vector{_Archetype{M}}
-    const _archetypes_hot::Vector{_ArchetypeHot{M}}
-    const _relation_archetypes::Vector{UInt32}
-    const _tables::Vector{_Table}
-    const _last_table::_LastTable{M}
-    const _index::_ComponentIndex{M}
-    const _registry::_ComponentRegistry
-    const _entity_pool::_EntityPool
-    const _lock::_Lock
-    const _graph::_Graph{M}
-    const _resources::_Linear_Map{DataType,Any,false,false,DataType,NoResource}
-    const _event_manager::_EventManager{World{CS,CT,ST,N,M,RT,K},M}
-    const _cache::_Cache{M,K}
-    const _pool::_WorldPool{M}
-    const _initial_capacity::Int
+struct World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M,RT<:Tuple,K} <: _AbstractWorld
+    _entities::Vector{_EntityIndex}
+    _targets::BitVector
+    _storages::CS
+    _relations::Vector{_ComponentRelations}
+    _archetypes::Vector{_Archetype{M}}
+    _archetypes_hot::Vector{_ArchetypeHot{M}}
+    _relation_archetypes::Vector{UInt32}
+    _tables::Vector{_Table}
+    _last_table::_LastTable{M}
+    _index::_ComponentIndex{M}
+    _registry::_ComponentRegistry
+    _entity_pool::_EntityPool
+    _lock::_Lock
+    _graph::_Graph{M}
+    _resources::_Linear_Map{DataType,Any,false,false,DataType,NoResource}
+    _event_manager::_EventManager{M}
+    _cache::_Cache{M,K}
+    _pool::_WorldPool{M}
+    _initial_capacity::Int
 end
 
 function _world_storage_types(::Type{<:World{CS}}) where {CS}
