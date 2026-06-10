@@ -51,8 +51,8 @@
     remove_entity!(world, parent2)
     @test counters == [150, 150]
 
-    unregister!(obs1, world)
-    unregister!(obs2, world)
+    unregister!(world, obs1)
+    unregister!(world, obs2)
 
     count = 0
     for (_, children) in Query(world, (ChildOf => zero_entity,))

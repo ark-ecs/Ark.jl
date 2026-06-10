@@ -721,8 +721,8 @@ end
     @test counter_add == 1
     @test counter_rem == 1
 
-    unregister!(obs_add, world)
-    unregister!(obs_rem, world)
+    unregister!(world, obs_add)
+    unregister!(world, obs_rem)
 
     obs_add = observe!(world, OnAddComponents, (Position, Velocity)) do entity
         counter_add += 1
