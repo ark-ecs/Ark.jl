@@ -14,6 +14,6 @@ Mooncake.@zero_adjoint Mooncake.DefaultCtx Tuple{
     Ark._Mask{M},
     Bool,
     Type{W},
-} where {M, W<:Ark._AbstractWorld}
+} where {M,W<:Ark._AbstractWorld}
 
 end
