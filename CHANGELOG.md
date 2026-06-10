@@ -4,7 +4,7 @@
 
 ### Breaking changes
 
-- `unregister!` and `register!` now require the world as an argument.
+- `unregister!` and `register!` now require the world as an argument (#660).
 
 ## [[v0.5.1]](https://github.com/ark-ecs/Ark.jl/compare/v0.5.0...v0.5.1)
 
