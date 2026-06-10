@@ -114,7 +114,9 @@ end
 end
 
 function _get_tables(
-    world::World,
+    tbls::Vector{_Table},
+    comp_relations::Vector{_ComponentRelations},
+    pool::_WorldPool,
     arches::Vector{_Archetype{M}},
     arches_hot::Vector{_ArchetypeHot{M}},
     filter::F,
@@ -123,14 +125,14 @@ function _get_tables(
         tables = filter._filter.tables.ids
         any_relations = false
         for table_id in tables
-            if _has_relations(world._tables[table_id])
+            if _has_relations(tbls[table_id])
                 any_relations = true
             end
         end
         return tables, any_relations
     end
 
-    tables = world._pool.tables
+    tables = pool.tables
     any_relations = false
     for arch in eachindex(arches)
         @inbounds archetype_hot = arches_hot[arch]
@@ -138,7 +140,7 @@ function _get_tables(
             continue
         end
         if !archetype_hot.has_relations
-            table = @inbounds world._tables[Int(archetype_hot.table)]
+            table = @inbounds tbls[Int(archetype_hot.table)]
             if isempty(table.entities)
                 continue
             end
@@ -149,10 +151,10 @@ function _get_tables(
         if isempty(archetype.tables)
             continue
         end
-        arch_tables = _get_tables(world, archetype, filter._filter.relations)
+        arch_tables = _get_tables(comp_relations, archetype, filter._filter.relations)
         for table_id in arch_tables
-            table = @inbounds world._tables[Int(table_id)]
-            if !isempty(table.entities) && _matches(world._relations, table, filter._filter.relations)
+            table = @inbounds tbls[Int(table_id)]
+            if !isempty(table.entities) && _matches(comp_relations, table, filter._filter.relations)
                 push!(tables, table.id)
                 any_relations = true
             end
@@ -161,6 +163,9 @@ function _get_tables(
 
     return tables, any_relations
 end
+
+_get_tables(world::World, arches::Vector{_Archetype{M}}, arches_hot::Vector{_ArchetypeHot{M}}, filter::F) where {M,F<:Filter} =
+    _get_tables(world._tables, world._relations, world._pool, arches, arches_hot, filter)
 
 @generated function _get_archetypes(world::W, filter::F) where {W<:World,F<:Filter}
     CS = _world_storage_types(W)
@@ -809,7 +814,7 @@ end
             col_sym = Symbol("col", i)
             val_expr = :(add.$i)
 
-            push!(exprs, :($stor_sym = _get_storage(world, $T)))
+            push!(exprs, :($stor_sym = _get_storage(world._storages, $T)))
             push!(exprs, :(@inbounds $col_sym = $stor_sym.data[new_table_index]))
             push!(exprs, :(@inbounds fill!(view($col_sym, start_idx:length($col_sym)), $val_expr)))
         end
@@ -957,7 +962,7 @@ end
             end
             empty!(table)
             for comp in world._archetypes[table.archetype].components
-                _clear_component_data!(world, comp, table.id)
+                _clear_component_data!(world._storages, comp, table.id)
             end
         end
 
@@ -1047,7 +1052,7 @@ end
             col_sym = Symbol("col", i)
             val_expr = :(values.$i)
 
-            push!(body_exprs.args, :($stor_sym = _get_storage(world, $T)))
+            push!(body_exprs.args, :($stor_sym = _get_storage(world._storages, $T)))
             push!(body_exprs.args, :(@inbounds $col_sym = $stor_sym.data[table_idx]))
             push!(body_exprs.args, :(fill!(view($col_sym, indices[1]:indices[2]), $val_expr)))
         end
@@ -1135,7 +1140,7 @@ end
         stor_sym = Symbol("stor", i)
         col_sym = Symbol("col", i)
         vec_sym = Symbol("vec", i)
-        push!(exprs, :(@inbounds $stor_sym = _get_storage(world, $(comp_types[i]))))
+        push!(exprs, :(@inbounds $stor_sym = _get_storage(world._storages, $(comp_types[i]))))
         push!(exprs, :(@inbounds $col_sym = $stor_sym.data[Int(table.id)]))
 
         if _storage_vector_type(storage_modes[i]) <: GPUVector

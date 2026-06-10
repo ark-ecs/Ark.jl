@@ -80,7 +80,7 @@ function _sort_table_entities!(world::World, table::_Table; alg::Base.Sort.Algor
             if old_row != start
                 for comp in archetype.components
                     _permute_component_cycle!(
-                        world,
+                        world._storages,
                         comp,
                         table.id,
                         entities,
