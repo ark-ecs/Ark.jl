@@ -177,7 +177,7 @@ end
     # TODO: skip this for cached filters
     archetypes =
         length(ids_tuple) == 0 ? :((world._archetypes, world._archetypes_hot)) :
-        :(_get_archetypes(world, $ids_tuple))
+        :(_get_archetypes(_state(world), $ids_tuple))
 
     quote
         return $archetypes
@@ -635,7 +635,7 @@ function _set_relations_table!(
     end
 
     start_idx = length(new_table) + 1
-    _move_entities!(world, batch.table.id, new_table.id, batch.end_idx)
+    _move_entities!(_state(world), _stores(world), batch.table.id, new_table.id, batch.end_idx)
     if has_fn
         fn(view(new_table.entities, start_idx:length(new_table)))
     end
@@ -798,7 +798,7 @@ end
     end
 
     push!(exprs, :(start_idx = length(new_table) + 1))
-    push!(exprs, :(_move_entities!(world, batch.table.id, new_table.id, batch.end_idx)))
+    push!(exprs, :(_move_entities!(_state(world), _stores(world), batch.table.id, new_table.id, batch.end_idx)))
 
     if DEF === Val{true}
         for i in 1:length(add_types)

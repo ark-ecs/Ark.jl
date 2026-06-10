@@ -707,8 +707,12 @@ end
 
 Get the resource of type `T` from the world.
 """
+function get_resource(state::_WorldState, res_type::Type{T})::T where T
+    getindex(state._resources, res_type)::T
+end
+
 function get_resource(world::World, res_type::Type{T})::T where T
-    getindex(world._resources, res_type)::T
+    get_resource(_state(world), res_type)
 end
 
 """
@@ -716,8 +720,12 @@ end
 
 Check if a resource of type `T` is in the world.
 """
+function has_resource(state::_WorldState, res_type::Type)::Bool
+    res_type in keys(state._resources)
+end
+
 function has_resource(world::World, res_type::Type)::Bool
-    res_type in keys(world._resources)
+    has_resource(_state(world), res_type)
 end
 
 """
@@ -726,10 +734,14 @@ end
 Add the given resource to the world.
 Returns the newly added resource.
 """
-function add_resource!(world::World, res::T)::T where T
-    has_resource(world, T) && throw(ArgumentError(lazy"World already contains a resource of type $T"))
-    setindex!(world._resources, res, T)
+function add_resource!(state::_WorldState, res::T)::T where T
+    has_resource(state, T) && throw(ArgumentError(lazy"World already contains a resource of type $T"))
+    setindex!(state._resources, res, T)
     return res
+end
+
+function add_resource!(world::World, res::T)::T where T
+    add_resource!(_state(world), res)
 end
 
 """
@@ -738,10 +750,14 @@ end
 Overwrites an existing resource in the world.
 Returns the newly overwritten resource.
 """
-function set_resource!(world::World, res::T)::T where T
-    !has_resource(world, T) && throw(ArgumentError(lazy"World does not contain a resource of type $T"))
-    setindex!(world._resources, res, T)
+function set_resource!(state::_WorldState, res::T)::T where T
+    !has_resource(state, T) && throw(ArgumentError(lazy"World does not contain a resource of type $T"))
+    setindex!(state._resources, res, T)
     return res
+end
+
+function set_resource!(world::World, res::T)::T where T
+    set_resource!(_state(world), res)
 end
 
 """
@@ -750,9 +766,13 @@ end
 Remove the resource of type `T` from the world.
 Returns the removed resource.
 """
-function remove_resource!(world::World, res_type::Type{T}) where T
-    res = pop!(world._resources, res_type)
+function remove_resource!(state::_WorldState, res_type::Type{T}) where T
+    res = pop!(state._resources, res_type)
     return res::T
+end
+
+function remove_resource!(world::World, res_type::Type{T}) where T
+    remove_resource!(_state(world), res_type)
 end
 
 """
@@ -1520,9 +1540,9 @@ function _get_tables(
     return _get_tables(_state(world), arch, relations)
 end
 
-function _get_archetypes(world::World, ids::Tuple{Vararg{Int}})
-    comps = world._index.archetypes
-    hot = world._index.archetypes_hot
+function _get_archetypes(state::_WorldState, ids::Tuple{Vararg{Int}})
+    comps = state._index.archetypes
+    hot = state._index.archetypes_hot
     rare_comp = @inbounds comps[ids[1]]
     rare_hot = @inbounds hot[ids[1]]
     min_len = length(rare_comp)
@@ -1579,7 +1599,7 @@ function _cleanup_archetypes(world::World, entity::Entity)
                 empty!(new_relations)
 
                 start_index = length(new_table) + 1
-                _move_entities_cleanup!(world, table.id, new_table.id)
+                _move_entities_cleanup!(_state(world), _stores(world), table.id, new_table.id)
 
                 if _has_observers(world._event_manager, OnAddRelations)
                     _fire_set_relations(world._event_manager, OnAddRelations,
@@ -1788,36 +1808,36 @@ end
     end
 end
 
-function _move_entities_cleanup!(world::World, old_table_index::UInt32, table_index::UInt32)
-    old_table = world._tables[old_table_index]
-    _move_entities!(world, old_table_index, table_index, length(old_table.entities))
+function _move_entities_cleanup!(state::_WorldState, stores::_WorldStores, old_table_index::UInt32, table_index::UInt32)
+    old_table = state._tables[old_table_index]
+    _move_entities!(state, stores, old_table_index, table_index, length(old_table.entities))
 end
 
-function _move_entities!(world::World, old_table_index::UInt32, table_index::UInt32, num_entities::Int)
-    old_table = world._tables[old_table_index]
-    new_table = world._tables[table_index]
-    old_archetype = world._archetypes[old_table.archetype]
-    new_archetype = world._archetypes[new_table.archetype]
+function _move_entities!(state::_WorldState, stores::_WorldStores, old_table_index::UInt32, table_index::UInt32, num_entities::Int)
+    old_table = state._tables[old_table_index]
+    new_table = state._tables[table_index]
+    old_archetype = state._archetypes[old_table.archetype]
+    new_archetype = state._archetypes[new_table.archetype]
 
     old_entities = length(new_table.entities)
     total_entities = old_entities + num_entities
 
     resize!(new_table, total_entities)
     for comp in new_archetype.components
-        _ensure_column_size_for_comp!(_stores(world), comp, table_index, total_entities)
+        _ensure_column_size_for_comp!(stores, comp, table_index, total_entities)
     end
 
     @inbounds @simd for from in 1:num_entities
         to = old_entities + from
         entity = old_table.entities[from]
         new_table.entities._data[to] = entity
-        world._entities[entity._id] = _EntityIndex(new_table.id, to)
+        state._entities[entity._id] = _EntityIndex(new_table.id, to)
     end
     for comp in old_archetype.components
         if _get_bit(new_archetype.node.mask, comp)
-            _copy_component_data_to_end!(_stores(world), comp, old_table_index, table_index)
+            _copy_component_data_to_end!(stores, comp, old_table_index, table_index)
         end
-        _clear_component_data!(_stores(world), comp, old_table_index)
+        _clear_component_data!(stores, comp, old_table_index)
     end
 
     empty!(old_table)

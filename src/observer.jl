@@ -146,8 +146,12 @@ end
 Registers the given [Observer](@ref) with the specified world.
 Note that observers created with [observe!](@ref) are automatically registered by default.
 """
+function register!(state::_WorldState, observer::Observer)
+    _add_observer!(state._event_manager, observer)
+end
+
 function register!(world::World, observer::Observer)
-    _add_observer!(world._event_manager, observer)
+    register!(_state(world), observer)
 end
 
 """
@@ -155,8 +159,12 @@ end
 
 Un-registers the given [Observer](@ref) from the specified world.
 """
+function unregister!(state::_WorldState, observer::Observer)
+    _remove_observer!(state._event_manager, observer)
+end
+
 function unregister!(world::World, observer::Observer)
-    _remove_observer!(world._event_manager, observer)
+    unregister!(_state(world), observer)
 end
 
 function Base.show(io::IO, obs::Observer)

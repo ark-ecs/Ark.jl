@@ -122,7 +122,7 @@ end
     # TODO: skip this for cached filters
     archetypes =
         length(ids_tuple) == 0 ? :((filter._world._archetypes, filter._world._archetypes_hot)) :
-        :(_get_archetypes(filter._world, $ids_tuple))
+        :(_get_archetypes(_state(filter._world), $ids_tuple))
 
     component_storage_types = fieldtypes(CS)
     storages_types = DataType[component_storage_types[_component_index(CS, T)] for T in comp_types]
