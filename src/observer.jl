@@ -24,7 +24,7 @@ See [Event](@ref) for built-in, and [EventRegistry](@ref) for custom event types
   - `with::Tuple=()`: Components the entity must have.
   - `without::Tuple=()`: Components the entity must not have.
   - `exclusive::Bool=false`: Makes the observer exclusive for entities that have exactly the components given by `with`.
-  - `register::Bool=true`: Whether the observer is registered immediately. Alternatively, register later with [register!](@ref register!(::Observer)).
+  - `register::Bool=true`: Whether the observer is registered immediately. Alternatively, register later with [register!](@ref register!(::World, ::Observer)).
 
 # Example
 
@@ -115,8 +115,10 @@ end
                 ),
             )
         end
+        mask_str, with_str, without_str = _observer_show_strings(
+            $mask, $with_mask, $exclude_mask, $is_exclusive, $W,
+        )
         obs = Observer(
-            world,
             _ObserverID(UInt32(0)),
             event,
             $mask,
@@ -127,39 +129,67 @@ end
             $has_without_expr,
             $is_exclusive,
             fn,
+            mask_str,
+            with_str,
+            without_str,
         )
         if register
-            register!(obs)
+            _add_observer!(world._event_manager, obs)
         end
         obs
     end
 end
 
 """
-    register!(observer::Observer)
+    register!(world::World, observer::Observer)
 
-Registers the given [Observer](@ref).
+Registers the given [Observer](@ref) with the specified world.
 Note that observers created with [observe!](@ref) are automatically registered by default.
 """
-function register!(observer::Observer)
-    _add_observer!(observer._world._event_manager, observer)
+function register!(world::World, observer::Observer)
+    _add_observer!(world._event_manager, observer)
 end
 
 """
-    unregister!(observer::Observer)
+    unregister!(world::World, observer::Observer)
 
-Un-registers the given [Observer](@ref).
+Un-registers the given [Observer](@ref) from the specified world.
 """
-function unregister!(observer::Observer)
-    _remove_observer!(observer._world._event_manager, observer)
+function unregister!(world::World, observer::Observer)
+    _remove_observer!(world._event_manager, observer)
 end
 
-function Base.show(io::IO, obs::Observer{W}) where {W<:_AbstractWorld}
+function Base.show(io::IO, obs::Observer)
+    mask_str = obs._show_mask_str
+    kw_parts = String[]
+    if !isempty(obs._show_with_str)
+        push!(kw_parts, "with=($(obs._show_with_str))")
+    end
+    if !isempty(obs._show_without_str)
+        push!(kw_parts, "without=($(obs._show_without_str))")
+    end
+    if obs._is_exclusive
+        push!(kw_parts, "exclusive=true")
+    end
+    if isempty(kw_parts)
+        print(io, "Observer(:$(obs._event._symbol), ($mask_str))")
+    else
+        print(io, "Observer(:$(obs._event._symbol), ($mask_str); ", join(kw_parts, ", "), ")")
+    end
+end
+
+function _observer_show_strings(
+    comps::_Mask{M},
+    with::_Mask{M},
+    without::_Mask{M},
+    is_exclusive::Bool,
+    ::Type{W},
+) where {M,W<:_AbstractWorld}
     world_types = fieldtypes(_world_component_types(W))
 
-    mask_ids = _active_bit_indices(obs._comps)
+    mask_ids = _active_bit_indices(comps)
     mask_types = tuple(DataType[_type_parameter(world_types[Int(i)]) for i in mask_ids]...)
-    with_ids = _active_bit_indices(obs._with)
+    with_ids = _active_bit_indices(with)
     with_types = tuple(DataType[_type_parameter(world_types[Int(i)]) for i in with_ids]...)
 
     mask_names = join(map(_format_type, mask_types), ", ")
@@ -167,26 +197,11 @@ function Base.show(io::IO, obs::Observer{W}) where {W<:_AbstractWorld}
 
     excl_types = ()
     without_names = ""
-    if !obs._is_exclusive
-        excl_ids = _active_bit_indices(obs._without)
+    if !is_exclusive
+        excl_ids = _active_bit_indices(without)
         excl_types = tuple(DataType[_type_parameter(world_types[Int(i)]) for i in excl_ids]...)
         without_names = join(map(_format_type, excl_types), ", ")
     end
 
-    kw_parts = String[]
-    if !isempty(with_types)
-        push!(kw_parts, "with=($with_names)")
-    end
-    if !isempty(excl_types)
-        push!(kw_parts, "without=($without_names)")
-    end
-    if obs._is_exclusive
-        push!(kw_parts, "exclusive=true")
-    end
-
-    if isempty(kw_parts)
-        print(io, "Observer(:$(obs._event._symbol), ($mask_names))")
-    else
-        print(io, "Observer(:$(obs._event._symbol), ($mask_names); ", join(kw_parts, ", "), ")")
-    end
+    return mask_names, with_names, without_names
 end

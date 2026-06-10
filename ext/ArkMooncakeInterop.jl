@@ -1,10 +1,28 @@
 
 module ArkMooncakeInterop
 
-using Ark, Mooncake, Mooncake.Random
+using Ark, Mooncake
 
 Mooncake.tangent_type(::Type{<:Ark._GraphNode}) = Mooncake.NoTangent
+
 Mooncake.tangent_type(::Type{<:Ark._VecMap}) = Mooncake.NoTangent
-Mooncake.tangent_type(::Type{<:Ark._EventManager}) = Mooncake.NoTangent
+
+Mooncake.@zero_derivative Mooncake.DefaultCtx Tuple{
+    typeof(Ark._observer_show_strings),
+    Ark._Mask{M},
+    Ark._Mask{M},
+    Ark._Mask{M},
+    Bool,
+    Type{W},
+} where {M,W<:Ark._AbstractWorld} Mooncake.ForwardMode
+
+Mooncake.@zero_derivative Mooncake.DefaultCtx Tuple{
+    typeof(Ark._observer_show_strings),
+    Ark._Mask{M},
+    Ark._Mask{M},
+    Ark._Mask{M},
+    Bool,
+    Type{W},
+} where {M,W<:Ark._AbstractWorld} Mooncake.ReverseMode
 
 end

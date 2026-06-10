@@ -92,7 +92,7 @@ mutable struct World{CS<:Tuple,CT<:Tuple,ST<:Tuple,N,M,RT<:Tuple,K} <: _Abstract
     const _lock::_Lock
     const _graph::_Graph{M}
     const _resources::_Linear_Map{DataType,Any,false,false,DataType,NoResource}
-    const _event_manager::_EventManager{World{CS,CT,ST,N,M,RT,K},M}
+    const _event_manager::_EventManager{M}
     const _cache::_Cache{M,K}
     const _pool::_WorldPool{M}
     const _initial_capacity::Int
@@ -872,10 +872,7 @@ end
             _Lock(),
             graph,
             _Linear_Map{DataType,Any}(; zero_key=NoResource, zero_value=NoResource()),
-            _EventManager{
-                World{$(storage_tuple_type),$(component_tuple_type),$(storage_mode_type),$(length(types)),$M,$RT,$K},
-                $(M),
-            }(),
+            _EventManager{$(M)}(),
             _Cache{$M,$K}(),
             _WorldPool{$M}(),
             initial_capacity,
