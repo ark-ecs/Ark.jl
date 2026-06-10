@@ -175,31 +175,30 @@ end
 
 macro _each_matching_table(world, filter, archetypes, archetypes_hot, table, action)
     esc(quote
-        for i in eachindex(archetypes)
-            archetype_hot = @inbounds archetypes_hot[i]
-            if !_matches(filter, archetype_hot)
+        for i in eachindex($(archetypes))
+            archetype_hot = @inbounds $(archetypes_hot)[i]
+            if !_matches($(filter), archetype_hot)
                 continue
             end
 
             if !archetype_hot.has_relations
                 table_id = archetype_hot.table
-                table = @inbounds world._tables[Int(table_id)]
-                if !isempty(table.entities)
+                $table = @inbounds $world._tables[Int(table_id)]
+                if !isempty($table.entities)
                     $action
                 end
                 continue
             end
 
-            archetype = @inbounds archetypes[i]
+            archetype = @inbounds $(archetypes)[i]
             if isempty(archetype.tables)
                 continue
             end
 
-            tables = _get_tables(_state(world), archetype, filter.relations)
+            tables = _get_tables($world, archetype, $(filter).relations)
             for table_id in tables
-                # TODO we can probably optimize here if exactly one relation in archetype and one queried.
-                table = @inbounds world._tables[Int(table_id)]
-                if !isempty(table.entities) && _matches(world._relations, table, filter.relations)
+                $table = @inbounds $world._tables[Int(table_id)]
+                if !isempty($table.entities) && _matches($world._relations, $table, $(filter).relations)
                     $action
                 end
             end
