@@ -1042,6 +1042,11 @@ end
     return :(state._relations[$index])
 end
 
+@inline function _get_relations_storage(world::W, ::Type{C}) where {W<:World,C}
+    S = _world_schema(W)
+    return _get_relations_storage(_state(world), C, S)
+end
+
 @inline function _find_or_create_archetype!(
     state::_WorldState{M,K},
     start::_GraphNode,
