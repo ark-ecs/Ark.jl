@@ -11,14 +11,14 @@ function shuffle_entities!(filter::F) where {F<:Filter}
 end
 
 function shuffle_entities!(rng::AbstractRNG, filter::F) where {F<:Filter}
-    _check_locked(filter._world)
+    _check_locked(filter._world._lock)
 
     _lock(filter._world._lock)
     if _is_cached(filter._filter)
         for table_id in filter._filter.tables.ids
             table = @inbounds filter._world._tables[table_id]
             if !isempty(table.entities)
-                _shuffle_table!(rng, filter._world, table)
+                _shuffle_table!(rng, filter._world._entities, filter._world._storages, filter._world._archetypes, table)
             end
         end
     else
@@ -37,16 +37,24 @@ function _shuffle(
     archetypes::Vector{_Archetype{M}},
     archetypes_hot::Vector{_ArchetypeHot{M}},
 ) where {W<:World,M,K}
-    @_each_matching_table(world, filter, archetypes, archetypes_hot, table, _shuffle_table!(rng, world, table))
+    @_each_matching_table(world, filter, archetypes, archetypes_hot, table, _shuffle_table!(rng, world._entities, world._storages, world._archetypes, table))
 end
 
-function _shuffle_table!(rng::AbstractRNG, world::World, table::_Table)
+function _shuffle_table!(
+    rng::AbstractRNG,
+    entities::Vector{_EntityIndex},
+    storages::CS,
+    archetypes::Vector{_Archetype{M}},
+    table::_Table,
+) where {CS,M}
     len = length(table)
-    archetype = world._archetypes[table.archetype]
+    archetype = archetypes[table.archetype]
 
     for i in len:-1:2
         j = @inline rand(rng, Random.Sampler(rng, Base.OneTo(i), Val(1)))
-        _swap_rows!(world, archetype, table, i, j)
+        _swap_rows!(entities, storages, archetype, table, i, j)
     end
     return
 end
+
+

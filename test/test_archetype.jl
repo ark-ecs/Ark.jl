@@ -70,11 +70,11 @@ end
     @test index[2].tables == [world._tables[t1]]
     @test index[99].tables == [world._tables[t2]]
 
-    table, found = _get_table(world, arch, [child_id => _new_entity(99, 1)])
+    table, found = _get_table(world._tables, world._relations, arch, [child_id => _new_entity(99, 1)])
     @test found == true
     @test table == world._tables[t2]
 
-    table, found = _get_table(world, arch, [child_id => _new_entity(101, 1)])
+    table, found = _get_table(world._tables, world._relations, arch, [child_id => _new_entity(101, 1)])
     @test found == false
     """
 end

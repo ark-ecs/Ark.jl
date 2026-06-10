@@ -164,9 +164,6 @@ function _get_tables(
     return tables, any_relations
 end
 
-_get_tables(world::World, arches::Vector{_Archetype{M}}, arches_hot::Vector{_ArchetypeHot{M}}, filter::F) where {M,F<:Filter} =
-    _get_tables(world._tables, world._relations, world._pool, arches, arches_hot, filter)
-
 @generated function _get_archetypes(world::W, filter::F) where {W<:World,F<:Filter}
     CS = _world_storage_types(W)
     TS = _filter_component_types(F)
@@ -182,7 +179,7 @@ _get_tables(world::World, arches::Vector{_Archetype{M}}, arches_hot::Vector{_Arc
     # TODO: skip this for cached filters
     archetypes =
         length(ids_tuple) == 0 ? :((world._archetypes, world._archetypes_hot)) :
-        :(_get_archetypes(world, $ids_tuple))
+        :(_get_archetypes(world._index, $ids_tuple))
 
     quote
         return $archetypes
@@ -579,13 +576,13 @@ end
 
     has_fn = HFN == Val{true}
     return quote
-        _check_relation_targets(world, targets)
+        _check_relation_targets(world._entity_pool, targets)
 
-        _check_locked(world)
+        _check_locked(world._lock)
         _lock(world._lock)
 
         arches, arches_hot = _get_archetypes(world, filter)
-        tables, _ = _get_tables(world, arches, arches_hot, filter)
+        tables, _ = _get_tables(world._tables, world._relations, world._pool, arches, arches_hot, filter)
         batches = world._pool.batches
 
         for table_id in tables
@@ -623,13 +620,13 @@ function _set_relations_table!(
     targets::Tuple{Vararg{Entity}},
     has_fn::Bool,
 ) where {Fn,W<:World}
-    new_relations, changed, mask = _get_exchange_targets(world, batch.table, relations, targets)
+    new_relations, changed, mask = _get_exchange_targets(world._pool, world._relations, batch.table, relations, targets)
     if !changed
         empty!(new_relations)
         return nothing
     end
 
-    new_table, found = _get_table(world, batch.archetype, new_relations)
+    new_table, found = _get_table(world._tables, world._relations, batch.archetype, new_relations)
     if !found
         new_table_id = _create_table!(world, batch.archetype, copy(new_relations))
         new_table = world._tables[new_table_id]
@@ -689,12 +686,12 @@ end
     _check_is_subset(rel_types, add_types)
 
     return quote
-        _check_relation_targets(world, targets)
-        _check_locked(world)
+        _check_relation_targets(world._entity_pool, targets)
+        _check_locked(world._lock)
         _lock(world._lock)
 
         arches, arches_hot = _get_archetypes(world, filter)
-        tables, _ = _get_tables(world, arches, arches_hot, filter)
+        tables, _ = _get_tables(world._tables, world._relations, world._pool, arches, arches_hot, filter)
         batches = world._pool.batches
 
         for table_id in tables
@@ -887,10 +884,10 @@ end
     world_has_rel = _has_relations(_world_relation_types(W))
     has_fn = HFN == Val{true}
     quote
-        _check_locked(world)
+        _check_locked(world._lock)
 
         arches, arches_hot = _get_archetypes(world, filter)
-        tables, any_relations = _get_tables(world, arches, arches_hot, filter)
+        tables, any_relations = _get_tables(world._tables, world._relations, world._pool, arches, arches_hot, filter)
 
         has_entity_obs = _has_observers(world._event_manager, OnRemoveEntity)
         has_rel_obs = any_relations && _has_observers(world._event_manager, OnRemoveRelations)
@@ -1022,8 +1019,8 @@ end
     world_has_rel = Val{_has_relations(relation_types)}()
 
     exprs = Expr[]
-    push!(exprs, :(_check_relation_targets(world, targets)))
-    push!(exprs, :(_check_locked(world)))
+    push!(exprs, :(_check_relation_targets(world._entity_pool, targets)))
+    push!(exprs, :(_check_locked(world._lock)))
     push!(
         exprs,
         :(

@@ -122,7 +122,7 @@ end
     # TODO: skip this for cached filters
     archetypes =
         length(ids_tuple) == 0 ? :((filter._world._archetypes, filter._world._archetypes_hot)) :
-        :(_get_archetypes(filter._world, $ids_tuple))
+        :(_get_archetypes(filter._world._index, $ids_tuple))
 
     component_storage_types = fieldtypes(CS)
     storages_types = DataType[component_storage_types[_component_index(CS, T)] for T in comp_types]
@@ -185,7 +185,7 @@ end
         end
 
         @inbounds archetype = q._archetypes[arch]
-        tables = _get_tables(q._world, archetype, q._filter.relations)
+        tables = _get_tables(q._world._relations, archetype, q._filter.relations)
 
         while tab <= length(tables)
             table = @inbounds q._world._tables[Int(tables[tab])]
@@ -266,7 +266,7 @@ Does not iterate or [close!](@ref close!(::Query)) the query.
 """
 function Base.length(q::Q) where {Q<:Query}
     if _is_cached(q._filter)
-        return _length_registered(q._world, q._filter)
+        return _length_registered(q._world._tables, q._filter)
     else
         return _length(q._world, q._filter, q._archetypes, q._archetypes_hot)
     end
@@ -286,7 +286,7 @@ Does not iterate or [close!](@ref close!(::Query)) the query.
 """
 function count_entities(q::Q) where {Q<:Query}
     if _is_cached(q._filter)
-        return _count_entities_registered(q._world, q._filter)
+        return _count_entities_registered(q._world._tables, q._filter)
     else
         return _count_entities(q._world, q._filter, q._archetypes, q._archetypes_hot)
     end

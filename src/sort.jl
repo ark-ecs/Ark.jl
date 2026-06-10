@@ -14,7 +14,7 @@ is `Base.Sort.QuickSort` since it is non-allocating.
 """
 function sort_entities!(filter::Filter; alg=Base.Sort.QuickSort, kwargs...)
     world = filter._world
-    _check_locked(world)
+    _check_locked(world._lock)
 
     _lock(world._lock)
     if _is_cached(filter._filter)

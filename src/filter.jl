@@ -195,7 +195,7 @@ macro _each_matching_table(world, filter, archetypes, archetypes_hot, table, act
                 continue
             end
 
-            tables = _get_tables(world, archetype, filter.relations)
+            tables = _get_tables(world._relations, archetype, filter.relations)
             for table_id in tables
                 # TODO we can probably optimize here if exactly one relation in archetype and one queried.
                 table = @inbounds world._tables[Int(table_id)]
@@ -218,7 +218,7 @@ Returns the number of matching tables with at least one entity in the filter.
 """
 function Base.length(f::F) where {F<:Filter}
     if _is_cached(f._filter)
-        return _length_registered(f._world, f._filter)
+        return _length_registered(f._world._tables, f._filter)
     else
         arches, arches_hot = _get_archetypes(f._world, f)
         return _length(f._world, f._filter, arches, arches_hot)
@@ -236,10 +236,10 @@ function _length(
     return count
 end
 
-function _length_registered(world::W, filter::_MaskFilter{M,K}) where {W<:World,M,K}
+function _length_registered(tables::Vector{_Table}, filter::_MaskFilter{M,K}) where {M,K}
     count = 0
     @simd for table_id in filter.tables.ids
-        table = @inbounds world._tables[table_id]
+        table = @inbounds tables[table_id]
         count += (!isempty(table.entities)) % Int
     end
     return count
@@ -257,7 +257,7 @@ Returns the number of matching entities in the filter.
 """
 function count_entities(f::F) where {F<:Filter}
     if _is_cached(f._filter)
-        return _count_entities_registered(f._world, f._filter)
+        return _count_entities_registered(f._world._tables, f._filter)
     else
         arches, arches_hot = _get_archetypes(f._world, f)
         return _count_entities(f._world, f._filter, arches, arches_hot)
@@ -275,10 +275,10 @@ function _count_entities(
     return count
 end
 
-function _count_entities_registered(world::W, filter::_MaskFilter{M,K}) where {W<:World,M,K}
+function _count_entities_registered(tables::Vector{_Table}, filter::_MaskFilter{M,K}) where {M,K}
     count = 0
     @simd for table_id in filter.tables.ids
-        table = @inbounds world._tables[table_id]
+        table = @inbounds tables[table_id]
         count += length(table.entities)
     end
     return count

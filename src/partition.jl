@@ -8,14 +8,14 @@ to the end.
 Partioning is performed per-table (archetype).
 """
 function partition_entities!(filter::Filter; pred::P) where P
-    _check_locked(filter._world)
+    _check_locked(filter._world._lock)
 
     _lock(filter._world._lock)
     if _is_cached(filter._filter)
         for table_id in filter._filter.tables.ids
             table = @inbounds filter._world._tables[table_id]
             if !isempty(table.entities)
-                _partition_table!(filter._world, table, pred)
+                _partition_table!(filter._world._entities, filter._world._storages, filter._world._archetypes, table, pred)
             end
         end
     else
@@ -36,33 +36,39 @@ function _partition_entities!(
 ) where P
     @_each_matching_table(
         world, filter, archetypes, archetypes_hot, table,
-        _partition_table!(world, table, pred),
+        _partition_table!(world._entities, world._storages, world._archetypes, table, pred),
     )
 end
 
-function _partition_table!(world::World, table::_Table, pred::P) where P
+function _partition_table!(
+    entity_index::Vector{_EntityIndex},
+    storages::CS,
+    archetypes::Vector{_Archetype{M}},
+    table::_Table,
+    pred::P,
+) where {CS,M,P}
     len = length(table)
     if len <= 1
         return
     end
 
-    entities = table.entities._data
-    archetype = world._archetypes[table.archetype]
+    tbl_entities = table.entities._data
+    archetype = archetypes[table.archetype]
 
     left = 1
     right = len
 
     @inbounds while left <= right
-        while left <= right && pred(entities[left])
+        while left <= right && pred(tbl_entities[left])
             left += 1
         end
 
-        while left <= right && !pred(entities[right])
+        while left <= right && !pred(tbl_entities[right])
             right -= 1
         end
 
         if left < right
-            _swap_rows!(world, archetype, table, left, right)
+            _swap_rows!(entity_index, storages, archetype, table, left, right)
             left += 1
             right -= 1
         end
@@ -70,3 +76,5 @@ function _partition_table!(world::World, table::_Table, pred::P) where P
 
     return
 end
+
+
