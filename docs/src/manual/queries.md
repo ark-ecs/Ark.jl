@@ -185,7 +185,7 @@ Filters support all keyword arguments of queries (see above).
 A registered filter can be un-registered like this:
 
 ```jldoctest filter-cache; output = false
-unregister!(filter)
+unregister!(world, filter)
 
 # output
 

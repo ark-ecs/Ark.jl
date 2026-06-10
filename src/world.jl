@@ -872,10 +872,7 @@ end
             _Lock(),
             graph,
             _Linear_Map{DataType,Any}(; zero_key=NoResource, zero_value=NoResource()),
-            _EventManager{
-                World{$(storage_tuple_type),$(component_tuple_type),$(storage_mode_type),$(length(types)),$M,$RT,$K},
-                $(M),
-            }(),
+            _EventManager{$(M)}(),
             _Cache{$M,$K}(),
             _WorldPool{$M}(),
             initial_capacity,

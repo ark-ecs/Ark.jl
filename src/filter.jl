@@ -160,11 +160,11 @@ end
 end
 
 """
-    unregister!(filter::Filter)
+    unregister!(world::World, filter::Filter)
 
 Un-registers a [Filter](@ref).
 """
-function unregister!(filter::F) where {F<:Filter}
+function unregister!(world::World, filter::Filter)
     _unregister_filter!(filter._world, filter._filter)
 end
 
