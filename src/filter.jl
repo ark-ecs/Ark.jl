@@ -6,7 +6,7 @@ A filter for components. See function
 [Filter](@ref Filter(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)) for details.
 See also [Query](@ref).
 """
-struct Filter{W<:World,TS<:Tuple,EX,OPT,M,K}
+struct Filter{W<:World,TS<:Tuple,EX,OM,M,K}
     _filter::_MaskFilter{M,K}
     _world::W
 end
@@ -14,9 +14,9 @@ end
 @inline _filter_world(::Type{<:Filter{W}}) where {W} = W
 @inline _filter_component_types(::Type{<:Filter{W,TS}}) where {W,TS} = TS
 @inline _filter_exclusive(::Type{<:Filter{W,TS,EX}}) where {W,TS,EX} = EX
-@inline _filter_optional_flags(::Type{<:Filter{W,TS,EX,OPT}}) where {W,TS,EX,OPT} = OPT
-@inline _filter_mask_chunks(::Type{<:Filter{W,TS,EX,OPT,M}}) where {W,TS,EX,OPT,M} = M
-@inline _filter_relation_count(::Type{<:Filter{W,TS,EX,OPT,M,K}}) where {W,TS,EX,OPT,M,K} = K
+@inline _filter_optional_mask(::Type{<:Filter{W,TS,EX,OM}}) where {W,TS,EX,OM} = OM
+@inline _filter_mask_chunks(::Type{<:Filter{W,TS,EX,OM,M}}) where {W,TS,EX,OM,M} = M
+@inline _filter_relation_count(::Type{<:Filter{W,TS,EX,OM,M,K}}) where {W,TS,EX,OM,M,K} = K
 
 """
     Filter(
@@ -102,7 +102,8 @@ end
 
     _check_is_subset(rel_types, union(required_types, with_types))
 
-    if EX === Val{true} && !isempty(without_types)
+    exclusive = EX === Val{true}
+    if exclusive && !isempty(without_types)
         throw(ArgumentError("cannot use 'exclusive' together with 'without'"))
     end
 
@@ -111,22 +112,18 @@ end
     with_ids = Int[_component_index(CS, C) for C in with_types]
     without_ids = Int[_component_index(CS, C) for C in without_types]
     non_exclude_ids = Int[_component_index(CS, C) for C in non_exclude_types]
+    optional_ids = Int[_component_index(CS, C) for C in optional_types]
     rel_ids = Int[_component_index(CS, C) for C in rel_types]
 
     M = max(1, cld(fieldcount(CS), 64))
     K = fieldcount(relation_types)
     mask = _Mask{M}(required_ids..., with_ids...)
-    exclude_mask = EX === Val{true} ? _Mask{M}(_Not(), non_exclude_ids...) : _Mask{M}(without_ids...)
-    has_excluded = (length(without_ids) > 0) || (EX === Val{true})
+    exclude_mask = exclusive ? _Mask{M}(_Not(), non_exclude_ids...) : _Mask{M}(without_ids...)
+    has_excluded = (length(without_ids) > 0) || exclusive
+    optional_mask = _Mask{M}(optional_ids...)
     register = REG === Val{true}
 
     comp_tuple_type = Expr(:curly, :Tuple, comp_types...)
-
-    optional_flag_type_elts = Expr[
-        (T in optional_types) ? :(Val{true}) : :(Val{false})
-        for T in comp_types
-    ]
-    optional_flags_type = Expr(:curly, :Tuple, optional_flag_type_elts...)
 
     relation_id_exprs = Expr(:tuple)
     relation_target_exprs = Expr(:tuple)
@@ -140,7 +137,7 @@ end
         :(_FilterRelations{$K}($(length(rel_ids)), $relation_id_exprs, $relation_target_exprs))
 
     return quote
-        filter = Filter{$W,$comp_tuple_type,$EX,$optional_flags_type,$M,$K}(
+        filter = Filter{$W,$comp_tuple_type,$exclusive,$(QuoteNode(optional_mask)),$M,$K}(
             _MaskFilter{$M,$K}(
                 $(mask),
                 $(exclude_mask),
@@ -287,7 +284,7 @@ function _count_entities_registered(state::_WorldState, filter::_MaskFilter{M,K}
     return count
 end
 
-function Base.show(io::IO, filter::Filter{W,CT,EX,OPT,M,K}) where {W<:World,CT<:Tuple,EX<:Val,OPT,M,K}
+function Base.show(io::IO, filter::Filter{W,CT,EX,OM,M,K}) where {W<:World,CT<:Tuple,EX,OM,M,K}
     world_types = fieldtypes(_world_component_types(W))
     comp_types = fieldtypes(CT)
 
@@ -301,7 +298,7 @@ function Base.show(io::IO, filter::Filter{W,CT,EX,OPT,M,K}) where {W<:World,CT<:
     required_names = join(map(_format_type, required_types), ", ")
     optional_names = join(map(_format_type, optional_types), ", ")
     with_names = join(map(_format_type, with_types), ", ")
-    is_exclusive = EX === Val{true}
+    is_exclusive = EX === true
     registered = _is_cached(filter._filter)
 
     excl_types = ()

@@ -9,7 +9,7 @@ end
 A query for components. See function
 [Query](@ref Query(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)) for details.
 """
-struct Query{W<:World,EX,OPT,M,K,CM}
+struct Query{W<:World,EX,OM,M,K,CM}
     _filter::_MaskFilter{M,K}
     _archetypes::Vector{_Archetype{M}}
     _archetypes_hot::Vector{_ArchetypeHot{M}}
@@ -99,15 +99,16 @@ end
     CS = _world_storage_types(W)
     TS = _filter_component_types(F)
     EX = _filter_exclusive(F)
-    OPT = _filter_optional_flags(F)
+    OM = _filter_optional_mask(F)
     M = _filter_mask_chunks(F)
     K = _filter_relation_count(F)
 
     comp_types = _to_types(fieldtypes(TS))
-    optional_flags = fieldtypes(OPT)
 
-    required_ids =
-        Int[_component_index(CS, comp_types[i]) for i in 1:length(comp_types) if optional_flags[i] === Val{false}]
+    required_ids = Int[
+        id for id in (_component_index(CS, T) for T in comp_types)
+        if !_get_bit(OM, id)
+    ]
     ids_tuple = tuple(required_ids...)
 
     # TODO: skip this for cached filters
@@ -118,15 +119,13 @@ end
 
     component_ids = Int[_component_index(CS, T) for T in comp_types]
     component_mask = _Mask{M}(component_ids...)
-    query_ids = _active_bit_indices(component_mask)
-    query_optional_flag_type_elts = DataType[optional_flags[findfirst(==(id), component_ids)] for id in query_ids]
-    query_optional_flags_type = Expr(:curly, :Tuple, query_optional_flag_type_elts...)
+    query_optional_mask = _and(component_mask, OM)
 
     return quote
         world_state = _state(filter._world)
         _lock(world_state._lock)
         arches, hot = $(archetypes)
-        Query{$W,$EX,$query_optional_flags_type,$M,$K,$(QuoteNode(component_mask))}(
+        Query{$W,$EX,$(QuoteNode(query_optional_mask)),$M,$K,$(QuoteNode(component_mask))}(
             filter._filter,
             arches,
             hot,
@@ -303,15 +302,14 @@ function close!(q::Q) where {Q<:Query}
 end
 
 @generated function _get_columns(
-    q::Query{W,EX,OPT,M,K,CM},
+    q::Query{W,EX,OM,M,K,CM},
     table::_Table,
-) where {W<:World,EX,OPT,M,K,CM}
+) where {W<:World,EX,OM,M,K,CM}
     component_ids = _active_bit_indices(CM)
     all_component_storage_types = fieldtypes(_world_storage_types(W))
     component_storage_types = DataType[all_component_storage_types[id] for id in component_ids]
     comp_types = map(_component_type, component_storage_types)
     storage_array_types = map(_storage_array_type, component_storage_types)
-    is_optional = fieldtypes(OPT)
     N = length(component_ids)
 
     exprs = Expr[]
@@ -325,7 +323,7 @@ end
         push!(exprs, :(@inbounds $stor_sym = world_storage._storages[$component_id]))
         push!(exprs, :(@inbounds $col_sym = $stor_sym.data[table.id]))
 
-        if is_optional[i] === Val{true}
+        if _get_bit(OM, component_id)
             if storage_array_types[i] <: GPUVector
                 push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : view(($col_sym).mem, 1:($col_sym).len)))
             elseif storage_array_types[i] <: StructArray ||
@@ -352,7 +350,7 @@ end
         push!(result_exprs, Symbol("vec", i))
     end
 
-    element_type = :(Base.eltype(Query{W,EX,OPT,M,K,CM}))
+    element_type = :(Base.eltype(Query{W,EX,OM,M,K,CM}))
 
     tuple_expr = Expr(:tuple, result_exprs...)
     push!(exprs, Expr(:return, Expr(:(::), tuple_expr, element_type)))
@@ -367,14 +365,13 @@ end
 Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
 
 @generated function Base.eltype(
-    ::Type{Query{W,EX,OPT,M,K,CM}},
-) where {W<:World,EX,OPT,M,K,CM}
+    ::Type{Query{W,EX,OM,M,K,CM}},
+) where {W<:World,EX,OM,M,K,CM}
     component_ids = _active_bit_indices(CM)
     all_component_storage_types = fieldtypes(_world_storage_types(W))
     component_storage_types = DataType[all_component_storage_types[id] for id in component_ids]
     comp_types = map(_component_type, component_storage_types)
     storage_array_types = map(_storage_array_type, component_storage_types)
-    is_optional = fieldtypes(OPT)
     N = length(component_ids)
 
     result_types = Any[:Entities]
@@ -396,7 +393,7 @@ Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
             :(_FieldsViewable_type($storage_type))
         end
 
-        opt_flag = is_optional[i] === Val{true}
+        opt_flag = _get_bit(OM, component_ids[i])
         push!(result_types, opt_flag ? :(Union{Nothing,$base_view}) : :($base_view))
     end
 
@@ -406,8 +403,8 @@ Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
 end
 
 function Base.show(
-    io::IO, query::Query{W,EX,OPT,M,K,CM},
-) where {W<:World,EX<:Val,OPT,M,K,CM}
+    io::IO, query::Query{W,EX,OM,M,K,CM},
+) where {W<:World,EX,OM,M,K,CM}
     world_types = fieldtypes(_world_component_types(W))
     component_ids = _active_bit_indices(CM)
     component_storage_types = fieldtypes(_world_storage_types(W))
@@ -423,7 +420,7 @@ function Base.show(
     required_names = join(map(_format_type, required_types), ", ")
     optional_names = join(map(_format_type, optional_types), ", ")
     with_names = join(map(_format_type, with_types), ", ")
-    is_exclusive = EX === Val{true}
+    is_exclusive = EX === true
 
     excl_types = ()
     without_names = ""

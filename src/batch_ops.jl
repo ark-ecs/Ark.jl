@@ -166,13 +166,14 @@ end
     W = _filter_world(F)
     CS = _world_storage_types(W)
     TS = _filter_component_types(F)
-    OPT = _filter_optional_flags(F)
+    OM = _filter_optional_mask(F)
 
     comp_types = _to_types(fieldtypes(TS))
-    optional_flags = fieldtypes(OPT)
 
-    required_ids =
-        Int[_component_index(CS, comp_types[i]) for i in 1:length(comp_types) if optional_flags[i] === Val{false}]
+    required_ids = Int[
+        id for id in (_component_index(CS, T) for T in comp_types)
+        if !_get_bit(OM, id)
+    ]
     ids_tuple = tuple(required_ids...)
 
     # TODO: skip this for cached filters
