@@ -109,7 +109,6 @@ end
 _schema_storage_types(::Type{<:_WorldStorage{CS}}) where {CS} = CS
 _schema_component_types(::Type{<:_WorldStorage{CS}}) where {CS} =
     Tuple{map(S -> Type{_component_type(S)}, fieldtypes(CS))...}
-_schema_relation_bits(::Type{<:_WorldStorage{CS,RT}}) where {CS,RT} = RT
 _schema_relation_indices(::Type{<:_WorldStorage{CS,RT}}) where {CS,RT} =
     _active_bit_indices(_Mask{length(RT)}(RT))
 _schema_relation_types(::Type{<:_WorldStorage{CS,RT}}) where {CS,RT} =
