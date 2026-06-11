@@ -68,41 +68,12 @@ function _WorldPool{M}() where {M}
     )
 end
 
-"""
-    _WorldSchema{CS,CT,ST,N,M,RT,K}
+struct _WorldSchema{CS<:Tuple, CT<:Tuple, ST<:Tuple, N, M, RT<:Tuple, K} end
 
-Compile-time schema information for a [World](@ref).
-Stores the component storage tuple type, component type tuple,
-storage mode tuple, number of components, mask word count,
-relation types tuple, and number of relation types.
-"""
-struct _WorldSchema{
-    CS<:Tuple,
-    CT<:Tuple,
-    ST<:Tuple,
-    N,
-    M,
-    RT<:Tuple,
-    K,
-}
-end
-
-"""
-    _WorldStores{CS}
-
-Holds the typed component storage tuple for a [World](@ref).
-"""
 mutable struct _WorldStores{CS<:Tuple}
     const _storages::CS
 end
 
-"""
-    _WorldState{M,K}
-
-Holds the mutable runtime state for a [World](@ref).
-Includes entity index, targets, relations, archetypes, tables,
-cache, pool, event manager, graph, resources, and lock.
-"""
 mutable struct _WorldState{M,K}
     const _entities::Vector{_EntityIndex}
     const _targets::BitVector
@@ -131,15 +102,8 @@ The World is the central storage for [entities](@ref Entities),
 [components](@ref Components) and [resources](@ref Resources).
 
 See the constructor [World](@ref World(::Union{Type,Pair}...; ::Int, ::Bool)) for details.
-
-Internally composed of a `_WorldSchema` (compile-time type info),
-`_WorldStores` (typed component storage), and `_WorldState` (runtime state).
 """
-mutable struct World{
-    S<:_WorldSchema,
-    Stores<:_WorldStores,
-    State<:_WorldState,
-} <: _AbstractWorld
+mutable struct World{S<:_WorldSchema, Stores<:_WorldStores, State<:_WorldState} <: _AbstractWorld
     const _stores::Stores
     const _state::State
 end
@@ -173,29 +137,8 @@ function _component_index(S::Type{<:_WorldSchema}, TargetType::Type)::Union{Int,
     return _component_index(CS, TargetType)
 end
 
-# Value-level accessors
-@inline _stores(world::World) = getfield(world, :_stores)
-@inline _state(world::World) = getfield(world, :_state)
-
-@inline _storages(world::World) = _stores(world)._storages
-@inline _entities(world::World) = _state(world)._entities
-@inline _targets(world::World) = _state(world)._targets
-@inline _relations(world::World) = _state(world)._relations
-@inline _archetypes(world::World) = _state(world)._archetypes
-@inline _archetypes_hot(world::World) = _state(world)._archetypes_hot
-@inline _relation_archetypes(world::World) = _state(world)._relation_archetypes
-@inline _tables(world::World) = _state(world)._tables
-@inline _last_table(world::World) = _state(world)._last_table
-@inline _index(world::World) = _state(world)._index
-@inline _registry(world::World) = _state(world)._registry
-@inline _entity_pool(world::World) = _state(world)._entity_pool
-@inline _lock(world::World) = _state(world)._lock
-@inline _graph(world::World) = _state(world)._graph
-@inline _resources(world::World) = _state(world)._resources
-@inline _event_manager(world::World) = _state(world)._event_manager
-@inline _cache(world::World) = _state(world)._cache
-@inline _pool(world::World) = _state(world)._pool
-@inline _initial_capacity(world::World) = _state(world)._initial_capacity
+_stores(world::World) = getfield(world, :_stores)
+_state(world::World) = getfield(world, :_state)
 
 """
     World(
@@ -995,55 +938,6 @@ end
             stores,
             state,
         )
-    end
-end
-
-# Compatibility getproperty shim (Phase 3 migration bridge)
-@inline function Base.getproperty(world::World, name::Symbol)
-    if name === :_stores
-        return getfield(world, :_stores)
-    elseif name === :_state
-        return getfield(world, :_state)
-    elseif name === :_storages
-        return getfield(getfield(world, :_stores), :_storages)
-    elseif name === :_entities
-        return getfield(getfield(world, :_state), :_entities)
-    elseif name === :_targets
-        return getfield(getfield(world, :_state), :_targets)
-    elseif name === :_relations
-        return getfield(getfield(world, :_state), :_relations)
-    elseif name === :_archetypes
-        return getfield(getfield(world, :_state), :_archetypes)
-    elseif name === :_archetypes_hot
-        return getfield(getfield(world, :_state), :_archetypes_hot)
-    elseif name === :_relation_archetypes
-        return getfield(getfield(world, :_state), :_relation_archetypes)
-    elseif name === :_tables
-        return getfield(getfield(world, :_state), :_tables)
-    elseif name === :_last_table
-        return getfield(getfield(world, :_state), :_last_table)
-    elseif name === :_index
-        return getfield(getfield(world, :_state), :_index)
-    elseif name === :_registry
-        return getfield(getfield(world, :_state), :_registry)
-    elseif name === :_entity_pool
-        return getfield(getfield(world, :_state), :_entity_pool)
-    elseif name === :_lock
-        return getfield(getfield(world, :_state), :_lock)
-    elseif name === :_graph
-        return getfield(getfield(world, :_state), :_graph)
-    elseif name === :_resources
-        return getfield(getfield(world, :_state), :_resources)
-    elseif name === :_event_manager
-        return getfield(getfield(world, :_state), :_event_manager)
-    elseif name === :_cache
-        return getfield(getfield(world, :_state), :_cache)
-    elseif name === :_pool
-        return getfield(getfield(world, :_state), :_pool)
-    elseif name === :_initial_capacity
-        return getfield(getfield(world, :_state), :_initial_capacity)
-    else
-        return getfield(world, name)
     end
 end
 
