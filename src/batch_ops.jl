@@ -625,7 +625,7 @@ function _set_relations_table!(
 
     new_table, found = _get_table(_state(world), batch.archetype, new_relations)
     if !found
-        new_table_id = _create_table!(_state(world), _stores(world), batch.archetype, copy(new_relations))
+        new_table_id = _create_table!(_state(world), _stores(world), batch.archetype, copy(new_relations), _world_schema(typeof(world)))
         new_table = world._tables[new_table_id]
     end
     empty!(new_relations)
