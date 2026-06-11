@@ -104,10 +104,7 @@ end
 
     component_ids = _active_bit_indices(CM)
 
-    required_ids = Int[
-        id for id in component_ids
-               if !_get_bit(OM, id)
-    ]
+    required_ids = Int[id for id in component_ids if !_get_bit(OM, id)]
     ids_tuple = tuple(required_ids...)
 
     # TODO: skip this for cached filters
