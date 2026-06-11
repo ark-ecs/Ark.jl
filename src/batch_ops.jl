@@ -76,7 +76,7 @@ end
 ) where {F}
     components, relations = _normalize_relations(components, Val(:type))
     rel_types, targets = _relation_types_and_targets(relations)
-    return _new_entities!(fn, world, n,
+    return _new_entities!(fn, _state(world), _stores(world), n,
         _valtuple(components), (),
         rel_types, targets, Val(false), Val(true))
 end
@@ -86,7 +86,7 @@ end
 ) where {F}
     components, relations = _normalize_relations(components, Val(:value))
     rel_types, targets = _relation_types_and_targets(relations)
-    return _new_entities!(fn, world, n,
+    return _new_entities!(fn, _state(world), _stores(world), n,
         Val{typeof(components)}(), components,
         rel_types, targets, Val(true), Val(true))
 end
@@ -96,7 +96,7 @@ end
 )
     components, relations = _normalize_relations(components, Val(:type))
     rel_types, targets = _relation_types_and_targets(relations)
-    return _new_entities!(world, n,
+    return _new_entities!(_state(world), _stores(world), n,
         Val{typeof(components)}(), components,
         rel_types, targets, Val(true), Val(false)) do tuple
     end
@@ -107,7 +107,7 @@ end
 )
     components, relations = _normalize_relations(components, Val(:value))
     rel_types, targets = _relation_types_and_targets(relations)
-    return _new_entities!(world, n,
+    return _new_entities!(_state(world), _stores(world), n,
         Val{typeof(components)}(), components,
         rel_types, targets, Val(true), Val(false)) do tuple
     end
@@ -218,13 +218,13 @@ end
 
 ```
 """
-function remove_entities!(world::W, filter::F) where {W<:World,F<:Filter}
-    _remove_entities!(world, filter, Val(false)) do entities
+function remove_entities!(world::World, filter::F) where {F<:Filter}
+    _remove_entities!(_state(world), _stores(world), filter, Val(false)) do entities
     end
 end
 
-function remove_entities!(fn::Fn, world::W, filter::F) where {Fn,W<:World,F<:Filter}
-    _remove_entities!(fn, world, filter, Val(true))
+function remove_entities!(fn::Fn, world::World, filter::F) where {Fn,F<:Filter}
+    _remove_entities!(fn, _state(world), _stores(world), filter, Val(true))
 end
 
 """
@@ -259,21 +259,21 @@ end
 """
 @inline Base.@constprop :aggressive function set_relations!(
     fn::Fn,
-    world::W,
+    world::World,
     filter::F,
     relations::Tuple,
-) where {Fn,W<:World,F<:Filter}
+) where {Fn,F<:Filter}
     rel_types, targets = _relation_types_and_targets(relations)
-    return @inline _set_relations_batch!(fn, world, filter, rel_types, targets, Val(true))
+    return @inline _set_relations_batch!(fn, _state(world), _stores(world), filter, rel_types, targets, Val(true))
 end
 
 @inline Base.@constprop :aggressive function set_relations!(
-    world::W,
+    world::World,
     filter::F,
     relations::Tuple,
-) where {W<:World,F<:Filter}
+) where {F<:Filter}
     rel_types, targets = _relation_types_and_targets(relations)
-    return @inline _set_relations_batch!(world, filter, rel_types, targets, Val(false)) do _
+    return @inline _set_relations_batch!(_state(world), _stores(world), filter, rel_types, targets, Val(false)) do _
     end
 end
 
@@ -340,7 +340,7 @@ end
         add, relations = _normalize_relations(add, Val(:type))
         rel_types, targets = _relation_types_and_targets(relations)
         return @inline _exchange_components!(
-            fn, world, filter,
+            fn, _state(world), _stores(world), filter,
             _valtuple(add), (),
             (),
             rel_types, targets,
@@ -350,7 +350,7 @@ end
         add, relations = _normalize_relations(add, Val(:value))
         rel_types, targets = _relation_types_and_targets(relations)
         return @inline _exchange_components!(
-            fn, world, filter,
+            fn, _state(world), _stores(world), filter,
             Val{typeof(add)}(), add,
             (),
             rel_types, targets,
@@ -367,7 +367,7 @@ end
     add, relations = _normalize_relations(add, Val(:value))
     rel_types, targets = _relation_types_and_targets(relations)
     return @inline _exchange_components!(
-        world, filter,
+        _state(world), _stores(world), filter,
         Val{typeof(add)}(), add,
         (),
         rel_types, targets,
@@ -427,7 +427,7 @@ end
     remove::Tuple,
 ) where {Fn,F<:Filter}
     return @inline _exchange_components!(
-        fn, world, filter,
+        fn, _state(world), _stores(world), filter,
         Val{Tuple{}}(), (),
         _valtuple(remove),
         (), (),
@@ -441,7 +441,7 @@ end
     remove::Tuple,
 ) where {F<:Filter}
     return @inline _exchange_components!(
-        world, filter,
+        _state(world), _stores(world), filter,
         Val{Tuple{}}(), (),
         _valtuple(remove),
         (), (),
@@ -521,7 +521,7 @@ end
         add, relations = _normalize_relations(add, Val(:type))
         rel_types, targets = _relation_types_and_targets(relations)
         return @inline _exchange_components!(
-            fn, world, filter,
+            fn, _state(world), _stores(world), filter,
             _valtuple(add), (),
             _valtuple(remove),
             rel_types, targets,
@@ -531,7 +531,7 @@ end
         add, relations = _normalize_relations(add, Val(:value))
         rel_types, targets = _relation_types_and_targets(relations)
         return @inline _exchange_components!(
-            fn, world, filter,
+            fn, _state(world), _stores(world), filter,
             Val{typeof(add)}(), add,
             _valtuple(remove),
             rel_types, targets,
@@ -549,7 +549,7 @@ end
     add, relations = _normalize_relations(add, Val(:value))
     rel_types, targets = _relation_types_and_targets(relations)
     return @inline _exchange_components!(
-        world, filter,
+        _state(world), _stores(world), filter,
         Val{typeof(add)}(), add,
         _valtuple(remove),
         rel_types, targets,
@@ -560,25 +560,24 @@ end
 
 @generated function _set_relations_batch!(
     fn::Fn,
-    world::W,
+    world_state::_WorldState,
+    stores::Storage,
     filter::F,
     ::TR,
     targets::Tuple{Vararg{Entity}},
     ::HFN,
-) where {Fn,W<:World,F<:Filter,TR<:Tuple,HFN<:Val}
+) where {Fn,Storage<:_WorldStorage,F<:Filter,TR<:Tuple,HFN<:Val}
     rel_types = _to_types(TR)
-    relation_types = _world_relation_types(W)
+    relation_types = _schema_relation_types(Storage)
 
     _check_no_duplicates(rel_types)
     _check_relations(rel_types, relation_types)
 
-    rel_ids = tuple(Int[_component_index(_world_storage_types(W), T) for T in rel_types]...)
+    rel_ids = tuple(Int[_component_index(_schema_storage_types(Storage), T) for T in rel_types]...)
 
     has_fn = HFN == Val{true}
-    world_storage = _world_storage(W)
+    world_storage = Storage
     return quote
-        world_state = _state(world)
-        stores = _stores(world)
         _check_relation_targets(world_state, targets)
 
         _check_locked(world_state)
@@ -662,7 +661,8 @@ end
 
 @generated function _exchange_components!(
     fn::Fn,
-    world::W,
+    world_state::_WorldState,
+    stores::Storage,
     filter::F,
     ::ATS,
     add::Tuple,
@@ -672,11 +672,11 @@ end
     ::DEF,
     ::HFN,
     ::REM,
-) where {Fn,W<:World,F<:Filter,ATS,RTS<:Tuple,TR<:Tuple,DEF<:Val,HFN<:Val,REM<:Val}
+) where {Fn,Storage<:_WorldStorage,F<:Filter,ATS,RTS<:Tuple,TR<:Tuple,DEF<:Val,HFN<:Val,REM<:Val}
     add_types = _to_types(ATS)
     rem_types = _to_types(RTS)
     rel_types = _to_types(TR)
-    relation_types = _world_relation_types(W)
+    relation_types = _schema_relation_types(Storage)
 
     if isempty(add_types) && isempty(rem_types)
         throw(ArgumentError("either components to add or to remove must be given for exchange_components!"))
@@ -689,10 +689,8 @@ end
     _check_relations(rel_types, relation_types)
     _check_is_subset(rel_types, add_types)
 
-    world_storage = _world_storage(W)
+    world_storage = Storage
     return quote
-        world_state = _state(world)
-        stores = _stores(world)
         _check_relation_targets(world_state, targets)
         _check_locked(world_state)
         _lock(world_state._lock)
@@ -890,14 +888,17 @@ end
     end
 end
 
-@generated function _remove_entities!(fn::Fn, world::W, filter::F, ::HFN) where {Fn,W<:World,F<:Filter,HFN<:Val}
-    world_storage = _world_storage(W)
-    world_has_rel = _has_relations(_world_relation_types(W))
+@generated function _remove_entities!(
+    fn::Fn,
+    world_state::_WorldState,
+    stores::Storage,
+    filter::F,
+    ::HFN,
+) where {Fn,Storage<:_WorldStorage,F<:Filter,HFN<:Val}
+    world_storage = Storage
+    world_has_rel = _has_relations(_schema_relation_types(world_storage))
     has_fn = HFN == Val{true}
     quote
-        world_state = _state(world)
-        stores = _stores(world)
-
         _check_locked(world_state)
 
         arches, arches_hot = _get_archetypes(world_state, filter)
@@ -1002,7 +1003,8 @@ end
 
 @generated function _new_entities!(
     fn::F,
-    world::W,
+    world_state::_WorldState,
+    stores::Storage,
     n::Int,
     ::TS,
     values::Tuple,
@@ -1010,17 +1012,17 @@ end
     targets::Tuple{Vararg{Entity}},
     ::DEF,
     ::HFN,
-) where {F,W<:World,TS,TR<:Tuple,DEF<:Val,HFN<:Val}
+) where {F,Storage<:_WorldStorage,TS,TR<:Tuple,DEF<:Val,HFN<:Val}
     types = _to_types(TS)
     rel_types = _to_types(TR)
-    relation_types = _world_relation_types(W)
+    relation_types = _schema_relation_types(Storage)
 
     _check_no_duplicates(types)
     _check_no_duplicates(rel_types)
     _check_relations(rel_types, relation_types)
     _check_is_subset(rel_types, types)
 
-    CS = _world_storage_types(W)
+    CS = _schema_storage_types(Storage)
     ids = tuple(Int[_component_index(CS, T) for T in types]...)
     rel_ids = tuple(Int[_component_index(CS, T) for T in rel_types]...)
     num_ids = length(ids)
@@ -1030,12 +1032,10 @@ end
     add_mask = _Mask{M}(ids...)
     rem_mask = _Mask{M}()
 
-    world_storage = _world_storage(W)
+    world_storage = Storage
     world_has_rel = Val{_has_relations(relation_types)}()
 
     exprs = Expr[]
-    push!(exprs, :(world_state = _state(world)))
-    push!(exprs, :(stores = _stores(world)))
     push!(exprs, :(_check_relation_targets(world_state, targets)))
     push!(exprs, :(_check_locked(world_state)))
     push!(

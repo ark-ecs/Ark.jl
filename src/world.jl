@@ -242,7 +242,8 @@ Base.@constprop :aggressive function new_entity!(
     rel_types, targets = _relation_types_and_targets(relations)
 
     world_state = _state(world)
-    entity, table_id = _new_entity!(world, Val{typeof(values)}(), values, rel_types, targets, Val(_unchecked))
+    stores = _stores(world)
+    entity, table_id = _new_entity!(world_state, stores, Val{typeof(values)}(), values, rel_types, targets, Val(_unchecked))
 
     has_entity_obs = _has_observers(world_state._event_manager, OnCreateEntity)
     has_rel_obs = !isempty(relations) && _has_observers(world_state._event_manager, OnAddRelations)
@@ -312,12 +313,15 @@ Entity(5, 0)
     _unchecked::Bool=false,
 )
     add, relations = _normalize_relations(add, Val(:value))
+    world_state = _state(world)
+    stores = _stores(world)
     if isempty(add) && isempty(remove) && isempty(relations)
-        return @inline _copy_entity!(world, entity, Val(mode), Val(_unchecked))
+        return @inline _copy_entity!(world_state, stores, entity, Val(mode), Val(_unchecked))
     end
     rel_types, targets = _relation_types_and_targets(relations)
     return @inline _copy_entity!(
-        world,
+        world_state,
+        stores,
         entity,
         Val{typeof(add)}(),
         add,
@@ -343,25 +347,28 @@ remove_entity!(world, entity)
 ```
 """
 Base.@constprop :aggressive function remove_entity!(world::World, entity::Entity; _unchecked::Bool=false)
-    return _remove_entity!(world, entity, Val(_unchecked))
+    return _remove_entity!(_state(world), _stores(world), entity, Val(_unchecked))
 end
 
-@generated function _remove_entity!(world::W, entity::Entity, ::Val{Unchecked}) where {W<:World,Unchecked}
-    world_storage = _world_storage(W)
-    CS = _world_storage_types(W)
+@generated function _remove_entity!(
+    world_state::_WorldState,
+    stores::Storage,
+    entity::Entity,
+    ::Val{Unchecked},
+) where {Storage<:_WorldStorage,Unchecked}
+    world_storage = Storage
+    CS = _schema_storage_types(world_storage)
     inline_jtable = fieldcount(CS) <= 10
-    world_has_rel = _has_relations(_world_relation_types(W))
+    world_has_rel = _has_relations(_schema_relation_types(world_storage))
 
     check_expr = Unchecked ? :() : :(
-        if !is_alive(world, entity)
+        if !is_alive(world_state, entity)
             throw(ArgumentError("can't remove a dead entity"))
         end
     )
 
     quote
         $check_expr
-        world_state = _state(world)
-        stores = _stores(world)
         _check_locked(world_state)
 
         @inbounds index = world_state._entities[entity._id]
@@ -435,7 +442,7 @@ pos, vel = get_components(world, entity, (Position, Velocity))
     comp_types::Tuple;
     _unchecked::Bool=false,
 )
-    return @inline _get_components(world, entity, _valtuple(comp_types), Val(_unchecked))
+    return @inline _get_components(_state(world), _stores(world), entity, _valtuple(comp_types), Val(_unchecked))
 end
 
 """
@@ -459,7 +466,7 @@ true
     comp_types::Tuple;
     _unchecked::Bool=false,
 )
-    return @inline _has_components(world, entity, _valtuple(comp_types), Val(_unchecked))
+    return @inline _has_components(_state(world), _stores(world), entity, _valtuple(comp_types), Val(_unchecked))
 end
 
 """
@@ -484,7 +491,7 @@ set_components!(world, entity, (Position(0, 0), Velocity(1, 1)))
     values::Tuple;
     _unchecked::Bool=false,
 )
-    return @inline _set_components!(world, entity, Val{typeof(values)}(), values, Val(_unchecked))
+    return @inline _set_components!(_state(world), _stores(world), entity, Val{typeof(values)}(), values, Val(_unchecked))
 end
 
 """
@@ -504,12 +511,12 @@ parent, = get_relations(world, entity, (ChildOf,))
 ```
 """
 @inline Base.@constprop :aggressive function get_relations(
-    world::W,
+    world::World,
     entity::Entity,
     comp_types::Tuple;
     _unchecked::Bool=false,
-) where {W<:World}
-    return @inline _get_relations(world, entity, _valtuple(comp_types), Val(_unchecked))
+)
+    return @inline _get_relations(_state(world), _stores(world), entity, _valtuple(comp_types), Val(_unchecked))
 end
 
 """
@@ -529,13 +536,13 @@ set_relations!(world, entity, (ChildOf => parent,))
 ```
 """
 @inline Base.@constprop :aggressive function set_relations!(
-    world::W,
+    world::World,
     entity::Entity,
     relations::Tuple;
     _unchecked::Bool=false,
-) where {W<:World}
+)
     rel_types, targets = _relation_types_and_targets(relations)
-    return @inline _set_relations!(world, entity, rel_types, targets, Val(_unchecked))
+    return @inline _set_relations!(_state(world), _stores(world), entity, rel_types, targets, Val(_unchecked))
 end
 
 """
@@ -562,7 +569,7 @@ add_components!(world, entity, (Health(100),))
 )
     values, relations = _normalize_relations(values, Val(:value))
     rel_types, targets = _relation_types_and_targets(relations)
-    return @inline _exchange_components!(world, entity, Val{typeof(values)}(), values, (), rel_types, targets,
+    return @inline _exchange_components!(_state(world), _stores(world), entity, Val{typeof(values)}(), values, (), rel_types, targets,
         Val(_unchecked), Val(:add))
 end
 
@@ -587,7 +594,8 @@ remove_components!(world, entity, (Position, Velocity))
     _unchecked::Bool=false,
 )
     return @inline _exchange_components!(
-        world,
+        _state(world),
+        _stores(world),
         entity,
         Val{Tuple{}}(),
         (),
@@ -630,7 +638,8 @@ exchange_components!(world, entity;
     add, relations = _normalize_relations(add, Val(:value))
     rel_types, targets = _relation_types_and_targets(relations)
     return @inline _exchange_components!(
-        world,
+        _state(world),
+        _stores(world),
         entity,
         Val{typeof(add)}(),
         add,
@@ -772,7 +781,7 @@ emit_event!(world, OnCollisionDetected, entity, (Position, Velocity))
     if !_has_observers(world_state._event_manager, event)
         return
     end
-    _emit_event!(world, event, entity, _valtuple(components))
+    _emit_event!(world_state, _stores(world), event, entity, _valtuple(components))
     return nothing
 end
 
@@ -1438,23 +1447,24 @@ function _cleanup_archetypes(
 end
 
 @generated function _new_entity!(
-    world::W,
+    world_state::_WorldState,
+    stores::Storage,
     ::Val{TS},
     values::Tuple,
     ::TR,
     targets::Tuple{Vararg{Entity}},
     ::Val{Unchecked},
-) where {W<:World,TS<:Tuple,TR<:Tuple,Unchecked}
+) where {Storage<:_WorldStorage,TS<:Tuple,TR<:Tuple,Unchecked}
     types = _to_types(fieldtypes(TS))
     rel_types = _to_types(TR)
-    relation_types = _world_relation_types(W)
+    relation_types = _schema_relation_types(Storage)
 
     _check_no_duplicates(types)
     _check_no_duplicates(rel_types)
     _check_relations(rel_types, relation_types)
     _check_is_subset(rel_types, types)
 
-    CS = _world_storage_types(W)
+    CS = _schema_storage_types(Storage)
     ids = tuple(Int[_component_index(CS, T) for T in types]...)
     rel_ids = tuple(Int[_component_index(CS, T) for T in rel_types]...)
     num_ids = length(ids)
@@ -1464,12 +1474,10 @@ end
     add_mask = _Mask{M}(ids...)
     rem_mask = _Mask{M}()
 
-    world_storage = _world_storage(W)
+    world_storage = Storage
     world_has_rel = Val{_has_relations(relation_types)}()
 
     exprs = Expr[]
-    push!(exprs, :(world_state = _state(world)))
-    push!(exprs, :(stores = _stores(world)))
     if !Unchecked
         push!(exprs, :(_check_relation_targets(world_state, targets)))
     end
@@ -1672,20 +1680,19 @@ function _move_entities!(state::_WorldState, stores::_WorldStorage, old_table_in
 end
 
 @inline @generated function _copy_entity!(
-    world::W,
+    world_state::_WorldState,
+    stores::Storage,
     entity::Entity,
     mode::Val,
     ::Val{Unchecked},
-)::Entity where {W<:World,Unchecked}
-    inline_jtable = fieldcount(_world_storage_types(W)) <= 10
+)::Entity where {Storage<:_WorldStorage,Unchecked}
+    inline_jtable = fieldcount(_schema_storage_types(Storage)) <= 10
     quote
         $(!Unchecked ? :(
-            if !is_alive(world, entity)
+            if !is_alive(world_state, entity)
                 throw(ArgumentError("can't copy a dead entity"))
             end
         ) : nothing)
-        world_state = _state(world)
-        stores = _stores(world)
         _check_locked(world_state)
 
         index = world_state._entities[entity._id]
@@ -1714,7 +1721,8 @@ end
 end
 
 @generated function _copy_entity!(
-    world::W,
+    world_state::_WorldState,
+    stores::Storage,
     entity::Entity,
     ::Val{ATS},
     add::Tuple,
@@ -1723,11 +1731,11 @@ end
     targets::Tuple{Vararg{Entity}},
     mode::CP,
     ::Val{Unchecked},
-)::Entity where {W<:World,ATS<:Tuple,RTS<:Tuple,TR<:Tuple,CP<:Val,Unchecked}
+)::Entity where {Storage<:_WorldStorage,ATS<:Tuple,RTS<:Tuple,TR<:Tuple,CP<:Val,Unchecked}
     add_types = _to_types(fieldtypes(ATS))
     rem_types = _to_types(RTS)
     rel_types = _to_types(TR)
-    relation_types = _world_relation_types(W)
+    relation_types = _schema_relation_types(Storage)
     exprs = Expr[]
 
     _check_no_duplicates(add_types)
@@ -1737,7 +1745,7 @@ end
     _check_relations(rel_types, relation_types)
     _check_is_subset(rel_types, add_types)
 
-    CS = _world_storage_types(W)
+    CS = _schema_storage_types(Storage)
     add_ids = tuple(Int[_component_index(CS, T) for T in add_types]...)
     rem_ids = tuple(Int[_component_index(CS, T) for T in rem_types]...)
     rel_ids = tuple(Int[_component_index(CS, T) for T in rel_types]...)
@@ -1749,12 +1757,10 @@ end
     add_mask = _Mask{M}(add_ids...)
     rem_mask = _Mask{M}(rem_ids...)
 
-    world_storage = _world_storage(W)
-    push!(exprs, :(world_state = _state(world)))
-    push!(exprs, :(stores = _stores(world)))
+    world_storage = Storage
     if !Unchecked
         push!(exprs, :(
-            if !is_alive(world, entity)
+            if !is_alive(world_state, entity)
                 throw(ArgumentError("can't copy a dead entity"))
             end
         ))
@@ -1826,7 +1832,13 @@ end
     end
 end
 
-@generated function _get_components(world::World, entity::Entity, ::TS, ::Val{Unchecked}) where {TS<:Tuple,Unchecked}
+@generated function _get_components(
+    world_state::_WorldState,
+    stores::_WorldStorage,
+    entity::Entity,
+    ::TS,
+    ::Val{Unchecked},
+) where {TS<:Tuple,Unchecked}
     types = _to_types(TS)
     _check_no_duplicates(types)
 
@@ -1835,12 +1847,10 @@ end
     end
 
     exprs = Expr[]
-    push!(exprs, :(world_state = _state(world)))
-    push!(exprs, :(stores = _stores(world)))
 
     if !Unchecked
         push!(exprs, :(
-            if !is_alive(world, entity)
+            if !is_alive(world_state, entity)
                 throw(ArgumentError("can't get components of a dead entity"))
             end
         ))
@@ -1868,24 +1878,27 @@ end
 end
 
 @generated function _has_components(
-    world::W, entity::Entity, ::TS, ::Val{Unchecked},
-) where {W<:World,TS<:Tuple,Unchecked}
+    world_state::_WorldState,
+    stores::Storage,
+    entity::Entity,
+    ::TS,
+    ::Val{Unchecked},
+) where {Storage<:_WorldStorage,TS<:Tuple,Unchecked}
     types = _to_types(TS)
     _check_no_duplicates(types)
 
     exprs = Expr[]
-    push!(exprs, :(world_state = _state(world)))
 
     if !Unchecked
         push!(exprs, :(
-            if !is_alive(world, entity)
+            if !is_alive(world_state, entity)
                 throw(ArgumentError("can't check components of a dead entity"))
             end
         ))
     end
 
     if length(types) >= 3
-        CS = _world_storage_types(W)
+        CS = _schema_storage_types(Storage)
         ids = tuple(Int[_component_index(CS, T) for T in types]...)
         M = max(1, cld(fieldcount(CS), 64))
         query_mask = _Mask{M}(ids...)
@@ -1899,7 +1912,6 @@ end
         ))
         push!(exprs, :(return _contains_all(arch_hot.mask, $query_mask)))
     else
-        push!(exprs, :(stores = _stores(world)))
         push!(exprs, :(@inbounds index = world_state._entities[entity._id]))
         for i in 1:length(types)
             T = types[i]
@@ -1923,7 +1935,8 @@ end
 end
 
 @generated function _set_components!(
-    world::World,
+    world_state::_WorldState,
+    stores::_WorldStorage,
     entity::Entity,
     ::Val{TS},
     values::Tuple,
@@ -1933,11 +1946,9 @@ end
     _check_no_duplicates(types)
 
     exprs = Expr[]
-    push!(exprs, :(world_state = _state(world)))
-    push!(exprs, :(stores = _stores(world)))
     if !Unchecked
         push!(exprs, :(
-            if !is_alive(world, entity)
+            if !is_alive(world_state, entity)
                 throw(ArgumentError("can't set components of a dead entity"))
             end
         ))
@@ -1963,26 +1974,25 @@ end
 end
 
 @generated function _get_relations(
-    world::W,
+    world_state::_WorldState,
+    ::Storage,
     entity::Entity,
     ::TS,
     ::Val{Unchecked},
-) where {W<:World,TS<:Tuple,Unchecked}
+) where {Storage<:_WorldStorage,TS<:Tuple,Unchecked}
     types = _to_types(TS)
     if length(types) == 0
         return :(())
     end
 
-    _check_relations(types, _world_relation_types(W))
+    _check_relations(types, _schema_relation_types(Storage))
     _check_no_duplicates(types)
-    world_storage = _world_storage(W)
+    world_storage = Storage
 
     exprs = Expr[]
-    push!(exprs, :(world_state = _state(world)))
-    push!(exprs, :(stores = _stores(world)))
     if !Unchecked
         push!(exprs, :(
-            if !is_alive(world, entity)
+            if !is_alive(world_state, entity)
                 throw(ArgumentError("can't get relations of a dead entity"))
             end
         ))
@@ -2015,28 +2025,27 @@ end
 end
 
 @generated function _set_relations!(
-    world::W,
+    world_state::_WorldState,
+    stores::Storage,
     entity::Entity,
     ::TR,
     targets::Tuple{Vararg{Entity}},
     ::Val{Unchecked},
-) where {W<:World,TR<:Tuple,Unchecked}
+) where {Storage<:_WorldStorage,TR<:Tuple,Unchecked}
     rel_types = _to_types(TR)
-    relation_types = _world_relation_types(W)
+    relation_types = _schema_relation_types(Storage)
 
     _check_no_duplicates(rel_types)
     _check_relations(rel_types, relation_types)
 
-    rel_ids = tuple(Int[_component_index(_world_storage_types(W), T) for T in rel_types]...)
+    rel_ids = tuple(Int[_component_index(_schema_storage_types(Storage), T) for T in rel_types]...)
 
-    world_storage = _world_storage(W)
+    world_storage = Storage
     exprs = Expr[]
-    push!(exprs, :(world_state = _state(world)))
-    push!(exprs, :(stores = _stores(world)))
 
     if !Unchecked
         push!(exprs, :(
-            if !is_alive(world, entity)
+            if !is_alive(world_state, entity)
                 throw(ArgumentError("can't set relation targets of a dead entity"))
             end
         ))
@@ -2108,7 +2117,8 @@ end
 end
 
 @generated function _exchange_components!(
-    world::W,
+    world_state::_WorldState,
+    stores::Storage,
     entity::Entity,
     ::Val{ATS},
     add::Tuple,
@@ -2117,11 +2127,11 @@ end
     targets::Tuple{Vararg{Entity}},
     ::Val{Unchecked},
     ::Val{FuncName},
-) where {W<:World,ATS<:Tuple,RTS<:Tuple,TR<:Tuple,Unchecked,FuncName}
+) where {Storage<:_WorldStorage,ATS<:Tuple,RTS<:Tuple,TR<:Tuple,Unchecked,FuncName}
     add_types = _to_types(fieldtypes(ATS))
     rem_types = _to_types(RTS)
     rel_types = _to_types(TR)
-    relation_types = _world_relation_types(W)
+    relation_types = _schema_relation_types(Storage)
 
     if isempty(add_types) && isempty(rem_types)
         throw(ArgumentError("either components to add or to remove must be given for exchange_components!"))
@@ -2135,11 +2145,9 @@ end
     _check_is_subset(rel_types, add_types)
 
     exprs = Expr[]
-    push!(exprs, :(world_state = _state(world)))
-    push!(exprs, :(stores = _stores(world)))
     if !Unchecked
         push!(exprs, :(
-            if !is_alive(world, entity)
+            if !is_alive(world_state, entity)
                 throw(ArgumentError("can't $FuncName components on a dead entity"))
             end
         ))
@@ -2147,7 +2155,7 @@ end
     end
     push!(exprs, :(_check_locked(world_state)))
 
-    CS = _world_storage_types(W)
+    CS = _schema_storage_types(Storage)
     add_ids = tuple(Int[_component_index(CS, T) for T in add_types]...)
     rem_ids = tuple(Int[_component_index(CS, T) for T in rem_types]...)
     rel_ids = tuple(Int[_component_index(CS, T) for T in rel_types]...)
@@ -2159,7 +2167,7 @@ end
     add_mask = _Mask{M}(add_ids...)
     rem_mask = _Mask{M}(rem_ids...)
 
-    world_storage = _world_storage(W)
+    world_storage = Storage
     world_has_rel = Val{_has_relations(relation_types)}()
 
     push!(exprs, :(@inbounds index = world_state._entities[entity._id]))
@@ -2265,22 +2273,27 @@ end
     end
 end
 
-@generated function _emit_event!(world::W, event::Event, entity::Entity, ::CT) where {W<:World,CT<:Tuple}
+@generated function _emit_event!(
+    world_state::_WorldState,
+    ::Storage,
+    event::Event,
+    entity::Entity,
+    ::CT,
+) where {Storage<:_WorldStorage,CT<:Tuple}
     comp_types = _to_types(CT)
 
-    CS = _world_storage_types(W)
+    CS = _schema_storage_types(Storage)
     has_comps = (length(comp_types) > 0) ? :(true) : (false)
     ids = Int[_component_index(CS, C) for C in comp_types]
     M = max(1, cld(fieldcount(CS), 64))
     mask = _Mask{M}(ids...)
 
     return quote
-        _do_emit_event!(world, event, $mask, $has_comps, entity)
+        _do_emit_event!(world_state, event, $mask, $has_comps, entity)
     end
 end
 
-function _do_emit_event!(world::World, event::Event, mask::_Mask, has_comps::Bool, entity::Entity)
-    world_state = _state(world)
+function _do_emit_event!(world_state::_WorldState, event::Event, mask::_Mask, has_comps::Bool, entity::Entity)
     if is_zero(entity)
         if has_comps
             throw(ArgumentError("can't emit event with components for the zero entity"))
@@ -2288,7 +2301,7 @@ function _do_emit_event!(world::World, event::Event, mask::_Mask, has_comps::Boo
         return _fire_custom_event(world_state._event_manager, event, entity, mask, world_state._archetypes_hot[1].mask)
     end
 
-    if !is_alive(world, entity)
+    if !is_alive(world_state, entity)
         throw(ArgumentError("can't emit event for a dead entity"))
     end
     index = world_state._entities[entity._id]
