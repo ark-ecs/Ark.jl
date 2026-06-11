@@ -143,7 +143,7 @@ end
 @inline function _iterate(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
     arch, tab = state
     world_state = _state(q._world)
-    world_storage = _stores(q._world)
+    world_storage = _storage(q._world)
     while arch <= length(q._archetypes)
         if tab == 0
             @inbounds archetype_hot = q._archetypes_hot[arch]
@@ -198,7 +198,7 @@ end
 @inline function _iterate_registered(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
     index, _ = state
     world_state = _state(q._world)
-    world_storage = _stores(q._world)
+    world_storage = _storage(q._world)
     while index <= length(q._filter.tables)
         @inbounds table_id = q._filter.tables[index]
         @inbounds table = world_state._tables[table_id]

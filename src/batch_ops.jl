@@ -59,7 +59,7 @@ Base.@constprop :aggressive function new_entities!(
     elseif n == 0
         return
     end
-    return _new_entities_dispatch!(fn, _state(world), _stores(world), n, components, Val(_components_are_types(components)))
+    return _new_entities_dispatch!(fn, _state(world), _storage(world), n, components, Val(_components_are_types(components)))
 end
 
 Base.@constprop :aggressive function new_entities!(world::World, n::Int, components::Tuple)
@@ -68,7 +68,7 @@ Base.@constprop :aggressive function new_entities!(world::World, n::Int, compone
     elseif n == 0
         return
     end
-    return _new_entities_dispatch!(_state(world), _stores(world), n, components, Val(_components_are_types(components)))
+    return _new_entities_dispatch!(_state(world), _storage(world), n, components, Val(_components_are_types(components)))
 end
 
 @inline Base.@constprop :aggressive function _new_entities_dispatch!(
@@ -219,12 +219,12 @@ end
 ```
 """
 function remove_entities!(world::World, filter::F) where {F<:Filter}
-    _remove_entities!(_state(world), _stores(world), filter, Val(false)) do entities
+    _remove_entities!(_state(world), _storage(world), filter, Val(false)) do entities
     end
 end
 
 function remove_entities!(fn::Fn, world::World, filter::F) where {Fn,F<:Filter}
-    _remove_entities!(fn, _state(world), _stores(world), filter, Val(true))
+    _remove_entities!(fn, _state(world), _storage(world), filter, Val(true))
 end
 
 """
@@ -264,7 +264,7 @@ end
     relations::Tuple,
 ) where {Fn,F<:Filter}
     rel_types, targets = _relation_types_and_targets(relations)
-    return @inline _set_relations_batch!(fn, _state(world), _stores(world), filter, rel_types, targets, Val(true))
+    return @inline _set_relations_batch!(fn, _state(world), _storage(world), filter, rel_types, targets, Val(true))
 end
 
 @inline Base.@constprop :aggressive function set_relations!(
@@ -273,7 +273,7 @@ end
     relations::Tuple,
 ) where {F<:Filter}
     rel_types, targets = _relation_types_and_targets(relations)
-    return @inline _set_relations_batch!(_state(world), _stores(world), filter, rel_types, targets, Val(false)) do _
+    return @inline _set_relations_batch!(_state(world), _storage(world), filter, rel_types, targets, Val(false)) do _
     end
 end
 
@@ -340,7 +340,7 @@ end
         add, relations = _normalize_relations(add, Val(:type))
         rel_types, targets = _relation_types_and_targets(relations)
         return @inline _exchange_components!(
-            fn, _state(world), _stores(world), filter,
+            fn, _state(world), _storage(world), filter,
             _valtuple(add), (),
             (),
             rel_types, targets,
@@ -350,7 +350,7 @@ end
         add, relations = _normalize_relations(add, Val(:value))
         rel_types, targets = _relation_types_and_targets(relations)
         return @inline _exchange_components!(
-            fn, _state(world), _stores(world), filter,
+            fn, _state(world), _storage(world), filter,
             Val{typeof(add)}(), add,
             (),
             rel_types, targets,
@@ -367,7 +367,7 @@ end
     add, relations = _normalize_relations(add, Val(:value))
     rel_types, targets = _relation_types_and_targets(relations)
     return @inline _exchange_components!(
-        _state(world), _stores(world), filter,
+        _state(world), _storage(world), filter,
         Val{typeof(add)}(), add,
         (),
         rel_types, targets,
@@ -427,7 +427,7 @@ end
     remove::Tuple,
 ) where {Fn,F<:Filter}
     return @inline _exchange_components!(
-        fn, _state(world), _stores(world), filter,
+        fn, _state(world), _storage(world), filter,
         Val{Tuple{}}(), (),
         _valtuple(remove),
         (), (),
@@ -441,7 +441,7 @@ end
     remove::Tuple,
 ) where {F<:Filter}
     return @inline _exchange_components!(
-        _state(world), _stores(world), filter,
+        _state(world), _storage(world), filter,
         Val{Tuple{}}(), (),
         _valtuple(remove),
         (), (),
@@ -521,7 +521,7 @@ end
         add, relations = _normalize_relations(add, Val(:type))
         rel_types, targets = _relation_types_and_targets(relations)
         return @inline _exchange_components!(
-            fn, _state(world), _stores(world), filter,
+            fn, _state(world), _storage(world), filter,
             _valtuple(add), (),
             _valtuple(remove),
             rel_types, targets,
@@ -531,7 +531,7 @@ end
         add, relations = _normalize_relations(add, Val(:value))
         rel_types, targets = _relation_types_and_targets(relations)
         return @inline _exchange_components!(
-            fn, _state(world), _stores(world), filter,
+            fn, _state(world), _storage(world), filter,
             Val{typeof(add)}(), add,
             _valtuple(remove),
             rel_types, targets,
@@ -549,7 +549,7 @@ end
     add, relations = _normalize_relations(add, Val(:value))
     rel_types, targets = _relation_types_and_targets(relations)
     return @inline _exchange_components!(
-        _state(world), _stores(world), filter,
+        _state(world), _storage(world), filter,
         Val{typeof(add)}(), add,
         _valtuple(remove),
         rel_types, targets,

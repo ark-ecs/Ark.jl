@@ -128,7 +128,7 @@ function _component_index(world_storage::Type{<:_WorldStorage}, TargetType::Type
     return _component_index(CS, TargetType)
 end
 
-_stores(world::World) = getfield(world, :_stores)
+_storage(world::World) = getfield(world, :_stores)
 _state(world::World) = getfield(world, :_state)
 
 """
@@ -242,7 +242,7 @@ Base.@constprop :aggressive function new_entity!(
     rel_types, targets = _relation_types_and_targets(relations)
 
     world_state = _state(world)
-    world_storage = _stores(world)
+    world_storage = _storage(world)
     entity, table_id = _new_entity!(world_state, world_storage, Val{typeof(values)}(), values, rel_types, targets, Val(_unchecked))
 
     has_entity_obs = _has_observers(world_state._event_manager, OnCreateEntity)
@@ -314,7 +314,7 @@ Entity(5, 0)
 )
     add, relations = _normalize_relations(add, Val(:value))
     world_state = _state(world)
-    world_storage = _stores(world)
+    world_storage = _storage(world)
     if isempty(add) && isempty(remove) && isempty(relations)
         return @inline _copy_entity!(world_state, world_storage, entity, Val(mode), Val(_unchecked))
     end
@@ -347,7 +347,7 @@ remove_entity!(world, entity)
 ```
 """
 Base.@constprop :aggressive function remove_entity!(world::World, entity::Entity; _unchecked::Bool=false)
-    return _remove_entity!(_state(world), _stores(world), entity, Val(_unchecked))
+    return _remove_entity!(_state(world), _storage(world), entity, Val(_unchecked))
 end
 
 @generated function _remove_entity!(
@@ -442,7 +442,7 @@ pos, vel = get_components(world, entity, (Position, Velocity))
     comp_types::Tuple;
     _unchecked::Bool=false,
 )
-    return @inline _get_components(_state(world), _stores(world), entity, _valtuple(comp_types), Val(_unchecked))
+    return @inline _get_components(_state(world), _storage(world), entity, _valtuple(comp_types), Val(_unchecked))
 end
 
 """
@@ -466,7 +466,7 @@ true
     comp_types::Tuple;
     _unchecked::Bool=false,
 )
-    return @inline _has_components(_state(world), _stores(world), entity, _valtuple(comp_types), Val(_unchecked))
+    return @inline _has_components(_state(world), _storage(world), entity, _valtuple(comp_types), Val(_unchecked))
 end
 
 """
@@ -491,7 +491,7 @@ set_components!(world, entity, (Position(0, 0), Velocity(1, 1)))
     values::Tuple;
     _unchecked::Bool=false,
 )
-    return @inline _set_components!(_state(world), _stores(world), entity, Val{typeof(values)}(), values, Val(_unchecked))
+    return @inline _set_components!(_state(world), _storage(world), entity, Val{typeof(values)}(), values, Val(_unchecked))
 end
 
 """
@@ -516,7 +516,7 @@ parent, = get_relations(world, entity, (ChildOf,))
     comp_types::Tuple;
     _unchecked::Bool=false,
 )
-    return @inline _get_relations(_state(world), _stores(world), entity, _valtuple(comp_types), Val(_unchecked))
+    return @inline _get_relations(_state(world), _storage(world), entity, _valtuple(comp_types), Val(_unchecked))
 end
 
 """
@@ -542,7 +542,7 @@ set_relations!(world, entity, (ChildOf => parent,))
     _unchecked::Bool=false,
 )
     rel_types, targets = _relation_types_and_targets(relations)
-    return @inline _set_relations!(_state(world), _stores(world), entity, rel_types, targets, Val(_unchecked))
+    return @inline _set_relations!(_state(world), _storage(world), entity, rel_types, targets, Val(_unchecked))
 end
 
 """
@@ -569,7 +569,7 @@ add_components!(world, entity, (Health(100),))
 )
     values, relations = _normalize_relations(values, Val(:value))
     rel_types, targets = _relation_types_and_targets(relations)
-    return @inline _exchange_components!(_state(world), _stores(world), entity, Val{typeof(values)}(), values, (), rel_types, targets,
+    return @inline _exchange_components!(_state(world), _storage(world), entity, Val{typeof(values)}(), values, (), rel_types, targets,
         Val(_unchecked), Val(:add))
 end
 
@@ -595,7 +595,7 @@ remove_components!(world, entity, (Position, Velocity))
 )
     return @inline _exchange_components!(
         _state(world),
-        _stores(world),
+        _storage(world),
         entity,
         Val{Tuple{}}(),
         (),
@@ -639,7 +639,7 @@ exchange_components!(world, entity;
     rel_types, targets = _relation_types_and_targets(relations)
     return @inline _exchange_components!(
         _state(world),
-        _stores(world),
+        _storage(world),
         entity,
         Val{typeof(add)}(),
         add,
@@ -781,7 +781,7 @@ emit_event!(world, OnCollisionDetected, entity, (Position, Velocity))
     if !_has_observers(world_state._event_manager, event)
         return
     end
-    _emit_event!(world_state, _stores(world), event, entity, _valtuple(components))
+    _emit_event!(world_state, _storage(world), event, entity, _valtuple(components))
     return nothing
 end
 
@@ -796,7 +796,7 @@ Accelerates re-populating the world by a factor of 2-3.
 """
 function reset!(world::W) where {W<:World}
     world_state = _state(world)
-    world_storage = _stores(world)
+    world_storage = _storage(world)
     _check_locked(world_state)
 
     resize!(world_state._entities, 1)

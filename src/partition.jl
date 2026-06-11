@@ -9,7 +9,7 @@ Partioning is performed per-table (archetype).
 """
 function partition_entities!(filter::Filter; pred::P) where P
     world_state = _state(filter._world)
-    world_storage = _stores(filter._world)
+    world_storage = _storage(filter._world)
     _check_locked(world_state)
 
     _lock(world_state._lock)
