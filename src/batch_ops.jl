@@ -115,8 +115,8 @@ end
 
 function _get_tables(
     state::_WorldState,
-    arches::Vector{_Archetype},
-    arches_hot::Vector{_ArchetypeHot},
+    arches::Vector{<:_Archetype},
+    arches_hot::Vector{<:_ArchetypeHot},
     filter::Filter,
 )::Tuple{Vector{UInt32},Bool}
     if _is_cached(filter._filter)
@@ -130,7 +130,7 @@ function _get_tables(
         return tables, any_relations
     end
 
-    tables = _state._pool.tables
+    tables = state._pool.tables
     any_relations = false
     for arch in eachindex(arches)
         @inbounds archetype_hot = arches_hot[arch]
@@ -138,7 +138,7 @@ function _get_tables(
             continue
         end
         if !archetype_hot.has_relations
-            table = @inbounds _state._tables[Int(archetype_hot.table)]
+            table = @inbounds state._tables[Int(archetype_hot.table)]
             if isempty(table.entities)
                 continue
             end
@@ -149,10 +149,10 @@ function _get_tables(
         if isempty(archetype.tables)
             continue
         end
-        arch_tables = _get_tables(_state, archetype, filter._filter.relations)
+        arch_tables = _get_tables(state, archetype, filter._filter.relations)
         for table_id in arch_tables
-            table = @inbounds _state._tables[Int(table_id)]
-            if !isempty(table.entities) && _matches(_state()._relations, table, filter._filter.relations)
+            table = @inbounds state._tables[Int(table_id)]
+            if !isempty(table.entities) && _matches(state._relations, table, filter._filter.relations)
                 push!(tables, table.id)
                 any_relations = true
             end

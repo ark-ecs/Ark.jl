@@ -129,7 +129,7 @@ end
     storages_types = DataType[component_storage_types[_component_index(CS, T)] for T in comp_types]
     storage_tuple_type = Expr(:curly, :Tuple, storages_types...)
     storages_expr = Expr(:tuple,
-        Expr[:(world_state._storages[$(_component_index(CS, T))]) for T in comp_types]...,
+        Expr[:(_stores(filter._world)._storages[$(_component_index(CS, T))]) for T in comp_types]...,
     )
 
     return quote
@@ -211,9 +211,10 @@ end
 
 @inline function _iterate_registered(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
     index, _ = state
+    world_state = _state(q._world)
     while index <= length(q._filter.tables)
         @inbounds table_id = q._filter.tables[index]
-        @inbounds table = q._world_state._tables[table_id]
+        @inbounds table = world_state._tables[table_id]
         if !isempty(table.entities)
             result = _get_columns(q, table)
             return result, (index + 1, 0)

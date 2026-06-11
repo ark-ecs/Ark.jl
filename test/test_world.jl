@@ -4,7 +4,7 @@
     @test isa(world, World)
     @test isa(_state(world)._registry, _ComponentRegistry)
 
-    !(@isdefined fake_types) && @test _state(world)._storages == ()
+    !(@isdefined fake_types) && @test _stores(world)._storages == ()
     @test length(_state(world)._archetypes) == 1
 end
 
@@ -113,7 +113,7 @@ end
         Position, Velocity,
     )
 
-    @test length(_state(world)._storages) == N_fake + 32
+    @test length(_stores(world)._storages) == N_fake + 32
 end
 
 @testset "World create table" begin
@@ -224,22 +224,22 @@ end
     id_int = _component_index(params, Int)
     @test isa(id_int, Int)
     @test _state(world)._registry.types[id_int] == Int
-    @test length(_state(world)._storages) == N_fake + 2
-    @test _state(world)._storages[id_int] isa _ComponentStorage{Int,_storage_from_component(world, Int)}
-    @test length(_state(world)._storages[id_int].data) == 1
+    @test length(_stores(world)._storages) == N_fake + 2
+    @test _stores(world)._storages[id_int] isa _ComponentStorage{Int,_storage_from_component(world, Int)}
+    @test length(_stores(world)._storages[id_int].data) == 1
 
     # Register Position component
     id_pos = _component_index(params, Position)
     @test isa(id_pos, Int)
     @test _state(world)._registry.types[id_pos] == Position
-    @test length(_state(world)._storages) == N_fake + 2
-    @test _state(world)._storages[id_pos] isa _ComponentStorage{Position,_storage_from_component(world, Position)}
-    @test length(_state(world)._storages[id_pos].data) == 1
+    @test length(_stores(world)._storages) == N_fake + 2
+    @test _stores(world)._storages[id_pos] isa _ComponentStorage{Position,_storage_from_component(world, Position)}
+    @test length(_stores(world)._storages[id_pos].data) == 1
 
     # Re-register Int component (should not add new storage)
     id_int2 = _component_index(params, Int)
     @test id_int2 == id_int
-    @test length(_state(world)._storages) == N_fake + 2
+    @test length(_stores(world)._storages) == N_fake + 2
 
     @test_throws("ArgumentError: Component type Velocity not found in the World",
         _component_index(params, Velocity))
@@ -334,7 +334,7 @@ end
     @test _state(world)._archetypes[2].components == [pos_id]
     @test _state(world)._archetypes[3].components == [pos_id, vel_id]
 
-    @test length(_state(world)._storages) == N_fake + 2
+    @test length(_stores(world)._storages) == N_fake + 2
     @test length(_state(world)._registry.types) == N_fake + 2
 
     pos_storage = _get_storage(_stores(world), Position)
@@ -443,8 +443,8 @@ end
     entity = new_entity!(world, (Position(1, 2), Velocity(3, 4)))
     @test entity == _new_entity(3, 0)
     @test is_alive(world, entity) == true
-    @test length(_state(world)._storages[offset_ID+2].data[2]) == 1
-    @test length(_state(world)._storages[offset_ID+3].data[2]) == 1
+    @test length(_stores(world)._storages[offset_ID+2].data[2]) == 1
+    @test length(_stores(world)._storages[offset_ID+3].data[2]) == 1
 
     pos, vel = get_components(world, entity, (Position, Velocity))
     @test pos == Position(1, 2)
@@ -735,8 +735,8 @@ end
     @test entity2._id == entity._id + 1
     @test entity2._id == 4
     @test _state(world)._tables[2].entities == [entity, entity2]
-    @test length(_state(world)._storages[offset_ID+2].data[2]) == 2
-    @test length(_state(world)._storages[offset_ID+3].data[2]) == 2
+    @test length(_stores(world)._storages[offset_ID+2].data[2]) == 2
+    @test length(_stores(world)._storages[offset_ID+3].data[2]) == 2
 
     pos, vel = get_components(world, entity2, (Position, Velocity))
     @test pos == Position(1, 2)
@@ -894,8 +894,8 @@ end
     @test cnt == 100
     @test is_locked(world) == false
     @test length(_state(world)._tables[2].entities) == 101
-    @test length(_state(world)._storages[offset_ID+2].data[2]) == 101
-    @test length(_state(world)._storages[offset_ID+3].data[2]) == 101
+    @test length(_stores(world)._storages[offset_ID+2].data[2]) == 101
+    @test length(_stores(world)._storages[offset_ID+3].data[2]) == 101
 
     cnt = 0
     for (ent, pos_col, vel_col) in Query(world, (Position, Velocity))
@@ -952,8 +952,8 @@ end
     @test count == 100
     @test is_locked(world) == false
     @test length(_state(world)._tables[2].entities) == 101
-    @test length(_state(world)._storages[offset_ID+2].data[2]) == 101
-    @test length(_state(world)._storages[offset_ID+3].data[2]) == 101
+    @test length(_stores(world)._storages[offset_ID+2].data[2]) == 101
+    @test length(_stores(world)._storages[offset_ID+3].data[2]) == 101
 
     count = 0
     for (ent, pos_col, vel_col) in Query(world, (Position, Velocity))
@@ -1632,7 +1632,7 @@ end
 
     for s in 2:4
         for t in 2:6
-            @test length(_state(world)._storages[offset_ID+s].data[t]) == 0
+            @test length(_stores(world)._storages[offset_ID+s].data[t]) == 0
         end
     end
 
