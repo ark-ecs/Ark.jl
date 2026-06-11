@@ -696,6 +696,7 @@ end
             if isempty(old_table)
                 continue
             end
+            # TODO: use a simplified data structure?
             push!(
                 batches,
                 _BatchTable(old_table, world._archetypes[old_table.archetype], 1, length(old_table)),

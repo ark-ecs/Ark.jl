@@ -108,7 +108,6 @@ mutable struct World{S<:_WorldSchema, Stores<:_WorldStores, State<:_WorldState} 
     const _state::State
 end
 
-# Schema type extractors
 _schema_storage_types(::Type{<:_WorldSchema{CS}}) where {CS} = CS
 _schema_component_types(::Type{<:_WorldSchema{CS,CT}}) where {CS,CT} = CT
 _schema_storage_modes(::Type{<:_WorldSchema{CS,CT,ST}}) where {CS,CT,ST} = ST
@@ -119,20 +118,15 @@ _schema_num_relations(::Type{<:_WorldSchema{CS,CT,ST,N,M,RT,K}}) where {CS,CT,ST
 
 _world_schema(::Type{<:World{S}}) where {S<:_WorldSchema} = S
 
-_world_storage_types(::Type{W}) where {W<:World} =
-    _schema_storage_types(_world_schema(W))
+_world_storage_types(::Type{W}) where {W<:World} = _schema_storage_types(_world_schema(W))
 
-_world_component_types(::Type{W}) where {W<:World} =
-    _schema_component_types(_world_schema(W))
+_world_component_types(::Type{W}) where {W<:World} = _schema_component_types(_world_schema(W))
 
-_world_storage_modes(::Type{W}) where {W<:World} =
-    _schema_storage_modes(_world_schema(W))
+_world_storage_modes(::Type{W}) where {W<:World} = _schema_storage_modes(_world_schema(W))
 
-_world_relation_types(::Type{W}) where {W<:World} =
-    _schema_relation_types(_world_schema(W))
+_world_relation_types(::Type{W}) where {W<:World} = _schema_relation_types(_world_schema(W))
 
-# _WorldSchema compatibility — extract storage types tuple from schema
-function _component_index(S::Type{<:_WorldSchema}, TargetType::Type)::Union{Int,Nothing}
+function _component_index(S::Type{<:_WorldSchema}, TargetType::Type)
     CS = _schema_storage_types(S)
     return _component_index(CS, TargetType)
 end
@@ -650,12 +644,12 @@ end
 
 Get the resource of type `T` from the world.
 """
-function get_resource(state::_WorldState, res_type::Type{T})::T where T
-    getindex(state._resources, res_type)::T
-end
-
 function get_resource(world::World, res_type::Type{T})::T where T
     get_resource(_state(world), res_type)
+end
+
+function get_resource(state::_WorldState, res_type::Type{T})::T where T
+    getindex(state._resources, res_type)::T
 end
 
 """
@@ -663,12 +657,12 @@ end
 
 Check if a resource of type `T` is in the world.
 """
-function has_resource(state::_WorldState, res_type::Type)::Bool
-    res_type in keys(state._resources)
-end
-
 function has_resource(world::World, res_type::Type)::Bool
     has_resource(_state(world), res_type)
+end
+
+function has_resource(state::_WorldState, res_type::Type)
+    res_type in keys(state._resources)
 end
 
 """
@@ -677,14 +671,14 @@ end
 Add the given resource to the world.
 Returns the newly added resource.
 """
+function add_resource!(world::World, res::T)::T where T
+    add_resource!(_state(world), res)
+end
+
 function add_resource!(state::_WorldState, res::T)::T where T
     has_resource(state, T) && throw(ArgumentError(lazy"World already contains a resource of type $T"))
     setindex!(state._resources, res, T)
     return res
-end
-
-function add_resource!(world::World, res::T)::T where T
-    add_resource!(_state(world), res)
 end
 
 """
@@ -693,14 +687,14 @@ end
 Overwrites an existing resource in the world.
 Returns the newly overwritten resource.
 """
+function set_resource!(world::World, res::T)::T where T
+    set_resource!(_state(world), res)
+end
+
 function set_resource!(state::_WorldState, res::T)::T where T
     !has_resource(state, T) && throw(ArgumentError(lazy"World does not contain a resource of type $T"))
     setindex!(state._resources, res, T)
     return res
-end
-
-function set_resource!(world::World, res::T)::T where T
-    set_resource!(_state(world), res)
 end
 
 """
@@ -709,13 +703,13 @@ end
 Remove the resource of type `T` from the world.
 Returns the removed resource.
 """
+function remove_resource!(world::World, res_type::Type{T}) where T
+    remove_resource!(_state(world), res_type)
+end
+
 function remove_resource!(state::_WorldState, res_type::Type{T}) where T
     res = pop!(state._resources, res_type)
     return res::T
-end
-
-function remove_resource!(world::World, res_type::Type{T}) where T
-    remove_resource!(_state(world), res_type)
 end
 
 """
@@ -723,12 +717,12 @@ end
 
 Returns whether an [Entity](@ref) is alive.
 """
-function is_alive(state::_WorldState, entity::Entity)::Bool
-    return _is_alive(state._entity_pool, entity)
-end
-
 function is_alive(world::World, entity::Entity)::Bool
     return is_alive(_state(world), entity)
+end
+
+function is_alive(state::_WorldState, entity::Entity)
+    return _is_alive(state._entity_pool, entity)
 end
 
 """
@@ -736,12 +730,12 @@ end
 
 Returns whether the world is currently [locked](@ref world-lock) for modifications.
 """
-function is_locked(state::_WorldState)::Bool
-    return _is_locked(state._lock)
-end
-
 function is_locked(world::World)::Bool
     return is_locked(_state(world))
+end
+
+function is_locked(state::_WorldState)
+    return _is_locked(state._lock)
 end
 
 """
@@ -1112,6 +1106,7 @@ function _find_or_create_table!(
     has_remove::Bool,
     ::Type{S},
 )::Tuple{UInt32,Bool} where {M,K,S<:_WorldSchema}
+    # Find existing relations that were not removed, and add new relations.
     all_relations = state._pool.relations
     requires_free = true
     relation_removed = false
@@ -1245,7 +1240,6 @@ function _add_table_for_state!(cache::_Cache, state::_WorldState, archetype::_Ar
     end
 end
 
-# Relation push helpers — generated with schema info
 @generated function _push_zero_to_all_archetype_relations!(state::_WorldState{M,K}, ::Type{S}) where {M,K,S<:_WorldSchema}
     CT = _schema_component_types(S)
     RT = _schema_relation_types(S)
