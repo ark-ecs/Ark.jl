@@ -163,15 +163,13 @@ function _get_tables(
 end
 
 @generated function _get_archetypes(state::_WorldState, filter::F) where {F<:Filter}
-    W = _filter_world(F)
-    CS = _world_storage_types(W)
-    TS = _filter_component_types(F)
+    CM = _filter_component_mask(F)
     OM = _filter_optional_mask(F)
 
-    comp_types = _to_types(fieldtypes(TS))
+    component_ids = _active_bit_indices(CM)
 
     required_ids = Int[
-        id for id in (_component_index(CS, T) for T in comp_types)
+        id for id in component_ids
         if !_get_bit(OM, id)
     ]
     ids_tuple = tuple(required_ids...)

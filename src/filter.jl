@@ -6,17 +6,17 @@ A filter for components. See function
 [Filter](@ref Filter(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)) for details.
 See also [Query](@ref).
 """
-struct Filter{W<:World,TS<:Tuple,EX,OM,M,K}
+struct Filter{W<:World,CM,EX,OM,M,K}
     _filter::_MaskFilter{M,K}
     _world::W
 end
 
 @inline _filter_world(::Type{<:Filter{W}}) where {W} = W
-@inline _filter_component_types(::Type{<:Filter{W,TS}}) where {W,TS} = TS
-@inline _filter_exclusive(::Type{<:Filter{W,TS,EX}}) where {W,TS,EX} = EX
-@inline _filter_optional_mask(::Type{<:Filter{W,TS,EX,OM}}) where {W,TS,EX,OM} = OM
-@inline _filter_mask_chunks(::Type{<:Filter{W,TS,EX,OM,M}}) where {W,TS,EX,OM,M} = M
-@inline _filter_relation_count(::Type{<:Filter{W,TS,EX,OM,M,K}}) where {W,TS,EX,OM,M,K} = K
+@inline _filter_component_mask(::Type{<:Filter{W,CM}}) where {W,CM} = CM
+@inline _filter_exclusive(::Type{<:Filter{W,CM,EX}}) where {W,CM,EX} = EX
+@inline _filter_optional_mask(::Type{<:Filter{W,CM,EX,OM}}) where {W,CM,EX,OM} = OM
+@inline _filter_mask_chunks(::Type{<:Filter{W,CM,EX,OM,M}}) where {W,CM,EX,OM,M} = M
+@inline _filter_relation_count(::Type{<:Filter{W,CM,EX,OM,M,K}}) where {W,CM,EX,OM,M,K} = K
 
 """
     Filter(
@@ -112,6 +112,7 @@ end
     with_ids = Int[_component_index(CS, C) for C in with_types]
     without_ids = Int[_component_index(CS, C) for C in without_types]
     non_exclude_ids = Int[_component_index(CS, C) for C in non_exclude_types]
+    component_ids = Int[_component_index(CS, C) for C in comp_types]
     optional_ids = Int[_component_index(CS, C) for C in optional_types]
     rel_ids = Int[_component_index(CS, C) for C in rel_types]
 
@@ -120,10 +121,9 @@ end
     mask = _Mask{M}(required_ids..., with_ids...)
     exclude_mask = exclusive ? _Mask{M}(_Not(), non_exclude_ids...) : _Mask{M}(without_ids...)
     has_excluded = (length(without_ids) > 0) || exclusive
+    component_mask = _Mask{M}(component_ids...)
     optional_mask = _Mask{M}(optional_ids...)
     register = REG === Val{true}
-
-    comp_tuple_type = Expr(:curly, :Tuple, comp_types...)
 
     relation_id_exprs = Expr(:tuple)
     relation_target_exprs = Expr(:tuple)
@@ -137,7 +137,7 @@ end
         :(_FilterRelations{$K}($(length(rel_ids)), $relation_id_exprs, $relation_target_exprs))
 
     return quote
-        filter = Filter{$W,$comp_tuple_type,$exclusive,$(QuoteNode(optional_mask)),$M,$K}(
+        filter = Filter{$W,$(QuoteNode(component_mask)),$exclusive,$(QuoteNode(optional_mask)),$M,$K}(
             _MaskFilter{$M,$K}(
                 $(mask),
                 $(exclude_mask),
@@ -284,9 +284,10 @@ function _count_entities_registered(state::_WorldState, filter::_MaskFilter{M,K}
     return count
 end
 
-function Base.show(io::IO, filter::Filter{W,CT,EX,OM,M,K}) where {W<:World,CT<:Tuple,EX,OM,M,K}
+function Base.show(io::IO, filter::Filter{W,CM,EX,OM,M,K}) where {W<:World,CM,EX,OM,M,K}
     world_types = fieldtypes(_world_component_types(W))
-    comp_types = fieldtypes(CT)
+    component_ids = _active_bit_indices(CM)
+    comp_types = tuple(DataType[_type_parameter(world_types[Int(id)]) for id in component_ids]...)
 
     mask_ids = _active_bit_indices(filter._filter.mask)
     mask_types = tuple(DataType[_type_parameter(world_types[Int(i)]) for i in mask_ids]...)

@@ -96,17 +96,16 @@ end
     filter::F,
 ) where {F<:Filter}
     W = _filter_world(F)
-    CS = _world_storage_types(W)
-    TS = _filter_component_types(F)
+    CM = _filter_component_mask(F)
     EX = _filter_exclusive(F)
     OM = _filter_optional_mask(F)
     M = _filter_mask_chunks(F)
     K = _filter_relation_count(F)
 
-    comp_types = _to_types(fieldtypes(TS))
+    component_ids = _active_bit_indices(CM)
 
     required_ids = Int[
-        id for id in (_component_index(CS, T) for T in comp_types)
+        id for id in component_ids
         if !_get_bit(OM, id)
     ]
     ids_tuple = tuple(required_ids...)
@@ -117,15 +116,13 @@ end
         :((world_state._archetypes, world_state._archetypes_hot)) :
         :(_get_archetypes(world_state, $ids_tuple))
 
-    component_ids = Int[_component_index(CS, T) for T in comp_types]
-    component_mask = _Mask{M}(component_ids...)
-    query_optional_mask = _and(component_mask, OM)
+    query_optional_mask = _and(CM, OM)
 
     return quote
         world_state = _state(filter._world)
         _lock(world_state._lock)
         arches, hot = $(archetypes)
-        Query{$W,$EX,$(QuoteNode(query_optional_mask)),$M,$K,$(QuoteNode(component_mask))}(
+        Query{$W,$EX,$(QuoteNode(query_optional_mask)),$M,$K,$(QuoteNode(CM))}(
             filter._filter,
             arches,
             hot,
