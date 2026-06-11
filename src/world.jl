@@ -242,8 +242,8 @@ Base.@constprop :aggressive function new_entity!(
     rel_types, targets = _relation_types_and_targets(relations)
 
     world_state = _state(world)
-    stores = _stores(world)
-    entity, table_id = _new_entity!(world_state, stores, Val{typeof(values)}(), values, rel_types, targets, Val(_unchecked))
+    world_storage = _stores(world)
+    entity, table_id = _new_entity!(world_state, world_storage, Val{typeof(values)}(), values, rel_types, targets, Val(_unchecked))
 
     has_entity_obs = _has_observers(world_state._event_manager, OnCreateEntity)
     has_rel_obs = !isempty(relations) && _has_observers(world_state._event_manager, OnAddRelations)
@@ -314,14 +314,14 @@ Entity(5, 0)
 )
     add, relations = _normalize_relations(add, Val(:value))
     world_state = _state(world)
-    stores = _stores(world)
+    world_storage = _stores(world)
     if isempty(add) && isempty(remove) && isempty(relations)
-        return @inline _copy_entity!(world_state, stores, entity, Val(mode), Val(_unchecked))
+        return @inline _copy_entity!(world_state, world_storage, entity, Val(mode), Val(_unchecked))
     end
     rel_types, targets = _relation_types_and_targets(relations)
     return @inline _copy_entity!(
         world_state,
-        stores,
+        world_storage,
         entity,
         Val{typeof(add)}(),
         add,
@@ -796,7 +796,7 @@ Accelerates re-populating the world by a factor of 2-3.
 """
 function reset!(world::W) where {W<:World}
     world_state = _state(world)
-    stores = _stores(world)
+    world_storage = _stores(world)
     _check_locked(world_state)
 
     resize!(world_state._entities, 1)
@@ -811,7 +811,7 @@ function reset!(world::W) where {W<:World}
         _clear!(table.filters[])
         archetype = world_state._archetypes[table.archetype]
         for comp in archetype.components
-            _clear_component_data!(stores, comp, table.id)
+            _clear_component_data!(world_storage, comp, table.id)
         end
     end
 

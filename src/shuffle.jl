@@ -12,7 +12,7 @@ end
 
 function shuffle_entities!(rng::AbstractRNG, filter::F) where {F<:Filter}
     world_state = _state(filter._world)
-    stores = _stores(filter._world)
+    world_storage = _stores(filter._world)
     _check_locked(world_state)
 
     _lock(world_state._lock)
@@ -20,12 +20,12 @@ function shuffle_entities!(rng::AbstractRNG, filter::F) where {F<:Filter}
         for table_id in filter._filter.tables.ids
             table = @inbounds world_state._tables[table_id]
             if !isempty(table.entities)
-                _shuffle_table!(rng, world_state, stores, table)
+                _shuffle_table!(rng, world_state, world_storage, table)
             end
         end
     else
         arches, arches_hot = _get_archetypes(world_state, filter)
-        _shuffle(rng, world_state, stores, filter._filter, arches, arches_hot)
+        _shuffle(rng, world_state, world_storage, filter._filter, arches, arches_hot)
     end
     _unlock(world_state._lock)
 

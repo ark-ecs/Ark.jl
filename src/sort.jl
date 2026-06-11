@@ -14,7 +14,7 @@ is `Base.Sort.QuickSort` since it is non-allocating.
 """
 function sort_entities!(filter::Filter; alg=Base.Sort.QuickSort, kwargs...)
     world_state = _state(filter._world)
-    stores = _stores(filter._world)
+    world_storage = _stores(filter._world)
     _check_locked(world_state)
 
     _lock(world_state._lock)
@@ -22,12 +22,12 @@ function sort_entities!(filter::Filter; alg=Base.Sort.QuickSort, kwargs...)
         for table_id in filter._filter.tables.ids
             table = @inbounds world_state._tables[table_id]
             if !isempty(table.entities)
-                _sort_table_entities!(world_state, stores, table; alg, kwargs...)
+                _sort_table_entities!(world_state, world_storage, table; alg, kwargs...)
             end
         end
     else
         arches, arches_hot = _get_archetypes(world_state, filter)
-        _sort_entities!(world_state, stores, filter._filter, arches, arches_hot; alg, kwargs...)
+        _sort_entities!(world_state, world_storage, filter._filter, arches, arches_hot; alg, kwargs...)
     end
     _unlock(world_state._lock)
 

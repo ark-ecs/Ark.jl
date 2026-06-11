@@ -9,7 +9,7 @@ Partioning is performed per-table (archetype).
 """
 function partition_entities!(filter::Filter; pred::P) where P
     world_state = _state(filter._world)
-    stores = _stores(filter._world)
+    world_storage = _stores(filter._world)
     _check_locked(world_state)
 
     _lock(world_state._lock)
@@ -17,12 +17,12 @@ function partition_entities!(filter::Filter; pred::P) where P
         for table_id in filter._filter.tables.ids
             table = @inbounds world_state._tables[table_id]
             if !isempty(table.entities)
-                _partition_table!(world_state, stores, table, pred)
+                _partition_table!(world_state, world_storage, table, pred)
             end
         end
     else
         arches, arches_hot = _get_archetypes(world_state, filter)
-        _partition_entities!(world_state, stores, filter._filter, arches, arches_hot, pred)
+        _partition_entities!(world_state, world_storage, filter._filter, arches, arches_hot, pred)
     end
     _unlock(world_state._lock)
 

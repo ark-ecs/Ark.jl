@@ -143,7 +143,7 @@ end
 @inline function _iterate(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
     arch, tab = state
     world_state = _state(q._world)
-    stores = _stores(q._world)
+    world_storage = _stores(q._world)
     while arch <= length(q._archetypes)
         if tab == 0
             @inbounds archetype_hot = q._archetypes_hot[arch]
@@ -159,7 +159,7 @@ end
                     arch += 1
                     continue
                 end
-                result = _get_columns(stores, q, table)
+                result = _get_columns(world_storage, q, table)
                 return result, (arch + 1, 0)
             end
 
@@ -183,7 +183,7 @@ end
                 continue
             end
 
-            result = _get_columns(stores, q, table)
+            result = _get_columns(world_storage, q, table)
             return result, (arch, tab + 1)
         end
 
@@ -198,12 +198,12 @@ end
 @inline function _iterate_registered(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
     index, _ = state
     world_state = _state(q._world)
-    stores = _stores(q._world)
+    world_storage = _stores(q._world)
     while index <= length(q._filter.tables)
         @inbounds table_id = q._filter.tables[index]
         @inbounds table = world_state._tables[table_id]
         if !isempty(table.entities)
-            result = _get_columns(stores, q, table)
+            result = _get_columns(world_storage, q, table)
             return result, (index + 1, 0)
         else
             index += 1
@@ -301,7 +301,7 @@ function close!(q::Q) where {Q<:Query}
 end
 
 @generated function _get_columns(
-    stores::_WorldStorage,
+    world_storage::_WorldStorage,
     q::Query{W,EX,OM,M,K,CM},
     table::_Table,
 ) where {W<:World,EX,OM,M,K,CM}
@@ -319,7 +319,7 @@ end
         stor_sym = Symbol("stor", i)
         col_sym = Symbol("col", i)
         vec_sym = Symbol("vec", i)
-        push!(exprs, :(@inbounds $stor_sym = stores._storages[$component_id]))
+        push!(exprs, :(@inbounds $stor_sym = world_storage._storages[$component_id]))
         push!(exprs, :(@inbounds $col_sym = $stor_sym.data[table.id]))
 
         if _get_bit(OM, component_id)
