@@ -70,8 +70,8 @@ end
 
 struct _WorldSchema{CS<:Tuple, CT<:Tuple, ST<:Tuple, N, M, RT<:Tuple, K} end
 
-mutable struct _WorldStores{CS<:Tuple}
-    const _storages::CS
+struct _WorldStores{CS<:Tuple}
+    _storages::CS
 end
 
 mutable struct _WorldState{M,K}
@@ -103,9 +103,9 @@ The World is the central storage for [entities](@ref Entities),
 
 See the constructor [World](@ref World(::Union{Type,Pair}...; ::Int, ::Bool)) for details.
 """
-mutable struct World{Schema<:_WorldSchema, Stores<:_WorldStores, State<:_WorldState} <: _AbstractWorld
-    const _stores::Stores
-    const _state::State
+struct World{Schema<:_WorldSchema, Stores<:_WorldStores, State<:_WorldState} <: _AbstractWorld
+    _stores::Stores
+    _state::State
 end
 
 _schema_storage_types(::Type{<:_WorldSchema{CS}}) where {CS} = CS
