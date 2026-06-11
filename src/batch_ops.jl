@@ -1145,10 +1145,10 @@ end
 ) where {world_storage<:_WorldStorage,TS<:Tuple}
     CS = _schema_storage_types(world_storage)
     comp_types = fieldtypes(TS)
-    world_storage_modes = fieldtypes(_schema_storage_modes(world_storage))
 
-    storage_modes = DataType[
-        world_storage_modes[_component_index(CS, T)]
+    component_storage_types = fieldtypes(CS)
+    storage_types = DataType[
+        _storage_array_type(component_storage_types[_component_index(CS, T)])
         for T in comp_types
     ]
 
@@ -1161,9 +1161,9 @@ end
         push!(exprs, :(@inbounds $stor_sym = _get_storage(stores, $(comp_types[i]))))
         push!(exprs, :(@inbounds $col_sym = $stor_sym.data[Int(table.id)]))
 
-        if _storage_vector_type(storage_modes[i]) <: GPUVector
+        if storage_types[i] <: GPUVector
             push!(exprs, :($vec_sym = view(($col_sym).mem, Int(start_idx):Int(end_idx))))
-        elseif storage_modes[i] == Storage{StructArray} || _storage_vector_type(storage_modes[i]) <: GPUStructArray ||
+        elseif storage_types[i] <: StructArray || storage_types[i] <: GPUStructArray ||
                fieldcount(comp_types[i]) == 0
             push!(exprs, :($vec_sym = view($col_sym, Int(start_idx):Int(end_idx))))
         else

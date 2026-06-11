@@ -105,15 +105,8 @@ end
     M = _filter_mask_chunks(F)
     K = _filter_relation_count(F)
 
-    world_storage_modes = fieldtypes(_world_storage_modes(W))
     comp_types = _to_types(fieldtypes(TS))
     optional_flags = fieldtypes(OPT)
-
-    storage_modes = DataType[
-        world_storage_modes[_component_index(CS, T)]
-        for T in comp_types
-    ]
-    storage_tuple_mode = Expr(:curly, :Tuple, storage_modes...)
 
     required_ids =
         Int[_component_index(CS, comp_types[i]) for i in 1:length(comp_types) if optional_flags[i] === Val{false}]
@@ -127,6 +120,8 @@ end
 
     component_storage_types = fieldtypes(CS)
     storages_types = DataType[component_storage_types[_component_index(CS, T)] for T in comp_types]
+    storage_array_types = DataType[_storage_array_type(S) for S in storages_types]
+    storage_array_tuple_type = Expr(:curly, :Tuple, storage_array_types...)
     storage_tuple_type = Expr(:curly, :Tuple, storages_types...)
     storages_expr = Expr(:tuple,
         Expr[:(_stores(filter._world)._storages[$(_component_index(CS, T))]) for T in comp_types]...,
@@ -136,7 +131,7 @@ end
         world_state = _state(filter._world)
         _lock(world_state._lock)
         arches, hot = $(archetypes)
-        Query{$W,$TS,$storage_tuple_mode,$EX,$OPT,$REG,$(length(comp_types)),$M,$K,$storage_tuple_type}(
+        Query{$W,$TS,$storage_array_tuple_type,$EX,$OPT,$REG,$(length(comp_types)),$M,$K,$storage_tuple_type}(
             filter._filter,
             arches,
             hot,
@@ -318,7 +313,7 @@ end
     table::_Table,
 ) where {W<:World,TS<:Tuple,SM<:Tuple,EX,OPT,REG,N,M,K,QS}
     comp_types = fieldtypes(TS)
-    storage_modes = fieldtypes(SM)
+    storage_types = fieldtypes(SM)
     is_optional = fieldtypes(OPT)
 
     exprs = Expr[]
@@ -331,20 +326,20 @@ end
         push!(exprs, :(@inbounds $col_sym = $stor_sym.data[table.id]))
 
         if is_optional[i] === Val{true}
-            if _storage_vector_type(storage_modes[i]) <: GPUVector
+            if storage_types[i] <: GPUVector
                 push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : view(($col_sym).mem, 1:($col_sym).len)))
-            elseif storage_modes[i] == Storage{StructArray} ||
-                   _storage_vector_type(storage_modes[i]) <: GPUStructArray ||
+            elseif storage_types[i] <: StructArray ||
+                   storage_types[i] <: GPUStructArray ||
                    fieldcount(comp_types[i]) == 0
                 push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : view($col_sym, :)))
             else
                 push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : FieldViewable($col_sym)))
             end
         else
-            if _storage_vector_type(storage_modes[i]) <: GPUVector
+            if storage_types[i] <: GPUVector
                 push!(exprs, :($vec_sym = view(($col_sym).mem, 1:($col_sym).len)))
-            elseif storage_modes[i] == Storage{StructArray} ||
-                   _storage_vector_type(storage_modes[i]) <: GPUStructArray ||
+            elseif storage_types[i] <: StructArray ||
+                   storage_types[i] <: GPUStructArray ||
                    fieldcount(comp_types[i]) == 0
                 push!(exprs, :($vec_sym = view($col_sym, :)))
             else
@@ -375,27 +370,26 @@ Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
     ::Type{Query{W,TS,SM,EX,OPT,REG,N,M,K,QS}},
 ) where {W<:World,TS<:Tuple,SM<:Tuple,EX,OPT,REG,N,M,K,QS}
     comp_types = fieldtypes(TS)
-    storage_modes = fieldtypes(SM)
+    storage_types = fieldtypes(SM)
     is_optional = fieldtypes(OPT)
 
     result_types = Any[:Entities]
     for i in 1:N
         T = comp_types[i]
 
-        ST = :(_storage_type($(storage_modes[i]), $T))
-        storage_vector_type = _storage_vector_type(storage_modes[i])
-        base_view = if storage_vector_type <: GPUVector
-            B = Val{_gpu_backend(storage_vector_type)}()
+        storage_type = storage_types[i]
+        base_view = if storage_type <: GPUVector
+            B = Val{_gpu_backend(storage_type)}()
             :(_gpuvectorview_type($T, $B))
         elseif fieldcount(comp_types[i]) == 0
-            :(SubArray{$T,1,$ST,Tuple{Base.Slice{Base.OneTo{Int}}},IndexStyle($ST) == IndexLinear()})
-        elseif storage_modes[i] == Storage{StructArray}
+            :(SubArray{$T,1,$storage_type,Tuple{Base.Slice{Base.OneTo{Int}}},IndexStyle($storage_type) == IndexLinear()})
+        elseif storage_type <: StructArray
             :(_StructArrayView_type($T, UnitRange{Int}))
-        elseif storage_vector_type <: GPUStructArray
-            B = Val{_gpu_backend(storage_vector_type)}()
+        elseif storage_type <: GPUStructArray
+            B = Val{_gpu_backend(storage_type)}()
             :(_GPUStructArrayView_type($T, UnitRange{Int}, $B))
         else
-            :(_FieldsViewable_type($ST))
+            :(_FieldsViewable_type($storage_type))
         end
 
         opt_flag = is_optional[i] === Val{true}

@@ -68,7 +68,7 @@ function _WorldPool{M}() where {M}
     )
 end
 
-struct _WorldStorage{CS<:Tuple, ST<:Tuple, RT<:Tuple}
+struct _WorldStorage{CS<:Tuple, RT<:Tuple}
     _storages::CS
 end
 
@@ -109,16 +109,13 @@ end
 _schema_storage_types(::Type{<:_WorldStorage{CS}}) where {CS} = CS
 _schema_component_types(::Type{<:_WorldStorage{CS}}) where {CS} =
     Tuple{map(S -> Type{_component_type(S)}, fieldtypes(CS))...}
-_schema_storage_modes(::Type{<:_WorldStorage{CS,ST}}) where {CS,ST} = ST
-_schema_relation_types(::Type{<:_WorldStorage{CS,ST,RT}}) where {CS,ST,RT} = RT
+_schema_relation_types(::Type{<:_WorldStorage{CS,RT}}) where {CS,RT} = RT
 
 _world_storage(::Type{<:World{world_storage}}) where {world_storage<:_WorldStorage} = world_storage
 
 _world_storage_types(::Type{W}) where {W<:World} = _schema_storage_types(_world_storage(W))
 
 _world_component_types(::Type{W}) where {W<:World} = _schema_component_types(_world_storage(W))
-
-_world_storage_modes(::Type{W}) where {W<:World} = _schema_storage_modes(_world_storage(W))
 
 _world_relation_types(::Type{W}) where {W<:World} = _schema_relation_types(_world_storage(W))
 
@@ -824,13 +821,13 @@ end
 
 @generated function _World_from_types(
     ::Val{CS},
-    ::Val{ST},
+    ::Val{StorageModes},
     ::Val{RT},
     ::Val{MUT},
     initial_capacity::Int,
-) where {CS<:Tuple,ST<:Tuple,RT<:Tuple,MUT}
+) where {CS<:Tuple,StorageModes<:Tuple,RT<:Tuple,MUT}
     types = fieldtypes(CS)
-    storage_val_types = fieldtypes(ST)
+    storage_val_types = fieldtypes(StorageModes)
     allow_mutable = MUT::Bool
     relation_flags = Bool[_is_relation_type(T, RT) for T in types]
     K = fieldcount(RT)
@@ -883,8 +880,6 @@ end
     storage_tuple_type = :(Tuple{$(_storage_types...)})
     storage_tuple = Expr(:tuple, storage_exprs...)
 
-    storage_mode_type = :(Tuple{$(storage_val_types...)})
-
     # Component registration
     id_exprs = Expr[:(_register_component!(registry, $(types[i]), $(relation_flags[i]))) for i in eachindex(types)]
     id_tuple = Expr(:tuple, id_exprs...)
@@ -907,7 +902,6 @@ end
 
         stores = _WorldStorage{
             $storage_tuple_type,
-            $storage_mode_type,
             $RT,
         }($storage_tuple)
 
@@ -933,7 +927,7 @@ end
         )
 
         World{
-            $(_WorldStorage){$storage_tuple_type,$storage_mode_type,$RT},
+            $(_WorldStorage){$storage_tuple_type,$RT},
             $(_WorldState){$M,$K},
         }(
             stores,
