@@ -68,7 +68,7 @@ function _WorldPool{M}() where {M}
     )
 end
 
-struct _WorldStorage{CS<:Tuple, RT<:Tuple}
+struct _WorldStorage{CS<:Tuple, RT}
     _storages::CS
 end
 
@@ -109,7 +109,11 @@ end
 _schema_storage_types(::Type{<:_WorldStorage{CS}}) where {CS} = CS
 _schema_component_types(::Type{<:_WorldStorage{CS}}) where {CS} =
     Tuple{map(S -> Type{_component_type(S)}, fieldtypes(CS))...}
-_schema_relation_types(::Type{<:_WorldStorage{CS,RT}}) where {CS,RT} = RT
+_schema_relation_bits(::Type{<:_WorldStorage{CS,RT}}) where {CS,RT} = RT
+_schema_relation_indices(::Type{<:_WorldStorage{CS,RT}}) where {CS,RT} =
+    _active_bit_indices(_Mask{length(RT)}(RT))
+_schema_relation_types(::Type{<:_WorldStorage{CS,RT}}) where {CS,RT} =
+    Tuple{map(i -> _component_type(fieldtypes(CS)[i]), _schema_relation_indices(_WorldStorage{CS,RT}))...}
 
 _world_storage(::Type{<:World{world_storage}}) where {world_storage<:_WorldStorage} = world_storage
 
@@ -822,15 +826,15 @@ end
 @generated function _World_from_types(
     ::Val{CS},
     ::Val{StorageModes},
-    ::Val{RT},
+    ::Val{RelationTypes},
     ::Val{MUT},
     initial_capacity::Int,
-) where {CS<:Tuple,StorageModes<:Tuple,RT<:Tuple,MUT}
+) where {CS<:Tuple,StorageModes<:Tuple,RelationTypes<:Tuple,MUT}
     types = fieldtypes(CS)
     storage_val_types = fieldtypes(StorageModes)
     allow_mutable = MUT::Bool
-    relation_flags = Bool[_is_relation_type(T, RT) for T in types]
-    K = fieldcount(RT)
+    relation_flags = Bool[_is_relation_type(T, RelationTypes) for T in types]
+    relation_indices = tuple(Int[i for (i, is_relation) in enumerate(relation_flags) if is_relation]...)
 
     for (T, mode) in zip(types, storage_val_types)
         if !isconcretetype(T)
@@ -888,6 +892,8 @@ end
     relations_vec = Expr(:vect, relations_expr...)
 
     M = max(1, cld(length(types), 64))
+    relation_bits = _Mask{M}(relation_indices...).bits
+    K = length(relation_indices)
     start_mask = _Mask{M}()
     return quote
         registry = _ComponentRegistry()
@@ -902,7 +908,7 @@ end
 
         stores = _WorldStorage{
             $storage_tuple_type,
-            $RT,
+            $relation_bits,
         }($storage_tuple)
 
         world_state = _WorldState{$M,$K}(
@@ -927,7 +933,7 @@ end
         )
 
         World{
-            $(_WorldStorage){$storage_tuple_type,$RT},
+            $(_WorldStorage){$storage_tuple_type,$relation_bits},
             $(_WorldState){$M,$K},
         }(
             stores,
@@ -1183,29 +1189,19 @@ function _add_table_for_state!(cache::_Cache, state::_WorldState, archetype::_Ar
 end
 
 @generated function _push_zero_to_all_archetype_relations!(state::_WorldState{M,K}, ::Type{world_storage}) where {M,K,world_storage<:_WorldStorage}
-    CT = _schema_component_types(world_storage)
-    RT = _schema_relation_types(world_storage)
-    comp_types = fieldtypes(CT)
-    n = length(comp_types)
+    relation_indices = _schema_relation_indices(world_storage)
     exprs = Expr[]
-    for i in 1:n
-        if _is_relation_type(_type_parameter(comp_types[i]), RT)
-            push!(exprs, :(_add_archetype_column!(state._relations[$i])))
-        end
+    for i in relation_indices
+        push!(exprs, :(_add_archetype_column!(state._relations[$i])))
     end
     return Expr(:block, exprs...)
 end
 
 @generated function _push_zero_to_all_table_relations!(state::_WorldState{M,K}, ::Type{world_storage}) where {M,K,world_storage<:_WorldStorage}
-    CT = _schema_component_types(world_storage)
-    RT = _schema_relation_types(world_storage)
-    comp_types = fieldtypes(CT)
-    n = length(comp_types)
+    relation_indices = _schema_relation_indices(world_storage)
     exprs = Expr[]
-    for i in 1:n
-        if _is_relation_type(_type_parameter(comp_types[i]), RT)
-            push!(exprs, :(_add_table_column!(state._relations[$i])))
-        end
+    for i in relation_indices
+        push!(exprs, :(_add_table_column!(state._relations[$i])))
     end
     return Expr(:block, exprs...)
 end
