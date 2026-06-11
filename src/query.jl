@@ -106,13 +106,13 @@ end
 
     required_ids = Int[
         id for id in component_ids
-        if !_get_bit(OM, id)
+               if !_get_bit(OM, id)
     ]
     ids_tuple = tuple(required_ids...)
 
     # TODO: skip this for cached filters
     archetypes =
-        length(ids_tuple) == 0 ? 
+        length(ids_tuple) == 0 ?
         :((world_state._archetypes, world_state._archetypes_hot)) :
         :(_get_archetypes(world_state, $ids_tuple))
 

@@ -31,7 +31,7 @@ function _register_filter!(
     #if _is_cached(filter)
     #    throw(InvalidStateException("filter is already registered to the cache", :filter_registered))
     #end
-    
+
     if isempty(state._cache.free_indices)
         push!(state._cache.filters, filter)
         filter.id[] = UInt32(length(state._cache.filters))

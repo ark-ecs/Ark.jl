@@ -55,7 +55,13 @@ function _sort_entities!(
     return
 end
 
-function _sort_table_entities!(state::_WorldState, stores::_WorldStorage, table::_Table; alg::Base.Sort.Algorithm, kwargs...)
+function _sort_table_entities!(
+    state::_WorldState,
+    stores::_WorldStorage,
+    table::_Table;
+    alg::Base.Sort.Algorithm,
+    kwargs...,
+)
     len = length(table)
     if len <= 1
         return

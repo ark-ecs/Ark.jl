@@ -59,7 +59,14 @@ Base.@constprop :aggressive function new_entities!(
     elseif n == 0
         return
     end
-    return _new_entities_dispatch!(fn, _state(world), _storage(world), n, components, Val(_components_are_types(components)))
+    return _new_entities_dispatch!(
+        fn,
+        _state(world),
+        _storage(world),
+        n,
+        components,
+        Val(_components_are_types(components)),
+    )
 end
 
 Base.@constprop :aggressive function new_entities!(world::World, n::Int, components::Tuple)
@@ -68,7 +75,13 @@ Base.@constprop :aggressive function new_entities!(world::World, n::Int, compone
     elseif n == 0
         return
     end
-    return _new_entities_dispatch!(_state(world), _storage(world), n, components, Val(_components_are_types(components)))
+    return _new_entities_dispatch!(
+        _state(world),
+        _storage(world),
+        n,
+        components,
+        Val(_components_are_types(components)),
+    )
 end
 
 @inline Base.@constprop :aggressive function _new_entities_dispatch!(
@@ -170,13 +183,13 @@ end
 
     required_ids = Int[
         id for id in component_ids
-        if !_get_bit(OM, id)
+               if !_get_bit(OM, id)
     ]
     ids_tuple = tuple(required_ids...)
 
     # TODO: skip this for cached filters
     archetypes =
-        length(ids_tuple) == 0 ? 
+        length(ids_tuple) == 0 ?
         :((world_state._archetypes, world_state._archetypes_hot)) :
         :(_get_archetypes(world_state, $ids_tuple))
 
@@ -769,7 +782,8 @@ end
         :(
             new_table_tuple =
                 _find_or_create_table!(
-                    world_state, stores, batch.table, $add_ids, $rem_ids, $rel_ids, targets, $add_mask, $rem_mask, $use_map,
+                    world_state, stores, batch.table, $add_ids, $rem_ids, $rel_ids, targets, $add_mask, $rem_mask,
+                    $use_map,
                     $world_has_rel,
                     $world_storage,
                 )

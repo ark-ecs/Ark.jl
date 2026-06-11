@@ -24,12 +24,18 @@ end
         "ArgumentError: Component type Health not found in the World",
         _component_index(params, Health))
 
-    @test isa(_get_storage(_storage(world), Position), _ComponentStorage{Position,_storage_from_component(world, Position)})
+    @test isa(
+        _get_storage(_storage(world), Position),
+        _ComponentStorage{Position,_storage_from_component(world, Position)},
+    )
     @test isa(_get_storage(_storage(world), Position).data[1], _storage_from_component(world, Position))
     velocity_storage_type = _storage_from_component(world, Velocity)
     @test isa(_get_storage(_storage(world), Velocity), _ComponentStorage{Velocity,velocity_storage_type})
     @test isa(_get_storage(_storage(world), Velocity).data[1], velocity_storage_type)
-    @test isa(_get_storage(_storage(world), Altitude), _ComponentStorage{Altitude,_storage_from_component(world, Altitude)})
+    @test isa(
+        _get_storage(_storage(world), Altitude),
+        _ComponentStorage{Altitude,_storage_from_component(world, Altitude)},
+    )
     @test isa(_get_storage(_storage(world), Altitude).data[1], _storage_from_component(world, Altitude))
 
     world_state = _state(world)
@@ -66,8 +72,14 @@ end
         Velocity => Storage{StructArray},
     )
 
-    @test isa(_get_storage(_storage(world), Position), _ComponentStorage{Position,_storage_from_component(world, Position)})
-    @test isa(_get_storage(_storage(world), Velocity), _ComponentStorage{Velocity,_storage_from_component(world, Velocity)})
+    @test isa(
+        _get_storage(_storage(world), Position),
+        _ComponentStorage{Position,_storage_from_component(world, Position)},
+    )
+    @test isa(
+        _get_storage(_storage(world), Velocity),
+        _ComponentStorage{Velocity,_storage_from_component(world, Velocity)},
+    )
 end
 
 """
