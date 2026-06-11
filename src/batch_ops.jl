@@ -59,7 +59,7 @@ Base.@constprop :aggressive function new_entities!(
     elseif n == 0
         return
     end
-    return _new_entities_dispatch!(fn, world, n, components, Val(_components_are_types(components)))
+    return _new_entities_dispatch!(fn, _state(world), _stores(world), n, components, Val(_components_are_types(components)))
 end
 
 Base.@constprop :aggressive function new_entities!(world::World, n::Int, components::Tuple)
@@ -68,46 +68,46 @@ Base.@constprop :aggressive function new_entities!(world::World, n::Int, compone
     elseif n == 0
         return
     end
-    return _new_entities_dispatch!(world, n, components, Val(_components_are_types(components)))
+    return _new_entities_dispatch!(_state(world), _stores(world), n, components, Val(_components_are_types(components)))
 end
 
 @inline Base.@constprop :aggressive function _new_entities_dispatch!(
-    fn::F, world::World, n::Int, components::Tuple, ::Val{true},
+    fn::F, world_state::_WorldState, world_storage::_WorldStorage, n::Int, components::Tuple, ::Val{true},
 ) where {F}
     components, relations = _normalize_relations(components, Val(:type))
     rel_types, targets = _relation_types_and_targets(relations)
-    return _new_entities!(fn, _state(world), _stores(world), n,
+    return _new_entities!(fn, world_state, world_storage, n,
         _valtuple(components), (),
         rel_types, targets, Val(false), Val(true))
 end
 
 @inline Base.@constprop :aggressive function _new_entities_dispatch!(
-    fn::F, world::World, n::Int, components::Tuple, ::Val{false},
+    fn::F, world_state::_WorldState, world_storage::_WorldStorage, n::Int, components::Tuple, ::Val{false},
 ) where {F}
     components, relations = _normalize_relations(components, Val(:value))
     rel_types, targets = _relation_types_and_targets(relations)
-    return _new_entities!(fn, _state(world), _stores(world), n,
+    return _new_entities!(fn, world_state, world_storage, n,
         Val{typeof(components)}(), components,
         rel_types, targets, Val(true), Val(true))
 end
 
 @inline Base.@constprop :aggressive function _new_entities_dispatch!(
-    world::World, n::Int, components::Tuple, ::Val{true},
+    world_state::_WorldState, world_storage::_WorldStorage, n::Int, components::Tuple, ::Val{true},
 )
     components, relations = _normalize_relations(components, Val(:type))
     rel_types, targets = _relation_types_and_targets(relations)
-    return _new_entities!(_state(world), _stores(world), n,
+    return _new_entities!(world_state, world_storage, n,
         Val{typeof(components)}(), components,
         rel_types, targets, Val(true), Val(false)) do tuple
     end
 end
 
 @inline Base.@constprop :aggressive function _new_entities_dispatch!(
-    world::World, n::Int, components::Tuple, ::Val{false},
+    world_state::_WorldState, world_storage::_WorldStorage, n::Int, components::Tuple, ::Val{false},
 )
     components, relations = _normalize_relations(components, Val(:value))
     rel_types, targets = _relation_types_and_targets(relations)
-    return _new_entities!(_state(world), _stores(world), n,
+    return _new_entities!(world_state, world_storage, n,
         Val{typeof(components)}(), components,
         rel_types, targets, Val(true), Val(false)) do tuple
     end

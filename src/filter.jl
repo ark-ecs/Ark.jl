@@ -46,20 +46,20 @@ See the user manual chapter on [Queries](@ref) for more details and examples.
   - `exclusive::Bool`: Makes the filter exclusive in base and `with` components, can't be combined with `without`.
 """
 Base.@constprop :aggressive function Filter(
-    world::World,
+    world::W,
     comp_types::Tuple;
     with::Tuple=(),
     without::Tuple=(),
     optional::Tuple=(),
     exclusive::Bool=false,
     register::Bool=false,
-)
+) where {W<:World}
     comp_types_f, comp_relations = _normalize_relations(comp_types, Val(:type))
     with_f, with_relations = _normalize_relations(with, Val(:type))
     relations = (comp_relations..., with_relations...)
     rel_types, targets = _relation_types_and_targets(relations)
-    return _Filter_from_types(
-        world,
+    filter_type, mask_filter = _Filter_from_types(
+        W,
         _valtuple(comp_types_f),
         _valtuple(with_f),
         _valtuple(without),
@@ -69,10 +69,15 @@ Base.@constprop :aggressive function Filter(
         rel_types,
         targets,
     )
+    filter = filter_type(mask_filter, world)
+    if register
+        _register_filter!(_state(world), mask_filter)
+    end
+    return filter
 end
 
 @generated function _Filter_from_types(
-    world::W,
+    ::Type{W},
     ::CT,
     ::WT,
     ::WO,
@@ -137,21 +142,16 @@ end
         :(_FilterRelations{$K}($(length(rel_ids)), $relation_id_exprs, $relation_target_exprs))
 
     return quote
-        filter = Filter{$W,$(QuoteNode(component_mask)),$exclusive,$(QuoteNode(optional_mask)),$M,$K}(
-            _MaskFilter{$M,$K}(
-                $(mask),
-                $(exclude_mask),
-                $relations_expr,
-                $register ? _IdCollection() : _empty_table_ids,
-                Base.RefValue{UInt32}(UInt32(0)),
-                $(has_excluded),
-            ),
-            world,
+        filter_type = Filter{$W,$(QuoteNode(component_mask)),$exclusive,$(QuoteNode(optional_mask)),$M,$K}
+        mask_filter = _MaskFilter{$M,$K}(
+            $(mask),
+            $(exclude_mask),
+            $relations_expr,
+            $register ? _IdCollection() : _empty_table_ids,
+            Base.RefValue{UInt32}(UInt32(0)),
+            $(has_excluded),
         )
-        if $register
-            _register_filter!(_state(world), filter._filter)
-        end
-        return filter
+        return filter_type, mask_filter
     end
 end
 

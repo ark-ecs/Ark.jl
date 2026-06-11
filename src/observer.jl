@@ -49,7 +49,9 @@ Base.@constprop :aggressive function observe!(
     register::Bool=true,
 ) where {W<:World}
     _Observer_from_types(
-        world, event,
+        _state(world)._event_manager,
+        W,
+        event,
         FunctionWrapper{Nothing,Tuple{Entity}}(fn),
         _valtuple(components),
         _valtuple(with),
@@ -58,7 +60,8 @@ Base.@constprop :aggressive function observe!(
 end
 
 @generated function _Observer_from_types(
-    world::W,
+    event_manager::_EventManager,
+    ::Type{W},
     event::Event,
     fn::FunctionWrapper{Nothing,Tuple{Entity}},
     ::CT,
@@ -134,7 +137,7 @@ end
             without_str,
         )
         if register
-            _add_observer!(_state(world)._event_manager, obs)
+            _add_observer!(event_manager, obs)
         end
         obs
     end
