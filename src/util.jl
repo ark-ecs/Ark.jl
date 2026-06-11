@@ -28,10 +28,6 @@ function _pair_first_type(::Type{<:Pair{T}}) where {T}
     return T
 end
 
-function _storage_vector_type(::Type{<:Storage{T}}) where {T}
-    return T
-end
-
 @inline function _to_types(::Type{TS})::Vector{DataType} where {TS<:Tuple}
     return DataType[_val_parameter(x) for x in fieldtypes(TS)]
 end
