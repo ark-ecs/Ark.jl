@@ -268,10 +268,11 @@ Does not iterate or [close!](@ref close!(::Query)) the query.
     The time complexity is linear with the number of tables in the query's pre-selection.
 """
 function Base.length(q::Q) where {Q<:Query}
+    world_state = _state(q._world)
     if _is_cached(q._filter)
-        return _length_registered(q._world, q._filter)
+        return _length_registered(world_state, q._filter)
     else
-        return _length(q._world, q._filter, q._archetypes, q._archetypes_hot)
+        return _length(world_state, q._filter, q._archetypes, q._archetypes_hot)
     end
 end
 
@@ -288,10 +289,11 @@ Does not iterate or [close!](@ref close!(::Query)) the query.
     It is equivalent to iterating the query's archetypes and summing up their lengths.
 """
 function count_entities(q::Q) where {Q<:Query}
+    world_state = _state(q._world)
     if _is_cached(q._filter)
-        return _count_entities_registered(q._world, q._filter)
+        return _count_entities_registered(world_state, q._filter)
     else
-        return _count_entities(q._world, q._filter, q._archetypes, q._archetypes_hot)
+        return _count_entities(world_state, q._filter, q._archetypes, q._archetypes_hot)
     end
 end
 

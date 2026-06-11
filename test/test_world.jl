@@ -32,12 +32,14 @@ end
     @test isa(_get_storage(_stores(world), Altitude), _ComponentStorage{Altitude,_storage_from_component(world, Altitude)})
     @test isa(_get_storage(_stores(world), Altitude).data[1], _storage_from_component(world, Altitude))
 
-    @test length(_get_relations_storage(world, Position).archetypes) == 0
-    @test length(_get_relations_storage(world, Position).targets) == 0
-    @test length(_get_relations_storage(world, ChildOf).archetypes) == 1
-    @test length(_get_relations_storage(world, ChildOf).targets) == 1
-    @test _get_relations_storage(world, ChildOf).archetypes[1] == 0
-    @test _get_relations_storage(world, ChildOf).targets[1] == _no_entity
+    world_state = _state(world)
+    schema = typeof(world).parameters[1]
+    @test length(_get_relations_storage(world_state, Position, schema).archetypes) == 0
+    @test length(_get_relations_storage(world_state, Position, schema).targets) == 0
+    @test length(_get_relations_storage(world_state, ChildOf, schema).archetypes) == 1
+    @test length(_get_relations_storage(world_state, ChildOf, schema).targets) == 1
+    @test _get_relations_storage(world_state, ChildOf, schema).archetypes[1] == 0
+    @test _get_relations_storage(world_state, ChildOf, schema).targets[1] == _no_entity
 end
 
 @testset "World show" begin
@@ -276,7 +278,7 @@ end
         _get_storage(_stores(world), Float64))
 
     @test_throws("ArgumentError: Component type Float64 not found in the World",
-        _get_relations_storage(world, Float64))
+        _get_relations_storage(_state(world), Float64, typeof(world).parameters[1]))
 end
 
 @testset "_find_or_create_table! Tests" begin
@@ -1684,9 +1686,11 @@ end
     new_entity!(world, (Position(0, 0), ChildOf2() => parent2, ChildOf() => parent1))
     new_entity!(world, (Position(0, 0), ChildOf2() => parent1, ChildOf() => parent2))
 
-    pos_relations = _get_relations_storage(world, Position)
-    child_relations = _get_relations_storage(world, ChildOf)
-    child2_relations = _get_relations_storage(world, ChildOf2)
+    world_state = _state(world)
+    schema = typeof(world).parameters[1]
+    pos_relations = _get_relations_storage(world_state, Position, schema)
+    child_relations = _get_relations_storage(world_state, ChildOf, schema)
+    child2_relations = _get_relations_storage(world_state, ChildOf2, schema)
 
     @test length(pos_relations.archetypes) == 0
     @test length(pos_relations.targets) == 0

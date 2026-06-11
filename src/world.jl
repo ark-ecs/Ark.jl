@@ -350,6 +350,7 @@ Base.@constprop :aggressive function remove_entity!(world::World, entity::Entity
 end
 
 @generated function _remove_entity!(world::W, entity::Entity, ::Val{Unchecked}) where {W<:World,Unchecked}
+    S = _world_schema(W)
     CS = _world_storage_types(W)
     inline_jtable = fieldcount(CS) <= 10
     world_has_rel = _has_relations(_world_relation_types(W))
@@ -404,7 +405,7 @@ end
         $(world_has_rel ?
           :(
             if world_state._targets[entity._id]
-                _cleanup_archetypes(world, entity)
+                _cleanup_archetypes(world_state, stores, entity, $S)
                 world_state._targets[entity._id] = false
             end
         ) :
@@ -957,11 +958,6 @@ end
     return :(state._relations[$index])
 end
 
-@inline function _get_relations_storage(world::W, ::Type{C}) where {W<:World,C}
-    S = _world_schema(W)
-    return _get_relations_storage(_state(world), C, S)
-end
-
 @inline function _find_or_create_archetype!(
     state::_WorldState{M,K},
     start::_GraphNode,
@@ -1371,14 +1367,6 @@ function _get_tables(
     return tables.ids
 end
 
-function _get_tables(
-    world::World,
-    arch::_Archetype,
-    relations::_FilterRelations,
-)::Vector{UInt32}
-    return _get_tables(_state(world), arch, relations)
-end
-
 function _get_archetypes(state::_WorldState, ids::Tuple{Vararg{Int}})
     comps = state._index.archetypes
     hot = state._index.archetypes_hot
@@ -1396,14 +1384,16 @@ function _get_archetypes(state::_WorldState, ids::Tuple{Vararg{Int}})
     return rare_comp, rare_hot
 end
 
-function _cleanup_archetypes(world::W, entity::Entity) where {W<:World}
-    world_state = _state(world)
-    stores = _stores(world)
-    S = _world_schema(W)
-    relations = world_state._pool.cleanup_relations
+function _cleanup_archetypes(
+    state::_WorldState,
+    stores::_WorldStores,
+    entity::Entity,
+    ::Type{S},
+) where {S<:_WorldSchema}
+    relations = state._pool.cleanup_relations
     empty!(relations)
-    for arch in world_state._relation_archetypes
-        archetype = world_state._archetypes[arch]
+    for arch in state._relation_archetypes
+        archetype = state._archetypes[arch]
         if !haskey(archetype.target_tables, entity._id)
             continue
         end
@@ -1411,13 +1401,13 @@ function _cleanup_archetypes(world::W, entity::Entity) where {W<:World}
 
         for t in length(tables.ids):-1:1
             table_id = tables.ids[t]
-            table = world_state._tables[table_id]
+            table = state._tables[table_id]
             has_target = false
             for rel in table.relations
                 if rel.second._id == entity._id
                     push!(relations, Pair(rel.first, zero_entity))
                     has_target = true
-                elseif !is_alive(world, rel.second)
+                elseif !is_alive(state, rel.second)
                     # There may be further targets that were removed
                     push!(relations, Pair(rel.first, zero_entity))
                 end
@@ -1425,33 +1415,33 @@ function _cleanup_archetypes(world::W, entity::Entity) where {W<:World}
             @check has_target == true
 
             if !isempty(table.entities)
-                new_relations, mask = _get_exchange_targets_unchecked(world_state, table, relations)
+                new_relations, mask = _get_exchange_targets_unchecked(state, table, relations)
 
-                if _has_observers(world_state._event_manager, OnRemoveRelations)
-                    _fire_set_relations(world_state._event_manager, OnRemoveRelations,
+                if _has_observers(state._event_manager, OnRemoveRelations)
+                    _fire_set_relations(state._event_manager, OnRemoveRelations,
                         _BatchTable(table, archetype, 1, length(table)),
                         mask)
                 end
 
-                new_table, found = _get_table(world_state, archetype, new_relations)
+                new_table, found = _get_table(state, archetype, new_relations)
                 if !found
-                    new_table_id = _create_table!(world_state, stores, archetype, copy(new_relations), S)
-                    new_table = world_state._tables[new_table_id]
+                    new_table_id = _create_table!(state, stores, archetype, copy(new_relations), S)
+                    new_table = state._tables[new_table_id]
                 end
                 empty!(new_relations)
 
                 start_index = length(new_table) + 1
-                _move_entities_cleanup!(world_state, stores, table.id, new_table.id)
+                _move_entities_cleanup!(state, stores, table.id, new_table.id)
 
-                if _has_observers(world_state._event_manager, OnAddRelations)
-                    _fire_set_relations(world_state._event_manager, OnAddRelations,
+                if _has_observers(state._event_manager, OnAddRelations)
+                    _fire_set_relations(state._event_manager, OnAddRelations,
                         _BatchTable(new_table, archetype, start_index, length(new_table)),
                         mask,
                     )
                 end
             end
             _free_table!(archetype, table)
-            _remove_table!(world_state._cache, table)
+            _remove_table!(state._cache, table)
             empty!(relations)
         end
         _remove_target!(archetype, entity)

@@ -21,7 +21,7 @@ function partition_entities!(filter::Filter; pred::P) where P
             end
         end
     else
-        arches, arches_hot = _get_archetypes(filter._world, filter)
+        arches, arches_hot = _get_archetypes(world_state, filter)
         _partition_entities!(world_state, stores, filter._filter, arches, arches_hot, pred)
     end
     _unlock(world_state._lock)

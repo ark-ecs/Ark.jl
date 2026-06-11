@@ -26,7 +26,7 @@ function sort_entities!(filter::Filter; alg=Base.Sort.QuickSort, kwargs...)
             end
         end
     else
-        arches, arches_hot = _get_archetypes(filter._world, filter)
+        arches, arches_hot = _get_archetypes(world_state, filter)
         _sort_entities!(world_state, stores, filter._filter, arches, arches_hot; alg, kwargs...)
     end
     _unlock(world_state._lock)

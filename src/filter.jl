@@ -153,7 +153,7 @@ end
             world,
         )
         if $register
-            _register_filter!(world, filter._filter)
+            _register_filter!(_state(world), filter._filter)
         end
         return filter
     end
@@ -165,7 +165,7 @@ end
 Un-registers a [Filter](@ref).
 """
 function unregister!(world::World, filter::Filter)
-    _unregister_filter!(filter._world, filter._filter)
+    _unregister_filter!(_state(world), filter._filter)
 end
 
 function _matches(filter::F, archetype::_ArchetypeHot) where {F<:_MaskFilter}
@@ -220,29 +220,29 @@ Returns the number of matching tables with at least one entity in the filter.
 """
 function Base.length(f::F) where {F<:Filter}
     if _is_cached(f._filter)
-        return _length_registered(f._world, f._filter)
+        return _length_registered(_state(f._world), f._filter)
     else
-        arches, arches_hot = _get_archetypes(f._world, f)
-        return _length(f._world, f._filter, arches, arches_hot)
+        world_state = _state(f._world)
+        arches, arches_hot = _get_archetypes(world_state, f)
+        return _length(world_state, f._filter, arches, arches_hot)
     end
 end
 
 function _length(
-    world::W,
+    state::_WorldState,
     filter::_MaskFilter{M,K},
     archetypes::Vector{_Archetype{M}},
     archetypes_hot::Vector{_ArchetypeHot{M}},
-) where {W<:World,M,K}
+) where {M,K}
     count = 0
-    @_each_matching_table(world, filter, archetypes, archetypes_hot, table, count += 1)
+    @_each_matching_table(state, filter, archetypes, archetypes_hot, table, count += 1)
     return count
 end
 
-function _length_registered(world::W, filter::_MaskFilter{M,K}) where {W<:World,M,K}
+function _length_registered(state::_WorldState, filter::_MaskFilter{M,K}) where {M,K}
     count = 0
-    world_state = _state(world)
     @simd for table_id in filter.tables.ids
-        table = @inbounds world_state._tables[table_id]
+        table = @inbounds state._tables[table_id]
         count += (!isempty(table.entities)) % Int
     end
     return count
@@ -260,29 +260,29 @@ Returns the number of matching entities in the filter.
 """
 function count_entities(f::F) where {F<:Filter}
     if _is_cached(f._filter)
-        return _count_entities_registered(f._world, f._filter)
+        return _count_entities_registered(_state(f._world), f._filter)
     else
-        arches, arches_hot = _get_archetypes(f._world, f)
-        return _count_entities(f._world, f._filter, arches, arches_hot)
+        world_state = _state(f._world)
+        arches, arches_hot = _get_archetypes(world_state, f)
+        return _count_entities(world_state, f._filter, arches, arches_hot)
     end
 end
 
 function _count_entities(
-    world::W,
+    state::_WorldState,
     filter::_MaskFilter{M,K},
     archetypes::Vector{_Archetype{M}},
     archetypes_hot::Vector{_ArchetypeHot{M}},
-) where {W<:World,M,K}
+) where {M,K}
     count = 0
-    @_each_matching_table(world, filter, archetypes, archetypes_hot, table, count += length(table.entities))
+    @_each_matching_table(state, filter, archetypes, archetypes_hot, table, count += length(table.entities))
     return count
 end
 
-function _count_entities_registered(world::W, filter::_MaskFilter{M,K}) where {W<:World,M,K}
+function _count_entities_registered(state::_WorldState, filter::_MaskFilter{M,K}) where {M,K}
     count = 0
-    world_state = _state(world)
     @simd for table_id in filter.tables.ids
-        table = @inbounds world_state._tables[table_id]
+        table = @inbounds state._tables[table_id]
         count += length(table.entities)
     end
     return count

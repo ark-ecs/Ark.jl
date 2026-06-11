@@ -24,7 +24,7 @@ function shuffle_entities!(rng::AbstractRNG, filter::F) where {F<:Filter}
             end
         end
     else
-        arches, arches_hot = _get_archetypes(filter._world, filter)
+        arches, arches_hot = _get_archetypes(world_state, filter)
         _shuffle(rng, world_state, stores, filter._filter, arches, arches_hot)
     end
     _unlock(world_state._lock)

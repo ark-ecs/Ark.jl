@@ -162,7 +162,8 @@ function _get_tables(
     return tables, any_relations
 end
 
-@generated function _get_archetypes(world::W, filter::F) where {W<:World,F<:Filter}
+@generated function _get_archetypes(state::_WorldState, filter::F) where {F<:Filter}
+    W = _filter_world(F)
     CS = _world_storage_types(W)
     TS = _filter_component_types(F)
     OPT = _filter_optional_flags(F)
@@ -181,7 +182,7 @@ end
         :(_get_archetypes(world_state, $ids_tuple))
 
     quote
-        world_state = _state(world)
+        world_state = state
         return $archetypes
     end
 end
@@ -584,7 +585,7 @@ end
         _check_locked(world_state)
         _lock(world_state._lock)
 
-        arches, arches_hot = _get_archetypes(world, filter)
+        arches, arches_hot = _get_archetypes(world_state, filter)
         tables, _ = _get_tables(world_state, arches, arches_hot, filter)
         batches = world_state._pool.batches
 
@@ -697,7 +698,7 @@ end
         _check_locked(world_state)
         _lock(world_state._lock)
 
-        arches, arches_hot = _get_archetypes(world, filter)
+        arches, arches_hot = _get_archetypes(world_state, filter)
         tables, _ = _get_tables(world_state, arches, arches_hot, filter)
         batches = world_state._pool.batches
 
@@ -891,6 +892,7 @@ end
 end
 
 @generated function _remove_entities!(fn::Fn, world::W, filter::F, ::HFN) where {Fn,W<:World,F<:Filter,HFN<:Val}
+    S = _world_schema(W)
     world_has_rel = _has_relations(_world_relation_types(W))
     has_fn = HFN == Val{true}
     quote
@@ -899,7 +901,7 @@ end
 
         _check_locked(world_state)
 
-        arches, arches_hot = _get_archetypes(world, filter)
+        arches, arches_hot = _get_archetypes(world_state, filter)
         tables, any_relations = _get_tables(world_state, arches, arches_hot, filter)
 
         has_entity_obs = _has_observers(world_state._event_manager, OnRemoveEntity)
@@ -979,7 +981,7 @@ end
         $(world_has_rel ?
           :(
             for entity in cleanup
-                _cleanup_archetypes(world, entity)
+                _cleanup_archetypes(world_state, stores, entity, $S)
                 world_state._targets[entity._id] = false
             end
         ) :
