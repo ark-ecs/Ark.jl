@@ -35,7 +35,7 @@ end
 function _shuffle(
     rng::AbstractRNG,
     state::_WorldState{M,K},
-    stores::_WorldStores,
+    stores::_WorldStorage,
     filter::_MaskFilter{M,K},
     archetypes::Vector{_Archetype{M}},
     archetypes_hot::Vector{_ArchetypeHot{M}},
@@ -43,7 +43,7 @@ function _shuffle(
     @_each_matching_table(state, filter, archetypes, archetypes_hot, table, _shuffle_table!(rng, state, stores, table))
 end
 
-function _shuffle_table!(rng::AbstractRNG, state::_WorldState, stores::_WorldStores, table::_Table)
+function _shuffle_table!(rng::AbstractRNG, state::_WorldState, stores::_WorldStorage, table::_Table)
     len = length(table)
     archetype = state._archetypes[table.archetype]
 

@@ -31,7 +31,7 @@ end
 
 function _partition_entities!(
     state::_WorldState,
-    stores::_WorldStores,
+    stores::_WorldStorage,
     filter::_MaskFilter,
     archetypes::Vector{<:_Archetype},
     archetypes_hot::Vector{<:_ArchetypeHot},
@@ -43,7 +43,7 @@ function _partition_entities!(
     )
 end
 
-function _partition_table!(state::_WorldState, stores::_WorldStores, table::_Table, pred::P) where P
+function _partition_table!(state::_WorldState, stores::_WorldStorage, table::_Table, pred::P) where P
     len = length(table)
     if len <= 1
         return

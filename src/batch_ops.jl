@@ -576,7 +576,7 @@ end
     rel_ids = tuple(Int[_component_index(_world_storage_types(W), T) for T in rel_types]...)
 
     has_fn = HFN == Val{true}
-    Schema = _world_schema(W)
+    WorldStorage = _world_storage(W)
     return quote
         world_state = _state(world)
         stores = _stores(world)
@@ -605,7 +605,7 @@ end
         end
 
         for batch in batches
-            _set_relations_table!(fn, world_state, stores, $Schema, batch, $rel_ids, targets, $has_fn)
+            _set_relations_table!(fn, world_state, stores, $WorldStorage, batch, $rel_ids, targets, $has_fn)
         end
 
         empty!(batches)
@@ -619,13 +619,13 @@ end
 function _set_relations_table!(
     fn::Fn,
     state::_WorldState,
-    stores::_WorldStores,
-    ::Type{Schema},
+    stores::_WorldStorage,
+    ::Type{WorldStorage},
     batch::_BatchTable,
     relations::Tuple{Vararg{Int}},
     targets::Tuple{Vararg{Entity}},
     has_fn::Bool,
-) where {Fn,Schema<:_WorldSchema}
+) where {Fn,WorldStorage<:_WorldStorage}
     new_relations, changed, mask = _get_exchange_targets(state, batch.table, relations, targets)
     if !changed
         empty!(new_relations)
@@ -633,7 +633,7 @@ function _set_relations_table!(
     end
     new_table, found = _get_table(state, batch.archetype, new_relations)
     if !found
-        new_table_id = _create_table!(state, stores, batch.archetype, copy(new_relations), Schema)
+        new_table_id = _create_table!(state, stores, batch.archetype, copy(new_relations), WorldStorage)
         new_table = state._tables[new_table_id]
     end
     empty!(new_relations)
@@ -690,7 +690,7 @@ end
     _check_relations(rel_types, relation_types)
     _check_is_subset(rel_types, add_types)
 
-    Schema = _world_schema(W)
+    WorldStorage = _world_storage(W)
     return quote
         world_state = _state(world)
         stores = _stores(world)
@@ -718,7 +718,7 @@ end
         end
 
         for batch in batches
-            _exchange_components_table!(fn, world_state, stores, $Schema, batch,
+            _exchange_components_table!(fn, world_state, stores, $WorldStorage, batch,
                 Val{$ATS}(), add, Val{$RTS}(), Val{$TR}(), targets, Val{$DEF}(), Val{$HFN}(), Val{$REM}())
         end
 
@@ -733,8 +733,8 @@ end
 @generated function _exchange_components_table!(
     fn::Fn,
     world_state::_WorldState,
-    stores::_WorldStores,
-    ::Type{Schema},
+    stores::_WorldStorage,
+    ::Type{WorldStorage},
     batch::_BatchTable,
     ::ATS,
     add::Tuple,
@@ -744,15 +744,15 @@ end
     ::Val{DEF},
     ::Val{HFN},
     ::Val{REM},
-) where {Fn,Schema<:_WorldSchema,ATS,RTS<:Tuple,TR<:Tuple,DEF<:Val,HFN<:Val,REM<:Val}
+) where {Fn,WorldStorage<:_WorldStorage,ATS,RTS<:Tuple,TR<:Tuple,DEF<:Val,HFN<:Val,REM<:Val}
     add_types = _to_types(ATS)
     rem_types = _to_types(RTS)
     rel_types = _to_types(TR)
-    relation_types = _schema_relation_types(Schema)
+    relation_types = _schema_relation_types(WorldStorage)
 
     exprs = Expr[]
 
-    CS = _schema_storage_types(Schema)
+    CS = _schema_storage_types(WorldStorage)
     add_ids = tuple(Int[_component_index(CS, T) for T in add_types]...)
     rem_ids = tuple(Int[_component_index(CS, T) for T in rem_types]...)
     rel_ids = tuple(Int[_component_index(CS, T) for T in rel_types]...)
@@ -774,7 +774,7 @@ end
                 _find_or_create_table!(
                     world_state, stores, batch.table, $add_ids, $rem_ids, $rel_ids, targets, $add_mask, $rem_mask, $use_map,
                     $world_has_rel,
-                    $Schema,
+                    $WorldStorage,
                 )
         ),
     )
@@ -840,7 +840,7 @@ end
                 :(
                     begin
                         columns =
-                            _get_columns(stores, $Schema, $ts_val_expr, new_table, start_idx, length(new_table))
+                            _get_columns(stores, $WorldStorage, $ts_val_expr, new_table, start_idx, length(new_table))
                         fn(columns)
                     end
                 ),
@@ -892,7 +892,7 @@ end
 end
 
 @generated function _remove_entities!(fn::Fn, world::W, filter::F, ::HFN) where {Fn,W<:World,F<:Filter,HFN<:Val}
-    Schema = _world_schema(W)
+    WorldStorage = _world_storage(W)
     world_has_rel = _has_relations(_world_relation_types(W))
     has_fn = HFN == Val{true}
     quote
@@ -981,7 +981,7 @@ end
         $(world_has_rel ?
           :(
             for entity in cleanup
-                _cleanup_archetypes(world_state, stores, entity, $Schema)
+                _cleanup_archetypes(world_state, stores, entity, $WorldStorage)
                 world_state._targets[entity._id] = false
             end
         ) :
@@ -1031,7 +1031,7 @@ end
     add_mask = _Mask{M}(ids...)
     rem_mask = _Mask{M}()
 
-    Schema = _world_schema(W)
+    WorldStorage = _world_storage(W)
     world_has_rel = Val{_has_relations(relation_types)}()
 
     exprs = Expr[]
@@ -1054,7 +1054,7 @@ end
                 $rem_mask,
                 $use_map,
                 $world_has_rel,
-                $Schema,
+                $WorldStorage,
             )[1]
         ),
     )
@@ -1089,7 +1089,7 @@ end
             :(
                 begin
                     _lock(world_state._lock)
-                    columns = _get_columns(stores, $Schema, $ts_val_expr, table, indices...)
+                    columns = _get_columns(stores, $WorldStorage, $ts_val_expr, table, indices...)
                     fn(columns)
 
                     batch = _BatchTable(table, world_state._archetypes[table.archetype], indices...)
@@ -1136,16 +1136,16 @@ end
 end
 
 @generated function _get_columns(
-    stores::_WorldStores,
-    ::Type{Schema},
+    stores::_WorldStorage,
+    ::Type{WorldStorage},
     ::Val{TS},
     table::_Table,
     start_idx::Int,
     end_idx::Int,
-) where {Schema<:_WorldSchema,TS<:Tuple}
-    CS = _schema_storage_types(Schema)
+) where {WorldStorage<:_WorldStorage,TS<:Tuple}
+    CS = _schema_storage_types(WorldStorage)
     comp_types = fieldtypes(TS)
-    world_storage_modes = fieldtypes(_schema_storage_modes(Schema))
+    world_storage_modes = fieldtypes(_schema_storage_modes(WorldStorage))
 
     storage_modes = DataType[
         world_storage_modes[_component_index(CS, T)]
