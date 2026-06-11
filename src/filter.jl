@@ -6,7 +6,7 @@ A filter for components. See function
 [Filter](@ref Filter(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)) for details.
 See also [Query](@ref).
 """
-struct Filter{W<:World,TS<:Tuple,EX,OPT,REG,M,K}
+struct Filter{W<:World,TS<:Tuple,EX,OPT,M,K}
     _filter::_MaskFilter{M,K}
     _world::W
 end
@@ -15,9 +15,8 @@ end
 @inline _filter_component_types(::Type{<:Filter{W,TS}}) where {W,TS} = TS
 @inline _filter_exclusive(::Type{<:Filter{W,TS,EX}}) where {W,TS,EX} = EX
 @inline _filter_optional_flags(::Type{<:Filter{W,TS,EX,OPT}}) where {W,TS,EX,OPT} = OPT
-@inline _filter_registered(::Type{<:Filter{W,TS,EX,OPT,REG}}) where {W,TS,EX,OPT,REG} = REG
-@inline _filter_mask_chunks(::Type{<:Filter{W,TS,EX,OPT,REG,M}}) where {W,TS,EX,OPT,REG,M} = M
-@inline _filter_relation_count(::Type{<:Filter{W,TS,EX,OPT,REG,M,K}}) where {W,TS,EX,OPT,REG,M,K} = K
+@inline _filter_mask_chunks(::Type{<:Filter{W,TS,EX,OPT,M}}) where {W,TS,EX,OPT,M} = M
+@inline _filter_relation_count(::Type{<:Filter{W,TS,EX,OPT,M,K}}) where {W,TS,EX,OPT,M,K} = K
 
 """
     Filter(
@@ -141,7 +140,7 @@ end
         :(_FilterRelations{$K}($(length(rel_ids)), $relation_id_exprs, $relation_target_exprs))
 
     return quote
-        filter = Filter{$W,$comp_tuple_type,$EX,$optional_flags_type,$REG,$M,$K}(
+        filter = Filter{$W,$comp_tuple_type,$EX,$optional_flags_type,$M,$K}(
             _MaskFilter{$M,$K}(
                 $(mask),
                 $(exclude_mask),
@@ -288,7 +287,7 @@ function _count_entities_registered(state::_WorldState, filter::_MaskFilter{M,K}
     return count
 end
 
-function Base.show(io::IO, filter::Filter{W,CT,EX,OPT,REG,M,K}) where {W<:World,CT<:Tuple,EX<:Val,OPT,REG<:Val,M,K}
+function Base.show(io::IO, filter::Filter{W,CT,EX,OPT,M,K}) where {W<:World,CT<:Tuple,EX<:Val,OPT,M,K}
     world_types = fieldtypes(_world_component_types(W))
     comp_types = fieldtypes(CT)
 
@@ -303,7 +302,7 @@ function Base.show(io::IO, filter::Filter{W,CT,EX,OPT,REG,M,K}) where {W<:World,
     optional_names = join(map(_format_type, optional_types), ", ")
     with_names = join(map(_format_type, with_types), ", ")
     is_exclusive = EX === Val{true}
-    registered = REG === Val{true}
+    registered = _is_cached(filter._filter)
 
     excl_types = ()
     without_names = ""

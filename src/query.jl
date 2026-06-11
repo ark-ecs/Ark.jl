@@ -9,7 +9,7 @@ end
 A query for components. See function
 [Query](@ref Query(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)) for details.
 """
-struct Query{W<:World,TS<:Tuple,EX,OPT,M,K,QS<:Tuple}
+struct Query{W<:World,EX,OPT,M,K,QS<:Tuple}
     _filter::_MaskFilter{M,K}
     _archetypes::Vector{_Archetype{M}}
     _archetypes_hot::Vector{_ArchetypeHot{M}}
@@ -128,7 +128,7 @@ end
         world_state = _state(filter._world)
         _lock(world_state._lock)
         arches, hot = $(archetypes)
-        Query{$W,$TS,$EX,$OPT,$M,$K,$storage_tuple_type}(
+        Query{$W,$EX,$OPT,$M,$K,$storage_tuple_type}(
             filter._filter,
             arches,
             hot,
@@ -306,11 +306,12 @@ function close!(q::Q) where {Q<:Query}
 end
 
 @generated function _get_columns(
-    q::Query{W,TS,EX,OPT,M,K,QS},
+    q::Query{W,EX,OPT,M,K,QS},
     table::_Table,
-) where {W<:World,TS<:Tuple,EX,OPT,M,K,QS}
-    comp_types = fieldtypes(TS)
-    storage_types = map(_storage_array_type, fieldtypes(QS))
+) where {W<:World,EX,OPT,M,K,QS}
+    component_storage_types = fieldtypes(QS)
+    comp_types = map(_component_type, component_storage_types)
+    storage_array_types = map(_storage_array_type, component_storage_types)
     is_optional = fieldtypes(OPT)
     N = fieldcount(QS)
 
@@ -324,20 +325,20 @@ end
         push!(exprs, :(@inbounds $col_sym = $stor_sym.data[table.id]))
 
         if is_optional[i] === Val{true}
-            if storage_types[i] <: GPUVector
+            if storage_array_types[i] <: GPUVector
                 push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : view(($col_sym).mem, 1:($col_sym).len)))
-            elseif storage_types[i] <: StructArray ||
-                   storage_types[i] <: GPUStructArray ||
+            elseif storage_array_types[i] <: StructArray ||
+                   storage_array_types[i] <: GPUStructArray ||
                    fieldcount(comp_types[i]) == 0
                 push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : view($col_sym, :)))
             else
                 push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : FieldViewable($col_sym)))
             end
         else
-            if storage_types[i] <: GPUVector
+            if storage_array_types[i] <: GPUVector
                 push!(exprs, :($vec_sym = view(($col_sym).mem, 1:($col_sym).len)))
-            elseif storage_types[i] <: StructArray ||
-                   storage_types[i] <: GPUStructArray ||
+            elseif storage_array_types[i] <: StructArray ||
+                   storage_array_types[i] <: GPUStructArray ||
                    fieldcount(comp_types[i]) == 0
                 push!(exprs, :($vec_sym = view($col_sym, :)))
             else
@@ -350,7 +351,7 @@ end
         push!(result_exprs, Symbol("vec", i))
     end
 
-    element_type = :(Base.eltype(Query{W,TS,EX,OPT,M,K,QS}))
+    element_type = :(Base.eltype(Query{W,EX,OPT,M,K,QS}))
 
     tuple_expr = Expr(:tuple, result_exprs...)
     push!(exprs, Expr(:return, Expr(:(::), tuple_expr, element_type)))
@@ -365,10 +366,11 @@ end
 Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
 
 @generated function Base.eltype(
-    ::Type{Query{W,TS,EX,OPT,M,K,QS}},
-) where {W<:World,TS<:Tuple,EX,OPT,M,K,QS}
-    comp_types = fieldtypes(TS)
-    storage_types = map(_storage_array_type, fieldtypes(QS))
+    ::Type{Query{W,EX,OPT,M,K,QS}},
+) where {W<:World,EX,OPT,M,K,QS}
+    component_storage_types = fieldtypes(QS)
+    comp_types = map(_component_type, component_storage_types)
+    storage_array_types = map(_storage_array_type, component_storage_types)
     is_optional = fieldtypes(OPT)
     N = fieldcount(QS)
 
@@ -376,7 +378,7 @@ Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
     for i in 1:N
         T = comp_types[i]
 
-        storage_type = storage_types[i]
+        storage_type = storage_array_types[i]
         base_view = if storage_type <: GPUVector
             B = Val{_gpu_backend(storage_type)}()
             :(_gpuvectorview_type($T, $B))
@@ -401,10 +403,10 @@ Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
 end
 
 function Base.show(
-    io::IO, query::Query{W,CT,EX,OPT,M,K,QS},
-) where {W<:World,CT<:Tuple,EX<:Val,OPT,M,K,QS}
+    io::IO, query::Query{W,EX,OPT,M,K,QS},
+) where {W<:World,EX<:Val,OPT,M,K,QS}
     world_types = fieldtypes(_world_component_types(W))
-    comp_types = fieldtypes(CT)
+    comp_types = map(_component_type, fieldtypes(QS))
 
     mask_ids = _active_bit_indices(query._filter.mask)
     mask_types = tuple(DataType[_type_parameter(world_types[Int(i)]) for i in mask_ids]...)
