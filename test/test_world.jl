@@ -120,7 +120,8 @@ end
     world = World(Position, Velocity)
 
     table1 = _find_or_create_table!(
-        world,
+        _state(world),
+        _stores(world),
         _state(world)._tables[1],
         (offset_ID + 1,),
         (),
@@ -130,13 +131,15 @@ end
         _Mask{M_mask}(),
         _NoUseMap(),
         Val(false),
+        typeof(world).parameters[1],
     )
     @test table1 == (2, false)
     @test _state(world)._tables[table1[1]].archetype == 2
     @test length(_state(world)._tables) == 2
 
     table2 = _find_or_create_table!(
-        world,
+        _state(world),
+        _stores(world),
         _state(world)._tables[1],
         (offset_ID + 1, offset_ID + 2),
         (),
@@ -146,13 +149,15 @@ end
         _Mask{M_mask}(),
         _NoUseMap(),
         Val(false),
+        typeof(world).parameters[1],
     )
     @test table2 == (3, false)
     @test _state(world)._tables[table2[1]].archetype == 3
     @test length(_state(world)._tables) == 3
 
     table3 = _find_or_create_table!(
-        world,
+        _state(world),
+        _stores(world),
         _state(world)._tables[1],
         (offset_ID + 1,),
         (),
@@ -162,6 +167,7 @@ end
         _Mask{M_mask}(),
         _NoUseMap(),
         Val(false),
+        typeof(world).parameters[1],
     )
     @test table3 == table1
     @test length(_state(world)._tables) == 3
@@ -281,7 +287,8 @@ end
     @test pos_id == offset_ID + UInt8(1)
 
     index = _find_or_create_table!(
-        world,
+        _state(world),
+        _stores(world),
         _state(world)._tables[1],
         (pos_id,),
         (),
@@ -291,6 +298,7 @@ end
         _Mask{M_mask}(),
         _NoUseMap(),
         Val(false),
+        typeof(world).parameters[1],
     )
     @test index == (2, false)
     @test length(_state(world)._tables) == 2
@@ -300,7 +308,8 @@ end
     @test vel_id == offset_ID + UInt8(2)
 
     index = _find_or_create_table!(
-        world,
+        _state(world),
+        _stores(world),
         _state(world)._tables[1],
         (pos_id, vel_id),
         (),
@@ -310,13 +319,15 @@ end
         _Mask{M_mask}(),
         _NoUseMap(),
         Val(false),
+        typeof(world).parameters[1],
     )
     @test index == (3, false)
     @test length(_state(world)._tables) == 3
     @test length(_state(world)._archetypes) == 3
 
     index = _find_or_create_table!(
-        world,
+        _state(world),
+        _stores(world),
         _state(world)._tables[1],
         (pos_id, vel_id),
         (),
@@ -326,6 +337,7 @@ end
         _Mask{M_mask}(),
         _UseMap(),
         Val(false),
+        typeof(world).parameters[1],
     )
     @test index == (3, false)
     @test length(_state(world)._tables) == 3
@@ -352,7 +364,8 @@ end
     pos_id = _component_index(params, Position)
     vel_id = _component_index(params, Velocity)
     table_index = _find_or_create_table!(
-        world,
+        _state(world),
+        _stores(world),
         _state(world)._tables[1],
         (pos_id, vel_id),
         (),
@@ -362,10 +375,11 @@ end
         _Mask{M_mask}(),
         _NoUseMap(),
         Val(false),
+        typeof(world).parameters[1],
     )
     @test table_index == (2, false)
 
-    entity, index = _create_entity!(world, table_index[1])
+    entity, index = _create_entity!(_state(world), table_index[1])
     push!(_get_storage(_stores(world), Position).data[table_index[1]], Position(0, 0))
     push!(_get_storage(_stores(world), Velocity).data[table_index[1]], Velocity(0, 0))
     @test entity == _new_entity(2, 0)
@@ -373,7 +387,7 @@ end
     @test _state(world)._entities == [_EntityIndex(typemax(UInt32), 0), _EntityIndex(table_index[1], UInt32(1))]
 
     remove_entity!(world, entity)
-    entity, index = _create_entity!(world, table_index[1])
+    entity, index = _create_entity!(_state(world), table_index[1])
     push!(_get_storage(_stores(world), Position).data[table_index[1]], Position(0, 0))
     push!(_get_storage(_stores(world), Velocity).data[table_index[1]], Velocity(0, 0))
     @test entity == _new_entity(2, 1)
