@@ -1196,6 +1196,7 @@ function _create_table!(state::_WorldState{M,K}, stores::_WorldStores, arch::_Ar
     if length(relations) < arch.num_relations
         throw(ArgumentError("relation targets must be fully specified"))
     end
+    # TODO: check that the archetype contains all components
 
     _check_relation_targets(state, relations)
 

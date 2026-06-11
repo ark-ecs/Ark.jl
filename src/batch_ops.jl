@@ -588,12 +588,13 @@ end
             if isempty(old_table)
                 continue
             end
+            # TODO: use a simplified data structure?
             push!(
                 batches,
                 _BatchTable(old_table, world._archetypes[old_table.archetype], 1, length(old_table)),
             )
         end
-        if !_is_cached(filter._filter)
+        if !_is_cached(filter._filter) # Do not clear for cached filters!!!
             empty!(tables)
         end
 
@@ -702,7 +703,7 @@ end
                 _BatchTable(old_table, world._archetypes[old_table.archetype], 1, length(old_table)),
             )
         end
-        if !_is_cached(filter._filter)
+        if !_is_cached(filter._filter) # Do not clear for cached filters!!!
             empty!(tables)
         end
 
