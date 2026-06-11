@@ -30,7 +30,7 @@ function setup_query_posvel_32_arch(n_entities::Int)
         resize!(comps, 0)
     end
     expected_archetypes = min(n_entities + 1, 33)
-    num_archetypes = length(world._archetypes)
+    num_archetypes = length(_state(world)._archetypes)
     if num_archetypes != expected_archetypes
         error("expected $expected_archetypes archetypes, got $num_archetypes")
     end
@@ -84,7 +84,7 @@ function setup_query_posvel_1k_arch(n_entities::Int, register::Bool)
         resize!(comps, 0)
     end
     expected_archetypes = min(n_entities + 1, 1025)
-    num_archetypes = length(world._archetypes)
+    num_archetypes = length(_state(world)._archetypes)
     if num_archetypes != expected_archetypes
         error("expected $expected_archetypes archetypes, got $num_archetypes")
     end

@@ -31,32 +31,33 @@ function _register_filter!(
     #if _is_cached(filter)
     #    throw(InvalidStateException("filter is already registered to the cache", :filter_registered))
     #end
-
-    if isempty(world._cache.free_indices)
-        push!(world._cache.filters, filter)
-        filter.id[] = UInt32(length(world._cache.filters))
+    
+    world_state = _state(world)
+    if isempty(world_state._cache.free_indices)
+        push!(world_state._cache.filters, filter)
+        filter.id[] = UInt32(length(world_state._cache.filters))
     else
-        index = pop!(world._cache.free_indices)
-        world._cache.filters[index] = filter
+        index = pop!(world_state._cache.free_indices)
+        world_state._cache.filters[index] = filter
         filter.id[] = index
     end
 
-    for i in eachindex(world._archetypes)
-        arch_hot = @inbounds world._archetypes_hot[i]
+    for i in eachindex(world_state._archetypes)
+        arch_hot = @inbounds world_state._archetypes_hot[i]
         if !_matches(filter, arch_hot)
             continue
         end
 
         if !arch_hot.has_relations
-            _add_table!(filter, world._tables[arch_hot.table])
+            _add_table!(filter, world_state._tables[arch_hot.table])
             continue
         end
 
-        arch = @inbounds world._archetypes[i]
-        tables = _get_tables(_state(world), arch, filter.relations)
+        arch = @inbounds world_state._archetypes[i]
+        tables = _get_tables(world_state, arch, filter.relations)
         for table_id in tables
-            table = @inbounds world._tables[Int(table_id)]
-            if _matches(world._relations, table, filter.relations)
+            table = @inbounds world_state._tables[Int(table_id)]
+            if _matches(world_state._relations, table, filter.relations)
                 _add_table!(filter, table)
             end
         end
@@ -64,21 +65,22 @@ function _register_filter!(
 end
 
 function _unregister_filter!(world::W, filter::F) where {W<:_AbstractWorld,F<:_MaskFilter}
-    _check_locked(_state(world))
+    world_state = _state(world)
+    _check_locked(world_state)
 
     if !_is_cached(filter)
         throw(InvalidStateException("filter is not registered to the cache", :filter_not_registered))
     end
 
     for table_id in filter.tables.ids
-        table = _state(world)._tables[table_id]
+        table = world_state._tables[table_id]
         _remove_table_filter!(table, filter.id[])
     end
 
-    if filter.id[] == length(world._cache.filters)
-        pop!(world._cache.filters)
+    if filter.id[] == length(world_state._cache.filters)
+        pop!(world_state._cache.filters)
     else
-        push!(world._cache.free_indices, filter.id[])
+        push!(world_state._cache.free_indices, filter.id[])
     end
 
     _clear!(filter.tables)
@@ -104,7 +106,7 @@ function _add_table!(
             _add_table!(filter, table)
             continue
         end
-        if _matches(world._relations, table, filter.relations)
+        if _matches(world_state._relations, table, filter.relations)
             _add_table!(filter, table)
         end
     end

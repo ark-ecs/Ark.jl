@@ -134,7 +134,7 @@ end
             without_str,
         )
         if register
-            _add_observer!(world._event_manager, obs)
+            _add_observer!(_state(world)._event_manager, obs)
         end
         obs
     end

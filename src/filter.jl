@@ -175,6 +175,7 @@ end
 
 macro _each_matching_table(world, filter, archetypes, archetypes_hot, table, action)
     esc(quote
+        world_state = _state($world)
         for i in eachindex($(archetypes))
             archetype_hot = @inbounds $(archetypes_hot)[i]
             if !_matches($(filter), archetype_hot)
@@ -183,7 +184,7 @@ macro _each_matching_table(world, filter, archetypes, archetypes_hot, table, act
 
             if !archetype_hot.has_relations
                 table_id = archetype_hot.table
-                $table = @inbounds $world._tables[Int(table_id)]
+                $table = @inbounds world_state._tables[Int(table_id)]
                 if !isempty($table.entities)
                     $action
                 end
@@ -198,8 +199,8 @@ macro _each_matching_table(world, filter, archetypes, archetypes_hot, table, act
             tables = _get_tables($world, archetype, $(filter).relations)
             for table_id in tables
                 # TODO we can probably optimize here if exactly one relation in archetype and one queried.
-                $table = @inbounds $world._tables[Int(table_id)]
-                if !isempty($table.entities) && _matches($world._relations, $table, $(filter).relations)
+                $table = @inbounds world_state._tables[Int(table_id)]
+                if !isempty($table.entities) && _matches(world_state._relations, $table, $(filter).relations)
                     $action
                 end
             end
@@ -238,8 +239,9 @@ end
 
 function _length_registered(world::W, filter::_MaskFilter{M,K}) where {W<:World,M,K}
     count = 0
+    world_state = _state(world)
     @simd for table_id in filter.tables.ids
-        table = @inbounds world._tables[table_id]
+        table = @inbounds world_state._tables[table_id]
         count += (!isempty(table.entities)) % Int
     end
     return count
@@ -277,8 +279,9 @@ end
 
 function _count_entities_registered(world::W, filter::_MaskFilter{M,K}) where {W<:World,M,K}
     count = 0
+    world_state = _state(world)
     @simd for table_id in filter.tables.ids
-        table = @inbounds world._tables[table_id]
+        table = @inbounds world_state._tables[table_id]
         count += length(table.entities)
     end
     return count

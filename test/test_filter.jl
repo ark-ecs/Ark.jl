@@ -8,7 +8,7 @@
     f4 = Filter(world, (Position, Velocity); exclusive=true)
 
     f5 = Filter(world, (Position, Velocity); register=true)
-    @test length(world._cache.filters) == 1
+    @test length(_state(world)._cache.filters) == 1
     @test length(f5._filter.tables) == 0
 
     e = new_entity!(world, (Position(0, 0), Velocity(0, 0)))

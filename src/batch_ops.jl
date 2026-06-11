@@ -114,23 +114,23 @@ end
 end
 
 function _get_tables(
-    world::World,
-    arches::Vector{_Archetype{M}},
-    arches_hot::Vector{_ArchetypeHot{M}},
-    filter::F,
-)::Tuple{Vector{UInt32},Bool} where {M,F<:Filter}
+    state::_WorldState,
+    arches::Vector{_Archetype},
+    arches_hot::Vector{_ArchetypeHot},
+    filter::Filter,
+)::Tuple{Vector{UInt32},Bool}
     if _is_cached(filter._filter)
         tables = filter._filter.tables.ids
         any_relations = false
         for table_id in tables
-            if _has_relations(world._tables[table_id])
+            if _has_relations(state._tables[table_id])
                 any_relations = true
             end
         end
         return tables, any_relations
     end
 
-    tables = world._pool.tables
+    tables = _state._pool.tables
     any_relations = false
     for arch in eachindex(arches)
         @inbounds archetype_hot = arches_hot[arch]
@@ -138,7 +138,7 @@ function _get_tables(
             continue
         end
         if !archetype_hot.has_relations
-            table = @inbounds world._tables[Int(archetype_hot.table)]
+            table = @inbounds _state._tables[Int(archetype_hot.table)]
             if isempty(table.entities)
                 continue
             end
@@ -149,10 +149,10 @@ function _get_tables(
         if isempty(archetype.tables)
             continue
         end
-        arch_tables = _get_tables(_state(world), archetype, filter._filter.relations)
+        arch_tables = _get_tables(_state, archetype, filter._filter.relations)
         for table_id in arch_tables
-            table = @inbounds world._tables[Int(table_id)]
-            if !isempty(table.entities) && _matches(world._relations, table, filter._filter.relations)
+            table = @inbounds _state._tables[Int(table_id)]
+            if !isempty(table.entities) && _matches(_state()._relations, table, filter._filter.relations)
                 push!(tables, table.id)
                 any_relations = true
             end
@@ -176,7 +176,8 @@ end
 
     # TODO: skip this for cached filters
     archetypes =
-        length(ids_tuple) == 0 ? :((world._archetypes, world._archetypes_hot)) :
+        length(ids_tuple) == 0 ? 
+        :(world_state =_state(world); (world_state._archetypes, world_state._archetypes_hot)) :
         :(_get_archetypes(_state(world), $ids_tuple))
 
     quote
@@ -574,24 +575,25 @@ end
 
     has_fn = HFN == Val{true}
     return quote
-        _check_relation_targets(_state(world), targets)
+        world_state = _state(world)
+        _check_relation_targets(world_state, targets)
 
-        _check_locked(_state(world))
-        _lock(world._lock)
+        _check_locked(world_state)
+        _lock(world_state._lock)
 
         arches, arches_hot = _get_archetypes(world, filter)
-        tables, _ = _get_tables(world, arches, arches_hot, filter)
-        batches = world._pool.batches
+        tables, _ = _get_tables(world_state, arches, arches_hot, filter)
+        batches = world_state._pool.batches
 
         for table_id in tables
-            old_table = world._tables[table_id]
+            old_table = world_state._tables[table_id]
             if isempty(old_table)
                 continue
             end
             # TODO: use a simplified data structure?
             push!(
                 batches,
-                _BatchTable(old_table, world._archetypes[old_table.archetype], 1, length(old_table)),
+                _BatchTable(old_table, world_state._archetypes[old_table.archetype], 1, length(old_table)),
             )
         end
         if !_is_cached(filter._filter) # Do not clear for cached filters!!!
@@ -604,7 +606,7 @@ end
 
         empty!(batches)
 
-        _unlock(world._lock)
+        _unlock(world_state._lock)
 
         return nothing
     end
@@ -618,35 +620,35 @@ function _set_relations_table!(
     targets::Tuple{Vararg{Entity}},
     has_fn::Bool,
 ) where {Fn,W<:World}
-    new_relations, changed, mask = _get_exchange_targets(_state(world), batch.table, relations, targets)
+    world_state = _state(world)
+    new_relations, changed, mask = _get_exchange_targets(world_state, batch.table, relations, targets)
     if !changed
         empty!(new_relations)
         return nothing
     end
-
-    new_table, found = _get_table(_state(world), batch.archetype, new_relations)
+    new_table, found = _get_table(world_state, batch.archetype, new_relations)
     if !found
-        new_table_id = _create_table!(_state(world), _stores(world), batch.archetype, copy(new_relations), _world_schema(typeof(world)))
-        new_table = world._tables[new_table_id]
+        new_table_id = _create_table!(world_state, _stores(world), batch.archetype, copy(new_relations), _world_schema(typeof(world)))
+        new_table = world_state._tables[new_table_id]
     end
     empty!(new_relations)
 
-    if _has_observers(world._event_manager, OnRemoveRelations)
-        _fire_set_relations(world._event_manager, OnRemoveRelations, batch, mask)
+    if _has_observers(world_state._event_manager, OnRemoveRelations)
+        _fire_set_relations(world_state._event_manager, OnRemoveRelations, batch, mask)
     end
 
     start_idx = length(new_table) + 1
-    _move_entities!(_state(world), _stores(world), batch.table.id, new_table.id, batch.end_idx)
+    _move_entities!(world_state, _stores(world), batch.table.id, new_table.id, batch.end_idx)
     if has_fn
         fn(view(new_table.entities, start_idx:length(new_table)))
     end
 
-    if _has_observers(world._event_manager, OnAddRelations)
+    if _has_observers(world_state._event_manager, OnAddRelations)
         _fire_set_relations(
-            world._event_manager,
+            world_state._event_manager,
             OnAddRelations,
             _BatchTable(
-                new_table, world._archetypes[new_table.archetype],
+                new_table, world_state._archetypes[new_table.archetype],
                 start_idx, length(new_table),
             ),
             mask,
@@ -684,23 +686,24 @@ end
     _check_is_subset(rel_types, add_types)
 
     return quote
-        _check_relation_targets(_state(world), targets)
-        _check_locked(_state(world))
-        _lock(world._lock)
+        world_state = _state(world)
+        _check_relation_targets(world_state, targets)
+        _check_locked(world_state)
+        _lock(world_state._lock)
 
         arches, arches_hot = _get_archetypes(world, filter)
-        tables, _ = _get_tables(world, arches, arches_hot, filter)
-        batches = world._pool.batches
+        tables, _ = _get_tables(world_state, arches, arches_hot, filter)
+        batches = world_state._pool.batches
 
         for table_id in tables
-            old_table = world._tables[table_id]
+            old_table = world_state._tables[table_id]
             if isempty(old_table)
                 continue
             end
             # TODO: use a simplified data structure?
             push!(
                 batches,
-                _BatchTable(old_table, world._archetypes[old_table.archetype], 1, length(old_table)),
+                _BatchTable(old_table, world_state._archetypes[old_table.archetype], 1, length(old_table)),
             )
         end
         if !_is_cached(filter._filter) # Do not clear for cached filters!!!
@@ -714,7 +717,7 @@ end
 
         empty!(batches)
 
-        _unlock(world._lock)
+        _unlock(world_state._lock)
 
         return nothing
     end
@@ -755,6 +758,7 @@ end
     world_has_rel = Val{_has_relations(relation_types)}()
     adds_relations = !isempty(rel_types)
 
+    push!(exprs, :(world_state = _state(world)))
     push!(
         exprs,
         :(
@@ -767,28 +771,28 @@ end
     )
     push!(exprs, :(new_table_index = new_table_tuple[1]))
     push!(exprs, :(relations_removed = new_table_tuple[2]))
-    push!(exprs, :(new_table = world._tables[new_table_index]))
+    push!(exprs, :(new_table = world_state._tables[new_table_index]))
 
     if length(rem_types) > 0
         push!(
             exprs,
             :(
                 begin
-                    has_comp_obs = _has_observers(world._event_manager, OnRemoveComponents)
-                    has_rel_obs = relations_removed && _has_observers(world._event_manager, OnRemoveRelations)
+                    has_comp_obs = _has_observers(world_state._event_manager, OnRemoveComponents)
+                    has_rel_obs = relations_removed && _has_observers(world_state._event_manager, OnRemoveRelations)
                     if has_comp_obs || has_rel_obs
-                        old_mask = world._archetypes_hot[batch.table.archetype].mask
-                        new_mask = world._archetypes_hot[new_table.archetype].mask
+                        old_mask = world_state._archetypes_hot[batch.table.archetype].mask
+                        new_mask = world_state._archetypes_hot[new_table.archetype].mask
                         if has_comp_obs
                             _fire_remove(
-                                world._event_manager,
+                                world_state._event_manager,
                                 OnRemoveComponents, batch,
                                 old_mask, new_mask,
                             )
                         end
                         if has_rel_obs
                             _fire_remove(
-                                world._event_manager,
+                                world_state._event_manager,
                                 OnRemoveRelations, batch,
                                 old_mask, new_mask,
                             )
@@ -800,7 +804,7 @@ end
     end
 
     push!(exprs, :(start_idx = length(new_table) + 1))
-    push!(exprs, :(_move_entities!(_state(world), _stores(world), batch.table.id, new_table.id, batch.end_idx)))
+    push!(exprs, :(_move_entities!(world_state, _stores(world), batch.table.id, new_table.id, batch.end_idx)))
 
     if DEF === Val{true}
         for i in 1:length(add_types)
@@ -840,25 +844,25 @@ end
             exprs,
             :(
                 begin
-                    has_comp_obs = _has_observers(world._event_manager, OnAddComponents)
-                    has_rel_obs = $adds_relations && _has_observers(world._event_manager, OnAddRelations)
+                    has_comp_obs = _has_observers(world_state._event_manager, OnAddComponents)
+                    has_rel_obs = $adds_relations && _has_observers(world_state._event_manager, OnAddRelations)
                     if has_comp_obs || has_rel_obs
-                        new_archetype = world._archetypes[new_table.archetype]
-                        old_mask = world._archetypes_hot[batch.table.archetype].mask
+                        new_archetype = world_state._archetypes[new_table.archetype]
+                        old_mask = world_state._archetypes_hot[batch.table.archetype].mask
                         batch_table = _BatchTable(
                             new_table, new_archetype,
                             start_idx, length(new_table),
                         )
                         if has_comp_obs
                             _fire_add(
-                                world._event_manager,
+                                world_state._event_manager,
                                 OnAddComponents, batch_table,
                                 old_mask, new_archetype.node.mask,
                             )
                         end
                         if has_rel_obs
                             _fire_add(
-                                world._event_manager,
+                                world_state._event_manager,
                                 OnAddRelations, batch_table,
                                 old_mask, new_archetype.node.mask,
                             )
@@ -882,24 +886,26 @@ end
     world_has_rel = _has_relations(_world_relation_types(W))
     has_fn = HFN == Val{true}
     quote
-        _check_locked(_state(world))
+        world_state = _state(world)
+
+        _check_locked(world_state)
 
         arches, arches_hot = _get_archetypes(world, filter)
-        tables, any_relations = _get_tables(world, arches, arches_hot, filter)
+        tables, any_relations = _get_tables(world_state, arches, arches_hot, filter)
 
-        has_entity_obs = _has_observers(world._event_manager, OnRemoveEntity)
-        has_rel_obs = any_relations && _has_observers(world._event_manager, OnRemoveRelations)
+        has_entity_obs = _has_observers(world_state._event_manager, OnRemoveEntity)
+        has_rel_obs = any_relations && _has_observers(world_state._event_manager, OnRemoveRelations)
         has_callback = $has_fn
         should_lock = has_entity_obs || has_rel_obs || has_callback
 
         if should_lock
-            _lock(world._lock)
+            _lock(world_state._lock)
         end
 
         $(has_fn ?
           :(
             for table_id in tables
-                table = world._tables[table_id]
+                table = world_state._tables[table_id]
                 if isempty(table)
                     continue
                 end
@@ -911,52 +917,52 @@ end
 
         if has_entity_obs
             for table_id in tables
-                table = world._tables[table_id]
+                table = world_state._tables[table_id]
                 if isempty(table)
                     continue
                 end
                 _fire_remove_entities(
-                    world._event_manager,
+                    world_state._event_manager,
                     table,
-                    world._archetypes_hot[table.archetype].mask,
+                    world_state._archetypes_hot[table.archetype].mask,
                 )
             end
         end
         if has_rel_obs
             for table_id in tables
-                table = world._tables[table_id]
+                table = world_state._tables[table_id]
                 if isempty(table)
                     continue
                 end
                 if _has_relations(table)
                     _fire_remove_entities_relations(
-                        world._event_manager,
+                        world_state._event_manager,
                         table,
-                        world._archetypes_hot[table.archetype].mask,
+                        world_state._archetypes_hot[table.archetype].mask,
                     )
                 end
             end
         end
 
-        cleanup = world._pool.entities
+        cleanup = world_state._pool.entities
         for table_id in tables
-            table = world._tables[table_id]
+            table = world_state._tables[table_id]
             if isempty(table)
                 continue
             end
             for entity in table.entities
                 $(world_has_rel ?
                   :(
-                    if world._targets[entity._id]
+                    if world_state._targets[entity._id]
                         push!(cleanup, entity)
                     end
                 ) :
                   (:(nothing))
                 )
-                _recycle(world._entity_pool, entity)
+                _recycle(world_state._entity_pool, entity)
             end
             empty!(table)
-            for comp in world._archetypes[table.archetype].components
+            for comp in world_state._archetypes[table.archetype].components
                 _clear_component_data!(_stores(world), comp, table.id)
             end
         end
@@ -965,14 +971,14 @@ end
           :(
             for entity in cleanup
                 _cleanup_archetypes(world, entity)
-                world._targets[entity._id] = false
+                world_state._targets[entity._id] = false
             end
         ) :
           (:(nothing))
         )
 
         if should_lock
-            _unlock(world._lock)
+            _unlock(world_state._lock)
         end
 
         if !_is_cached(filter._filter) # Do not clear for cached filters!!!
@@ -1017,14 +1023,15 @@ end
     world_has_rel = Val{_has_relations(relation_types)}()
 
     exprs = Expr[]
-    push!(exprs, :(_check_relation_targets(_state(world), targets)))
-    push!(exprs, :(_check_locked(_state(world))))
+    push!(exprs, :(world_state = _state(world)))
+    push!(exprs, :(_check_relation_targets(world_state, targets)))
+    push!(exprs, :(_check_locked(world_state)))
     push!(
         exprs,
         :(
             table_idx = _find_or_create_table!(
                 world,
-                world._tables[1],
+                world_state._tables[1],
                 $ids,
                 (),
                 $rel_ids,
@@ -1037,7 +1044,7 @@ end
         ),
     )
     push!(exprs, :(indices = _create_entities!(world, table_idx, n)))
-    push!(exprs, :(table = world._tables[table_idx]))
+    push!(exprs, :(table = world_state._tables[table_idx]))
 
     if length(types) > 0 && DEF === Val{true}
         body_exprs = Expr(:block)
@@ -1066,18 +1073,18 @@ end
             exprs,
             :(
                 begin
-                    _lock(world._lock)
+                    _lock(world_state._lock)
                     columns = _get_columns(world, $ts_val_expr, table, indices...)
                     fn(columns)
 
-                    batch = _BatchTable(table, world._archetypes[table.archetype], indices...)
-                    if _has_observers(world._event_manager, OnCreateEntity)
-                        _fire_create_entities(world._event_manager, batch)
+                    batch = _BatchTable(table, world_state._archetypes[table.archetype], indices...)
+                    if _has_observers(world_state._event_manager, OnCreateEntity)
+                        _fire_create_entities(world_state._event_manager, batch)
                     end
-                    if _has_relations(table) && _has_observers(world._event_manager, OnAddRelations)
-                        _fire_create_entities_relations(world._event_manager, batch)
+                    if _has_relations(table) && _has_observers(world_state._event_manager, OnAddRelations)
+                        _fire_create_entities_relations(world_state._event_manager, batch)
                     end
-                    _unlock(world._lock)
+                    _unlock(world_state._lock)
                     return nothing
                 end
             ),
@@ -1087,18 +1094,18 @@ end
             exprs,
             :(
                 begin
-                    has_entity_obs = _has_observers(world._event_manager, OnCreateEntity)
-                    has_rel_obs = _has_relations(table) && _has_observers(world._event_manager, OnAddRelations)
+                    has_entity_obs = _has_observers(world_state._event_manager, OnCreateEntity)
+                    has_rel_obs = _has_relations(table) && _has_observers(world_state._event_manager, OnAddRelations)
                     if has_entity_obs || has_rel_obs
-                        _lock(world._lock)
-                        batch = _BatchTable(table, world._archetypes[table.archetype], indices...)
+                        _lock(world_state._lock)
+                        batch = _BatchTable(table, world_state._archetypes[table.archetype], indices...)
                         if has_entity_obs
-                            _fire_create_entities(world._event_manager, batch)
+                            _fire_create_entities(world_state._event_manager, batch)
                         end
                         if has_rel_obs
-                            _fire_create_entities_relations(world._event_manager, batch)
+                            _fire_create_entities_relations(world_state._event_manager, batch)
                         end
-                        _unlock(world._lock)
+                        _unlock(world_state._lock)
                     end
                     return nothing
                 end

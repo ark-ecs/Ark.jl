@@ -6,7 +6,7 @@ function setup_callback(n::Int)
     observe!(entity -> nothing, world, OnCreateEntity, ())
     observe!(entity -> nothing, world, OnCreateEntity, ())
 
-    observers = world._event_manager.observers[OnCreateEntity._id]
+    observers = _state(world)._event_manager.observers[OnCreateEntity._id]
 
     return observers, [i % length(observers) + 1 for i in 1:n]
 end

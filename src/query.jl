@@ -121,18 +121,20 @@ end
 
     # TODO: skip this for cached filters
     archetypes =
-        length(ids_tuple) == 0 ? :((filter._world._archetypes, filter._world._archetypes_hot)) :
-        :(_get_archetypes(_state(filter._world), $ids_tuple))
+        length(ids_tuple) == 0 ? 
+        :((world_state._archetypes, world_state._archetypes_hot)) :
+        :(_get_archetypes(world_state, $ids_tuple))
 
     component_storage_types = fieldtypes(CS)
     storages_types = DataType[component_storage_types[_component_index(CS, T)] for T in comp_types]
     storage_tuple_type = Expr(:curly, :Tuple, storages_types...)
     storages_expr = Expr(:tuple,
-        Expr[:(filter._world._storages[$(_component_index(CS, T))]) for T in comp_types]...,
+        Expr[:(world_state._storages[$(_component_index(CS, T))]) for T in comp_types]...,
     )
 
     return quote
-        _lock(filter._world._lock)
+        world_state = _state(filter._world)
+        _lock(world_state._lock)
         arches, hot = $(archetypes)
         Query{$W,$TS,$storage_tuple_mode,$EX,$OPT,$REG,$(length(comp_types)),$M,$K,$storage_tuple_type}(
             filter._filter,
@@ -155,7 +157,7 @@ end
 
 @inline function _iterate(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
     arch, tab = state
-
+    world_state = _state(q._world)
     while arch <= length(q._archetypes)
         if tab == 0
             @inbounds archetype_hot = q._archetypes_hot[arch]
@@ -166,7 +168,7 @@ end
             end
 
             if !archetype_hot.has_relations
-                table = @inbounds q._world._tables[Int(archetype_hot.table)]
+                table = @inbounds world_state._tables[Int(archetype_hot.table)]
                 if isempty(table.entities)
                     arch += 1
                     continue
@@ -185,12 +187,12 @@ end
         end
 
         @inbounds archetype = q._archetypes[arch]
-        tables = _get_tables(_state(q._world), archetype, q._filter.relations)
+        tables = _get_tables(world_state, archetype, q._filter.relations)
 
         while tab <= length(tables)
-            table = @inbounds q._world._tables[Int(tables[tab])]
+            table = @inbounds world_state._tables[Int(tables[tab])]
             # TODO we can probably optimize here if exactly one relation in archetype and one queried.
-            if isempty(table.entities) || !_matches(q._world._relations, table, q._filter.relations)
+            if isempty(table.entities) || !_matches(world_state._relations, table, q._filter.relations)
                 tab += 1
                 continue
             end
@@ -211,7 +213,7 @@ end
     index, _ = state
     while index <= length(q._filter.tables)
         @inbounds table_id = q._filter.tables[index]
-        @inbounds table = q._world._tables[table_id]
+        @inbounds table = q._world_state._tables[table_id]
         if !isempty(table.entities)
             result = _get_columns(q, table)
             return result, (index + 1, 0)
@@ -303,7 +305,7 @@ function close!(q::Q) where {Q<:Query}
     if q._q_lock.closed == true
         return nothing
     end
-    _unlock(q._world._lock)
+    _unlock(_state(q._world)._lock)
     q._q_lock.closed = true
     return nothing
 end
