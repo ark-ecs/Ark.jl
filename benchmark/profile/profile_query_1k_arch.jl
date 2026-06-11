@@ -45,7 +45,8 @@ function setup_query_1k_arch()
         resize!(comps, 0)
     end
     expected_archetypes = min(n_entities + 1, 1025)
-    num_archetypes = length(_state(world)._archetypes)
+    world_state = Ark._state(world)
+    num_archetypes = length(world_state._archetypes)
     if num_archetypes != expected_archetypes
         error("expected $expected_archetypes archetypes, got $num_archetypes")
     end

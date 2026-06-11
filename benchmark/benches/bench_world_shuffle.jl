@@ -27,25 +27,25 @@ function setup_world_shuffle(n_entities::Int)
     rng = Xoshiro(42)
     shuffle_entities!(rng, f)
 
-    pred = let world = f._world, limit = n_entities / 2
+    pred = let world = world, limit = n_entities / 2
         e -> world[e][CompN{1}].x < limit
     end
 
-    return (rng, f, pred)
+    return (rng, world, f, pred)
 end
 
 function benchmark_world_shuffle(args)
-    rng, f, _ = args
+    rng, _, f, _ = args
     shuffle_entities!(rng, f)
 end
 
 function benchmark_world_sort(args)
-    _, f, _ = args
-    sort_entities!(f; by=e -> f._world[e][CompN{1}].x)
+    _, world, f, _ = args
+    sort_entities!(f; by=e -> world[e][CompN{1}].x)
 end
 
 function benchmark_world_partition(args)
-    _, f, pred = args
+    _, _, f, pred = args
     partition_entities!(f; pred)
 end
 
