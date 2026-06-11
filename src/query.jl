@@ -9,13 +9,12 @@ end
 A query for components. See function
 [Query](@ref Query(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)) for details.
 """
-struct Query{W<:World,EX,OPT,M,K,QS<:Tuple}
+struct Query{W<:World,EX,OPT,M,K,CM}
     _filter::_MaskFilter{M,K}
     _archetypes::Vector{_Archetype{M}}
     _archetypes_hot::Vector{_ArchetypeHot{M}}
     _q_lock::_QueryCursor
     _world::W
-    _storages::QS
 end
 
 """
@@ -117,24 +116,22 @@ end
         :((world_state._archetypes, world_state._archetypes_hot)) :
         :(_get_archetypes(world_state, $ids_tuple))
 
-    component_storage_types = fieldtypes(CS)
-    storages_types = DataType[component_storage_types[_component_index(CS, T)] for T in comp_types]
-    storage_tuple_type = Expr(:curly, :Tuple, storages_types...)
-    storages_expr = Expr(:tuple,
-        Expr[:(_stores(filter._world)._storages[$(_component_index(CS, T))]) for T in comp_types]...,
-    )
+    component_ids = Int[_component_index(CS, T) for T in comp_types]
+    component_mask = _Mask{M}(component_ids...)
+    query_ids = _active_bit_indices(component_mask)
+    query_optional_flag_type_elts = DataType[optional_flags[findfirst(==(id), component_ids)] for id in query_ids]
+    query_optional_flags_type = Expr(:curly, :Tuple, query_optional_flag_type_elts...)
 
     return quote
         world_state = _state(filter._world)
         _lock(world_state._lock)
         arches, hot = $(archetypes)
-        Query{$W,$EX,$OPT,$M,$K,$storage_tuple_type}(
+        Query{$W,$EX,$query_optional_flags_type,$M,$K,$(QuoteNode(component_mask))}(
             filter._filter,
             arches,
             hot,
             _QueryCursor(false),
             filter._world,
-            $storages_expr,
         )
     end
 end
@@ -306,22 +303,26 @@ function close!(q::Q) where {Q<:Query}
 end
 
 @generated function _get_columns(
-    q::Query{W,EX,OPT,M,K,QS},
+    q::Query{W,EX,OPT,M,K,CM},
     table::_Table,
-) where {W<:World,EX,OPT,M,K,QS}
-    component_storage_types = fieldtypes(QS)
+) where {W<:World,EX,OPT,M,K,CM}
+    component_ids = _active_bit_indices(CM)
+    all_component_storage_types = fieldtypes(_world_storage_types(W))
+    component_storage_types = DataType[all_component_storage_types[id] for id in component_ids]
     comp_types = map(_component_type, component_storage_types)
     storage_array_types = map(_storage_array_type, component_storage_types)
     is_optional = fieldtypes(OPT)
-    N = fieldcount(QS)
+    N = length(component_ids)
 
     exprs = Expr[]
+    push!(exprs, :(world_storage = _stores(q._world)))
     push!(exprs, :(entities = table.entities))
     for i in 1:N
+        component_id = component_ids[i]
         stor_sym = Symbol("stor", i)
         col_sym = Symbol("col", i)
         vec_sym = Symbol("vec", i)
-        push!(exprs, :(@inbounds $stor_sym = q._storages[$i]))
+        push!(exprs, :(@inbounds $stor_sym = world_storage._storages[$component_id]))
         push!(exprs, :(@inbounds $col_sym = $stor_sym.data[table.id]))
 
         if is_optional[i] === Val{true}
@@ -351,7 +352,7 @@ end
         push!(result_exprs, Symbol("vec", i))
     end
 
-    element_type = :(Base.eltype(Query{W,EX,OPT,M,K,QS}))
+    element_type = :(Base.eltype(Query{W,EX,OPT,M,K,CM}))
 
     tuple_expr = Expr(:tuple, result_exprs...)
     push!(exprs, Expr(:return, Expr(:(::), tuple_expr, element_type)))
@@ -366,13 +367,15 @@ end
 Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
 
 @generated function Base.eltype(
-    ::Type{Query{W,EX,OPT,M,K,QS}},
-) where {W<:World,EX,OPT,M,K,QS}
-    component_storage_types = fieldtypes(QS)
+    ::Type{Query{W,EX,OPT,M,K,CM}},
+) where {W<:World,EX,OPT,M,K,CM}
+    component_ids = _active_bit_indices(CM)
+    all_component_storage_types = fieldtypes(_world_storage_types(W))
+    component_storage_types = DataType[all_component_storage_types[id] for id in component_ids]
     comp_types = map(_component_type, component_storage_types)
     storage_array_types = map(_storage_array_type, component_storage_types)
     is_optional = fieldtypes(OPT)
-    N = fieldcount(QS)
+    N = length(component_ids)
 
     result_types = Any[:Entities]
     for i in 1:N
@@ -403,10 +406,12 @@ Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
 end
 
 function Base.show(
-    io::IO, query::Query{W,EX,OPT,M,K,QS},
-) where {W<:World,EX<:Val,OPT,M,K,QS}
+    io::IO, query::Query{W,EX,OPT,M,K,CM},
+) where {W<:World,EX<:Val,OPT,M,K,CM}
     world_types = fieldtypes(_world_component_types(W))
-    comp_types = map(_component_type, fieldtypes(QS))
+    component_ids = _active_bit_indices(CM)
+    component_storage_types = fieldtypes(_world_storage_types(W))
+    comp_types = tuple(DataType[_component_type(component_storage_types[id]) for id in component_ids]...)
 
     mask_ids = _active_bit_indices(query._filter.mask)
     mask_types = tuple(DataType[_type_parameter(world_types[Int(i)]) for i in mask_ids]...)
