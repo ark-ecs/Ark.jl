@@ -9,7 +9,7 @@ end
 A query for components. See function
 [Query](@ref Query(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)) for details.
 """
-struct Query{W<:World,TS<:Tuple,SM<:Tuple,EX,OPT,REG,N,M,K,QS<:Tuple}
+struct Query{W<:World,TS<:Tuple,EX,OPT,M,K,QS<:Tuple}
     _filter::_MaskFilter{M,K}
     _archetypes::Vector{_Archetype{M}}
     _archetypes_hot::Vector{_ArchetypeHot{M}}
@@ -101,7 +101,6 @@ end
     TS = _filter_component_types(F)
     EX = _filter_exclusive(F)
     OPT = _filter_optional_flags(F)
-    REG = _filter_registered(F)
     M = _filter_mask_chunks(F)
     K = _filter_relation_count(F)
 
@@ -120,8 +119,6 @@ end
 
     component_storage_types = fieldtypes(CS)
     storages_types = DataType[component_storage_types[_component_index(CS, T)] for T in comp_types]
-    storage_array_types = DataType[_storage_array_type(S) for S in storages_types]
-    storage_array_tuple_type = Expr(:curly, :Tuple, storage_array_types...)
     storage_tuple_type = Expr(:curly, :Tuple, storages_types...)
     storages_expr = Expr(:tuple,
         Expr[:(_stores(filter._world)._storages[$(_component_index(CS, T))]) for T in comp_types]...,
@@ -131,7 +128,7 @@ end
         world_state = _state(filter._world)
         _lock(world_state._lock)
         arches, hot = $(archetypes)
-        Query{$W,$TS,$storage_array_tuple_type,$EX,$OPT,$REG,$(length(comp_types)),$M,$K,$storage_tuple_type}(
+        Query{$W,$TS,$EX,$OPT,$M,$K,$storage_tuple_type}(
             filter._filter,
             arches,
             hot,
@@ -309,12 +306,13 @@ function close!(q::Q) where {Q<:Query}
 end
 
 @generated function _get_columns(
-    q::Query{W,TS,SM,EX,OPT,REG,N,M,K,QS},
+    q::Query{W,TS,EX,OPT,M,K,QS},
     table::_Table,
-) where {W<:World,TS<:Tuple,SM<:Tuple,EX,OPT,REG,N,M,K,QS}
+) where {W<:World,TS<:Tuple,EX,OPT,M,K,QS}
     comp_types = fieldtypes(TS)
-    storage_types = fieldtypes(SM)
+    storage_types = map(_storage_array_type, fieldtypes(QS))
     is_optional = fieldtypes(OPT)
+    N = fieldcount(QS)
 
     exprs = Expr[]
     push!(exprs, :(entities = table.entities))
@@ -352,7 +350,7 @@ end
         push!(result_exprs, Symbol("vec", i))
     end
 
-    element_type = :(Base.eltype(Query{W,TS,SM,EX,OPT,REG,N,M,K,QS}))
+    element_type = :(Base.eltype(Query{W,TS,EX,OPT,M,K,QS}))
 
     tuple_expr = Expr(:tuple, result_exprs...)
     push!(exprs, Expr(:return, Expr(:(::), tuple_expr, element_type)))
@@ -367,11 +365,12 @@ end
 Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
 
 @generated function Base.eltype(
-    ::Type{Query{W,TS,SM,EX,OPT,REG,N,M,K,QS}},
-) where {W<:World,TS<:Tuple,SM<:Tuple,EX,OPT,REG,N,M,K,QS}
+    ::Type{Query{W,TS,EX,OPT,M,K,QS}},
+) where {W<:World,TS<:Tuple,EX,OPT,M,K,QS}
     comp_types = fieldtypes(TS)
-    storage_types = fieldtypes(SM)
+    storage_types = map(_storage_array_type, fieldtypes(QS))
     is_optional = fieldtypes(OPT)
+    N = fieldcount(QS)
 
     result_types = Any[:Entities]
     for i in 1:N
@@ -402,8 +401,8 @@ Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
 end
 
 function Base.show(
-    io::IO, query::Query{W,CT,SM,EX,OPT,REG,N,M,K,QS},
-) where {W<:World,CT<:Tuple,SM<:Tuple,EX<:Val,OPT,REG,N,M,K,QS}
+    io::IO, query::Query{W,CT,EX,OPT,M,K,QS},
+) where {W<:World,CT<:Tuple,EX<:Val,OPT,M,K,QS}
     world_types = fieldtypes(_world_component_types(W))
     comp_types = fieldtypes(CT)
 
