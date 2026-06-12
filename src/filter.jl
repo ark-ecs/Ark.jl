@@ -169,10 +169,8 @@ function _matches(filter::F, archetype::_ArchetypeHot) where {F<:_MaskFilter}
            (!filter.has_excluded || !_contains_any(archetype.mask, filter.exclude_mask))
 end
 
-macro _each_matching_table(world, filter, archetypes, archetypes_hot, table, action)
+macro _each_matching_table(world_state, filter, archetypes, archetypes_hot, table, action)
     esc(quote
-        world_or_state = $world
-        world_state = world_or_state isa _WorldState ? world_or_state : _state(world_or_state)
         for i in eachindex($(archetypes))
             archetype_hot = @inbounds $(archetypes_hot)[i]
             if !_matches($(filter), archetype_hot)
@@ -181,7 +179,7 @@ macro _each_matching_table(world, filter, archetypes, archetypes_hot, table, act
 
             if !archetype_hot.has_relations
                 table_id = archetype_hot.table
-                $table = @inbounds world_state._tables[Int(table_id)]
+                $table = @inbounds $(world_state)._tables[Int(table_id)]
                 if !isempty($table.entities)
                     $action
                 end
@@ -193,11 +191,11 @@ macro _each_matching_table(world, filter, archetypes, archetypes_hot, table, act
                 continue
             end
 
-            tables = _get_tables(world_state, archetype, $(filter).relations)
+            tables = _get_tables($(world_state), archetype, $(filter).relations)
             for table_id in tables
                 # TODO we can probably optimize here if exactly one relation in archetype and one queried.
-                $table = @inbounds world_state._tables[Int(table_id)]
-                if !isempty($table.entities) && _matches(world_state._relations, $table, $(filter).relations)
+                $table = @inbounds $(world_state)._tables[Int(table_id)]
+                if !isempty($table.entities) && _matches($(world_state)._relations, $table, $(filter).relations)
                     $action
                 end
             end
