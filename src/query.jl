@@ -16,8 +16,6 @@ struct Query{State<:_WorldState,QS<:Tuple,EX,OF,M,K}
     _q_lock::_QueryCursor
     _world_state::State
     _storages::QS
-    _with_names::String
-    _without_names::String
 end
 
 """
@@ -97,22 +95,18 @@ Base.@constprop :aggressive function Query(
     return _Query_from_filter(filter)
 end
 
-function _mask_component_types(::Type{Storage}, mask::_Mask) where {Storage<:_WorldStorage}
-    world_types = fieldtypes(_schema_component_types(Storage))
+function _mask_component_types(world_state::_WorldState, mask::_Mask)
+    world_types = world_state._registry.types
     component_ids = _active_bit_indices(mask)
-    return tuple(DataType[_type_parameter(world_types[Int(id)]) for id in component_ids]...)
+    return tuple(DataType[world_types[Int(id)] for id in component_ids]...)
 end
 
-function _format_mask_types(::Type{Storage}, mask::_Mask) where {Storage<:_WorldStorage}
-    return join(map(_format_type, _mask_component_types(Storage, mask)), ", ")
+function _format_mask_types(world_state::_WorldState, mask::_Mask)
+    return join(map(_format_type, _mask_component_types(world_state, mask)), ", ")
 end
 
-function _format_mask_types_except(
-    ::Type{Storage},
-    mask::_Mask,
-    excluded_types::Tuple,
-) where {Storage<:_WorldStorage}
-    types = setdiff(_mask_component_types(Storage, mask), excluded_types)
+function _format_mask_types_except(world_state::_WorldState, mask::_Mask, excluded_types::Tuple)
+    types = setdiff(_mask_component_types(world_state, mask), excluded_types)
     return join(map(_format_type, types), ", ")
 end
 
@@ -141,8 +135,8 @@ function _Query_from_filter_expr(::Type{F}, output_ids::Tuple{Vararg{Int}}) wher
     all_component_storage_types = fieldtypes(_schema_storage_types(Storage))
     query_storage_types = Any[all_component_storage_types[id] for id in output_ids]
     QS = Tuple{query_storage_types...}
-    output_component_types = tuple(DataType[_component_type(T) for T in query_storage_types]...)
-    output_optional_flags = tuple(Bool[_get_bit(query_optional_mask, id) for id in output_ids]...)
+    output_optional_ids = Int[i for i in eachindex(output_ids) if _get_bit(query_optional_mask, output_ids[i])]
+    output_optional_mask = _Mask{M}(output_optional_ids...)
     query_storages = Expr(:tuple, (:(world_storage._storages[$id]) for id in output_ids)...)
 
     return quote
@@ -150,24 +144,15 @@ function _Query_from_filter_expr(::Type{F}, output_ids::Tuple{Vararg{Int}}) wher
         world_state = _state(world)
         world_storage = _storage(world)
         query_storages = $query_storages
-        output_component_types = $(QuoteNode(output_component_types))
-        with_names = _format_mask_types_except(
-            $(QuoteNode(Storage)),
-            filter._filter.mask,
-            output_component_types,
-        )
-        without_names = $EX ? "" : _format_mask_types($(QuoteNode(Storage)), filter._filter.exclude_mask)
         _lock(world_state._lock)
         arches, hot = $(archetypes)
-        Query{$State,$QS,$EX,$(QuoteNode(output_optional_flags)),$M,$K}(
+        Query{$State,$QS,$EX,$(QuoteNode(output_optional_mask)),$M,$K}(
             filter._filter,
             arches,
             hot,
             _QueryCursor(false),
             world_state,
             query_storages,
-            with_names,
-            without_names,
         )
     end
 end
@@ -379,7 +364,7 @@ end
         push!(exprs, :(@inbounds $stor_sym = q._storages[$i]))
         push!(exprs, :(@inbounds $col_sym = $stor_sym.data[table.id]))
 
-        if OF[i]
+        if _get_bit(OF, i)
             if storage_array_types[i] <: GPUVector
                 push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : view(($col_sym).mem, 1:($col_sym).len)))
             elseif storage_array_types[i] <: StructArray ||
@@ -447,7 +432,7 @@ Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
             :(_FieldsViewable_type($storage_type))
         end
 
-        push!(result_types, OF[i] ? :(Union{Nothing,$base_view}) : :($base_view))
+        push!(result_types, _get_bit(OF, i) ? :(Union{Nothing,$base_view}) : :($base_view))
     end
 
     return quote
@@ -461,17 +446,17 @@ function Base.show(
     component_storage_types = fieldtypes(QS)
     comp_types = tuple(DataType[_component_type(S) for S in component_storage_types]...)
 
-    required_types = tuple(DataType[comp_types[i] for i in eachindex(comp_types) if !OF[i]]...)
-    optional_types = tuple(DataType[comp_types[i] for i in eachindex(comp_types) if OF[i]]...)
+    required_types = tuple(DataType[comp_types[i] for i in eachindex(comp_types) if !_get_bit(OF, i)]...)
+    optional_types = tuple(DataType[comp_types[i] for i in eachindex(comp_types) if _get_bit(OF, i)]...)
 
     required_names = join(map(_format_type, required_types), ", ")
     optional_names = join(map(_format_type, optional_types), ", ")
-    with_names = query._with_names
+    with_names = _format_mask_types_except(query._world_state, query._filter.mask, comp_types)
     is_exclusive = EX === true
 
     without_names = ""
     if !is_exclusive
-        without_names = query._without_names
+        without_names = _format_mask_types(query._world_state, query._filter.exclude_mask)
     end
 
     kw_parts = String[]
