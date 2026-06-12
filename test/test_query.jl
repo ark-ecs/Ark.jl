@@ -43,6 +43,29 @@
     end
 end
 
+@testset "Query preserves requested column order" begin
+    world = World(Position, Velocity)
+
+    new_entity!(world, (Position(1, 2), Velocity(3, 4)))
+
+    _, velocities, positions = only(Query(world, (Velocity, Position)))
+
+    @test velocities isa FieldViewable{Velocity}
+    @test positions isa FieldViewable{Position}
+    @test velocities[1] == Velocity(3, 4)
+    @test positions[1] == Position(1, 2)
+
+    query = Query(world, (Velocity, Position))
+    @test string(query) == "Query((Velocity, Position))"
+    close!(query)
+
+    _, velocities, positions = only(Query(world, (Velocity,); optional=(Position,)))
+    @test velocities isa FieldViewable{Velocity}
+    @test positions isa FieldViewable{Position}
+    @test velocities[1] == Velocity(3, 4)
+    @test positions[1] == Position(1, 2)
+end
+
 @testset "Query from filter" begin
     world = World(Dummy, Position, Velocity, Altitude, Health)
 

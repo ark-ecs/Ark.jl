@@ -9,12 +9,15 @@ end
 A query for components. See function
 [Query](@ref Query(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)) for details.
 """
-struct Query{W<:World,EX,OM,M,K,CM}
+struct Query{State<:_WorldState,QS<:Tuple,EX,OF,M,K}
     _filter::_MaskFilter{M,K}
     _archetypes::Vector{_Archetype{M}}
     _archetypes_hot::Vector{_ArchetypeHot{M}}
     _q_lock::_QueryCursor
-    _world::W
+    _world_state::State
+    _storages::QS
+    _with_names::String
+    _without_names::String
 end
 
 """
@@ -63,13 +66,15 @@ end
 ```
 """
 Base.@constprop :aggressive function Query(
-    world::World,
+    world::W,
     comp_types::Tuple;
     with::Tuple=(),
     without::Tuple=(),
     optional::Tuple=(),
     exclusive::Bool=false,
-)
+) where {W<:World}
+    comp_types_f, _ = _normalize_relations(comp_types, Val(:type))
+    optional_f, _ = _normalize_relations(optional, Val(:type))
     filter = Filter(
         world,
         comp_types;
@@ -78,7 +83,7 @@ Base.@constprop :aggressive function Query(
         optional=optional,
         exclusive=exclusive,
     )
-    return _Query_from_filter(filter)
+    return _Query_from_filter(filter, _valtuple(comp_types_f), _valtuple(optional_f))
 end
 
 """
@@ -92,10 +97,29 @@ Base.@constprop :aggressive function Query(
     return _Query_from_filter(filter)
 end
 
-@generated function _Query_from_filter(
-    filter::F,
-) where {F<:Filter}
+function _mask_component_types(::Type{Storage}, mask::_Mask) where {Storage<:_WorldStorage}
+    world_types = fieldtypes(_schema_component_types(Storage))
+    component_ids = _active_bit_indices(mask)
+    return tuple(DataType[_type_parameter(world_types[Int(id)]) for id in component_ids]...)
+end
+
+function _format_mask_types(::Type{Storage}, mask::_Mask) where {Storage<:_WorldStorage}
+    return join(map(_format_type, _mask_component_types(Storage, mask)), ", ")
+end
+
+function _format_mask_types_except(
+    ::Type{Storage},
+    mask::_Mask,
+    excluded_types::Tuple,
+) where {Storage<:_WorldStorage}
+    types = setdiff(_mask_component_types(Storage, mask), excluded_types)
+    return join(map(_format_type, types), ", ")
+end
+
+function _Query_from_filter_expr(::Type{F}, output_ids::Tuple{Vararg{Int}}) where {F<:Filter}
     W = _filter_world(F)
+    Storage = _world_storage(W)
+    State = fieldtype(W, :_state)
     CM = _filter_component_mask(F)
     EX = _filter_exclusive(F)
     OM = _filter_optional_mask(F)
@@ -114,19 +138,61 @@ end
         :(_get_archetypes(world_state, $ids_tuple))
 
     query_optional_mask = _and(CM, OM)
+    all_component_storage_types = fieldtypes(_schema_storage_types(Storage))
+    query_storage_types = Any[all_component_storage_types[id] for id in output_ids]
+    QS = Tuple{query_storage_types...}
+    output_component_types = tuple(DataType[_component_type(T) for T in query_storage_types]...)
+    output_optional_flags = tuple(Bool[_get_bit(query_optional_mask, id) for id in output_ids]...)
+    query_storages = Expr(:tuple, (:(world_storage._storages[$id]) for id in output_ids)...)
 
     return quote
-        world_state = _state(filter._world)
+        world = filter._world
+        world_state = _state(world)
+        world_storage = _storage(world)
+        query_storages = $query_storages
+        output_component_types = $(QuoteNode(output_component_types))
+        with_names = _format_mask_types_except(
+            $(QuoteNode(Storage)),
+            filter._filter.mask,
+            output_component_types,
+        )
+        without_names = $EX ? "" : _format_mask_types($(QuoteNode(Storage)), filter._filter.exclude_mask)
         _lock(world_state._lock)
         arches, hot = $(archetypes)
-        Query{$W,$EX,$(QuoteNode(query_optional_mask)),$M,$K,$(QuoteNode(CM))}(
+        Query{$State,$QS,$EX,$(QuoteNode(output_optional_flags)),$M,$K}(
             filter._filter,
             arches,
             hot,
             _QueryCursor(false),
-            filter._world,
+            world_state,
+            query_storages,
+            with_names,
+            without_names,
         )
     end
+end
+
+@generated function _Query_from_filter(
+    filter::F,
+) where {F<:Filter}
+    CM = _filter_component_mask(F)
+    output_ids = tuple(_active_bit_indices(CM)...)
+    return _Query_from_filter_expr(F, output_ids)
+end
+
+@generated function _Query_from_filter(
+    filter::F,
+    ::CT,
+    ::OT,
+) where {F<:Filter,CT<:Tuple,OT<:Tuple}
+    W = _filter_world(F)
+    CS = _world_storage_types(W)
+
+    required_types = _to_types(CT)
+    optional_types = _to_types(OT)
+    output_ids = tuple(Int[_component_index(CS, C) for C in (required_types..., optional_types...)]...)
+
+    return _Query_from_filter_expr(F, output_ids)
 end
 
 @inline function Base.iterate(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
@@ -139,8 +205,7 @@ end
 
 @inline function _iterate(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
     arch, tab = state
-    world_state = _state(q._world)
-    world_storage = _storage(q._world)
+    world_state = q._world_state
     while arch <= length(q._archetypes)
         if tab == 0
             @inbounds archetype_hot = q._archetypes_hot[arch]
@@ -156,7 +221,7 @@ end
                     arch += 1
                     continue
                 end
-                result = _get_columns(world_storage, q, table)
+                result = _get_columns(q, table)
                 return result, (arch + 1, 0)
             end
 
@@ -180,7 +245,7 @@ end
                 continue
             end
 
-            result = _get_columns(world_storage, q, table)
+            result = _get_columns(q, table)
             return result, (arch, tab + 1)
         end
 
@@ -194,13 +259,12 @@ end
 
 @inline function _iterate_registered(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
     index, _ = state
-    world_state = _state(q._world)
-    world_storage = _storage(q._world)
+    world_state = q._world_state
     while index <= length(q._filter.tables)
         @inbounds table_id = q._filter.tables[index]
         @inbounds table = world_state._tables[table_id]
         if !isempty(table.entities)
-            result = _get_columns(world_storage, q, table)
+            result = _get_columns(q, table)
             return result, (index + 1, 0)
         else
             index += 1
@@ -252,7 +316,7 @@ Does not iterate or [close!](@ref close!(::Query)) the query.
     The time complexity is linear with the number of tables in the query's pre-selection.
 """
 function Base.length(q::Q) where {Q<:Query}
-    world_state = _state(q._world)
+    world_state = q._world_state
     if _is_cached(q._filter)
         return _length_registered(world_state, q._filter)
     else
@@ -273,7 +337,7 @@ Does not iterate or [close!](@ref close!(::Query)) the query.
     It is equivalent to iterating the query's archetypes and summing up their lengths.
 """
 function count_entities(q::Q) where {Q<:Query}
-    world_state = _state(q._world)
+    world_state = q._world_state
     if _is_cached(q._filter)
         return _count_entities_registered(world_state, q._filter)
     else
@@ -292,34 +356,30 @@ function close!(q::Q) where {Q<:Query}
     if q._q_lock.closed == true
         return nothing
     end
-    _unlock(_state(q._world)._lock)
+    _unlock(q._world_state._lock)
     q._q_lock.closed = true
     return nothing
 end
 
 @generated function _get_columns(
-    world_storage::_WorldStorage,
-    q::Query{W,EX,OM,M,K,CM},
+    q::Query{State,QS,EX,OF,M,K},
     table::_Table,
-) where {W<:World,EX,OM,M,K,CM}
-    component_ids = _active_bit_indices(CM)
-    all_component_storage_types = fieldtypes(_world_storage_types(W))
-    component_storage_types = DataType[all_component_storage_types[id] for id in component_ids]
+) where {State<:_WorldState,QS<:Tuple,EX,OF,M,K}
+    component_storage_types = fieldtypes(QS)
     comp_types = map(_component_type, component_storage_types)
     storage_array_types = map(_storage_array_type, component_storage_types)
-    N = length(component_ids)
+    N = length(component_storage_types)
 
     exprs = Expr[]
     push!(exprs, :(entities = table.entities))
     for i in 1:N
-        component_id = component_ids[i]
         stor_sym = Symbol("stor", i)
         col_sym = Symbol("col", i)
         vec_sym = Symbol("vec", i)
-        push!(exprs, :(@inbounds $stor_sym = world_storage._storages[$component_id]))
+        push!(exprs, :(@inbounds $stor_sym = q._storages[$i]))
         push!(exprs, :(@inbounds $col_sym = $stor_sym.data[table.id]))
 
-        if _get_bit(OM, component_id)
+        if OF[i]
             if storage_array_types[i] <: GPUVector
                 push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : view(($col_sym).mem, 1:($col_sym).len)))
             elseif storage_array_types[i] <: StructArray ||
@@ -346,7 +406,7 @@ end
         push!(result_exprs, Symbol("vec", i))
     end
 
-    element_type = :(Base.eltype(Query{W,EX,OM,M,K,CM}))
+    element_type = :(Base.eltype(Query{State,QS,EX,OF,M,K}))
 
     tuple_expr = Expr(:tuple, result_exprs...)
     push!(exprs, Expr(:return, Expr(:(::), tuple_expr, element_type)))
@@ -361,14 +421,12 @@ end
 Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
 
 @generated function Base.eltype(
-    ::Type{Query{W,EX,OM,M,K,CM}},
-) where {W<:World,EX,OM,M,K,CM}
-    component_ids = _active_bit_indices(CM)
-    all_component_storage_types = fieldtypes(_world_storage_types(W))
-    component_storage_types = DataType[all_component_storage_types[id] for id in component_ids]
+    ::Type{Query{State,QS,EX,OF,M,K}},
+) where {State<:_WorldState,QS<:Tuple,EX,OF,M,K}
+    component_storage_types = fieldtypes(QS)
     comp_types = map(_component_type, component_storage_types)
     storage_array_types = map(_storage_array_type, component_storage_types)
-    N = length(component_ids)
+    N = length(component_storage_types)
 
     result_types = Any[:Entities]
     for i in 1:N
@@ -389,8 +447,7 @@ Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
             :(_FieldsViewable_type($storage_type))
         end
 
-        opt_flag = _get_bit(OM, component_ids[i])
-        push!(result_types, opt_flag ? :(Union{Nothing,$base_view}) : :($base_view))
+        push!(result_types, OF[i] ? :(Union{Nothing,$base_view}) : :($base_view))
     end
 
     return quote
@@ -399,41 +456,32 @@ Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
 end
 
 function Base.show(
-    io::IO, query::Query{W,EX,OM,M,K,CM},
-) where {W<:World,EX,OM,M,K,CM}
-    world_types = fieldtypes(_world_component_types(W))
-    component_ids = _active_bit_indices(CM)
-    component_storage_types = fieldtypes(_world_storage_types(W))
-    comp_types = tuple(DataType[_component_type(component_storage_types[id]) for id in component_ids]...)
+    io::IO, query::Query{State,QS,EX,OF,M,K},
+) where {State<:_WorldState,QS<:Tuple,EX,OF,M,K}
+    component_storage_types = fieldtypes(QS)
+    comp_types = tuple(DataType[_component_type(S) for S in component_storage_types]...)
 
-    mask_ids = _active_bit_indices(query._filter.mask)
-    mask_types = tuple(DataType[_type_parameter(world_types[Int(i)]) for i in mask_ids]...)
-
-    required_types = intersect(mask_types, comp_types)
-    optional_types = setdiff(comp_types, mask_types)
-    with_types = setdiff(mask_types, comp_types)
+    required_types = tuple(DataType[comp_types[i] for i in eachindex(comp_types) if !OF[i]]...)
+    optional_types = tuple(DataType[comp_types[i] for i in eachindex(comp_types) if OF[i]]...)
 
     required_names = join(map(_format_type, required_types), ", ")
     optional_names = join(map(_format_type, optional_types), ", ")
-    with_names = join(map(_format_type, with_types), ", ")
+    with_names = query._with_names
     is_exclusive = EX === true
 
-    excl_types = ()
     without_names = ""
     if !is_exclusive
-        excl_ids = _active_bit_indices(query._filter.exclude_mask)
-        excl_types = tuple(DataType[_type_parameter(world_types[Int(i)]) for i in excl_ids]...)
-        without_names = join(map(_format_type, excl_types), ", ")
+        without_names = query._without_names
     end
 
     kw_parts = String[]
     if !isempty(optional_types)
         push!(kw_parts, "optional=($optional_names)")
     end
-    if !isempty(with_types)
+    if !isempty(with_names)
         push!(kw_parts, "with=($with_names)")
     end
-    if !isempty(excl_types)
+    if !isempty(without_names)
         push!(kw_parts, "without=($without_names)")
     end
     if is_exclusive
