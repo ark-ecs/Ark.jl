@@ -39,13 +39,13 @@ end
     @test isa(_get_storage(_storage(world), Altitude).data[1], _storage_from_component(world, Altitude))
 
     world_state = _state(world)
-    schema = typeof(world).parameters[1]
-    @test length(_get_relations_storage(world_state, Position, schema).archetypes) == 0
-    @test length(_get_relations_storage(world_state, Position, schema).targets) == 0
-    @test length(_get_relations_storage(world_state, ChildOf, schema).archetypes) == 1
-    @test length(_get_relations_storage(world_state, ChildOf, schema).targets) == 1
-    @test _get_relations_storage(world_state, ChildOf, schema).archetypes[1] == 0
-    @test _get_relations_storage(world_state, ChildOf, schema).targets[1] == _no_entity
+    stores = _storage(world)
+    @test length(_get_relations_storage(world_state, Position, stores).archetypes) == 0
+    @test length(_get_relations_storage(world_state, Position, stores).targets) == 0
+    @test length(_get_relations_storage(world_state, ChildOf, stores).archetypes) == 1
+    @test length(_get_relations_storage(world_state, ChildOf, stores).targets) == 1
+    @test _get_relations_storage(world_state, ChildOf, stores).archetypes[1] == 0
+    @test _get_relations_storage(world_state, ChildOf, stores).targets[1] == _no_entity
 end
 
 @testset "World show" begin
@@ -145,7 +145,6 @@ end
         _Mask{M_mask}(),
         _NoUseMap(),
         Val(false),
-        typeof(world).parameters[1],
     )
     @test table1 == (2, false)
     @test _state(world)._tables[table1[1]].archetype == 2
@@ -163,7 +162,6 @@ end
         _Mask{M_mask}(),
         _NoUseMap(),
         Val(false),
-        typeof(world).parameters[1],
     )
     @test table2 == (3, false)
     @test _state(world)._tables[table2[1]].archetype == 3
@@ -181,7 +179,6 @@ end
         _Mask{M_mask}(),
         _NoUseMap(),
         Val(false),
-        typeof(world).parameters[1],
     )
     @test table3 == table1
     @test length(_state(world)._tables) == 3
@@ -290,7 +287,7 @@ end
         _get_storage(_storage(world), Float64))
 
     @test_throws("ArgumentError: Component type Float64 not found in the World",
-        _get_relations_storage(_state(world), Float64, typeof(world).parameters[1]))
+        _get_relations_storage(_state(world), Float64, _storage(world)))
 end
 
 @testset "_find_or_create_table! Tests" begin
@@ -312,7 +309,6 @@ end
         _Mask{M_mask}(),
         _NoUseMap(),
         Val(false),
-        typeof(world).parameters[1],
     )
     @test index == (2, false)
     @test length(_state(world)._tables) == 2
@@ -333,7 +329,6 @@ end
         _Mask{M_mask}(),
         _NoUseMap(),
         Val(false),
-        typeof(world).parameters[1],
     )
     @test index == (3, false)
     @test length(_state(world)._tables) == 3
@@ -351,7 +346,6 @@ end
         _Mask{M_mask}(),
         _UseMap(),
         Val(false),
-        typeof(world).parameters[1],
     )
     @test index == (3, false)
     @test length(_state(world)._tables) == 3
@@ -389,7 +383,6 @@ end
         _Mask{M_mask}(),
         _NoUseMap(),
         Val(false),
-        typeof(world).parameters[1],
     )
     @test table_index == (2, false)
 
@@ -1699,10 +1692,10 @@ end
     new_entity!(world, (Position(0, 0), ChildOf2() => parent1, ChildOf() => parent2))
 
     world_state = _state(world)
-    schema = typeof(world).parameters[1]
-    pos_relations = _get_relations_storage(world_state, Position, schema)
-    child_relations = _get_relations_storage(world_state, ChildOf, schema)
-    child2_relations = _get_relations_storage(world_state, ChildOf2, schema)
+    stores = _storage(world)
+    pos_relations = _get_relations_storage(world_state, Position, stores)
+    child_relations = _get_relations_storage(world_state, ChildOf, stores)
+    child2_relations = _get_relations_storage(world_state, ChildOf2, stores)
 
     @test length(pos_relations.archetypes) == 0
     @test length(pos_relations.targets) == 0

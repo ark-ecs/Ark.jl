@@ -356,10 +356,9 @@ end
     entity::Entity,
     ::Val{Unchecked},
 ) where {Storage<:_WorldStorage,Unchecked}
-    world_storage = Storage
-    CS = _schema_storage_types(world_storage)
+    CS = _schema_storage_types(Storage)
     inline_jtable = fieldcount(CS) <= 10
-    world_has_rel = _has_relations(_schema_relation_types(world_storage))
+    world_has_rel = _has_relations(_schema_relation_types(Storage))
 
     check_expr = Unchecked ? :() : :(
         if !is_alive(world_state, entity)
@@ -409,7 +408,7 @@ end
         $(world_has_rel ?
           :(
             if world_state._targets[entity._id]
-                _cleanup_archetypes(world_state, stores, entity, $world_storage)
+                _cleanup_archetypes(world_state, stores, entity)
                 world_state._targets[entity._id] = false
             end
         ) :
@@ -967,15 +966,16 @@ end
 @generated function _get_relations_storage(
     state::_WorldState,
     ::Type{C},
-    ::Type{world_storage},
-) where {C,world_storage<:_WorldStorage}
-    CS = _schema_storage_types(world_storage)
+    stores::Storage,
+) where {C,Storage<:_WorldStorage}
+    CS = _schema_storage_types(Storage)
     index = _component_index(CS, C)
     return :(state._relations[$index])
 end
 
 @inline function _find_or_create_archetype!(
     state::_WorldState{M,K},
+    stores::Storage,
     start::_GraphNode,
     add::Tuple{Vararg{Int}},
     remove::Tuple{Vararg{Int}},
@@ -983,13 +983,12 @@ end
     add_mask::_Mask,
     rem_mask::_Mask,
     use_map::Union{_NoUseMap,_UseMap},
-    ::Type{world_storage},
-)::Tuple{UInt32,Bool} where {M,K,world_storage<:_WorldStorage}
+)::Tuple{UInt32,Bool} where {M,K,Storage<:_WorldStorage}
     node = _find_node(state._graph, start, add, remove, add_mask, rem_mask, use_map)
 
     if node.archetype[] == typemax(UInt32)
         table = ifelse(isempty(relations), UInt32(length(state._tables) + 1), UInt32(0))
-        return (_create_archetype!(state, node, table, world_storage), true)
+        return (_create_archetype!(state, stores, node, table), true)
     else
         return (node.archetype[], false)
     end
@@ -997,7 +996,7 @@ end
 
 @inline function _find_or_create_table!(
     state::_WorldState{M,K},
-    stores::_WorldStorage,
+    stores::Storage,
     old_table::_Table,
     add::Tuple{Vararg{Int}},
     remove::Tuple{Vararg{Int}},
@@ -1007,18 +1006,17 @@ end
     rem_mask::_Mask,
     use_map::Union{_NoUseMap,_UseMap},
     world_has_rel::Val{true},
-    ::Type{world_storage},
-)::Tuple{UInt32,Bool} where {M,K,world_storage<:_WorldStorage}
+)::Tuple{UInt32,Bool} where {M,K,Storage<:_WorldStorage}
     @inbounds old_arch = state._archetypes[old_table.archetype]
     new_arch_index, is_new = _find_or_create_archetype!(
-        state, old_arch.node, add, remove, relations, add_mask, rem_mask, use_map, world_storage,
+        state, stores, old_arch.node, add, remove, relations, add_mask, rem_mask, use_map,
     )
     @inbounds new_arch_hot = state._archetypes_hot[new_arch_index]
 
     if !new_arch_hot.has_relations && isempty(relations)
         if is_new
             @inbounds new_arch = state._archetypes[new_arch_index]
-            return _create_table!(state, stores, new_arch, _empty_relations, world_storage), _has_relations(old_arch)
+            return _create_table!(state, stores, new_arch, _empty_relations), _has_relations(old_arch)
         end
         return new_arch_hot.table, _has_relations(old_arch)
     end
@@ -1033,13 +1031,12 @@ end
         relations,
         targets,
         !isempty(remove),
-        world_storage,
     )
 end
 
 @inline function _find_or_create_table!(
     state::_WorldState{M,K},
-    stores::_WorldStorage,
+    stores::Storage,
     old_table::_Table,
     add::Tuple{Vararg{Int}},
     remove::Tuple{Vararg{Int}},
@@ -1049,8 +1046,7 @@ end
     rem_mask::_Mask,
     use_map::Union{_NoUseMap,_UseMap},
     world_has_rel::Val{false},
-    ::Type{world_storage},
-)::Tuple{UInt32,Bool} where {M,K,world_storage<:_WorldStorage}
+)::Tuple{UInt32,Bool} where {M,K,Storage<:_WorldStorage}
     @inbounds old_arch_hot = state._archetypes_hot[old_table.archetype]
     old_mask = old_arch_hot.mask
     if !_contains_all(old_mask, rem_mask)
@@ -1066,11 +1062,11 @@ end
     end
     @inbounds old_arch = state._archetypes[old_table.archetype]
     new_arch_index, is_new = _find_or_create_archetype!(
-        state, old_arch.node, add, remove, relations, add_mask, rem_mask, use_map, world_storage,
+        state, stores, old_arch.node, add, remove, relations, add_mask, rem_mask, use_map,
     )
     if is_new
         @inbounds new_arch = state._archetypes[new_arch_index]
-        table_id = _create_table!(state, stores, new_arch, _empty_relations, world_storage)
+        table_id = _create_table!(state, stores, new_arch, _empty_relations)
     else
         @inbounds new_arch_hot = state._archetypes_hot[new_arch_index]
         table_id = new_arch_hot.table
@@ -1083,15 +1079,14 @@ end
 # internal for handling relations
 function _find_or_create_table!(
     state::_WorldState{M,K},
-    stores::_WorldStorage,
+    stores::Storage,
     old_table::_Table,
     new_arch_hot::_ArchetypeHot,
     new_arch::_Archetype,
     relations::Tuple{Vararg{Int}},
     targets::Tuple{Vararg{Entity}},
     has_remove::Bool,
-    ::Type{world_storage},
-)::Tuple{UInt32,Bool} where {M,K,world_storage<:_WorldStorage}
+)::Tuple{UInt32,Bool} where {M,K,Storage<:_WorldStorage}
     # Find existing relations that were not removed, and add new relations.
     all_relations = state._pool.relations
     requires_free = true
@@ -1138,7 +1133,7 @@ function _find_or_create_table!(
     if found
         _recycle_table!(state, stores, new_arch, new_table_id, all_relations)
     else
-        new_table_id = _create_table!(state, stores, new_arch, copy(all_relations), world_storage)
+        new_table_id = _create_table!(state, stores, new_arch, copy(all_relations))
     end
     if requires_free
         empty!(all_relations)
@@ -1174,11 +1169,10 @@ end
 
 function _create_table!(
     state::_WorldState{M,K},
-    stores::_WorldStorage,
+    stores::Storage,
     arch::_Archetype,
     relations::Vector{Pair{Int32,Entity}},
-    ::Type{world_storage},
-)::UInt32 where {M,K,world_storage<:_WorldStorage}
+)::UInt32 where {M,K,Storage<:_WorldStorage}
     if length(relations) < arch.num_relations
         throw(ArgumentError("relation targets must be fully specified"))
     end
@@ -1195,7 +1189,7 @@ function _create_table!(
         _activate_new_column_for_comp!(stores, comp, new_table_id, state._initial_capacity)
     end
 
-    _push_zero_to_all_table_relations!(state, world_storage)
+    _push_zero_to_all_table_relations!(state, stores)
 
     for (i, comp) in enumerate(relations)
         entity = comp.second
@@ -1229,9 +1223,9 @@ end
 
 @generated function _push_zero_to_all_archetype_relations!(
     state::_WorldState{M,K},
-    ::Type{world_storage},
-) where {M,K,world_storage<:_WorldStorage}
-    relation_indices = _schema_relation_indices(world_storage)
+    stores::Storage,
+) where {M,K,Storage<:_WorldStorage}
+    relation_indices = _schema_relation_indices(Storage)
     exprs = Expr[]
     for i in relation_indices
         push!(exprs, :(_add_archetype_column!(state._relations[$i])))
@@ -1241,9 +1235,9 @@ end
 
 @generated function _push_zero_to_all_table_relations!(
     state::_WorldState{M,K},
-    ::Type{world_storage},
-) where {M,K,world_storage<:_WorldStorage}
-    relation_indices = _schema_relation_indices(world_storage)
+    stores::Storage,
+) where {M,K,Storage<:_WorldStorage}
+    relation_indices = _schema_relation_indices(Storage)
     exprs = Expr[]
     for i in relation_indices
         push!(exprs, :(_add_table_column!(state._relations[$i])))
@@ -1253,10 +1247,10 @@ end
 
 function _create_archetype!(
     state::_WorldState{M,K},
+    stores::Storage,
     node::_GraphNode,
     table::UInt32,
-    ::Type{world_storage},
-)::UInt32 where {M,K,world_storage<:_WorldStorage}
+)::UInt32 where {M,K,Storage<:_WorldStorage}
     components = _active_bit_indices(node.mask)
     relations = Int[]
     for id in components
@@ -1277,7 +1271,7 @@ function _create_archetype!(
     index = length(state._archetypes)
     node.archetype[] = UInt32(index)
 
-    _push_zero_to_all_archetype_relations!(state, world_storage)
+    _push_zero_to_all_archetype_relations!(state, stores)
 
     for comp in arch.components
         push!(state._index.archetypes[comp], arch)
@@ -1425,10 +1419,9 @@ end
 
 function _cleanup_archetypes(
     state::_WorldState,
-    stores::_WorldStorage,
+    stores::Storage,
     entity::Entity,
-    ::Type{world_storage},
-) where {world_storage<:_WorldStorage}
+) where {Storage<:_WorldStorage}
     relations = state._pool.cleanup_relations
     empty!(relations)
     for arch in state._relation_archetypes
@@ -1464,7 +1457,7 @@ function _cleanup_archetypes(
 
                 new_table, found = _get_table(state, archetype, new_relations)
                 if !found
-                    new_table_id = _create_table!(state, stores, archetype, copy(new_relations), world_storage)
+                    new_table_id = _create_table!(state, stores, archetype, copy(new_relations))
                     new_table = state._tables[new_table_id]
                 end
                 empty!(new_relations)
@@ -1515,7 +1508,6 @@ end
     add_mask = _Mask{M}(ids...)
     rem_mask = _Mask{M}()
 
-    world_storage = Storage
     world_has_rel = Val{_has_relations(relation_types)}()
 
     exprs = Expr[]
@@ -1538,7 +1530,6 @@ end
                 $rem_mask,
                 $use_map,
                 $world_has_rel,
-                $world_storage,
             )[1]
         ),
     )
@@ -1814,7 +1805,6 @@ end
     add_mask = _Mask{M}(add_ids...)
     rem_mask = _Mask{M}(rem_ids...)
 
-    world_storage = Storage
     if !Unchecked
         push!(exprs, :(
             if !is_alive(world_state, entity)
@@ -1837,7 +1827,6 @@ end
                     world_state, stores, old_table, $add_ids, $rem_ids, $rel_ids, targets, $add_mask, $rem_mask,
                     $use_map,
                     $world_has_rel,
-                    $world_storage,
                 )[1]
         ),
     )
@@ -2033,7 +2022,7 @@ end
 
 @generated function _get_relations(
     world_state::_WorldState,
-    ::Storage,
+    stores::Storage,
     entity::Entity,
     ::TS,
     ::Val{Unchecked},
@@ -2045,7 +2034,6 @@ end
 
     _check_relations(types, _schema_relation_types(Storage))
     _check_no_duplicates(types)
-    world_storage = Storage
 
     exprs = Expr[]
     if !Unchecked
@@ -2063,7 +2051,7 @@ end
 
         push!(
             exprs,
-            :($(target_sym) = @inbounds _get_relations_storage(world_state, $T, $world_storage).targets[idx.table]),
+            :($(target_sym) = @inbounds _get_relations_storage(world_state, $T, stores).targets[idx.table]),
         )
         if !Unchecked
             push!(exprs, :(
@@ -2101,7 +2089,6 @@ end
 
     rel_ids = tuple(Int[_component_index(_schema_storage_types(Storage), T) for T in rel_types]...)
 
-    world_storage = Storage
     exprs = Expr[]
 
     if !Unchecked
@@ -2113,7 +2100,7 @@ end
         push!(exprs, :(_check_relation_targets(world_state, targets)))
     end
 
-    push!(exprs, :(_set_relations!(world_state, stores, $world_storage, entity, $rel_ids, targets)))
+    push!(exprs, :(_set_relations!(world_state, stores, entity, $rel_ids, targets)))
     push!(exprs, Expr(:return, :targets))
 
     return quote
@@ -2125,12 +2112,11 @@ end
 
 @inline function _set_relations!(
     state::_WorldState,
-    stores::_WorldStorage,
-    ::Type{world_storage},
+    stores::Storage,
     entity::Entity,
     relations::Tuple{Vararg{Int}},
     targets::Tuple{Vararg{Entity}},
-) where {world_storage<:_WorldStorage}
+) where {Storage<:_WorldStorage}
     _check_locked(state)
     index = state._entities[entity._id]
     old_table = state._tables[index.table]
@@ -2143,7 +2129,7 @@ end
 
     new_table, found = _get_table(state, archetype, new_relations)
     if !found
-        new_table_id = _create_table!(state, stores, archetype, copy(new_relations), world_storage)
+        new_table_id = _create_table!(state, stores, archetype, copy(new_relations))
         new_table = state._tables[new_table_id]
     end
 
@@ -2228,7 +2214,6 @@ end
     add_mask = _Mask{M}(add_ids...)
     rem_mask = _Mask{M}(rem_ids...)
 
-    world_storage = Storage
     world_has_rel = Val{_has_relations(relation_types)}()
 
     push!(exprs, :(@inbounds index = world_state._entities[entity._id]))
@@ -2241,7 +2226,6 @@ end
                     world_state, stores, old_table, $add_ids, $rem_ids, $rel_ids, targets, $add_mask, $rem_mask,
                     $use_map,
                     $world_has_rel,
-                    $world_storage,
                 )
         ),
     )
