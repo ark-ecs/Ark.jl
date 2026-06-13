@@ -1131,7 +1131,7 @@ function _find_or_create_table!(
 
     new_table_id, found = _get_free_table!(new_arch)
     if found
-        _recycle_table!(state, stores, new_arch, new_table_id, all_relations)
+        _recycle_table!(state, new_arch, new_table_id, all_relations)
     else
         new_table_id = _create_table!(state, stores, new_arch, copy(all_relations))
     end
@@ -1144,7 +1144,6 @@ end
 
 function _recycle_table!(
     state::_WorldState{M,K},
-    stores::_WorldStorage,
     arch::_Archetype,
     table_id::UInt32,
     relations::Vector{Pair{Int32,Entity}},
