@@ -18,6 +18,11 @@ struct Query{State<:_WorldState,QS<:Tuple,EX,OF,M,K}
     _storages::QS
 end
 
+@inline function _check_query_world(world::World, query::Query)
+    _state(world) === query._world_state || throw(ArgumentError("query belongs to a different world"))
+    return nothing
+end
+
 """
     Query(
         world::World,
@@ -111,8 +116,7 @@ function _format_mask_types_except(world_state::_WorldState, mask::_Mask, exclud
     return join(map(_format_type, types), ", ")
 end
 
-function _Query_from_filter_expr(::Type{F}, output_ids::Tuple{Vararg{Int}}) where {F<:Filter}
-    W = _filter_world(F)
+function _Query_from_filter_expr(::Type{W}, ::Type{F}, output_ids::Tuple{Vararg{Int}}) where {W<:World,F<:Filter}
     Storage = _world_storage(W)
     State = fieldtype(W, :_state)
     CM = _filter_component_mask(F)
@@ -159,27 +163,26 @@ function _Query_from_filter_expr(::Type{F}, output_ids::Tuple{Vararg{Int}}) wher
 end
 
 @generated function _Query_from_filter(
-    world::World,
+    world::W,
     filter::F,
-) where {F<:Filter}
+) where {W<:World,F<:Filter}
     output_ids = _filter_output_ids(F)
-    return _Query_from_filter_expr(F, output_ids)
+    return _Query_from_filter_expr(W, F, output_ids)
 end
 
 @generated function _Query_from_filter(
-    world::World,
+    world::W,
     filter::F,
     ::CT,
     ::OT,
-) where {F<:Filter,CT<:Tuple,OT<:Tuple}
-    W = _filter_world(F)
+) where {W<:World,F<:Filter,CT<:Tuple,OT<:Tuple}
     CS = _world_storage_types(W)
 
     required_types = _to_types(CT)
     optional_types = _to_types(OT)
     output_ids = tuple(Int[_component_index(CS, C) for C in (required_types..., optional_types...)]...)
 
-    return _Query_from_filter_expr(F, output_ids)
+    return _Query_from_filter_expr(W, F, output_ids)
 end
 
 @inline function Base.iterate(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
@@ -291,17 +294,6 @@ end
     return table
 end
 
-"""
-    length(q::Query)
-
-Returns the number of matching tables with at least one entity in the query.
-
-Does not iterate or [close!](@ref close!(::Query)) the query.
-
-!!! note
-
-    The time complexity is linear with the number of tables in the query's pre-selection.
-"""
 function Base.length(q::Q) where {Q<:Query}
     world_state = q._world_state
     if _is_cached(q._filter)
@@ -312,7 +304,23 @@ function Base.length(q::Q) where {Q<:Query}
 end
 
 """
-    count_entities(q::Query)
+    count_tables(world::World, q::Query)
+
+Returns the number of matching tables with at least one entity in the query.
+
+Does not iterate or [close!](@ref close!(::Query)) the query.
+
+!!! note
+
+    The time complexity is linear with the number of tables in the query's pre-selection.
+"""
+function count_tables(world::World, q::Q) where {Q<:Query}
+    _check_query_world(world, q)
+    return length(q)
+end
+
+"""
+    count_entities(world::World, q::Query)
 
 Returns the number of matching entities in the query.
 
@@ -323,7 +331,8 @@ Does not iterate or [close!](@ref close!(::Query)) the query.
     The time complexity is linear with the number of archetypes in the query's pre-selection.
     It is equivalent to iterating the query's archetypes and summing up their lengths.
 """
-function count_entities(q::Q) where {Q<:Query}
+function count_entities(world::World, q::Q) where {Q<:Query}
+    _check_query_world(world, q)
     world_state = q._world_state
     if _is_cached(q._filter)
         return _count_entities_registered(world_state, q._filter)

@@ -243,8 +243,8 @@ end
     @test length(_state(world)._archetypes[2].free_tables) == 0
 
     query = Query(world, (ChildOf,))
-    @test count_entities(query) == 2
-    @test length(query) == 2
+    @test count_entities(world, query) == 2
+    @test count_tables(world, query) == 2
 
     cnt = 0
     for (entities,) in Query(world, (ChildOf,))

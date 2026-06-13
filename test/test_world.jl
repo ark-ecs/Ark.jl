@@ -1266,7 +1266,7 @@ end
     end
 
     query = Query(world, (Position, Velocity, Altitude, Health, LabelComponent))
-    @test count_entities(query) == 20
+    @test count_entities(world, query) == 20
 
     @testset "with relations and callback" begin
         world_rel = World(

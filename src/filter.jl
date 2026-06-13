@@ -6,21 +6,20 @@ A filter for components. See function
 [Filter](@ref Filter(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)) for details.
 See also [Query](@ref).
 """
-struct Filter{W<:World,CM,EX,OM,IDS,M,K}
+struct Filter{CM,EX,OM,IDS,M,K}
     _filter::_MaskFilter{M,K}
-    _world::W
+    _world_state::_WorldState{M,K}
 end
 
-@inline _filter_world(::Type{<:Filter{W}}) where {W} = W
-@inline _filter_component_mask(::Type{<:Filter{W,CM}}) where {W,CM} = CM
-@inline _filter_exclusive(::Type{<:Filter{W,CM,EX}}) where {W,CM,EX} = EX
-@inline _filter_optional_mask(::Type{<:Filter{W,CM,EX,OM}}) where {W,CM,EX,OM} = OM
-@inline _filter_output_ids(::Type{<:Filter{W,CM,EX,OM,IDS}}) where {W,CM,EX,OM,IDS} = IDS
-@inline _filter_mask_chunks(::Type{<:Filter{W,CM,EX,OM,IDS,M}}) where {W,CM,EX,OM,IDS,M} = M
-@inline _filter_relation_count(::Type{<:Filter{W,CM,EX,OM,IDS,M,K}}) where {W,CM,EX,OM,IDS,M,K} = K
+@inline _filter_component_mask(::Type{<:Filter{CM}}) where {CM} = CM
+@inline _filter_exclusive(::Type{<:Filter{CM,EX}}) where {CM,EX} = EX
+@inline _filter_optional_mask(::Type{<:Filter{CM,EX,OM}}) where {CM,EX,OM} = OM
+@inline _filter_output_ids(::Type{<:Filter{CM,EX,OM,IDS}}) where {CM,EX,OM,IDS} = IDS
+@inline _filter_mask_chunks(::Type{<:Filter{CM,EX,OM,IDS,M}}) where {CM,EX,OM,IDS,M} = M
+@inline _filter_relation_count(::Type{<:Filter{CM,EX,OM,IDS,M,K}}) where {CM,EX,OM,IDS,M,K} = K
 
 @inline function _check_filter_world(world::World, filter::Filter)
-    world === filter._world || throw(ArgumentError("filter belongs to a different world"))
+    _state(world) === filter._world_state || throw(ArgumentError("filter belongs to a different world"))
     return nothing
 end
 
@@ -75,7 +74,7 @@ Base.@constprop :aggressive function Filter(
         rel_types,
         targets,
     )
-    filter = filter_type(mask_filter, world)
+    filter = filter_type(mask_filter, _state(world))
     if register
         _register_filter!(_state(world), mask_filter)
     end
@@ -149,7 +148,7 @@ end
         :(_FilterRelations{$K}($(length(rel_ids)), $relation_id_exprs, $relation_target_exprs))
 
     return quote
-        filter_type = Filter{$W,$(QuoteNode(component_mask)),$exclusive,$(QuoteNode(optional_mask)),$(QuoteNode(output_ids)),$M,$K}
+        filter_type = Filter{$(QuoteNode(component_mask)),$exclusive,$(QuoteNode(optional_mask)),$(QuoteNode(output_ids)),$M,$K}
         mask_filter = _MaskFilter{$M,$K}(
             $(mask),
             $(exclude_mask),
@@ -292,13 +291,13 @@ function _count_entities_registered(state::_WorldState, filter::_MaskFilter{M,K}
     return count
 end
 
-function Base.show(io::IO, filter::Filter{W,CM,EX,OM,IDS,M,K}) where {W<:World,CM,EX,OM,IDS,M,K}
-    world_types = fieldtypes(_world_component_types(W))
+function Base.show(io::IO, filter::Filter{CM,EX,OM,IDS,M,K}) where {CM,EX,OM,IDS,M,K}
+    world_types = filter._world_state._registry.types
     component_ids = IDS
-    comp_types = tuple(DataType[_type_parameter(world_types[Int(id)]) for id in component_ids]...)
+    comp_types = tuple(DataType[world_types[Int(id)] for id in component_ids]...)
 
     mask_ids = _active_bit_indices(filter._filter.mask)
-    mask_types = tuple(DataType[_type_parameter(world_types[Int(i)]) for i in mask_ids]...)
+    mask_types = tuple(DataType[world_types[Int(i)] for i in mask_ids]...)
 
     required_types = tuple(DataType[comp_types[i] for i in eachindex(comp_types) if !_get_bit(OM, component_ids[i])]...)
     optional_types = tuple(DataType[comp_types[i] for i in eachindex(comp_types) if _get_bit(OM, component_ids[i])]...)
@@ -314,7 +313,7 @@ function Base.show(io::IO, filter::Filter{W,CM,EX,OM,IDS,M,K}) where {W<:World,C
     without_names = ""
     if !is_exclusive
         excl_ids = _active_bit_indices(filter._filter.exclude_mask)
-        excl_types = tuple(DataType[_type_parameter(world_types[Int(i)]) for i in excl_ids]...)
+        excl_types = tuple(DataType[world_types[Int(i)] for i in excl_ids]...)
         without_names = join(map(_format_type, excl_types), ", ")
     end
 
