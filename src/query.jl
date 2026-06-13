@@ -191,7 +191,7 @@ end
     end
 end
 
-@inline function _iterate(q::Query, state::Tuple{Int,Int}) 
+@inline function _iterate(q::Query, state::Tuple{Int,Int})
     arch, tab = state
     world_state = q._world_state
     while arch <= length(q._archetypes)

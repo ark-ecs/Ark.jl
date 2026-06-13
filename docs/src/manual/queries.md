@@ -171,6 +171,9 @@ for (entities, positions, velocities) in Query(world, filter)
     end
 end
 
+# The filter can be also unregistered like so:
+unregister!(world, filter)
+
 # output
 
 ```
@@ -181,15 +184,6 @@ end
     (e.g. in a System) and re-used for query creation.
 
 Filters support all keyword arguments of queries (see above).
-
-A registered filter can be un-registered like this:
-
-```jldoctest filter-cache; output = false
-unregister!(world, filter)
-
-# output
-
-```
 
 ## Component field views
 
