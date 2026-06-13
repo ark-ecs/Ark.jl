@@ -6,7 +6,7 @@ A filter for components. See function
 [Filter](@ref Filter(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)) for details.
 See also [Query](@ref).
 """
-struct Filter{W<:World,CM,EX,OM,M,K}
+struct Filter{W<:World,CM,EX,OM,IDS,M,K}
     _filter::_MaskFilter{M,K}
     _world::W
 end
@@ -15,8 +15,14 @@ end
 @inline _filter_component_mask(::Type{<:Filter{W,CM}}) where {W,CM} = CM
 @inline _filter_exclusive(::Type{<:Filter{W,CM,EX}}) where {W,CM,EX} = EX
 @inline _filter_optional_mask(::Type{<:Filter{W,CM,EX,OM}}) where {W,CM,EX,OM} = OM
-@inline _filter_mask_chunks(::Type{<:Filter{W,CM,EX,OM,M}}) where {W,CM,EX,OM,M} = M
-@inline _filter_relation_count(::Type{<:Filter{W,CM,EX,OM,M,K}}) where {W,CM,EX,OM,M,K} = K
+@inline _filter_output_ids(::Type{<:Filter{W,CM,EX,OM,IDS}}) where {W,CM,EX,OM,IDS} = IDS
+@inline _filter_mask_chunks(::Type{<:Filter{W,CM,EX,OM,IDS,M}}) where {W,CM,EX,OM,IDS,M} = M
+@inline _filter_relation_count(::Type{<:Filter{W,CM,EX,OM,IDS,M,K}}) where {W,CM,EX,OM,IDS,M,K} = K
+
+@inline function _check_filter_world(world::World, filter::Filter)
+    world === filter._world || throw(ArgumentError("filter belongs to a different world"))
+    return nothing
+end
 
 """
     Filter(
@@ -120,6 +126,7 @@ end
     component_ids = Int[_component_index(CS, C) for C in comp_types]
     optional_ids = Int[_component_index(CS, C) for C in optional_types]
     rel_ids = Int[_component_index(CS, C) for C in rel_types]
+    output_ids = (required_ids..., optional_ids...)
 
     M = max(1, cld(fieldcount(CS), 64))
     K = fieldcount(relation_types)
@@ -142,7 +149,7 @@ end
         :(_FilterRelations{$K}($(length(rel_ids)), $relation_id_exprs, $relation_target_exprs))
 
     return quote
-        filter_type = Filter{$W,$(QuoteNode(component_mask)),$exclusive,$(QuoteNode(optional_mask)),$M,$K}
+        filter_type = Filter{$W,$(QuoteNode(component_mask)),$exclusive,$(QuoteNode(optional_mask)),$(QuoteNode(output_ids)),$M,$K}
         mask_filter = _MaskFilter{$M,$K}(
             $(mask),
             $(exclude_mask),
@@ -161,6 +168,7 @@ end
 Un-registers a [Filter](@ref).
 """
 function unregister!(world::World, filter::Filter)
+    _check_filter_world(world, filter)
     _unregister_filter!(_state(world), filter._filter)
 end
 
@@ -204,7 +212,7 @@ macro _each_matching_table(world_state, filter, archetypes, archetypes_hot, tabl
 end
 
 """
-    length(f::Filter)
+    count_tables(world::World, f::Filter)
 
 Returns the number of matching tables with at least one entity in the filter.
 
@@ -212,11 +220,12 @@ Returns the number of matching tables with at least one entity in the filter.
 
     The time complexity is linear with the number of tables in the filter's pre-selection.
 """
-function Base.length(f::F) where {F<:Filter}
+function count_tables(world::World, f::F) where {F<:Filter}
+    _check_filter_world(world, f)
     if _is_cached(f._filter)
-        return _length_registered(_state(f._world), f._filter)
+        return _length_registered(_state(world), f._filter)
     else
-        world_state = _state(f._world)
+        world_state = _state(world)
         arches, arches_hot = _get_archetypes(world_state, f)
         return _length(world_state, f._filter, arches, arches_hot)
     end
@@ -243,7 +252,7 @@ function _length_registered(state::_WorldState, filter::_MaskFilter{M,K}) where 
 end
 
 """
-    count_entities(f::Filter)
+    count_entities(world::World, f::Filter)
 
 Returns the number of matching entities in the filter.
 
@@ -252,11 +261,12 @@ Returns the number of matching entities in the filter.
     The time complexity is linear with the number of archetypes in the filter's pre-selection.
     It is equivalent to iterating the filter's archetypes and summing up their lengths.
 """
-function count_entities(f::F) where {F<:Filter}
+function count_entities(world::World, f::F) where {F<:Filter}
+    _check_filter_world(world, f)
     if _is_cached(f._filter)
-        return _count_entities_registered(_state(f._world), f._filter)
+        return _count_entities_registered(_state(world), f._filter)
     else
-        world_state = _state(f._world)
+        world_state = _state(world)
         arches, arches_hot = _get_archetypes(world_state, f)
         return _count_entities(world_state, f._filter, arches, arches_hot)
     end
@@ -282,16 +292,16 @@ function _count_entities_registered(state::_WorldState, filter::_MaskFilter{M,K}
     return count
 end
 
-function Base.show(io::IO, filter::Filter{W,CM,EX,OM,M,K}) where {W<:World,CM,EX,OM,M,K}
+function Base.show(io::IO, filter::Filter{W,CM,EX,OM,IDS,M,K}) where {W<:World,CM,EX,OM,IDS,M,K}
     world_types = fieldtypes(_world_component_types(W))
-    component_ids = _active_bit_indices(CM)
+    component_ids = IDS
     comp_types = tuple(DataType[_type_parameter(world_types[Int(id)]) for id in component_ids]...)
 
     mask_ids = _active_bit_indices(filter._filter.mask)
     mask_types = tuple(DataType[_type_parameter(world_types[Int(i)]) for i in mask_ids]...)
 
-    required_types = intersect(mask_types, comp_types)
-    optional_types = setdiff(comp_types, mask_types)
+    required_types = tuple(DataType[comp_types[i] for i in eachindex(comp_types) if !_get_bit(OM, component_ids[i])]...)
+    optional_types = tuple(DataType[comp_types[i] for i in eachindex(comp_types) if _get_bit(OM, component_ids[i])]...)
     with_types = setdiff(mask_types, comp_types)
 
     required_names = join(map(_format_type, required_types), ", ")

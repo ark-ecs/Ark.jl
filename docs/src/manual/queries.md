@@ -165,7 +165,7 @@ This example shows how to use registered [filters](@ref Filter):
 filter = Filter(world, (Position, Velocity); register=true)
 
 # The actual query iteration.
-for (entities, positions, velocities) in Query(filter)
+for (entities, positions, velocities) in Query(world, filter)
     @inbounds for i in eachindex(entities)
         # ...
     end

@@ -1,15 +1,16 @@
 
 """
-    partition_entities!(filter::Filter; pred)
+    partition_entities!(world::World, filter::Filter; pred)
 
 Partitions the entities matching the filter so that entities satisfying `pred`
 come first within each table, while entities that do not satisfy `pred` are moved
 to the end.
 Partioning is performed per-table (archetype).
 """
-function partition_entities!(filter::Filter; pred::P) where P
-    world_state = _state(filter._world)
-    world_storage = _storage(filter._world)
+function partition_entities!(world::World, filter::Filter; pred::P) where P
+    _check_filter_world(world, filter)
+    world_state = _state(world)
+    world_storage = _storage(world)
     _check_locked(world_state)
 
     _lock(world_state._lock)

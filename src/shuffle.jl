@@ -1,18 +1,19 @@
 
 """
-    shuffle_entities!(filter::Filter)
-    shuffle_entities!(rng::AbstractRNG, filter::Filter)
+    shuffle_entities!(world::World, filter::Filter)
+    shuffle_entities!(rng::AbstractRNG, world::World, filter::Filter)
 
 Shuffles the entities matching the filter.
 The shuffling is performed per-table (archetype).
 """
-function shuffle_entities!(filter::F) where {F<:Filter}
-    shuffle_entities!(Random.default_rng(), filter)
+function shuffle_entities!(world::World, filter::F) where {F<:Filter}
+    shuffle_entities!(Random.default_rng(), world, filter)
 end
 
-function shuffle_entities!(rng::AbstractRNG, filter::F) where {F<:Filter}
-    world_state = _state(filter._world)
-    world_storage = _storage(filter._world)
+function shuffle_entities!(rng::AbstractRNG, world::World, filter::F) where {F<:Filter}
+    _check_filter_world(world, filter)
+    world_state = _state(world)
+    world_storage = _storage(world)
     _check_locked(world_state)
 
     _lock(world_state._lock)

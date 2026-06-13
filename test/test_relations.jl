@@ -106,7 +106,7 @@ end
         end
     end
 
-    @test count_entities(Filter(world, (ChildOf, ChildOf2))) == 80
+    @test count_entities(world, Filter(world, (ChildOf, ChildOf2))) == 80
 
     cnt = 0
     for (entities, _) in Query(world, (ChildOf => parent1,))
@@ -270,7 +270,7 @@ end
     @test length(_state(world)._archetypes[2].free_tables) == 0
 
     matches = Entity[]
-    for (entities, _) in Query(filter_t1)
+    for (entities, _) in Query(world, filter_t1)
         for e in entities
             push!(matches, e)
         end

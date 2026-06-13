@@ -81,18 +81,19 @@ Base.@constprop :aggressive function Query(
         optional=optional,
         exclusive=exclusive,
     )
-    return _Query_from_filter(filter, _valtuple(comp_types_f), _valtuple(optional_f))
+    return _Query_from_filter(world, filter, _valtuple(comp_types_f), _valtuple(optional_f))
 end
 
 """
-    Query(filter::Filter)
+    Query(world::World, filter::Filter)
 
 Creates a query from a [Filter](@ref).
 """
 Base.@constprop :aggressive function Query(
+    world::World,
     filter::F,
 ) where {F<:Filter}
-    return _Query_from_filter(filter)
+    return _Query_from_filter(world, filter)
 end
 
 function _mask_component_types(world_state::_WorldState, mask::_Mask)
@@ -140,7 +141,7 @@ function _Query_from_filter_expr(::Type{F}, output_ids::Tuple{Vararg{Int}}) wher
     query_storages = Expr(:tuple, (:(world_storage._storages[$id]) for id in output_ids)...)
 
     return quote
-        world = filter._world
+        _check_filter_world(world, filter)
         world_state = _state(world)
         world_storage = _storage(world)
         query_storages = $query_storages
@@ -158,14 +159,15 @@ function _Query_from_filter_expr(::Type{F}, output_ids::Tuple{Vararg{Int}}) wher
 end
 
 @generated function _Query_from_filter(
+    world::World,
     filter::F,
 ) where {F<:Filter}
-    CM = _filter_component_mask(F)
-    output_ids = tuple(_active_bit_indices(CM)...)
+    output_ids = _filter_output_ids(F)
     return _Query_from_filter_expr(F, output_ids)
 end
 
 @generated function _Query_from_filter(
+    world::World,
     filter::F,
     ::CT,
     ::OT,

@@ -66,6 +66,24 @@ end
     @test positions[1] == Position(1, 2)
 end
 
+@testset "Query from filter preserves requested column order" begin
+    world = World(Position, Velocity)
+
+    new_entity!(world, (Position(1, 2), Velocity(3, 4)))
+
+    filter = Filter(world, (Velocity, Position))
+    _, velocities, positions = only(Query(world, filter))
+
+    @test velocities isa FieldViewable{Velocity}
+    @test positions isa FieldViewable{Position}
+    @test velocities[1] == Velocity(3, 4)
+    @test positions[1] == Position(1, 2)
+
+    query = Query(world, filter)
+    @test string(query) == "Query((Velocity, Position))"
+    close!(query)
+end
+
 @testset "Query from filter" begin
     world = World(Dummy, Position, Velocity, Altitude, Health)
 
@@ -76,12 +94,12 @@ end
     end
 
     filter = Filter(world, (Position, Velocity))
-    query = Query(filter)
+    query = Query(world, filter)
     @test length(query) == 1
     @test count_entities(query) == 10
     close!(query)
     count = 0
-    for (entities, vec_pos, vec_vel) in Query(filter)
+    for (entities, vec_pos, vec_vel) in Query(world, filter)
         count += length(entities)
     end
     @test count == 10
@@ -97,13 +115,13 @@ end
     end
 
     filter = Filter(world, (Position, Velocity); register=true)
-    query = Query(filter)
+    query = Query(world, filter)
     @test length(query) == 1
     @test count_entities(query) == 10
     close!(query)
 
     count = 0
-    for (entities, vec_pos, vec_vel) in Query(filter)
+    for (entities, vec_pos, vec_vel) in Query(world, filter)
         count += length(entities)
     end
     @test count == 10

@@ -1,6 +1,6 @@
 
 """
-    sort_entities!(filter::Filter; kwargs...)
+    sort_entities!(world::World, filter::Filter; kwargs...)
 
 Sorts the entities matching the filter. The sorting is performed
 per-table (archetype).
@@ -12,9 +12,10 @@ By default, the comparisons operates on the id of the entities
 if no `by` function is specified. Also, the sorting algorithm
 is `Base.Sort.QuickSort` since it is non-allocating.
 """
-function sort_entities!(filter::Filter; alg=Base.Sort.QuickSort, kwargs...)
-    world_state = _state(filter._world)
-    world_storage = _storage(filter._world)
+function sort_entities!(world::World, filter::Filter; alg=Base.Sort.QuickSort, kwargs...)
+    _check_filter_world(world, filter)
+    world_state = _state(world)
+    world_storage = _storage(world)
     _check_locked(world_state)
 
     _lock(world_state._lock)

@@ -97,7 +97,7 @@ function setup_query_posvel_1k_arch(n_entities::Int, register::Bool)
 
     sum = 0
     if register
-        for (_, pos_column, vel_column) in Query(filter)
+        for (_, pos_column, vel_column) in Query(world, filter)
             for i in eachindex(pos_column)
                 @inbounds pos = pos_column[i]
                 @inbounds vel = vel_column[i]
@@ -132,7 +132,7 @@ end
 
 function benchmark_query_posvel_many_arch_cached(args, n)
     world, filter, _ = args
-    for (_, pos_column, vel_column) in Query(filter)
+    for (_, pos_column, vel_column) in Query(world, filter)
         for i in eachindex(pos_column)
             @inbounds pos = pos_column[i]
             @inbounds vel = vel_column[i]
