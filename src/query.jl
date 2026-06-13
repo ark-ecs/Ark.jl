@@ -9,12 +9,12 @@ end
 A query for components. See function
 [Query](@ref Query(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)) for details.
 """
-struct Query{State<:_WorldState,QS<:Tuple,EX,OF,M,K}
+struct Query{QS<:Tuple,EX,OF,M,K}
     _filter::_MaskFilter{M,K}
     _archetypes::Vector{_Archetype{M}}
     _archetypes_hot::Vector{_ArchetypeHot{M}}
     _q_lock::_QueryCursor
-    _world_state::State
+    _world_state::_WorldState{M,K}
     _storages::QS
 end
 
@@ -118,7 +118,6 @@ end
 
 function _Query_from_filter_expr(::Type{W}, ::Type{F}, output_ids::Tuple{Vararg{Int}}) where {W<:World,F<:Filter}
     Storage = _world_storage(W)
-    State = fieldtype(W, :_state)
     CM = _filter_component_mask(F)
     EX = _filter_exclusive(F)
     OM = _filter_optional_mask(F)
@@ -151,7 +150,7 @@ function _Query_from_filter_expr(::Type{W}, ::Type{F}, output_ids::Tuple{Vararg{
         query_storages = $query_storages
         _lock(world_state._lock)
         arches, hot = $(archetypes)
-        Query{$State,$QS,$EX,$(QuoteNode(output_optional_mask)),$M,$K}(
+        Query{$QS,$EX,$(QuoteNode(output_optional_mask)),$M,$K}(
             filter._filter,
             arches,
             hot,
@@ -358,9 +357,9 @@ function close!(q::Q) where {Q<:Query}
 end
 
 @generated function _get_columns(
-    q::Query{State,QS,EX,OF,M,K},
+    q::Query{QS,EX,OF,M,K},
     table::_Table,
-) where {State<:_WorldState,QS<:Tuple,EX,OF,M,K}
+) where {QS<:Tuple,EX,OF,M,K}
     component_storage_types = fieldtypes(QS)
     comp_types = map(_component_type, component_storage_types)
     storage_array_types = map(_storage_array_type, component_storage_types)
@@ -402,7 +401,7 @@ end
         push!(result_exprs, Symbol("vec", i))
     end
 
-    element_type = :(Base.eltype(Query{State,QS,EX,OF,M,K}))
+    element_type = :(Base.eltype(Query{QS,EX,OF,M,K}))
 
     tuple_expr = Expr(:tuple, result_exprs...)
     push!(exprs, Expr(:return, Expr(:(::), tuple_expr, element_type)))
@@ -417,8 +416,8 @@ end
 Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
 
 @generated function Base.eltype(
-    ::Type{Query{State,QS,EX,OF,M,K}},
-) where {State<:_WorldState,QS<:Tuple,EX,OF,M,K}
+    ::Type{Query{QS,EX,OF,M,K}},
+) where {QS<:Tuple,EX,OF,M,K}
     component_storage_types = fieldtypes(QS)
     comp_types = map(_component_type, component_storage_types)
     storage_array_types = map(_storage_array_type, component_storage_types)
@@ -452,8 +451,8 @@ Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
 end
 
 function Base.show(
-    io::IO, query::Query{State,QS,EX,OF,M,K},
-) where {State<:_WorldState,QS<:Tuple,EX,OF,M,K}
+    io::IO, query::Query{QS,EX,OF,M,K},
+) where {QS<:Tuple,EX,OF,M,K}
     component_storage_types = fieldtypes(QS)
     comp_types = tuple(DataType[_component_type(S) for S in component_storage_types]...)
 
