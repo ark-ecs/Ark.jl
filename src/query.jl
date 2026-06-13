@@ -9,7 +9,7 @@ end
 A query for components. See function
 [Query](@ref Query(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)) for details.
 """
-struct Query{QS<:Tuple,EX,OF,M,K}
+struct Query{QS<:Tuple,OF,M,K}
     _filter::_MaskFilter{M,K}
     _archetypes::Vector{_Archetype{M}}
     _archetypes_hot::Vector{_ArchetypeHot{M}}
@@ -119,7 +119,6 @@ end
 function _Query_from_filter_expr(::Type{W}, ::Type{F}, output_ids::Tuple{Vararg{Int}}) where {W<:World,F<:Filter}
     Storage = _world_storage(W)
     CM = _filter_component_mask(F)
-    EX = _filter_exclusive(F)
     OM = _filter_optional_mask(F)
     M = _filter_mask_chunks(F)
     K = _filter_relation_count(F)
@@ -150,7 +149,7 @@ function _Query_from_filter_expr(::Type{W}, ::Type{F}, output_ids::Tuple{Vararg{
         query_storages = $query_storages
         _lock(world_state._lock)
         arches, hot = $(archetypes)
-        Query{$QS,$EX,$(QuoteNode(output_optional_mask)),$M,$K}(
+        Query{$QS,$(QuoteNode(output_optional_mask)),$M,$K}(
             filter._filter,
             arches,
             hot,
@@ -184,7 +183,7 @@ end
     return _Query_from_filter_expr(W, F, output_ids)
 end
 
-@inline function Base.iterate(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
+@inline function Base.iterate(q::Query, state::Tuple{Int,Int})
     if _is_cached(q._filter)
         return _iterate_registered(q, state)
     else
@@ -192,7 +191,7 @@ end
     end
 end
 
-@inline function _iterate(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
+@inline function _iterate(q::Query, state::Tuple{Int,Int}) 
     arch, tab = state
     world_state = q._world_state
     while arch <= length(q._archetypes)
@@ -263,7 +262,7 @@ end
     return nothing
 end
 
-@inline function Base.iterate(q::Q) where {Q<:Query}
+@inline function Base.iterate(q::Query)
     if q._q_lock.closed
         throw(InvalidStateException("query closed, queries can't be used multiple times", :batch_closed))
     end
@@ -293,7 +292,7 @@ end
     return table
 end
 
-function Base.length(q::Q) where {Q<:Query}
+function Base.length(q::Query)
     world_state = q._world_state
     if _is_cached(q._filter)
         return _length_registered(world_state, q._filter)
@@ -313,7 +312,7 @@ Does not iterate or [close!](@ref close!(::Query)) the query.
 
     The time complexity is linear with the number of tables in the query's pre-selection.
 """
-function count_tables(world::World, q::Q) where {Q<:Query}
+function count_tables(world::World, q::Query)
     _check_query_world(world, q)
     return length(q)
 end
@@ -330,7 +329,7 @@ Does not iterate or [close!](@ref close!(::Query)) the query.
     The time complexity is linear with the number of archetypes in the query's pre-selection.
     It is equivalent to iterating the query's archetypes and summing up their lengths.
 """
-function count_entities(world::World, q::Q) where {Q<:Query}
+function count_entities(world::World, q::Query)
     _check_query_world(world, q)
     world_state = q._world_state
     if _is_cached(q._filter)
@@ -347,7 +346,7 @@ Closes the query and unlocks the world.
 
 Must be called if a query is not fully iterated.
 """
-function close!(q::Q) where {Q<:Query}
+function close!(q::Query)
     if q._q_lock.closed == true
         return nothing
     end
@@ -356,10 +355,7 @@ function close!(q::Q) where {Q<:Query}
     return nothing
 end
 
-@generated function _get_columns(
-    q::Query{QS,EX,OF,M,K},
-    table::_Table,
-) where {QS<:Tuple,EX,OF,M,K}
+@generated function _get_columns(q::Query{QS,OF,M,K}, table::_Table) where {QS<:Tuple,OF,M,K}
     component_storage_types = fieldtypes(QS)
     comp_types = map(_component_type, component_storage_types)
     storage_array_types = map(_storage_array_type, component_storage_types)
@@ -401,7 +397,7 @@ end
         push!(result_exprs, Symbol("vec", i))
     end
 
-    element_type = :(Base.eltype(Query{QS,EX,OF,M,K}))
+    element_type = :(Base.eltype(Query{QS,OF,M,K}))
 
     tuple_expr = Expr(:tuple, result_exprs...)
     push!(exprs, Expr(:return, Expr(:(::), tuple_expr, element_type)))
@@ -415,9 +411,7 @@ end
 
 Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
 
-@generated function Base.eltype(
-    ::Type{Query{QS,EX,OF,M,K}},
-) where {QS<:Tuple,EX,OF,M,K}
+@generated function Base.eltype(::Type{Query{QS,OF,M,K}}) where {QS<:Tuple,OF,M,K}
     component_storage_types = fieldtypes(QS)
     comp_types = map(_component_type, component_storage_types)
     storage_array_types = map(_storage_array_type, component_storage_types)
@@ -450,9 +444,7 @@ Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
     end
 end
 
-function Base.show(
-    io::IO, query::Query{QS,EX,OF,M,K},
-) where {QS<:Tuple,EX,OF,M,K}
+function Base.show(io::IO, query::Query{QS,OF,M,K}) where {QS<:Tuple,OF,M,K}
     component_storage_types = fieldtypes(QS)
     comp_types = tuple(DataType[_component_type(S) for S in component_storage_types]...)
 
@@ -462,7 +454,7 @@ function Base.show(
     required_names = join(map(_format_type, required_types), ", ")
     optional_names = join(map(_format_type, optional_types), ", ")
     with_names = _format_mask_types_except(query._world_state, query._filter.mask, comp_types)
-    is_exclusive = EX === true
+    is_exclusive = query._filter.exclusive
 
     without_names = ""
     if !is_exclusive

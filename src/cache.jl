@@ -6,6 +6,7 @@ struct _MaskFilter{M,K}
     tables::_IdCollection
     id::Base.RefValue{UInt32}
     has_excluded::Bool
+    exclusive::Bool
 end
 
 _is_cached(f::_MaskFilter) = f.id[] > 0

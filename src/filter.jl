@@ -6,17 +6,16 @@ A filter for components. See function
 [Filter](@ref Filter(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)) for details.
 See also [Query](@ref).
 """
-struct Filter{CM,EX,OM,IDS,M,K}
+struct Filter{OM,IDS,M,K}
     _filter::_MaskFilter{M,K}
     _world_state::_WorldState{M,K}
 end
 
-@inline _filter_component_mask(::Type{<:Filter{CM}}) where {CM} = CM
-@inline _filter_exclusive(::Type{<:Filter{CM,EX}}) where {CM,EX} = EX
-@inline _filter_optional_mask(::Type{<:Filter{CM,EX,OM}}) where {CM,EX,OM} = OM
-@inline _filter_output_ids(::Type{<:Filter{CM,EX,OM,IDS}}) where {CM,EX,OM,IDS} = IDS
-@inline _filter_mask_chunks(::Type{<:Filter{CM,EX,OM,IDS,M}}) where {CM,EX,OM,IDS,M} = M
-@inline _filter_relation_count(::Type{<:Filter{CM,EX,OM,IDS,M,K}}) where {CM,EX,OM,IDS,M,K} = K
+@inline _filter_component_mask(::Type{<:Filter{OM,IDS,M}}) where {OM,IDS,M} = _Mask{M}(IDS...)
+@inline _filter_optional_mask(::Type{<:Filter{OM}}) where {OM} = OM
+@inline _filter_output_ids(::Type{<:Filter{OM,IDS}}) where {OM,IDS} = IDS
+@inline _filter_mask_chunks(::Type{<:Filter{OM,IDS,M}}) where {OM,IDS,M} = M
+@inline _filter_relation_count(::Type{<:Filter{OM,IDS,M,K}}) where {OM,IDS,M,K} = K
 
 @inline function _check_filter_world(world::World, filter::Filter)
     _state(world) === filter._world_state || throw(ArgumentError("filter belongs to a different world"))
@@ -132,7 +131,6 @@ end
     mask = _Mask{M}(required_ids..., with_ids...)
     exclude_mask = exclusive ? _Mask{M}(_Not(), non_exclude_ids...) : _Mask{M}(without_ids...)
     has_excluded = (length(without_ids) > 0) || exclusive
-    component_mask = _Mask{M}(component_ids...)
     optional_mask = _Mask{M}(optional_ids...)
     register = REG === Val{true}
 
@@ -148,7 +146,7 @@ end
         :(_FilterRelations{$K}($(length(rel_ids)), $relation_id_exprs, $relation_target_exprs))
 
     return quote
-        filter_type = Filter{$(QuoteNode(component_mask)),$exclusive,$(QuoteNode(optional_mask)),$(QuoteNode(output_ids)),$M,$K}
+        filter_type = Filter{$(QuoteNode(optional_mask)),$(QuoteNode(output_ids)),$M,$K}
         mask_filter = _MaskFilter{$M,$K}(
             $(mask),
             $(exclude_mask),
@@ -156,6 +154,7 @@ end
             $register ? _IdCollection() : _empty_table_ids,
             Base.RefValue{UInt32}(UInt32(0)),
             $(has_excluded),
+            $exclusive,
         )
         return filter_type, mask_filter
     end
@@ -291,7 +290,7 @@ function _count_entities_registered(state::_WorldState, filter::_MaskFilter{M,K}
     return count
 end
 
-function Base.show(io::IO, filter::Filter{CM,EX,OM,IDS,M,K}) where {CM,EX,OM,IDS,M,K}
+function Base.show(io::IO, filter::Filter{OM,IDS,M,K}) where {OM,IDS,M,K}
     world_types = filter._world_state._registry.types
     component_ids = IDS
     comp_types = tuple(DataType[world_types[Int(id)] for id in component_ids]...)
@@ -306,7 +305,7 @@ function Base.show(io::IO, filter::Filter{CM,EX,OM,IDS,M,K}) where {CM,EX,OM,IDS
     required_names = join(map(_format_type, required_types), ", ")
     optional_names = join(map(_format_type, optional_types), ", ")
     with_names = join(map(_format_type, with_types), ", ")
-    is_exclusive = EX === true
+    is_exclusive = filter._filter.exclusive
     registered = _is_cached(filter._filter)
 
     excl_types = ()
