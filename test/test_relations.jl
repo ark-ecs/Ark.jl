@@ -60,7 +60,7 @@
     end
     @test count == 150
 
-    @test length(world._tables) == 4
+    @test length(_state(world)._tables) == 4
 
     count = 0
     for (ents,) in Query(world, (); with=(ChildOf => zero_entity,))
@@ -69,13 +69,13 @@
     end
     @test count == 150
 
-    @test length(world._tables) == 4
+    @test length(_state(world)._tables) == 4
 
     parent3 = new_entity!(world, ())
     parent4 = new_entity!(world, ())
     e1 = new_entity!(world, (Position(0, 0), ChildOf() => parent3))
     e2 = new_entity!(world, (Position(0, 0), ChildOf() => parent4))
-    @test length(world._tables) == 4
+    @test length(_state(world)._tables) == 4
 
     parents = get_relations(world, e1, (ChildOf,))
     @test parents == (parent3,)
@@ -106,7 +106,7 @@ end
         end
     end
 
-    @test count_entities(Filter(world, (ChildOf, ChildOf2))) == 80
+    @test count_entities(world, Filter(world, (ChildOf, ChildOf2))) == 80
 
     cnt = 0
     for (entities, _) in Query(world, (ChildOf => parent1,))
@@ -230,8 +230,8 @@ end
 
     remove_entity!(world, parent)
     @test get_relations(world, child, (ChildOf,)) == (zero_entity,)
-    @test length(world._archetypes[2].tables) == 1
-    @test length(world._archetypes[2].free_tables) == 1
+    @test length(_state(world)._archetypes[2].tables) == 1
+    @test length(_state(world)._archetypes[2].free_tables) == 1
 
     ghost = new_entity!(world, (ChildOf() => child,))
     @test is_alive(world, ghost) == true
@@ -239,12 +239,12 @@ end
 
     @test get_relations(world, child, (ChildOf,)) == (zero_entity,)
     @test get_relations(world, ghost, (ChildOf,)) == (child,)
-    @test length(world._archetypes[2].tables) == 2
-    @test length(world._archetypes[2].free_tables) == 0
+    @test length(_state(world)._archetypes[2].tables) == 2
+    @test length(_state(world)._archetypes[2].free_tables) == 0
 
     query = Query(world, (ChildOf,))
-    @test count_entities(query) == 2
-    @test length(query) == 2
+    @test count_entities(world, query) == 2
+    @test count_tables(world, query) == 2
 
     cnt = 0
     for (entities,) in Query(world, (ChildOf,))
@@ -263,14 +263,14 @@ end
     t2 = new_entity!(world, ())
     c2 = new_entity!(world, (ChildOf() => t2,))
 
-    @test length(world._archetypes) == 2
-    @test length(world._tables) == 2
+    @test length(_state(world)._archetypes) == 2
+    @test length(_state(world)._tables) == 2
 
-    @test length(world._archetypes[2].tables) == 1
-    @test length(world._archetypes[2].free_tables) == 0
+    @test length(_state(world)._archetypes[2].tables) == 1
+    @test length(_state(world)._archetypes[2].free_tables) == 0
 
     matches = Entity[]
-    for (entities, _) in Query(filter_t1)
+    for (entities, _) in Query(world, filter_t1)
         for e in entities
             push!(matches, e)
         end

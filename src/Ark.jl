@@ -60,7 +60,7 @@ export is_zero
 
 export Query, Filter
 export close!, unregister!
-export count_entities, shuffle_entities!, sort_entities!, partition_entities!
+export count_tables, count_entities, shuffle_entities!, sort_entities!, partition_entities!
 
 export Entities
 

@@ -28,10 +28,6 @@ function _pair_first_type(::Type{<:Pair{T}}) where {T}
     return T
 end
 
-function _storage_vector_type(::Type{<:Storage{T}}) where {T}
-    return T
-end
-
 @inline function _to_types(::Type{TS})::Vector{DataType} where {TS<:Tuple}
     return DataType[_val_parameter(x) for x in fieldtypes(TS)]
 end
@@ -121,11 +117,22 @@ function _format_type(::Type{Type{T}}) where {T}
 end
 
 function _format_type(T::Type)
-    return sprint(show, T; context=:module => parentmodule(T))
+    params = T.parameters
+    name = string(nameof(T))
+    isempty(params) && return name
+    return string(name, "{", join(map(_format_type_parameter, params), ", "), "}")
 end
 
 function _format_type(T)
     return string(T)
+end
+
+function _format_type_parameter(T::Type)
+    return _format_type(T)
+end
+
+function _format_type_parameter(x)
+    return sprint(show, x)
 end
 
 @generated function _shallow_copy(x::T) where T

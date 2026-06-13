@@ -5,6 +5,7 @@ struct _ComponentStorage{C,A<:AbstractArray{C,1}}
 end
 
 @inline _component_type(::Type{<:_ComponentStorage{C}}) where {C} = C
+@inline _storage_array_type(::Type{<:_ComponentStorage{C,A}}) where {C,A} = A
 
 function _new_storage(::Type{S}, ::Type{C}) where {S<:Storage,C}
     _storage_type(S, C)()

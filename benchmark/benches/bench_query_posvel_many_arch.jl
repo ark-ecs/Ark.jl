@@ -30,10 +30,13 @@ function setup_query_posvel_32_arch(n_entities::Int)
         resize!(comps, 0)
     end
     expected_archetypes = min(n_entities + 1, 33)
-    num_archetypes = length(world._archetypes)
+    world_state = Ark._state(world)
+    num_archetypes = length(world_state._archetypes)
     if num_archetypes != expected_archetypes
         error("expected $expected_archetypes archetypes, got $num_archetypes")
     end
+
+    filter = Filter(world, (Position, Velocity))
 
     sum = 0
     for (_, pos_column, vel_column) in Query(world, (Position, Velocity))
@@ -84,7 +87,8 @@ function setup_query_posvel_1k_arch(n_entities::Int, register::Bool)
         resize!(comps, 0)
     end
     expected_archetypes = min(n_entities + 1, 1025)
-    num_archetypes = length(world._archetypes)
+    world_state = Ark._state(world)
+    num_archetypes = length(world_state._archetypes)
     if num_archetypes != expected_archetypes
         error("expected $expected_archetypes archetypes, got $num_archetypes")
     end
@@ -93,7 +97,7 @@ function setup_query_posvel_1k_arch(n_entities::Int, register::Bool)
 
     sum = 0
     if register
-        for (_, pos_column, vel_column) in Query(filter)
+        for (_, pos_column, vel_column) in Query(world, filter)
             for i in eachindex(pos_column)
                 @inbounds pos = pos_column[i]
                 @inbounds vel = vel_column[i]
@@ -128,7 +132,7 @@ end
 
 function benchmark_query_posvel_many_arch_cached(args, n)
     world, filter, _ = args
-    for (_, pos_column, vel_column) in Query(filter)
+    for (_, pos_column, vel_column) in Query(world, filter)
         for i in eachindex(pos_column)
             @inbounds pos = pos_column[i]
             @inbounds vel = vel_column[i]

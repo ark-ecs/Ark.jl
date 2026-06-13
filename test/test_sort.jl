@@ -1,7 +1,7 @@
 
-function _entity_order(filter)
+function _entity_order(world, filter)
     entities = Entity[]
-    for (es, _...) in Query(filter)
+    for (es, _...) in Query(world, filter)
         append!(entities, es)
     end
     return entities
@@ -36,7 +36,7 @@ end
 
         filter = Filter(world, (A, B))
 
-        for (entities, as, bs) in Query(filter)
+        for (entities, as, bs) in Query(world, filter)
             @test collect(entities) == [e3, e2]
             @test [a.x for a in as] == [2.0, 1.0]
             @test [b.x for b in bs] == [2.0, 1.0]
@@ -44,18 +44,18 @@ end
 
         filter = Filter(world, (A, B))
 
-        @test sort_entities!(filter) === filter
+        @test sort_entities!(world, filter) === filter
 
-        for (entities, as, bs) in Query(filter)
+        for (entities, as, bs) in Query(world, filter)
             @test collect(entities) == [e2, e3]
             @test [a.x for a in as] == [1.0, 2.0]
             @test [b.x for b in bs] == [1.0, 2.0]
         end
 
         remove_entity!(world, e2)
-        sort_entities!(filter)
+        sort_entities!(world, filter)
 
-        for (entities, as, bs) in Query(filter)
+        for (entities, as, bs) in Query(world, filter)
             @test collect(entities) == [e3]
             @test [a.x for a in as] == [2.0]
             @test [b.x for b in bs] == [2.0]
@@ -73,9 +73,9 @@ end
         filter = Filter(world, (Position, Velocity, Health))
 
         by_position_x = entity -> world[entity][Position].x
-        @test sort_entities!(filter; by=by_position_x) === filter
+        @test sort_entities!(world, filter; by=by_position_x) === filter
 
-        entities = _entity_order(filter)
+        entities = _entity_order(world, filter)
         sorted_xs = sort(xs)
 
         @test _position_xs(world, entities) == sorted_xs
@@ -84,7 +84,7 @@ end
         @test _healths(world, entities) == 2 .* sorted_xs
 
         for (row, entity) in enumerate(entities)
-            @test world._entities[entity._id] == _EntityIndex(2, row)
+            @test _state(world)._entities[entity._id] == _EntityIndex(2, row)
         end
     end
 
@@ -99,9 +99,9 @@ end
         filter = Filter(world, (Position, Velocity))
         by_position_x = entity -> world[entity][Position].x
 
-        sort_entities!(filter; by=by_position_x, rev=true)
+        sort_entities!(world, filter; by=by_position_x, rev=true)
 
-        entities = _entity_order(filter)
+        entities = _entity_order(world, filter)
 
         @test _position_xs(world, entities) == sort(xs; rev=true)
         @test _velocity_dxs(world, entities) == -sort(xs; rev=true)
@@ -118,9 +118,9 @@ end
         filter = Filter(world, (Position, Health))
 
         lt_health_greater = (a, b) -> world[a][Health].health > world[b][Health].health
-        sort_entities!(filter; lt=lt_health_greater)
+        sort_entities!(world, filter; lt=lt_health_greater)
 
-        entities = _entity_order(filter)
+        entities = _entity_order(world, filter)
 
         @test _healths(world, entities) == sort(hs; rev=true)
         @test _position_xs(world, entities) == sort(hs; rev=true)
@@ -140,13 +140,13 @@ end
         filter = Filter(world, (Position, Velocity); register=true)
 
         by_position_x = entity -> world[entity][Position].x
-        sort_entities!(filter; by=by_position_x)
+        sort_entities!(world, filter; by=by_position_x)
 
-        entities = _entity_order(filter)
+        entities = _entity_order(world, filter)
 
         @test _position_xs(world, entities) == sort(xs)
         @test _velocity_dxs(world, entities) == sort(xs) .+ 1.0
-        @test count_entities(filter) == length(xs)
+        @test count_entities(world, filter) == length(xs)
     end
 
     @testset "sort only matching relationship tables" begin
@@ -174,15 +174,15 @@ end
         )
 
         by_position_x = entity -> world[entity][Position].x
-        sort_entities!(filter_parent1; by=by_position_x)
+        sort_entities!(world, filter_parent1; by=by_position_x)
 
-        entities_parent1 = _entity_order(filter_parent1)
+        entities_parent1 = _entity_order(world, filter_parent1)
         @test _position_xs(world, entities_parent1) == sort(xs_parent1)
         @test _velocity_dxs(world, entities_parent1) == sort(xs_parent1) .+ 5.0
         @test all(get_relations(world, e, (ChildOf,))[1] == parent1 for e in entities_parent1)
 
         # The other relationship-target table was not sorted
-        entities_parent2 = _entity_order(filter_parent2)
+        entities_parent2 = _entity_order(world, filter_parent2)
         @test _position_xs(world, entities_parent2) == xs_parent2
         @test all(get_relations(world, e, (ChildOf,))[1] == parent2 for e in entities_parent2)
     end

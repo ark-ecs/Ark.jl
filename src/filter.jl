@@ -6,18 +6,21 @@ A filter for components. See function
 [Filter](@ref Filter(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)) for details.
 See also [Query](@ref).
 """
-struct Filter{W<:World,TS<:Tuple,EX,OPT,REG,M,K}
+struct Filter{OM,IDS,M,K}
     _filter::_MaskFilter{M,K}
-    _world::W
+    _world_state::_WorldState{M,K}
 end
 
-@inline _filter_world(::Type{<:Filter{W}}) where {W} = W
-@inline _filter_component_types(::Type{<:Filter{W,TS}}) where {W,TS} = TS
-@inline _filter_exclusive(::Type{<:Filter{W,TS,EX}}) where {W,TS,EX} = EX
-@inline _filter_optional_flags(::Type{<:Filter{W,TS,EX,OPT}}) where {W,TS,EX,OPT} = OPT
-@inline _filter_registered(::Type{<:Filter{W,TS,EX,OPT,REG}}) where {W,TS,EX,OPT,REG} = REG
-@inline _filter_mask_chunks(::Type{<:Filter{W,TS,EX,OPT,REG,M}}) where {W,TS,EX,OPT,REG,M} = M
-@inline _filter_relation_count(::Type{<:Filter{W,TS,EX,OPT,REG,M,K}}) where {W,TS,EX,OPT,REG,M,K} = K
+@inline _filter_component_mask(::Type{<:Filter{OM,IDS,M}}) where {OM,IDS,M} = _Mask{M}(IDS...)
+@inline _filter_optional_mask(::Type{<:Filter{OM}}) where {OM} = OM
+@inline _filter_output_ids(::Type{<:Filter{OM,IDS}}) where {OM,IDS} = IDS
+@inline _filter_mask_chunks(::Type{<:Filter{OM,IDS,M}}) where {OM,IDS,M} = M
+@inline _filter_relation_count(::Type{<:Filter{OM,IDS,M,K}}) where {OM,IDS,M,K} = K
+
+@inline function _check_filter_world(world::World, filter::Filter)
+    _state(world) === filter._world_state || throw(ArgumentError("filter belongs to a different world"))
+    return nothing
+end
 
 """
     Filter(
@@ -47,20 +50,20 @@ See the user manual chapter on [Queries](@ref) for more details and examples.
   - `exclusive::Bool`: Makes the filter exclusive in base and `with` components, can't be combined with `without`.
 """
 Base.@constprop :aggressive function Filter(
-    world::World,
+    world::W,
     comp_types::Tuple;
     with::Tuple=(),
     without::Tuple=(),
     optional::Tuple=(),
     exclusive::Bool=false,
     register::Bool=false,
-)
+) where {W<:World}
     comp_types_f, comp_relations = _normalize_relations(comp_types, Val(:type))
     with_f, with_relations = _normalize_relations(with, Val(:type))
     relations = (comp_relations..., with_relations...)
     rel_types, targets = _relation_types_and_targets(relations)
-    return _Filter_from_types(
-        world,
+    filter_type, mask_filter = _Filter_from_types(
+        W,
         _valtuple(comp_types_f),
         _valtuple(with_f),
         _valtuple(without),
@@ -70,10 +73,15 @@ Base.@constprop :aggressive function Filter(
         rel_types,
         targets,
     )
+    filter = filter_type(mask_filter, _state(world))
+    if register
+        _register_filter!(_state(world), mask_filter)
+    end
+    return filter
 end
 
 @generated function _Filter_from_types(
-    world::W,
+    ::Type{W},
     ::CT,
     ::WT,
     ::WO,
@@ -103,7 +111,8 @@ end
 
     _check_is_subset(rel_types, union(required_types, with_types))
 
-    if EX === Val{true} && !isempty(without_types)
+    exclusive = EX === Val{true}
+    if exclusive && !isempty(without_types)
         throw(ArgumentError("cannot use 'exclusive' together with 'without'"))
     end
 
@@ -112,22 +121,18 @@ end
     with_ids = Int[_component_index(CS, C) for C in with_types]
     without_ids = Int[_component_index(CS, C) for C in without_types]
     non_exclude_ids = Int[_component_index(CS, C) for C in non_exclude_types]
+    component_ids = Int[_component_index(CS, C) for C in comp_types]
+    optional_ids = Int[_component_index(CS, C) for C in optional_types]
     rel_ids = Int[_component_index(CS, C) for C in rel_types]
+    output_ids = (required_ids..., optional_ids...)
 
     M = max(1, cld(fieldcount(CS), 64))
     K = fieldcount(relation_types)
     mask = _Mask{M}(required_ids..., with_ids...)
-    exclude_mask = EX === Val{true} ? _Mask{M}(_Not(), non_exclude_ids...) : _Mask{M}(without_ids...)
-    has_excluded = (length(without_ids) > 0) || (EX === Val{true})
+    exclude_mask = exclusive ? _Mask{M}(_Not(), non_exclude_ids...) : _Mask{M}(without_ids...)
+    has_excluded = (length(without_ids) > 0) || exclusive
+    optional_mask = _Mask{M}(optional_ids...)
     register = REG === Val{true}
-
-    comp_tuple_type = Expr(:curly, :Tuple, comp_types...)
-
-    optional_flag_type_elts = Expr[
-        (T in optional_types) ? :(Val{true}) : :(Val{false})
-        for T in comp_types
-    ]
-    optional_flags_type = Expr(:curly, :Tuple, optional_flag_type_elts...)
 
     relation_id_exprs = Expr(:tuple)
     relation_target_exprs = Expr(:tuple)
@@ -141,21 +146,17 @@ end
         :(_FilterRelations{$K}($(length(rel_ids)), $relation_id_exprs, $relation_target_exprs))
 
     return quote
-        filter = Filter{$W,$comp_tuple_type,$EX,$optional_flags_type,$REG,$M,$K}(
-            _MaskFilter{$M,$K}(
-                $(mask),
-                $(exclude_mask),
-                $relations_expr,
-                $register ? _IdCollection() : _empty_table_ids,
-                Base.RefValue{UInt32}(UInt32(0)),
-                $(has_excluded),
-            ),
-            world,
+        filter_type = Filter{$(QuoteNode(optional_mask)),$(QuoteNode(output_ids)),$M,$K}
+        mask_filter = _MaskFilter{$M,$K}(
+            $(mask),
+            $(exclude_mask),
+            $relations_expr,
+            $register ? _IdCollection() : _empty_table_ids,
+            Base.RefValue{UInt32}(UInt32(0)),
+            $(has_excluded),
+            $exclusive,
         )
-        if $register
-            _register_filter!(world, filter._filter)
-        end
-        return filter
+        return filter_type, mask_filter
     end
 end
 
@@ -165,7 +166,8 @@ end
 Un-registers a [Filter](@ref).
 """
 function unregister!(world::World, filter::Filter)
-    _unregister_filter!(filter._world, filter._filter)
+    _check_filter_world(world, filter)
+    _unregister_filter!(_state(world), filter._filter)
 end
 
 function _matches(filter::F, archetype::_ArchetypeHot) where {F<:_MaskFilter}
@@ -173,33 +175,33 @@ function _matches(filter::F, archetype::_ArchetypeHot) where {F<:_MaskFilter}
            (!filter.has_excluded || !_contains_any(archetype.mask, filter.exclude_mask))
 end
 
-macro _each_matching_table(world, filter, archetypes, archetypes_hot, table, action)
+macro _each_matching_table(world_state, filter, archetypes, archetypes_hot, table, action)
     esc(quote
-        for i in eachindex(archetypes)
-            archetype_hot = @inbounds archetypes_hot[i]
-            if !_matches(filter, archetype_hot)
+        for i in eachindex($(archetypes))
+            archetype_hot = @inbounds $(archetypes_hot)[i]
+            if !_matches($(filter), archetype_hot)
                 continue
             end
 
             if !archetype_hot.has_relations
                 table_id = archetype_hot.table
-                table = @inbounds world._tables[Int(table_id)]
-                if !isempty(table.entities)
+                $table = @inbounds $(world_state)._tables[Int(table_id)]
+                if !isempty($table.entities)
                     $action
                 end
                 continue
             end
 
-            archetype = @inbounds archetypes[i]
+            archetype = @inbounds $(archetypes)[i]
             if isempty(archetype.tables)
                 continue
             end
 
-            tables = _get_tables(world, archetype, filter.relations)
+            tables = _get_tables($(world_state), archetype, $(filter).relations)
             for table_id in tables
                 # TODO we can probably optimize here if exactly one relation in archetype and one queried.
-                table = @inbounds world._tables[Int(table_id)]
-                if !isempty(table.entities) && _matches(world._relations, table, filter.relations)
+                $table = @inbounds $(world_state)._tables[Int(table_id)]
+                if !isempty($table.entities) && _matches($(world_state)._relations, $table, $(filter).relations)
                     $action
                 end
             end
@@ -208,7 +210,7 @@ macro _each_matching_table(world, filter, archetypes, archetypes_hot, table, act
 end
 
 """
-    length(f::Filter)
+    count_tables(world::World, f::Filter)
 
 Returns the number of matching tables with at least one entity in the filter.
 
@@ -216,37 +218,39 @@ Returns the number of matching tables with at least one entity in the filter.
 
     The time complexity is linear with the number of tables in the filter's pre-selection.
 """
-function Base.length(f::F) where {F<:Filter}
+function count_tables(world::World, f::F) where {F<:Filter}
+    _check_filter_world(world, f)
     if _is_cached(f._filter)
-        return _length_registered(f._world, f._filter)
+        return _length_registered(_state(world), f._filter)
     else
-        arches, arches_hot = _get_archetypes(f._world, f)
-        return _length(f._world, f._filter, arches, arches_hot)
+        world_state = _state(world)
+        arches, arches_hot = _get_archetypes(world_state, f)
+        return _length(world_state, f._filter, arches, arches_hot)
     end
 end
 
 function _length(
-    world::W,
+    state::_WorldState,
     filter::_MaskFilter{M,K},
     archetypes::Vector{_Archetype{M}},
     archetypes_hot::Vector{_ArchetypeHot{M}},
-) where {W<:World,M,K}
+) where {M,K}
     count = 0
-    @_each_matching_table(world, filter, archetypes, archetypes_hot, table, count += 1)
+    @_each_matching_table(state, filter, archetypes, archetypes_hot, table, count += 1)
     return count
 end
 
-function _length_registered(world::W, filter::_MaskFilter{M,K}) where {W<:World,M,K}
+function _length_registered(state::_WorldState, filter::_MaskFilter{M,K}) where {M,K}
     count = 0
     @simd for table_id in filter.tables.ids
-        table = @inbounds world._tables[table_id]
+        table = @inbounds state._tables[table_id]
         count += (!isempty(table.entities)) % Int
     end
     return count
 end
 
 """
-    count_entities(f::Filter)
+    count_entities(world::World, f::Filter)
 
 Returns the number of matching entities in the filter.
 
@@ -255,57 +259,60 @@ Returns the number of matching entities in the filter.
     The time complexity is linear with the number of archetypes in the filter's pre-selection.
     It is equivalent to iterating the filter's archetypes and summing up their lengths.
 """
-function count_entities(f::F) where {F<:Filter}
+function count_entities(world::World, f::F) where {F<:Filter}
+    _check_filter_world(world, f)
     if _is_cached(f._filter)
-        return _count_entities_registered(f._world, f._filter)
+        return _count_entities_registered(_state(world), f._filter)
     else
-        arches, arches_hot = _get_archetypes(f._world, f)
-        return _count_entities(f._world, f._filter, arches, arches_hot)
+        world_state = _state(world)
+        arches, arches_hot = _get_archetypes(world_state, f)
+        return _count_entities(world_state, f._filter, arches, arches_hot)
     end
 end
 
 function _count_entities(
-    world::W,
+    state::_WorldState,
     filter::_MaskFilter{M,K},
     archetypes::Vector{_Archetype{M}},
     archetypes_hot::Vector{_ArchetypeHot{M}},
-) where {W<:World,M,K}
+) where {M,K}
     count = 0
-    @_each_matching_table(world, filter, archetypes, archetypes_hot, table, count += length(table.entities))
+    @_each_matching_table(state, filter, archetypes, archetypes_hot, table, count += length(table.entities))
     return count
 end
 
-function _count_entities_registered(world::W, filter::_MaskFilter{M,K}) where {W<:World,M,K}
+function _count_entities_registered(state::_WorldState, filter::_MaskFilter{M,K}) where {M,K}
     count = 0
     @simd for table_id in filter.tables.ids
-        table = @inbounds world._tables[table_id]
+        table = @inbounds state._tables[table_id]
         count += length(table.entities)
     end
     return count
 end
 
-function Base.show(io::IO, filter::Filter{W,CT,EX,OPT,REG,M,K}) where {W<:World,CT<:Tuple,EX<:Val,OPT,REG<:Val,M,K}
-    world_types = fieldtypes(_world_component_types(W))
-    comp_types = fieldtypes(CT)
+function Base.show(io::IO, filter::Filter{OM,IDS,M,K}) where {OM,IDS,M,K}
+    world_types = filter._world_state._registry.types
+    component_ids = IDS
+    comp_types = tuple(DataType[world_types[Int(id)] for id in component_ids]...)
 
     mask_ids = _active_bit_indices(filter._filter.mask)
-    mask_types = tuple(DataType[_type_parameter(world_types[Int(i)]) for i in mask_ids]...)
+    mask_types = tuple(DataType[world_types[Int(i)] for i in mask_ids]...)
 
-    required_types = intersect(mask_types, comp_types)
-    optional_types = setdiff(comp_types, mask_types)
+    required_types = tuple(DataType[comp_types[i] for i in eachindex(comp_types) if !_get_bit(OM, component_ids[i])]...)
+    optional_types = tuple(DataType[comp_types[i] for i in eachindex(comp_types) if _get_bit(OM, component_ids[i])]...)
     with_types = setdiff(mask_types, comp_types)
 
     required_names = join(map(_format_type, required_types), ", ")
     optional_names = join(map(_format_type, optional_types), ", ")
     with_names = join(map(_format_type, with_types), ", ")
-    is_exclusive = EX === Val{true}
-    registered = REG === Val{true}
+    is_exclusive = filter._filter.exclusive
+    registered = _is_cached(filter._filter)
 
     excl_types = ()
     without_names = ""
     if !is_exclusive
         excl_ids = _active_bit_indices(filter._filter.exclude_mask)
-        excl_types = tuple(DataType[_type_parameter(world_types[Int(i)]) for i in excl_ids]...)
+        excl_types = tuple(DataType[world_types[Int(i)] for i in excl_ids]...)
         without_names = join(map(_format_type, excl_types), ", ")
     end
 
