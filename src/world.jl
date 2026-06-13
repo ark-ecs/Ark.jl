@@ -2529,7 +2529,14 @@ function _check_relation_target(state::_WorldState, target::Entity)
     end
 end
 
-@inline function _swap_rows!(state::_WorldState, stores::_WorldStorage, archetype::_Archetype, table::_Table, i::Int, j::Int)
+@inline function _swap_rows!(
+    state::_WorldState,
+    stores::_WorldStorage,
+    archetype::_Archetype,
+    table::_Table,
+    i::Int,
+    j::Int,
+)
     @inbounds begin
         entity_i = table.entities._data[i]
         entity_j = table.entities._data[j]
