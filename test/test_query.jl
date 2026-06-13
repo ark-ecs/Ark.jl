@@ -60,8 +60,8 @@ end
     close!(query)
 
     _, velocities, positions = only(Query(world, (Velocity,); optional=(Position,)))
-    @test velocities isa FieldViewable{Velocity}
-    @test positions isa FieldViewable{Position}
+    @test eltype(velocities) == Velocity
+    @test eltype(positions) == Position
     @test velocities[1] == Velocity(3, 4)
     @test positions[1] == Position(1, 2)
 end
@@ -74,8 +74,8 @@ end
     filter = Filter(world, (Velocity, Position))
     _, velocities, positions = only(Query(world, filter))
 
-    @test velocities isa FieldViewable{Velocity}
-    @test positions isa FieldViewable{Position}
+    @test eltype(velocities) == Velocity
+    @test eltype(positions) == Position
     @test velocities[1] == Velocity(3, 4)
     @test positions[1] == Position(1, 2)
 
