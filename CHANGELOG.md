@@ -8,6 +8,12 @@
 - API functions for `Query` and `Filter` now require the world as an argument (#662).
 - `length` for a filter has been renamed to `count_tables` (#662).
 
+### Performance
+
+- Getting components performance improved by 10% (#664).
+- Adding and removing components performance improved by 10% (#662).
+- Compile time performance is improved through a better internal specialization mechanism (#662).
+
 ## [[v0.5.1]](https://github.com/ark-ecs/Ark.jl/compare/v0.5.0...v0.5.1)
 
 ### Bugfixes

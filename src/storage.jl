@@ -47,7 +47,7 @@ end
     ::Val{false},
 ) where {C,A<:AbstractArray}
     @inbounds col = s.data[arch]
-    if length(col) == 0
+    if col === s.empty_column
         throw(ArgumentError(lazy"entity has no $C component"))
     end
     return @inbounds col[row]
