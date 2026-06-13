@@ -56,7 +56,37 @@ Base.@constprop :aggressive function observe!(
         _valtuple(components),
         _valtuple(with),
         _valtuple(without),
-        Val(exclusive), register)
+        Val(exclusive),
+        register,
+    )
+end
+
+function _observer_show_strings(
+    comps::_Mask{M},
+    with::_Mask{M},
+    without::_Mask{M},
+    is_exclusive::Bool,
+    ::Type{W},
+) where {M,W<:_AbstractWorld}
+    world_types = fieldtypes(_world_component_types(W))
+
+    mask_ids = _active_bit_indices(comps)
+    mask_types = tuple(DataType[_type_parameter(world_types[Int(i)]) for i in mask_ids]...)
+    with_ids = _active_bit_indices(with)
+    with_types = tuple(DataType[_type_parameter(world_types[Int(i)]) for i in with_ids]...)
+
+    mask_names = join(map(_format_type, mask_types), ", ")
+    with_names = join(map(_format_type, with_types), ", ")
+
+    excl_types = ()
+    without_names = ""
+    if !is_exclusive
+        excl_ids = _active_bit_indices(without)
+        excl_types = tuple(DataType[_type_parameter(world_types[Int(i)]) for i in excl_ids]...)
+        without_names = join(map(_format_type, excl_types), ", ")
+    end
+
+    return mask_names, with_names, without_names
 end
 
 @generated function _Observer_from_types(
@@ -105,7 +135,15 @@ end
     has_with_expr = (length(with_types) > 0) ? :(true) : :(false)
     has_without = (length(without_types) > 0) || (EX === Val{true})
     has_without_expr = has_without ? :(true) : :(false)
-    is_exclusive = EX === Val{true} ? :(true) : :(false)
+    exclusive = EX === Val{true}
+    is_exclusive = exclusive ? :(true) : :(false)
+    mask_str, with_str, without_str = _observer_show_strings(
+        mask,
+        with_mask,
+        exclude_mask,
+        exclusive,
+        W,
+    )
 
     return quote
         if (event == OnCreateEntity || event == OnRemoveEntity) && _is_not_zero($mask)
@@ -118,9 +156,6 @@ end
                 ),
             )
         end
-        mask_str, with_str, without_str = _observer_show_strings(
-            $mask, $with_mask, $exclude_mask, $is_exclusive, $W,
-        )
         obs = Observer(
             _ObserverID(UInt32(0)),
             event,
@@ -132,9 +167,9 @@ end
             $has_without_expr,
             $is_exclusive,
             fn,
-            mask_str,
-            with_str,
-            without_str,
+            $(QuoteNode(mask_str)),
+            $(QuoteNode(with_str)),
+            $(QuoteNode(without_str)),
         )
         if register
             _add_observer!(event_manager, obs)
@@ -179,32 +214,4 @@ function Base.show(io::IO, obs::Observer)
     else
         print(io, "Observer(:$(obs._event._symbol), ($mask_str); ", join(kw_parts, ", "), ")")
     end
-end
-
-function _observer_show_strings(
-    comps::_Mask{M},
-    with::_Mask{M},
-    without::_Mask{M},
-    is_exclusive::Bool,
-    ::Type{W},
-) where {M,W<:_AbstractWorld}
-    world_types = fieldtypes(_world_component_types(W))
-
-    mask_ids = _active_bit_indices(comps)
-    mask_types = tuple(DataType[_type_parameter(world_types[Int(i)]) for i in mask_ids]...)
-    with_ids = _active_bit_indices(with)
-    with_types = tuple(DataType[_type_parameter(world_types[Int(i)]) for i in with_ids]...)
-
-    mask_names = join(map(_format_type, mask_types), ", ")
-    with_names = join(map(_format_type, with_types), ", ")
-
-    excl_types = ()
-    without_names = ""
-    if !is_exclusive
-        excl_ids = _active_bit_indices(without)
-        excl_types = tuple(DataType[_type_parameter(world_types[Int(i)]) for i in excl_ids]...)
-        without_names = join(map(_format_type, excl_types), ", ")
-    end
-
-    return mask_names, with_names, without_names
 end
