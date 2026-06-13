@@ -12,8 +12,8 @@
         query = Query(world, (Position, Velocity))
         @test Base.IteratorSize(typeof(query)) == Base.HasLength()
         @test query._filter.has_excluded == false
-        @test length(query) == 1
-        @test count_entities(query) == 10
+        @test count_tables(world, query) == 1
+        @test count_entities(world, query) == 10
         count = 0
         for (entities, vec_pos, vec_vel) in query
             @test isa(vec_pos, FieldViewable{Position}) == true
@@ -43,6 +43,47 @@
     end
 end
 
+@testset "Query preserves requested column order" begin
+    world = World(Position, Velocity)
+
+    new_entity!(world, (Position(1, 2), Velocity(3, 4)))
+
+    _, velocities, positions = only(Query(world, (Velocity, Position)))
+
+    @test eltype(velocities) == Velocity
+    @test eltype(positions) == Position
+    @test velocities[1] == Velocity(3, 4)
+    @test positions[1] == Position(1, 2)
+
+    query = Query(world, (Velocity, Position))
+    @test string(query) == "Query((Velocity, Position))"
+    close!(query)
+
+    _, velocities, positions = only(Query(world, (Velocity,); optional=(Position,)))
+    @test eltype(velocities) == Velocity
+    @test eltype(positions) == Position
+    @test velocities[1] == Velocity(3, 4)
+    @test positions[1] == Position(1, 2)
+end
+
+@testset "Query from filter preserves requested column order" begin
+    world = World(Position, Velocity)
+
+    new_entity!(world, (Position(1, 2), Velocity(3, 4)))
+
+    filter = Filter(world, (Velocity, Position))
+    _, velocities, positions = only(Query(world, filter))
+
+    @test eltype(velocities) == Velocity
+    @test eltype(positions) == Position
+    @test velocities[1] == Velocity(3, 4)
+    @test positions[1] == Position(1, 2)
+
+    query = Query(world, filter)
+    @test string(query) == "Query((Velocity, Position))"
+    close!(query)
+end
+
 @testset "Query from filter" begin
     world = World(Dummy, Position, Velocity, Altitude, Health)
 
@@ -53,12 +94,12 @@ end
     end
 
     filter = Filter(world, (Position, Velocity))
-    query = Query(filter)
-    @test length(query) == 1
-    @test count_entities(query) == 10
+    query = Query(world, filter)
+    @test count_tables(world, query) == 1
+    @test count_entities(world, query) == 10
     close!(query)
     count = 0
-    for (entities, vec_pos, vec_vel) in Query(filter)
+    for (entities, vec_pos, vec_vel) in Query(world, filter)
         count += length(entities)
     end
     @test count == 10
@@ -74,13 +115,13 @@ end
     end
 
     filter = Filter(world, (Position, Velocity); register=true)
-    query = Query(filter)
-    @test length(query) == 1
-    @test count_entities(query) == 10
+    query = Query(world, filter)
+    @test count_tables(world, query) == 1
+    @test count_entities(world, query) == 10
     close!(query)
 
     count = 0
-    for (entities, vec_pos, vec_vel) in Query(filter)
+    for (entities, vec_pos, vec_vel) in Query(world, filter)
         count += length(entities)
     end
     @test count == 10
@@ -95,8 +136,8 @@ end
     end
 
     query = Query(world, (Position, Velocity); with=(Altitude,))
-    @test length(query) == 1
-    @test count_entities(query) == 10
+    @test count_tables(world, query) == 1
+    @test count_entities(world, query) == 10
 
     count = 0
     for (ent, vec_pos, vec_vel) in query
@@ -118,8 +159,8 @@ end
     end
 
     query = Query(world, (Position, Velocity); without=(Altitude,))
-    @test length(query) == 1
-    @test count_entities(query) == 10
+    @test count_tables(world, query) == 1
+    @test count_entities(world, query) == 10
 
     count = 0
     for (ent, vec_pos, vec_vel) in query
@@ -141,8 +182,8 @@ end
     end
 
     query = Query(world, (Position, Velocity); optional=(Altitude,))
-    @test length(query) == 2
-    @test count_entities(query) == 20
+    @test count_tables(world, query) == 2
+    @test count_entities(world, query) == 20
 
     count = 0
     indices = Vector{Int}()
@@ -178,8 +219,8 @@ end
 
     query = Query(world, (Position, Velocity); with=(Altitude,), exclusive=true)
     @test query._filter.has_excluded == true
-    @test length(query) == 1
-    @test count_entities(query) == 10
+    @test count_tables(world, query) == 1
+    @test count_entities(world, query) == 10
 
     count = 0
     for (ent, vec_pos, vec_vel) in query
@@ -210,8 +251,8 @@ end
     remove_entity!(world, parent4)
 
     query = Query(world, (Position,))
-    @test length(query) == 3
-    @test count_entities(query) == 30
+    @test count_tables(world, query) == 3
+    @test count_entities(world, query) == 30
     cnt = 0
     for (entities, positions) in query
         cnt += length(entities)
@@ -219,8 +260,8 @@ end
     @test cnt == 30
 
     query = Query(world, (Position, ChildOf => parent2))
-    @test length(query) == 1
-    @test count_entities(query) == 10
+    @test count_tables(world, query) == 1
+    @test count_entities(world, query) == 10
     cnt = 0
     for (entities, positions, _) in query
         cnt += length(entities)
@@ -240,8 +281,8 @@ end
     new_entities!(world, 12, (Position(0, 0), ChildOf() => parent1, ChildOf2() => parent3))
 
     query = Query(world, (ChildOf => parent1,))
-    @test length(query) == 3
-    @test count_entities(query) == 33
+    @test count_tables(world, query) == 3
+    @test count_entities(world, query) == 33
     count = 0
     for (entities, _) in query
         count += length(entities)
@@ -249,8 +290,8 @@ end
     @test count == 33
 
     query = Query(world, (ChildOf2 => parent2,))
-    @test length(query) == 1
-    @test count_entities(query) == 11
+    @test count_tables(world, query) == 1
+    @test count_entities(world, query) == 11
     count = 0
     for (entities, _) in query
         count += length(entities)
@@ -258,8 +299,8 @@ end
     @test count == 11
 
     query = Query(world, (ChildOf => parent1, ChildOf2 => parent2))
-    @test length(query) == 1
-    @test count_entities(query) == 11
+    @test count_tables(world, query) == 1
+    @test count_entities(world, query) == 11
     count = 0
     for (entities, _, _) in query
         count += length(entities)
@@ -267,8 +308,8 @@ end
     @test count == 11
 
     query = Query(world, (ChildOf => parent4,))
-    @test length(query) == 0
-    @test count_entities(query) == 0
+    @test count_tables(world, query) == 0
+    @test count_entities(world, query) == 0
     count = 0
     for (entities, _) in query
         count += length(entities)
@@ -290,8 +331,8 @@ end
     @test first(query) === only(query)
 
     query = Query(world, (Position, Velocity))
-    @test length(query) == 0
-    @test count_entities(query) == 0
+    @test count_tables(world, query) == 0
+    @test count_entities(world, query) == 0
 
     count = 0
     arches = 0
@@ -317,8 +358,8 @@ end
     @test_throws("ArgumentError: query must contain exactly one matching table", only(query))
 
     query = Query(world, ())
-    @test length(query) == 2
-    @test count_entities(query) == 20
+    @test count_tables(world, query) == 2
+    @test count_entities(world, query) == 20
 
     count = 0
     arches = 0

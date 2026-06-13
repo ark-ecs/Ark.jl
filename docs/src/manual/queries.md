@@ -165,11 +165,14 @@ This example shows how to use registered [filters](@ref Filter):
 filter = Filter(world, (Position, Velocity); register=true)
 
 # The actual query iteration.
-for (entities, positions, velocities) in Query(filter)
+for (entities, positions, velocities) in Query(world, filter)
     @inbounds for i in eachindex(entities)
         # ...
     end
 end
+
+# The filter can be also unregistered like so:
+unregister!(world, filter)
 
 # output
 
@@ -181,15 +184,6 @@ end
     (e.g. in a System) and re-used for query creation.
 
 Filters support all keyword arguments of queries (see above).
-
-A registered filter can be un-registered like this:
-
-```jldoctest filter-cache; output = false
-unregister!(world, filter)
-
-# output
-
-```
 
 ## Component field views
 

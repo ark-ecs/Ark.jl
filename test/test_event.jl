@@ -88,8 +88,8 @@ end
 
 @testset "Observer registration" begin
     world = World(Position, Velocity, Altitude, Health)
-    @test _has_observers(world._event_manager, OnAddComponents) == false
-    @test _has_observers(world._event_manager, OnRemoveComponents) == false
+    @test _has_observers(_state(world)._event_manager, OnAddComponents) == false
+    @test _has_observers(_state(world)._event_manager, OnRemoveComponents) == false
 
     observe!(world, OnAddComponents, ()) do entity
         println(entity)
@@ -100,25 +100,25 @@ end
 
     @test obs1._id.id == 2
     @test obs1._event._id == 3
-    @test length(world._event_manager.observers) == _EVENT_MANAGER_INITIAL_CAPACITY
-    @test length(world._event_manager.observers[OnAddComponents._id]) == 2
-    @test length(world._event_manager.observers[OnRemoveComponents._id]) == 0
-    @test _has_observers(world._event_manager, OnAddComponents) == true
-    @test _has_observers(world._event_manager, OnRemoveComponents) == false
+    @test length(_state(world)._event_manager.observers) == _EVENT_MANAGER_INITIAL_CAPACITY
+    @test length(_state(world)._event_manager.observers[OnAddComponents._id]) == 2
+    @test length(_state(world)._event_manager.observers[OnRemoveComponents._id]) == 0
+    @test _has_observers(_state(world)._event_manager, OnAddComponents) == true
+    @test _has_observers(_state(world)._event_manager, OnRemoveComponents) == false
 
     obs2 = observe!(world, OnAddComponents, (Position,)) do entity
         println(entity)
     end
 
     @test obs2._id.id == 3
-    @test length(world._event_manager.observers[OnAddComponents._id]) == 3
+    @test length(_state(world)._event_manager.observers[OnAddComponents._id]) == 3
 
     @test_throws "InvalidStateException: observer is already registered" register!(world, obs1)
 
     unregister!(world, obs1)
     @test obs1._id.id == 0
     @test obs2._id.id == 2
-    @test length(world._event_manager.observers[OnAddComponents._id]) == 2
+    @test length(_state(world)._event_manager.observers[OnAddComponents._id]) == 2
 
     obs2 = observe!(world, OnAddComponents, (); with=(Position,)) do entity
         println(entity)
@@ -131,15 +131,15 @@ end
         println(entity)
     end
     @test obs3._id.id == 0
-    @test length(world._event_manager.observers[OnAddComponents._id]) == 2
+    @test length(_state(world)._event_manager.observers[OnAddComponents._id]) == 2
 
-    @test length(world._event_manager.observers[OnRemoveComponents._id]) == 0
-    @test _has_observers(world._event_manager, OnRemoveComponents) == false
+    @test length(_state(world)._event_manager.observers[OnRemoveComponents._id]) == 0
+    @test _has_observers(_state(world)._event_manager, OnRemoveComponents) == false
     obs4 = observe!(world, OnRemoveComponents, ()) do entity
         println(entity)
     end
-    @test length(world._event_manager.observers[OnRemoveComponents._id]) == 1
-    @test _has_observers(world._event_manager, OnRemoveComponents) == true
+    @test length(_state(world)._event_manager.observers[OnRemoveComponents._id]) == 1
+    @test _has_observers(_state(world)._event_manager, OnRemoveComponents) == true
 
     obs5 = observe!(world, OnRemoveComponents, (Position,)) do entity
         println(entity)
@@ -147,11 +147,11 @@ end
     obs6 = observe!(world, OnRemoveComponents, (); with=(Position,)) do entity
         println(entity)
     end
-    @test length(world._event_manager.observers[OnRemoveComponents._id]) == 3
+    @test length(_state(world)._event_manager.observers[OnRemoveComponents._id]) == 3
     unregister!(world, obs4)
     unregister!(world, obs6)
     unregister!(world, obs5)
-    @test _has_observers(world._event_manager, OnRemoveComponents) == false
+    @test _has_observers(_state(world)._event_manager, OnRemoveComponents) == false
 end
 
 @testset "Observer exclusive error" begin
@@ -831,11 +831,11 @@ end
     counter_add = 0
     counter_rem = 0
     obs_add = observe!(world, OnAddRelations, (ChildOf,)) do entity
-        @test _is_locked(world._lock) == false
+        @test _is_locked(_state(world)._lock) == false
         counter_add += 1
     end
     obs_rem = observe!(world, OnRemoveRelations, (ChildOf,)) do entity
-        @test _is_locked(world._lock) == true
+        @test _is_locked(_state(world)._lock) == true
         counter_rem += 1
     end
     obs_add_2 = observe!(world, OnAddRelations, (ChildOf2,)) do entity
@@ -964,11 +964,11 @@ end
     counter_add = 0
     counter_rem = 0
     obs_add = observe!(world, OnAddRelations, (ChildOf,)) do entity
-        @test _is_locked(world._lock) == true
+        @test _is_locked(_state(world)._lock) == true
         counter_add += 1
     end
     obs_rem = observe!(world, OnRemoveRelations, (ChildOf,)) do entity
-        @test _is_locked(world._lock) == true
+        @test _is_locked(_state(world)._lock) == true
         counter_rem += 1
     end
     obs_add_2 = observe!(world, OnAddRelations, (ChildOf2,)) do entity
@@ -1015,11 +1015,11 @@ end
 
     counters = Int[0, 0, 0, 0]
     observe!(world, OnAddComponents, (Velocity,)) do entity
-        @test _is_locked(world._lock) == true
+        @test _is_locked(_state(world)._lock) == true
         counters[1] += 1
     end
     observe!(world, OnRemoveComponents, (Velocity,)) do entity
-        @test _is_locked(world._lock) == true
+        @test _is_locked(_state(world)._lock) == true
         counters[2] += 1
     end
     observe!(world, OnAddComponents, (Altitude,)) do entity
@@ -1030,11 +1030,11 @@ end
     end
 
     observe!(world, OnAddRelations, (ChildOf,)) do entity
-        @test _is_locked(world._lock) == true
+        @test _is_locked(_state(world)._lock) == true
         counters[3] += 1
     end
     observe!(world, OnRemoveRelations, (ChildOf,)) do entity
-        @test _is_locked(world._lock) == true
+        @test _is_locked(_state(world)._lock) == true
         counters[4] += 1
     end
     observe!(world, OnAddRelations, (ChildOf2,)) do entity

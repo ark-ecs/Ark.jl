@@ -1,52 +1,56 @@
 
 """
-    shuffle_entities!(filter::Filter)
-    shuffle_entities!(rng::AbstractRNG, filter::Filter)
+    shuffle_entities!(world::World, filter::Filter)
+    shuffle_entities!(rng::AbstractRNG, world::World, filter::Filter)
 
 Shuffles the entities matching the filter.
 The shuffling is performed per-table (archetype).
 """
-function shuffle_entities!(filter::F) where {F<:Filter}
-    shuffle_entities!(Random.default_rng(), filter)
+function shuffle_entities!(world::World, filter::F) where {F<:Filter}
+    shuffle_entities!(Random.default_rng(), world, filter)
 end
 
-function shuffle_entities!(rng::AbstractRNG, filter::F) where {F<:Filter}
-    _check_locked(filter._world)
+function shuffle_entities!(rng::AbstractRNG, world::World, filter::F) where {F<:Filter}
+    _check_filter_world(world, filter)
+    world_state = _state(world)
+    world_storage = _storage(world)
+    _check_locked(world_state)
 
-    _lock(filter._world._lock)
+    _lock(world_state._lock)
     if _is_cached(filter._filter)
         for table_id in filter._filter.tables.ids
-            table = @inbounds filter._world._tables[table_id]
+            table = @inbounds world_state._tables[table_id]
             if !isempty(table.entities)
-                _shuffle_table!(rng, filter._world, table)
+                _shuffle_table!(rng, world_state, world_storage, table)
             end
         end
     else
-        arches, arches_hot = _get_archetypes(filter._world, filter)
-        _shuffle(rng, filter._world, filter._filter, arches, arches_hot)
+        arches, arches_hot = _get_archetypes(world_state, filter)
+        _shuffle(rng, world_state, world_storage, filter._filter, arches, arches_hot)
     end
-    _unlock(filter._world._lock)
+    _unlock(world_state._lock)
 
     return filter
 end
 
 function _shuffle(
     rng::AbstractRNG,
-    world::W,
+    state::_WorldState{M,K},
+    stores::_WorldStorage,
     filter::_MaskFilter{M,K},
     archetypes::Vector{_Archetype{M}},
     archetypes_hot::Vector{_ArchetypeHot{M}},
-) where {W<:World,M,K}
-    @_each_matching_table(world, filter, archetypes, archetypes_hot, table, _shuffle_table!(rng, world, table))
+) where {M,K}
+    @_each_matching_table(state, filter, archetypes, archetypes_hot, table, _shuffle_table!(rng, state, stores, table))
 end
 
-function _shuffle_table!(rng::AbstractRNG, world::World, table::_Table)
+function _shuffle_table!(rng::AbstractRNG, state::_WorldState, stores::_WorldStorage, table::_Table)
     len = length(table)
-    archetype = world._archetypes[table.archetype]
+    archetype = state._archetypes[table.archetype]
 
     for i in len:-1:2
         j = @inline rand(rng, Random.Sampler(rng, Base.OneTo(i), Val(1)))
-        _swap_rows!(world, archetype, table, i, j)
+        _swap_rows!(state, stores, archetype, table, i, j)
     end
     return
 end

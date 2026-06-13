@@ -76,16 +76,16 @@ certain set of [Components](@ref components-api).
 ```@docs
 Query
 Query(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)
-Query(::Filter)
+Query(::World, ::Filter)
 close!(::Query)
 Filter
 Filter(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)
 unregister!(::World, ::Filter)
+count_tables
 count_entities
 shuffle_entities!
 sort_entities!
 partition_entities!
-length
 Entities
 @unpack
 unpack
