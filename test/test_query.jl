@@ -50,8 +50,8 @@ end
 
     _, velocities, positions = only(Query(world, (Velocity, Position)))
 
-    @test velocities isa FieldViewable{Velocity}
-    @test positions isa FieldViewable{Position}
+    @test eltype(velocities) == Velocity
+    @test eltype(positions) == Position
     @test velocities[1] == Velocity(3, 4)
     @test positions[1] == Position(1, 2)
 
