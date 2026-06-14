@@ -1181,11 +1181,7 @@ function _create_table!(
 
     new_table_id = length(state._tables) + 1
     arch_hot = state._archetypes_hot[arch.id]
-    local_table = if arch_hot.next_local_table == 1
-        _first_local_table!(arch_hot)
-    else
-        _new_extra_local_table!(arch_hot)
-    end
+    local_table = _new_local_table!(arch_hot)
     table = _new_table(UInt32(new_table_id), arch.id, local_table, state._initial_capacity, relations)
     push!(state._tables, table)
 

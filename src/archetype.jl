@@ -11,7 +11,7 @@ function _ArchetypeHot(node::_GraphNode, table::UInt32)
         node.mask,
         table,
         false,
-        UInt32(1),
+        UInt32(0),
     )
 end
 
@@ -24,7 +24,7 @@ function _ArchetypeHot(
         node.mask,
         table,
         !isempty(relations),
-        UInt32(1),
+        UInt32(0),
     )
 end
 
@@ -74,17 +74,9 @@ function _Archetype(
     )
 end
 
-@inline function _first_local_table!(arch_hot::_ArchetypeHot)
-    @check arch_hot.next_local_table == 1
-    arch_hot.next_local_table = UInt32(2)
-    return UInt32(1)
-end
-
-@inline function _new_extra_local_table!(arch_hot::_ArchetypeHot)
-    local_id = arch_hot.next_local_table
-    @check local_id >= 2
-    arch_hot.next_local_table += 1
-    return local_id
+@inline function _new_local_table!(arch_hot::_ArchetypeHot)
+    arch_hot.next_local_table += UInt32(1)
+    return arch_hot.next_local_table
 end
 
 function _add_table!(indices::Vector{_ComponentRelations}, arch::_Archetype, t::_Table)

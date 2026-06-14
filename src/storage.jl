@@ -66,13 +66,12 @@ end
 ) where {C,A<:AbstractArray}
     @inbounds if local_table == 1
         col = s.primary[Int(arch_id)]
-    else
-        col = s.extra[Int(arch_id)][Int(local_table) - 1]
+        if length(col) == 0
+            throw(ArgumentError(lazy"entity has no $C component"))
+        end
+        return @inbounds col[row]
     end
-    if length(col) == 0
-        throw(ArgumentError(lazy"entity has no $C component"))
-    end
-    return @inbounds col[row]
+    return @inbounds s.extra[Int(arch_id)][Int(local_table) - 1][row]
 end
 
 @inline function _get_component(
@@ -96,13 +95,12 @@ end
 ) where {C,A<:AbstractArray}
     @inbounds if local_table == 1
         col = s.primary[Int(arch_id)]
-    else
-        col = s.extra[Int(arch_id)][Int(local_table) - 1]
+        if length(col) == 0
+            throw(ArgumentError(lazy"entity has no $C component"))
+        end
+        return @inbounds col[row] = value
     end
-    if length(col) == 0
-        throw(ArgumentError(lazy"entity has no $C component"))
-    end
-    return @inbounds col[row] = value
+    return @inbounds s.extra[Int(arch_id)][Int(local_table) - 1][row] = value
 end
 
 @inline function _set_component!(
