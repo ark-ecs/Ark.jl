@@ -74,8 +74,15 @@ function _Archetype(
     )
 end
 
-@inline function _new_local_table!(arch::_Archetype)
+@inline function _first_local_table!(arch::_Archetype)
+    @check arch.next_local_table == 1
+    arch.next_local_table = UInt32(2)
+    return UInt32(1)
+end
+
+@inline function _new_extra_local_table!(arch::_Archetype)
     local_id = arch.next_local_table
+    @check local_id >= 2
     arch.next_local_table += 1
     return local_id
 end

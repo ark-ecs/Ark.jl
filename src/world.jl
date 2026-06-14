@@ -1180,7 +1180,11 @@ function _create_table!(
     _check_relation_targets(state, relations)
 
     new_table_id = length(state._tables) + 1
-    local_table = _new_local_table!(arch)
+    local_table = if arch.next_local_table == 1
+        _first_local_table!(arch)
+    else
+        _new_extra_local_table!(arch)
+    end
     table = _new_table(UInt32(new_table_id), arch.id, local_table, state._initial_capacity, relations)
     push!(state._tables, table)
 
@@ -1272,7 +1276,7 @@ function _create_archetype!(
 
     _add_archetype_slot_to_all_storages!(stores)
     for comp in arch.components
-        _activate_archetype_storage_for_comp!(stores, comp, UInt32(index))
+        _activate_archetype_storage_for_comp!(stores, comp, UInt32(index), state._initial_capacity)
     end
 
     _push_zero_to_all_archetype_relations!(state, stores)
@@ -1541,8 +1545,8 @@ end
     push!(exprs, :(tmp = _create_entity!(world_state, table_id)))
     push!(exprs, :(entity = tmp[1]))
 
-    push!(exprs, :(arch_id = table.archetype))
-    push!(exprs, :(local_table_id = table.local_table))
+    push!(exprs, :(arch_id = Int(table.archetype)))
+    push!(exprs, :(local_id = Int(table.local_table)))
 
     # Set each component
     for i in 1:length(types)
@@ -1552,7 +1556,13 @@ end
         val_expr = :(values.$i)
 
         push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-        push!(exprs, :(@inbounds $col_sym = $stor_sym.data[arch_id][local_table_id]))
+        push!(exprs, :(@inbounds begin
+            if local_id == 1
+                $col_sym = $stor_sym.primary[arch_id]
+            else
+                $col_sym = $stor_sym.extra[arch_id][local_id - 1]
+            end
+        end))
         push!(exprs, :(push!($col_sym, $val_expr)))
     end
 
@@ -1856,6 +1866,8 @@ end
         ),
     )
 
+    push!(exprs, :(copy_new_arch = Int(new_table.archetype)))
+    push!(exprs, :(copy_new_local = Int(new_table.local_table)))
     for i in 1:length(add_types)
         T = add_types[i]
         stor_sym = Symbol("stor", i)
@@ -1863,7 +1875,13 @@ end
         val_expr = :(add.$i)
 
         push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-        push!(exprs, :(@inbounds $col_sym = $stor_sym.data[new_table.archetype][new_table.local_table]))
+        push!(exprs, :(@inbounds begin
+            if copy_new_local == 1
+                $col_sym = $stor_sym.primary[copy_new_arch]
+            else
+                $col_sym = $stor_sym.extra[copy_new_arch][copy_new_local - 1]
+            end
+        end))
         push!(exprs, :(@inbounds push!($col_sym, $val_expr)))
     end
 
@@ -1972,6 +1990,7 @@ end
             index = world_state._entities[entity._id]
             table = world_state._tables[index.table]
         end))
+        push!(exprs, :(local_id = Int(table.local_table)))
         for i in 1:length(types)
             T = types[i]
             stor_sym = Symbol("stor", i)
@@ -1979,14 +1998,18 @@ end
 
             push!(exprs, :($stor_sym = _get_storage(stores, $T)))
             push!(exprs, :(@inbounds begin
-                arch_cols = $stor_sym.data[table.archetype]
-                if arch_cols === $stor_sym.empty_arch
-                    return false
+                if local_id == 1
+                    $col_sym = $stor_sym.primary[Int(table.archetype)]
+                else
+                    extras = $stor_sym.extra[Int(table.archetype)]
+                    if extras === $stor_sym.empty_extra
+                        return false
+                    end
+                    $col_sym = extras[local_id - 1]
                 end
-                $col_sym = arch_cols[table.local_table]
             end))
             push!(exprs, :(
-                if length($col_sym) == 0
+                if $col_sym === $stor_sym.empty_column || length($col_sym) == 0
                     return false
                 end
             ))
@@ -2287,6 +2310,8 @@ end
     end
 
     push!(exprs, :(row = _move_entity!(world_state, stores, entity, index, old_table, new_table, new_table_index)))
+    push!(exprs, :(xchg_arch = Int(new_table.archetype)))
+    push!(exprs, :(xchg_local = Int(new_table.local_table)))
     for i in 1:length(add_types)
         T = add_types[i]
         stor_sym = Symbol("stor", i)
@@ -2294,7 +2319,13 @@ end
         val_expr = :(add.$i)
 
         push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-        push!(exprs, :(@inbounds $col_sym = $stor_sym.data[new_table.archetype][new_table.local_table]))
+        push!(exprs, :(@inbounds begin
+            if xchg_local == 1
+                $col_sym = $stor_sym.primary[xchg_arch]
+            else
+                $col_sym = $stor_sym.extra[xchg_arch][xchg_local - 1]
+            end
+        end))
         push!(exprs, :(push!($col_sym, $val_expr)))
     end
 
@@ -2394,9 +2425,10 @@ end
     stores::_WorldStorage{CS},
     comp::Int,
     arch_id::UInt32,
+    cap::Int,
 ) where CS
     call_exprs =
-        Expr[:(_activate_archetype_storage_for_comp!(stores._storages.$i, arch_id)) for i in 1:fieldcount(CS)]
+        Expr[:(_activate_archetype_storage_for_comp!(stores._storages.$i, arch_id, cap)) for i in 1:fieldcount(CS)]
     _generate_component_switch(:comp, call_exprs)
 end
 

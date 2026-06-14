@@ -29,16 +29,19 @@ end
         _ComponentStorage{Position,_storage_from_component(world, Position)},
     )
     position_storage_type = _storage_from_component(world, Position)
-    @test isa(_get_storage(_storage(world), Position).data[1], Vector{position_storage_type})
+    @test isa(_get_storage(_storage(world), Position).primary[1], position_storage_type)
+    @test isa(_get_storage(_storage(world), Position).extra[1], Vector{position_storage_type})
     velocity_storage_type = _storage_from_component(world, Velocity)
     @test isa(_get_storage(_storage(world), Velocity), _ComponentStorage{Velocity,velocity_storage_type})
-    @test isa(_get_storage(_storage(world), Velocity).data[1], Vector{velocity_storage_type})
+    @test isa(_get_storage(_storage(world), Velocity).primary[1], velocity_storage_type)
+    @test isa(_get_storage(_storage(world), Velocity).extra[1], Vector{velocity_storage_type})
     altitude_storage_type = _storage_from_component(world, Altitude)
     @test isa(
         _get_storage(_storage(world), Altitude),
         _ComponentStorage{Altitude,altitude_storage_type},
     )
-    @test isa(_get_storage(_storage(world), Altitude).data[1], Vector{altitude_storage_type})
+    @test isa(_get_storage(_storage(world), Altitude).primary[1], altitude_storage_type)
+    @test isa(_get_storage(_storage(world), Altitude).extra[1], Vector{altitude_storage_type})
 
     world_state = _state(world)
     stores = _storage(world)
@@ -186,16 +189,19 @@ end
     @test length(_state(world)._tables) == 3
 end
 
-@testset "World archetype-indexed storage columns" begin
+@testset "World primary/extra storage columns" begin
     world = World(Position, Velocity => Storage{StructArray}, Relation{ChildOf})
     pos_storage = _get_storage(_storage(world), Position)
     vel_storage = _get_storage(_storage(world), Velocity)
     child_storage = _get_storage(_storage(world), ChildOf)
 
-    # Archetype 1 (no components): all storages have empty_arch sentinel
-    @test pos_storage.data[1] === pos_storage.empty_arch
-    @test vel_storage.data[1] === vel_storage.empty_arch
-    @test child_storage.data[1] === child_storage.empty_arch
+    # Archetype 1 (no components): all storages have sentinels
+    @test pos_storage.primary[1] === pos_storage.empty_column
+    @test pos_storage.extra[1] === pos_storage.empty_extra
+    @test vel_storage.primary[1] === vel_storage.empty_column
+    @test vel_storage.extra[1] === vel_storage.empty_extra
+    @test child_storage.primary[1] === child_storage.empty_column
+    @test child_storage.extra[1] === child_storage.empty_extra
 
     parent1 = new_entity!(world, ())
     parent2 = new_entity!(world, ())
@@ -207,16 +213,21 @@ end
 
     @test child1_info.id != child2_info.id
     @test child1_info.archetype == child2_info.archetype
-    @test child1_info.local_table != child2_info.local_table
+    # First table in archetype is primary (local_table=1), second is extra
+    @test child1_info.local_table == 1
+    @test child2_info.local_table == 2
 
-    # Archetype for ChildOf: child_storage has columns, pos/vel do not
+    # Archetype for ChildOf: child_storage has primary + extras, pos/vel have sentinels
     child_arch = child1_info.archetype
-    @test child_storage.data[child_arch] !== child_storage.empty_arch
-    @test pos_storage.data[child_arch] === pos_storage.empty_arch
-    @test vel_storage.data[child_arch] === vel_storage.empty_arch
-    # Different local tables have different columns
-    @test child_storage.data[child_arch][child1_info.local_table] !==
-          child_storage.data[child_arch][child2_info.local_table]
+    @test child_storage.primary[child_arch] !== child_storage.empty_column
+    @test child_storage.extra[child_arch] !== child_storage.empty_extra
+    @test pos_storage.primary[child_arch] === pos_storage.empty_column
+    @test pos_storage.extra[child_arch] === pos_storage.empty_extra
+    @test vel_storage.primary[child_arch] === vel_storage.empty_column
+    @test vel_storage.extra[child_arch] === vel_storage.empty_extra
+    # Primary column vs extra column are different
+    @test child_storage.primary[child_arch] !==
+          child_storage.extra[child_arch][child2_info.local_table - 1]
 
     entity1 = new_entity!(world, (Position(1, 1), Velocity(1, 1), ChildOf() => parent1))
     entity2 = new_entity!(world, (Position(2, 2), Velocity(2, 2), ChildOf() => parent2))
@@ -227,24 +238,25 @@ end
     @test entity1_info.id != entity2_info.id
     full_arch = entity1_info.archetype
     @test full_arch == entity2_info.archetype
+    @test entity1_info.local_table == 1
+    @test entity2_info.local_table == 2
 
     # All three components have activated storage for this archetype
     for storage in (pos_storage, vel_storage, child_storage)
-        @test storage.data[full_arch] !== storage.empty_arch
-        @test storage.data[full_arch][entity1_info.local_table] !==
-              storage.data[full_arch][entity2_info.local_table]
+        @test storage.primary[full_arch] !== storage.empty_column
+        @test storage.extra[full_arch] !== storage.empty_extra
     end
 
-    pos_column = pos_storage.data[full_arch][entity1_info.local_table]
-    vel_column = vel_storage.data[full_arch][entity1_info.local_table]
+    pos_column = pos_storage.primary[full_arch]
+    vel_column = vel_storage.primary[full_arch]
     reset!(world)
 
-    @test pos_storage.data[full_arch][entity1_info.local_table] === pos_column
-    @test vel_storage.data[full_arch][entity1_info.local_table] === vel_column
+    @test pos_storage.primary[full_arch] === pos_column
+    @test vel_storage.primary[full_arch] === vel_column
     @test isempty(pos_column)
     @test isempty(vel_column)
-    @test isempty(pos_storage.empty_arch)
-    @test isempty(vel_storage.empty_arch)
+    @test isempty(pos_storage.empty_column)
+    @test isempty(vel_storage.empty_column)
 end
 
 @testset "World Component Registration" begin
@@ -257,7 +269,8 @@ end
     @test _state(world)._registry.types[id_int] == Int
     @test length(_storage(world)._storages) == N_fake + 2
     @test _storage(world)._storages[id_int] isa _ComponentStorage{Int,_storage_from_component(world, Int)}
-    @test length(_storage(world)._storages[id_int].data) == 1
+    @test length(_storage(world)._storages[id_int].primary) == 1
+    @test length(_storage(world)._storages[id_int].extra) == 1
 
     # Register Position component
     id_pos = _component_index(params, Position)
@@ -265,7 +278,8 @@ end
     @test _state(world)._registry.types[id_pos] == Position
     @test length(_storage(world)._storages) == N_fake + 2
     @test _storage(world)._storages[id_pos] isa _ComponentStorage{Position,_storage_from_component(world, Position)}
-    @test length(_storage(world)._storages[id_pos].data) == 1
+    @test length(_storage(world)._storages[id_pos].primary) == 1
+    @test length(_storage(world)._storages[id_pos].extra) == 1
 
     # Re-register Int component (should not add new storage)
     id_int2 = _component_index(params, Int)
@@ -376,8 +390,10 @@ end
 
     @test isa(pos_storage, _ComponentStorage{Position,_storage_from_component(world, Position)})
     @test isa(vel_storage, _ComponentStorage{Velocity,_storage_from_component(world, Velocity)})
-    @test length(pos_storage.data) == 3
-    @test length(vel_storage.data) == 3
+    @test length(pos_storage.primary) == 3
+    @test length(pos_storage.extra) == 3
+    @test length(vel_storage.primary) == 3
+    @test length(vel_storage.extra) == 3
 end
 
 @testset "_create_entity! Tests" begin
@@ -479,8 +495,8 @@ end
     entity = new_entity!(world, (Position(1, 2), Velocity(3, 4)))
     @test entity == _new_entity(3, 0)
     @test is_alive(world, entity) == true
-    @test length(_storage(world)._storages[offset_ID+2].data[2][1]) == 1
-    @test length(_storage(world)._storages[offset_ID+3].data[2][1]) == 1
+    @test length(_storage(world)._storages[offset_ID+2].primary[2]) == 1
+    @test length(_storage(world)._storages[offset_ID+3].primary[2]) == 1
 
     pos, vel = get_components(world, entity, (Position, Velocity))
     @test pos == Position(1, 2)
@@ -771,8 +787,8 @@ end
     @test entity2._id == entity._id + 1
     @test entity2._id == 4
     @test _state(world)._tables[2].entities == [entity, entity2]
-    @test length(_storage(world)._storages[offset_ID+2].data[2][1]) == 2
-    @test length(_storage(world)._storages[offset_ID+3].data[2][1]) == 2
+    @test length(_storage(world)._storages[offset_ID+2].primary[2]) == 2
+    @test length(_storage(world)._storages[offset_ID+3].primary[2]) == 2
 
     pos, vel = get_components(world, entity2, (Position, Velocity))
     @test pos == Position(1, 2)
@@ -930,8 +946,8 @@ end
     @test cnt == 100
     @test is_locked(world) == false
     @test length(_state(world)._tables[2].entities) == 101
-    @test length(_storage(world)._storages[offset_ID+2].data[2][1]) == 101
-    @test length(_storage(world)._storages[offset_ID+3].data[2][1]) == 101
+    @test length(_storage(world)._storages[offset_ID+2].primary[2]) == 101
+    @test length(_storage(world)._storages[offset_ID+3].primary[2]) == 101
 
     cnt = 0
     for (ent, pos_col, vel_col) in Query(world, (Position, Velocity))
@@ -988,8 +1004,8 @@ end
     @test count == 100
     @test is_locked(world) == false
     @test length(_state(world)._tables[2].entities) == 101
-    @test length(_storage(world)._storages[offset_ID+2].data[2][1]) == 101
-    @test length(_storage(world)._storages[offset_ID+3].data[2][1]) == 101
+    @test length(_storage(world)._storages[offset_ID+2].primary[2]) == 101
+    @test length(_storage(world)._storages[offset_ID+3].primary[2]) == 101
 
     count = 0
     for (ent, pos_col, vel_col) in Query(world, (Position, Velocity))
@@ -1670,10 +1686,14 @@ end
         storage = _storage(world)._storages[offset_ID + s]
         for t in 2:6
             table = _state(world)._tables[t]
-            if storage.data[table.archetype] === storage.empty_arch
-                @test true  # component absent from this archetype, empty_arch has length 0
+            if storage.primary[table.archetype] === storage.empty_column
+                @test true  # component absent from this archetype
             else
-                @test length(storage.data[table.archetype][table.local_table]) == 0
+                if table.local_table == 1
+                    @test length(storage.primary[table.archetype]) == 0
+                else
+                    @test length(storage.extra[table.archetype][table.local_table - 1]) == 0
+                end
             end
         end
     end

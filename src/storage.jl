@@ -1,8 +1,9 @@
 
 struct _ComponentStorage{C,A<:AbstractArray{C,1}}
-    data::Vector{Vector{A}}
-    empty_arch::Vector{A}
+    primary::Vector{A}
+    extra::Vector{Vector{A}}
     empty_column::A
+    empty_extra::Vector{A}
 end
 
 @inline _component_type(::Type{<:_ComponentStorage{C}}) where {C} = C
@@ -38,12 +39,25 @@ end
 
 function _new_component_storage(::Type{S}, ::Type{C}) where {S<:Storage,C}
     empty_col = _new_storage(S, C)
-    empty_arch = Vector{typeof(empty_col)}()
-    return _ComponentStorage{C,typeof(empty_col)}([empty_arch], empty_arch, empty_col)
+    empty_ext = Vector{typeof(empty_col)}()
+    return _ComponentStorage{C,typeof(empty_col)}(
+        [empty_col],
+        [empty_ext],
+        empty_col,
+        empty_ext,
+    )
 end
 
-@inline function _column(storage::_ComponentStorage{C,A}, arch_id::UInt32, local_table::UInt32) where {C,A}
-    @inbounds return storage.data[arch_id][local_table]
+@inline function _column(
+    storage::_ComponentStorage{C,A},
+    arch_id::UInt32,
+    local_table::UInt32,
+) where {C,A}
+    @inbounds if local_table == 1
+        return storage.primary[Int(arch_id)]
+    else
+        return storage.extra[Int(arch_id)][Int(local_table) - 1]
+    end
 end
 
 @inline function _get_component(
@@ -53,11 +67,18 @@ end
     row::UInt32,
     ::Val{false},
 ) where {C,A<:AbstractArray}
-    @inbounds arch_cols = s.data[arch_id]
-    if arch_cols === s.empty_arch
+    @inbounds if local_table == 1
+        col = s.primary[Int(arch_id)]
+    else
+        extras = s.extra[Int(arch_id)]
+        if extras === s.empty_extra
+            throw(ArgumentError(lazy"entity has no $C component"))
+        end
+        col = extras[Int(local_table) - 1]
+    end
+    if col === s.empty_column
         throw(ArgumentError(lazy"entity has no $C component"))
     end
-    col = @inbounds arch_cols[local_table]
     return @inbounds col[row]
 end
 
@@ -80,12 +101,16 @@ end
     value::C,
     ::Val{false},
 ) where {C,A<:AbstractArray}
-    @inbounds arch_cols = s.data[arch_id]
-    if arch_cols === s.empty_arch
-        throw(ArgumentError(lazy"entity has no $C component"))
+    @inbounds if local_table == 1
+        col = s.primary[Int(arch_id)]
+    else
+        extras = s.extra[Int(arch_id)]
+        if extras === s.empty_extra
+            throw(ArgumentError(lazy"entity has no $C component"))
+        end
+        col = extras[Int(local_table) - 1]
     end
-    @inbounds col = arch_cols[local_table]
-    if length(col) == 0
+    if col === s.empty_column || length(col) == 0
         throw(ArgumentError(lazy"entity has no $C component"))
     end
     return @inbounds col[row] = value
@@ -115,54 +140,91 @@ end
 end
 
 function _add_archetype_slot!(storage::_ComponentStorage)
-    push!(storage.data, storage.empty_arch)
+    push!(storage.primary, storage.empty_column)
+    push!(storage.extra, storage.empty_extra)
+    return nothing
 end
 
-function _activate_archetype_storage_for_comp!(storage::_ComponentStorage{C,A}, arch_id::UInt32) where {C,A<:AbstractArray}
-    @inbounds storage.data[arch_id] = Vector{A}()
+function _activate_archetype_storage_for_comp!(
+    storage::_ComponentStorage{C,A},
+    arch_id::UInt32,
+    cap::Int,
+) where {C,A<:AbstractArray}
+    primary = _new_storage_column(C, A)
+    sizehint!(primary, cap)
+
+    @inbounds storage.primary[Int(arch_id)] = primary
+    @inbounds storage.extra[Int(arch_id)] = Vector{A}()
+    return nothing
 end
 
-function _create_column!(storage::_ComponentStorage{C,A}, arch_id::UInt32, local_table::UInt32, cap::Int) where {C,A<:AbstractArray}
+function _create_column!(
+    storage::_ComponentStorage{C,A},
+    arch_id::UInt32,
+    local_table::UInt32,
+    cap::Int,
+) where {C,A<:AbstractArray}
+    if local_table == 1
+        @inbounds col = storage.primary[Int(arch_id)]
+        @assert col !== storage.empty_column
+        sizehint!(col, cap)
+        return nothing
+    end
+
     col = _new_storage_column(C, A)
     sizehint!(col, cap)
-    arch_columns = storage.data[arch_id]
-    @assert local_table == length(arch_columns) + 1
-    push!(arch_columns, col)
+
+    @inbounds extras = storage.extra[Int(arch_id)]
+    @assert extras !== storage.empty_extra
+    @assert Int(local_table) - 1 == length(extras) + 1
+
+    push!(extras, col)
+    return nothing
 end
 
-function _clear_column!(storage::_ComponentStorage{C,A}, arch_id::UInt32, local_table::UInt32) where {C,A<:AbstractArray}
-    @inbounds col = _column(storage, arch_id, local_table)
+function _clear_column!(
+    storage::_ComponentStorage{C,A},
+    arch_id::UInt32,
+    local_table::UInt32,
+) where {C,A<:AbstractArray}
+    col = _column(storage, arch_id, local_table)
     empty!(col)
+    return nothing
 end
 
-function _ensure_column_size!(storage::_ComponentStorage{C,A}, arch_id::UInt32, local_table::UInt32, needed::Int) where {C,A<:AbstractArray}
+function _ensure_column_size!(
+    storage::_ComponentStorage{C,A},
+    arch_id::UInt32,
+    local_table::UInt32,
+    needed::Int,
+) where {C,A<:AbstractArray}
     @inbounds col = _column(storage, arch_id, local_table)
     if length(col) < needed
         resize!(col, needed)
     end
-    return
+    return nothing
 end
 
 function _move_component_data!(
     s::_ComponentStorage{C,A},
-    old_arch_id::UInt32,
-    old_local_table::UInt32,
-    new_arch_id::UInt32,
-    new_local_table::UInt32,
+    old_arch::UInt32,
+    old_local::UInt32,
+    new_arch::UInt32,
+    new_local::UInt32,
     row::UInt32,
 ) where {C,A<:AbstractArray}
-    @inbounds old_vec = _column(s, old_arch_id, old_local_table)
-    @inbounds new_vec = _column(s, new_arch_id, new_local_table)
+    @inbounds old_vec = _column(s, old_arch, old_local)
+    @inbounds new_vec = _column(s, new_arch, new_local)
     @inbounds push!(new_vec, old_vec[row])
     _swap_remove!(old_vec, row)
 end
 
 @generated function _move_component_data!(
     s::_ComponentStorage{C,A},
-    old_arch_id::UInt32,
-    old_local_table::UInt32,
-    new_arch_id::UInt32,
-    new_local_table::UInt32,
+    old_arch::UInt32,
+    old_local::UInt32,
+    new_arch::UInt32,
+    new_local::UInt32,
     row::UInt32,
 ) where {C,A<:_AbstractStructArray}
     names = fieldnames(eltype(A))
@@ -172,8 +234,8 @@ end
         push!(exprs_push_remove, :(_swap_remove!(old_vec_comp.$name, row)))
     end
     quote
-        @inbounds old_vec = _column(s, old_arch_id, old_local_table)
-        @inbounds new_vec = _column(s, new_arch_id, new_local_table)
+        @inbounds old_vec = _column(s, old_arch, old_local)
+        @inbounds new_vec = _column(s, new_arch, new_local)
         old_vec_comp = getfield(old_vec, :_components)
         new_vec_comp = getfield(new_vec, :_components)
         $(exprs_push_remove...)
@@ -182,21 +244,23 @@ end
 
 @generated function _copy_component_data!(
     s::_ComponentStorage{C,A},
-    old_arch_id::UInt32,
-    old_local_table::UInt32,
-    new_arch_id::UInt32,
-    new_local_table::UInt32,
+    old_arch::UInt32,
+    old_local::UInt32,
+    new_arch::UInt32,
+    new_local::UInt32,
     old_row::UInt32,
     ::CP,
 ) where {C,A<:AbstractArray,CP<:Val}
     exprs = Expr[]
-    push!(exprs, :(@inbounds old_vec = _column(s, old_arch_id, old_local_table)))
-    push!(exprs, :(@inbounds new_vec = _column(s, new_arch_id, new_local_table)))
+    push!(exprs, :(@inbounds old_vec = _column(s, old_arch, old_local)))
+    push!(exprs, :(@inbounds new_vec = _column(s, new_arch, new_local)))
 
     if CP === Val{:ref} || isbitstype(C)
         if A <: _AbstractStructArray
             return quote
-                _copy_component_data_per_field!(s, old_arch_id, old_local_table, new_arch_id, new_local_table, old_row)
+                _copy_component_data_per_field!(
+                    s, old_arch, old_local, new_arch, new_local, old_row,
+                )
             end
         else
             push!(exprs, :(push!(new_vec, old_vec[old_row])))
@@ -218,10 +282,10 @@ end
 
 @generated function _copy_component_data_per_field!(
     s::_ComponentStorage{C,A},
-    old_arch_id::UInt32,
-    old_local_table::UInt32,
-    new_arch_id::UInt32,
-    new_local_table::UInt32,
+    old_arch::UInt32,
+    old_local::UInt32,
+    new_arch::UInt32,
+    new_local::UInt32,
     old_row::UInt32,
 ) where {C,A<:_AbstractStructArray}
     names = fieldnames(C)
@@ -230,8 +294,8 @@ end
         push!(exprs, :(@inbounds push!(new_vec_comp.$name, old_vec_comp.$name[old_row])))
     end
     return quote
-        @inbounds old_vec = _column(s, old_arch_id, old_local_table)
-        @inbounds new_vec = _column(s, new_arch_id, new_local_table)
+        @inbounds old_vec = _column(s, old_arch, old_local)
+        @inbounds new_vec = _column(s, new_arch, new_local)
         old_vec_comp = getfield(old_vec, :_components)
         new_vec_comp = getfield(new_vec, :_components)
         $(exprs...)
@@ -241,13 +305,13 @@ end
 
 function _copy_component_data_to_end!(
     s::_ComponentStorage{C,A},
-    old_arch_id::UInt32,
-    old_local_table::UInt32,
-    new_arch_id::UInt32,
-    new_local_table::UInt32,
+    old_arch::UInt32,
+    old_local::UInt32,
+    new_arch::UInt32,
+    new_local::UInt32,
 ) where {C,A<:AbstractArray}
-    @inbounds old_vec = _column(s, old_arch_id, old_local_table)
-    @inbounds new_vec = _column(s, new_arch_id, new_local_table)
+    @inbounds old_vec = _column(s, old_arch, old_local)
+    @inbounds new_vec = _column(s, new_arch, new_local)
     _copy_old_data!(new_vec, old_vec)
     return nothing
 end

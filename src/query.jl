@@ -363,31 +363,46 @@ end
 
     exprs = Expr[]
     push!(exprs, :(entities = table.entities))
+    push!(exprs, :(_arch_id = Int(table.archetype)))
+    push!(exprs, :(_local_id = Int(table.local_table)))
     for i in 1:N
         stor_sym = Symbol("stor", i)
         col_sym = Symbol("col", i)
         vec_sym = Symbol("vec", i)
         push!(exprs, :(@inbounds $stor_sym = q._storages[$i]))
-        push!(exprs, :(@inbounds begin
-            _arch_cols = $stor_sym.data[table.archetype]
-            if _arch_cols === $stor_sym.empty_arch
-                $col_sym = $stor_sym.empty_column
-            else
-                $col_sym = _arch_cols[table.local_table]
-            end
-        end))
 
         if _get_bit(OF, i)
+            # optional component
+            push!(exprs, :(@inbounds begin
+                if _local_id == 1
+                    $col_sym = $stor_sym.primary[_arch_id]
+                else
+                    _extras = $stor_sym.extra[_arch_id]
+                    if _extras === $stor_sym.empty_extra
+                        $col_sym = $stor_sym.empty_column
+                    else
+                        $col_sym = _extras[_local_id - 1]
+                    end
+                end
+            end))
             if storage_array_types[i] <: GPUVector
-                push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : view(($col_sym).mem, 1:($col_sym).len)))
+                push!(exprs, :($vec_sym = $col_sym === $stor_sym.empty_column || length($col_sym) == 0 ? nothing : view(($col_sym).mem, 1:($col_sym).len)))
             elseif storage_array_types[i] <: StructArray ||
                    storage_array_types[i] <: GPUStructArray ||
                    fieldcount(comp_types[i]) == 0
-                push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : view($col_sym, :)))
+                push!(exprs, :($vec_sym = $col_sym === $stor_sym.empty_column || length($col_sym) == 0 ? nothing : view($col_sym, :)))
             else
-                push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : FieldViewable($col_sym)))
+                push!(exprs, :($vec_sym = $col_sym === $stor_sym.empty_column || length($col_sym) == 0 ? nothing : FieldViewable($col_sym)))
             end
         else
+            # required component — guaranteed present
+            push!(exprs, :(@inbounds begin
+                if _local_id == 1
+                    $col_sym = $stor_sym.primary[_arch_id]
+                else
+                    $col_sym = $stor_sym.extra[_arch_id][_local_id - 1]
+                end
+            end))
             if storage_array_types[i] <: GPUVector
                 push!(exprs, :($vec_sym = view(($col_sym).mem, 1:($col_sym).len)))
             elseif storage_array_types[i] <: StructArray ||

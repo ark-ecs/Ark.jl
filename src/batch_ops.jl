@@ -819,6 +819,8 @@ end
     push!(exprs, :(_move_entities!(world_state, stores, batch.table.id, new_table.id, batch.end_idx)))
 
     if DEF === Val{true}
+        push!(exprs, :(_batch_new_arch = Int(new_table.archetype)))
+        push!(exprs, :(_batch_new_local = Int(new_table.local_table)))
         for i in 1:length(add_types)
             T = add_types[i]
             stor_sym = Symbol("stor", i)
@@ -826,7 +828,13 @@ end
             val_expr = :(add.$i)
 
             push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-            push!(exprs, :(@inbounds $col_sym = $stor_sym.data[new_table.archetype][new_table.local_table]))
+            push!(exprs, :(@inbounds begin
+                if _batch_new_local == 1
+                    $col_sym = $stor_sym.primary[_batch_new_arch]
+                else
+                    $col_sym = $stor_sym.extra[_batch_new_arch][_batch_new_local - 1]
+                end
+            end))
             push!(exprs, :(@inbounds fill!(view($col_sym, start_idx:length($col_sym)), $val_expr)))
         end
     end
@@ -1065,6 +1073,8 @@ end
 
     if length(types) > 0 && DEF === Val{true}
         body_exprs = Expr(:block)
+        push!(body_exprs.args, :(_ne_arch = Int(table.archetype)))
+        push!(body_exprs.args, :(_ne_local = Int(table.local_table)))
         for i in 1:length(types)
             T = types[i]
             stor_sym = Symbol("stor", i)
@@ -1072,7 +1082,13 @@ end
             val_expr = :(values.$i)
 
             push!(body_exprs.args, :($stor_sym = _get_storage(stores, $T)))
-            push!(body_exprs.args, :(@inbounds $col_sym = $stor_sym.data[table.archetype][table.local_table]))
+            push!(body_exprs.args, :(@inbounds begin
+                if _ne_local == 1
+                    $col_sym = $stor_sym.primary[_ne_arch]
+                else
+                    $col_sym = $stor_sym.extra[_ne_arch][_ne_local - 1]
+                end
+            end))
             push!(body_exprs.args, :(fill!(view($col_sym, indices[1]:indices[2]), $val_expr)))
         end
         push!(exprs, :(
@@ -1155,12 +1171,20 @@ end
 
     exprs = Expr[]
     push!(exprs, :(entities = view(table.entities, Int(start_idx):Int(end_idx))))
+    push!(exprs, :(_bop_arch = Int(table.archetype)))
+    push!(exprs, :(_bop_local = Int(table.local_table)))
     for i in 1:length(comp_types)
         stor_sym = Symbol("stor", i)
         col_sym = Symbol("col", i)
         vec_sym = Symbol("vec", i)
         push!(exprs, :(@inbounds $stor_sym = _get_storage(stores, $(comp_types[i]))))
-        push!(exprs, :(@inbounds $col_sym = $stor_sym.data[table.archetype][table.local_table]))
+        push!(exprs, :(@inbounds begin
+            if _bop_local == 1
+                $col_sym = $stor_sym.primary[_bop_arch]
+            else
+                $col_sym = $stor_sym.extra[_bop_arch][_bop_local - 1]
+            end
+        end))
 
         if storage_types[i] <: GPUVector
             push!(exprs, :($vec_sym = view(($col_sym).mem, Int(start_idx):Int(end_idx))))
