@@ -1,7 +1,7 @@
 
-struct _ComponentStorage{C,A<:AbstractArray{C,1}}
-    data::Vector{A}
-    empty_column::A
+mutable struct _ComponentStorage{C,A<:AbstractArray{C,1}}
+    const data::Vector{A}
+    const empty_column::A
 end
 
 @inline _component_type(::Type{<:_ComponentStorage{C}}) where {C} = C
