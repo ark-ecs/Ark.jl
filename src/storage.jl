@@ -3,7 +3,6 @@ struct _ComponentStorage{C,A<:AbstractArray{C,1}}
     primary::Vector{A}
     extra::Vector{Vector{A}}
     empty_column::A
-    empty_extra::Vector{A}
 end
 
 @inline _component_type(::Type{<:_ComponentStorage{C}}) where {C} = C
@@ -39,12 +38,10 @@ end
 
 function _new_component_storage(::Type{S}, ::Type{C}) where {S<:Storage,C}
     empty_col = _new_storage(S, C)
-    empty_ext = Vector{typeof(empty_col)}()
     return _ComponentStorage{C,typeof(empty_col)}(
         [empty_col],
-        [empty_ext],
+        [Vector{typeof(empty_col)}()],
         empty_col,
-        empty_ext,
     )
 end
 
@@ -131,9 +128,9 @@ end
     end
 end
 
-function _add_archetype_slot!(storage::_ComponentStorage)
+function _add_archetype_slot!(storage::_ComponentStorage{C,A}) where {C,A}
     push!(storage.primary, storage.empty_column)
-    push!(storage.extra, storage.empty_extra)
+    push!(storage.extra, Vector{A}())
     return nothing
 end
 
@@ -167,7 +164,6 @@ function _create_column!(
     sizehint!(col, cap)
 
     @inbounds extras = storage.extra[Int(arch_id)]
-    @assert extras !== storage.empty_extra
     @assert Int(local_table) - 1 == length(extras) + 1
 
     push!(extras, col)

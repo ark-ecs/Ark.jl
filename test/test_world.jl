@@ -195,13 +195,13 @@ end
     vel_storage = _get_storage(_storage(world), Velocity)
     child_storage = _get_storage(_storage(world), ChildOf)
 
-    # Archetype 1 (no components): all storages have sentinels
+    # Archetype 1 (no components): all storages have primary sentinel, empty extra
     @test pos_storage.primary[1] === pos_storage.empty_column
-    @test pos_storage.extra[1] === pos_storage.empty_extra
+    @test isempty(pos_storage.extra[1])
     @test vel_storage.primary[1] === vel_storage.empty_column
-    @test vel_storage.extra[1] === vel_storage.empty_extra
+    @test isempty(vel_storage.extra[1])
     @test child_storage.primary[1] === child_storage.empty_column
-    @test child_storage.extra[1] === child_storage.empty_extra
+    @test isempty(child_storage.extra[1])
 
     parent1 = new_entity!(world, ())
     parent2 = new_entity!(world, ())
@@ -217,14 +217,11 @@ end
     @test child1_info.local_table == 1
     @test child2_info.local_table == 2
 
-    # Archetype for ChildOf: child_storage has primary + extras, pos/vel have sentinels
+    # Archetype for ChildOf: child_storage has primary activated, pos/vel have sentinels
     child_arch = child1_info.archetype
     @test child_storage.primary[child_arch] !== child_storage.empty_column
-    @test child_storage.extra[child_arch] !== child_storage.empty_extra
     @test pos_storage.primary[child_arch] === pos_storage.empty_column
-    @test pos_storage.extra[child_arch] === pos_storage.empty_extra
     @test vel_storage.primary[child_arch] === vel_storage.empty_column
-    @test vel_storage.extra[child_arch] === vel_storage.empty_extra
     # Primary column vs extra column are different
     @test child_storage.primary[child_arch] !==
           child_storage.extra[child_arch][child2_info.local_table - 1]
@@ -244,7 +241,6 @@ end
     # All three components have activated storage for this archetype
     for storage in (pos_storage, vel_storage, child_storage)
         @test storage.primary[full_arch] !== storage.empty_column
-        @test storage.extra[full_arch] !== storage.empty_extra
     end
 
     pos_column = pos_storage.primary[full_arch]
