@@ -1,8 +1,8 @@
 
-struct _ArchetypeHot{M}
-    mask::_Mask{M}
-    table::UInt32
-    has_relations::Bool
+mutable struct _ArchetypeHot{M}
+    const mask::_Mask{M}
+    const table::UInt32
+    const has_relations::Bool
 end
 
 function _ArchetypeHot(node::_GraphNode, table::UInt32)
