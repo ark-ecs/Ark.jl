@@ -119,9 +119,7 @@ function _add_archetype_slot!(storage::_ComponentStorage)
 end
 
 function _activate_archetype_storage_for_comp!(storage::_ComponentStorage{C,A}, arch_id::UInt32) where {C,A<:AbstractArray}
-    @inbounds if storage.data[arch_id] === storage.empty_arch
-        storage.data[arch_id] = Vector{A}()
-    end
+    @inbounds storage.data[arch_id] = Vector{A}()
 end
 
 function _create_column!(storage::_ComponentStorage{C,A}, arch_id::UInt32, local_table::UInt32, cap::Int) where {C,A<:AbstractArray}

@@ -826,7 +826,7 @@ end
             val_expr = :(add.$i)
 
             push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-            push!(exprs, :(@inbounds $col_sym = _column($stor_sym, new_table.archetype, new_table.local_table)))
+            push!(exprs, :(@inbounds $col_sym = $stor_sym.data[new_table.archetype][new_table.local_table]))
             push!(exprs, :(@inbounds fill!(view($col_sym, start_idx:length($col_sym)), $val_expr)))
         end
     end
@@ -1072,7 +1072,7 @@ end
             val_expr = :(values.$i)
 
             push!(body_exprs.args, :($stor_sym = _get_storage(stores, $T)))
-            push!(body_exprs.args, :(@inbounds $col_sym = _column($stor_sym, table.archetype, table.local_table)))
+            push!(body_exprs.args, :(@inbounds $col_sym = $stor_sym.data[table.archetype][table.local_table]))
             push!(body_exprs.args, :(fill!(view($col_sym, indices[1]:indices[2]), $val_expr)))
         end
         push!(exprs, :(
@@ -1160,7 +1160,7 @@ end
         col_sym = Symbol("col", i)
         vec_sym = Symbol("vec", i)
         push!(exprs, :(@inbounds $stor_sym = _get_storage(stores, $(comp_types[i]))))
-        push!(exprs, :(@inbounds $col_sym = _column($stor_sym, table.archetype, table.local_table)))
+        push!(exprs, :(@inbounds $col_sym = $stor_sym.data[table.archetype][table.local_table]))
 
         if storage_types[i] <: GPUVector
             push!(exprs, :($vec_sym = view(($col_sym).mem, Int(start_idx):Int(end_idx))))

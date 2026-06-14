@@ -1541,6 +1541,9 @@ end
     push!(exprs, :(tmp = _create_entity!(world_state, table_id)))
     push!(exprs, :(entity = tmp[1]))
 
+    push!(exprs, :(arch_id = table.archetype))
+    push!(exprs, :(local_table_id = table.local_table))
+
     # Set each component
     for i in 1:length(types)
         T = types[i]
@@ -1549,7 +1552,7 @@ end
         val_expr = :(values.$i)
 
         push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-        push!(exprs, :(@inbounds $col_sym = _column($stor_sym, table.archetype, table.local_table)))
+        push!(exprs, :(@inbounds $col_sym = $stor_sym.data[arch_id][local_table_id]))
         push!(exprs, :(push!($col_sym, $val_expr)))
     end
 
@@ -1860,7 +1863,7 @@ end
         val_expr = :(add.$i)
 
         push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-        push!(exprs, :(@inbounds $col_sym = _column($stor_sym, new_table.archetype, new_table.local_table)))
+        push!(exprs, :(@inbounds $col_sym = $stor_sym.data[new_table.archetype][new_table.local_table]))
         push!(exprs, :(@inbounds push!($col_sym, $val_expr)))
     end
 
@@ -2291,7 +2294,7 @@ end
         val_expr = :(add.$i)
 
         push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-        push!(exprs, :(@inbounds $col_sym = _column($stor_sym, new_table.archetype, new_table.local_table)))
+        push!(exprs, :(@inbounds $col_sym = $stor_sym.data[new_table.archetype][new_table.local_table]))
         push!(exprs, :(push!($col_sym, $val_expr)))
     end
 
