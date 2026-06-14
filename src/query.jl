@@ -381,13 +381,13 @@ end
                 end
             end))
             if storage_array_types[i] <: GPUVector
-                push!(exprs, :($vec_sym = $col_sym === $stor_sym.empty_column || length($col_sym) == 0 ? nothing : view(($col_sym).mem, 1:($col_sym).len)))
+                push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : view(($col_sym).mem, 1:($col_sym).len)))
             elseif storage_array_types[i] <: StructArray ||
                    storage_array_types[i] <: GPUStructArray ||
                    fieldcount(comp_types[i]) == 0
-                push!(exprs, :($vec_sym = $col_sym === $stor_sym.empty_column || length($col_sym) == 0 ? nothing : view($col_sym, :)))
+                push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : view($col_sym, :)))
             else
-                push!(exprs, :($vec_sym = $col_sym === $stor_sym.empty_column || length($col_sym) == 0 ? nothing : FieldViewable($col_sym)))
+                push!(exprs, :($vec_sym = length($col_sym) == 0 ? nothing : FieldViewable($col_sym)))
             end
         else
             # required component — guaranteed present

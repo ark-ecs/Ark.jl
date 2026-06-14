@@ -2001,11 +2001,15 @@ end
                 if local_id == 1
                     $col_sym = $stor_sym.primary[Int(table.archetype)]
                 else
-                    $col_sym = $stor_sym.extra[Int(table.archetype)][local_id - 1]
+                    _extras = $stor_sym.extra[Int(table.archetype)]
+                    if length(_extras) < local_id - 1
+                        return false
+                    end
+                    $col_sym = _extras[local_id - 1]
                 end
             end))
             push!(exprs, :(
-                if $col_sym === $stor_sym.empty_column || length($col_sym) == 0
+                if length($col_sym) == 0
                     return false
                 end
             ))

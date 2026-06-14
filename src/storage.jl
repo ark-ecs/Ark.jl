@@ -69,7 +69,7 @@ end
     else
         col = s.extra[Int(arch_id)][Int(local_table) - 1]
     end
-    if col === s.empty_column
+    if length(col) == 0
         throw(ArgumentError(lazy"entity has no $C component"))
     end
     return @inbounds col[row]
@@ -99,7 +99,7 @@ end
     else
         col = s.extra[Int(arch_id)][Int(local_table) - 1]
     end
-    if col === s.empty_column || length(col) == 0
+    if length(col) == 0
         throw(ArgumentError(lazy"entity has no $C component"))
     end
     return @inbounds col[row] = value
