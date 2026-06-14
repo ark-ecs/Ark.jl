@@ -390,11 +390,12 @@ end
         swapped = _swap_remove!(table.entities._data, index.row)
 
         # Only operate on storages for components present in this archetype
+        rem_row = Int(index.row)
         for comp in archetype.components
             $(
                 inline_jtable ?
-                :(@inline _swap_remove_in_column_for_comp!(stores, comp, table, index.row)) :
-                :(_swap_remove_in_column_for_comp!(stores, comp, table, index.row))
+                :(@inline _swap_remove_in_column_for_comp!(stores, comp, table, rem_row)) :
+                :(_swap_remove_in_column_for_comp!(stores, comp, table, rem_row))
             )
         end
 
@@ -934,7 +935,7 @@ end
             [_Archetype(UInt32(1), node, UInt32(1))],
             [_ArchetypeHot(node, UInt32(1))],
             Vector{UInt32}(),
-            [_new_table(UInt32(1), UInt32(1), UInt32(1), 0, _empty_relations)],
+            [_new_table(UInt32(1), 1, 0, 0, _empty_relations)],
             _LastTable{$M}(_Mask{$M}(), UInt32(1)),
             _ComponentIndex{$(M)}($(length(types))),
             registry,
@@ -1180,13 +1181,12 @@ function _create_table!(
     _check_relation_targets(state, relations)
 
     new_table_id = length(state._tables) + 1
-    arch_hot = state._archetypes_hot[arch.id]
-    local_table = _new_local_table!(arch_hot)
-    table = _new_table(UInt32(new_table_id), arch.id, local_table, state._initial_capacity, relations)
+    local_table = Int(_new_local_table!(arch))
+    table = _new_table(UInt32(new_table_id), Int(arch.id), local_table, state._initial_capacity, relations)
     push!(state._tables, table)
 
     for comp in arch.components
-        _create_column_for_comp!(stores, comp, arch.id, local_table, state._initial_capacity)
+        _create_column_for_comp!(stores, comp, Int(arch.id), local_table, state._initial_capacity)
     end
 
     _push_zero_to_all_table_relations!(state, stores)
@@ -1273,7 +1273,7 @@ function _create_archetype!(
 
     _add_archetype_slot_to_all_storages!(stores)
     for comp in arch.components
-        _activate_archetype_storage_for_comp!(stores, comp, UInt32(index), state._initial_capacity)
+        _activate_archetype_storage_for_comp!(stores, comp, Int(index), state._initial_capacity)
     end
 
     _push_zero_to_all_archetype_relations!(state, stores)
@@ -1542,8 +1542,8 @@ end
     push!(exprs, :(tmp = _create_entity!(world_state, table_id)))
     push!(exprs, :(entity = tmp[1]))
 
-    push!(exprs, :(arch_id = Int(table.archetype)))
-    push!(exprs, :(local_id = Int(table.local_table)))
+    push!(exprs, :(arch_id = table.archetype))
+    push!(exprs, :(local_id = table.local_table))
 
     # Set each component
     for i in 1:length(types)
@@ -1554,10 +1554,10 @@ end
 
         push!(exprs, :($stor_sym = _get_storage(stores, $T)))
         push!(exprs, :(@inbounds begin
-            if local_id == 1
+            if local_id == 0
                 $col_sym = $stor_sym.primary[arch_id]
             else
-                $col_sym = $stor_sym.extra[arch_id][local_id - 1]
+                $col_sym = $stor_sym.extra[arch_id][local_id]
             end
         end))
         push!(exprs, :(push!($col_sym, $val_expr)))
@@ -1675,18 +1675,19 @@ end
         @inbounds new_archetype = state._archetypes[new_table.archetype]
 
         # Move component data only for components present in old_archetype that are also present in new_archetype
+        row_int = Int(index.row)
         for comp in old_archetype.components
             if _get_bit(new_archetype.node.mask, comp)
                 $(
                     inline_jtable ?
-                    :(@inline _move_component_data!(stores, comp, old_table, new_table, index.row)) :
-                    :(_move_component_data!(stores, comp, old_table, new_table, index.row))
+                    :(@inline _move_component_data!(stores, comp, old_table, new_table, row_int)) :
+                    :(_move_component_data!(stores, comp, old_table, new_table, row_int))
                 )
             else
                 $(
                     inline_jtable ?
-                    :(@inline _swap_remove_in_column_for_comp!(stores, comp, old_table, index.row)) :
-                    :(_swap_remove_in_column_for_comp!(stores, comp, old_table, index.row))
+                    :(@inline _swap_remove_in_column_for_comp!(stores, comp, old_table, row_int)) :
+                    :(_swap_remove_in_column_for_comp!(stores, comp, old_table, row_int))
                 )
             end
         end
@@ -1763,11 +1764,12 @@ end
         table = world_state._tables[index.table]
         archetype = world_state._archetypes[table.archetype]
 
+        copy_row = Int(index.row)
         for comp in archetype.components
             $(
                 inline_jtable ?
-                :(@inline _copy_component_data!(stores, comp, table, table, index.row, mode)) :
-                :(_copy_component_data!(stores, comp, table, table, index.row, mode))
+                :(@inline _copy_component_data!(stores, comp, table, table, copy_row, mode)) :
+                :(_copy_component_data!(stores, comp, table, table, copy_row, mode))
             )
         end
 
@@ -1858,13 +1860,13 @@ end
                 if !_get_bit(new_archetype_hot.mask, comp)
                     continue
                 end
-                _copy_component_data!(stores, comp, old_table, new_table, index.row, mode)
+                _copy_component_data!(stores, comp, old_table, new_table, Int(index.row), mode)
             end
         ),
     )
 
-    push!(exprs, :(copy_new_arch = Int(new_table.archetype)))
-    push!(exprs, :(copy_new_local = Int(new_table.local_table)))
+    push!(exprs, :(copy_new_arch = new_table.archetype))
+    push!(exprs, :(copy_new_local = new_table.local_table))
     for i in 1:length(add_types)
         T = add_types[i]
         stor_sym = Symbol("stor", i)
@@ -1873,10 +1875,10 @@ end
 
         push!(exprs, :($stor_sym = _get_storage(stores, $T)))
         push!(exprs, :(@inbounds begin
-            if copy_new_local == 1
+            if copy_new_local == 0
                 $col_sym = $stor_sym.primary[copy_new_arch]
             else
-                $col_sym = $stor_sym.extra[copy_new_arch][copy_new_local - 1]
+                $col_sym = $stor_sym.extra[copy_new_arch][copy_new_local]
             end
         end))
         push!(exprs, :(@inbounds push!($col_sym, $val_expr)))
@@ -1904,17 +1906,22 @@ end
 
 @generated function _get_components(
     world_state::_WorldState,
-    stores::_WorldStorage,
+    stores::Storage,
     entity::Entity,
     ::TS,
     ::Val{Unchecked},
-) where {TS<:Tuple,Unchecked}
+) where {Storage<:_WorldStorage,TS<:Tuple,Unchecked}
     types = _to_types(TS)
     _check_no_duplicates(types)
 
     if length(types) == 0
         return :(())
     end
+
+    CS = _schema_storage_types(Storage)
+    ids = tuple(Int[_component_index(CS, T) for T in types]...)
+    M = max(1, cld(fieldcount(CS), 64))
+    query_mask = _Mask{M}(ids...)
 
     exprs = Expr[]
 
@@ -1924,10 +1931,23 @@ end
                 throw(ArgumentError("can't get components of a dead entity"))
             end
         ))
+        push!(exprs, :(@inbounds begin
+            idx = world_state._entities[entity._id]
+            tbl = world_state._tables[idx.table]
+            arch_hot = world_state._archetypes_hot[tbl.archetype]
+        end))
+        push!(exprs, :(
+            if !_contains_all(arch_hot.mask, $query_mask)
+                throw(ArgumentError("entity has no requested components"))
+            end
+        ))
+    else
+        push!(exprs, :(@inbounds begin
+            idx = world_state._entities[entity._id]
+            tbl = world_state._tables[idx.table]
+        end))
     end
-
-    push!(exprs, :(@inbounds idx = world_state._entities[entity._id]))
-    push!(exprs, :(@inbounds tbl = world_state._tables[idx.table]))
+    push!(exprs, :(row = Int(idx.row)))
 
     for i in 1:length(types)
         T = types[i]
@@ -1935,7 +1955,7 @@ end
         val_sym = Symbol("v", i)
 
         push!(exprs, :($(stor_sym) = _get_storage(stores, $T)))
-        push!(exprs, :($(val_sym) = _get_component($(stor_sym), tbl.archetype, tbl.local_table, idx.row, $(Val(Unchecked)))))
+        push!(exprs, :($(val_sym) = _get_component($(stor_sym), tbl.archetype, tbl.local_table, row, $(Val(true)))))
     end
 
     vals = Symbol[Symbol("v", i) for i in 1:length(types)]
@@ -1950,11 +1970,11 @@ end
 
 @generated function _has_components(
     world_state::_WorldState,
-    stores::Storage,
+    stores::_WorldStorage{CS},
     entity::Entity,
     ::TS,
     ::Val{Unchecked},
-) where {Storage<:_WorldStorage,TS<:Tuple,Unchecked}
+) where {CS<:Tuple,TS<:Tuple,Unchecked}
     types = _to_types(TS)
     _check_no_duplicates(types)
 
@@ -1969,7 +1989,6 @@ end
     end
 
     if length(types) >= 3
-        CS = _schema_storage_types(Storage)
         ids = tuple(Int[_component_index(CS, T) for T in types]...)
         M = max(1, cld(fieldcount(CS), 64))
         query_mask = _Mask{M}(ids...)
@@ -1995,14 +2014,14 @@ end
 
             push!(exprs, :($stor_sym = _get_storage(stores, $T)))
             push!(exprs, :(@inbounds begin
-                if local_id == 1
-                    $col_sym = $stor_sym.primary[Int(table.archetype)]
+                if local_id == 0
+                    $col_sym = $stor_sym.primary[table.archetype]
                 else
-                    _extras = $stor_sym.extra[Int(table.archetype)]
-                    if length(_extras) < local_id - 1
+                    _extras = $stor_sym.extra[table.archetype]
+                    if length(_extras) < local_id
                         return false
                     end
-                    $col_sym = _extras[local_id - 1]
+                    $col_sym = _extras[local_id]
                 end
             end))
             push!(exprs, :(
@@ -2021,14 +2040,17 @@ end
 
 @generated function _set_components!(
     world_state::_WorldState,
-    stores::_WorldStorage,
+    stores::_WorldStorage{CS},
     entity::Entity,
     ::Val{TS},
     values::Tuple,
     ::Val{Unchecked},
-) where {TS<:Tuple,Unchecked}
+) where {CS<:Tuple,TS<:Tuple,Unchecked}
     types = _to_types(fieldtypes(TS))
     _check_no_duplicates(types)
+    ids = tuple(Int[_component_index(CS, T) for T in types]...)
+    M = max(1, cld(fieldcount(CS), 64))
+    query_mask = _Mask{M}(ids...)
 
     exprs = Expr[]
     if !Unchecked
@@ -2037,11 +2059,23 @@ end
                 throw(ArgumentError("can't set components of a dead entity"))
             end
         ))
+        push!(exprs, :(@inbounds begin
+            idx = world_state._entities[entity._id]
+            tbl = world_state._tables[idx.table]
+            arch_hot = world_state._archetypes_hot[tbl.archetype]
+        end))
+        push!(exprs, :(
+            if !_contains_all(arch_hot.mask, $query_mask)
+                throw(ArgumentError("entity has no requested components"))
+            end
+        ))
+    else
+        push!(exprs, :(@inbounds begin
+            idx = world_state._entities[entity._id]
+            tbl = world_state._tables[idx.table]
+        end))
     end
-    push!(exprs, :(@inbounds begin
-        idx = world_state._entities[entity._id]
-        tbl = world_state._tables[idx.table]
-    end))
+    push!(exprs, :(set_row = Int(idx.row)))
 
     for i in 1:length(types)
         T = types[i]
@@ -2049,7 +2083,7 @@ end
         val_expr = :(values.$i)
 
         push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-        push!(exprs, :(_set_component!($stor_sym, tbl.archetype, tbl.local_table, idx.row, $val_expr, $(Val(Unchecked)))))
+        push!(exprs, :(_set_component!($stor_sym, tbl.archetype, tbl.local_table, set_row, $val_expr, $(Val(true)))))
     end
 
     push!(exprs, Expr(:return, :values))
@@ -2307,8 +2341,8 @@ end
     end
 
     push!(exprs, :(row = _move_entity!(world_state, stores, entity, index, old_table, new_table, new_table_index)))
-    push!(exprs, :(xchg_arch = Int(new_table.archetype)))
-    push!(exprs, :(xchg_local = Int(new_table.local_table)))
+    push!(exprs, :(xchg_arch = new_table.archetype))
+    push!(exprs, :(xchg_local = new_table.local_table))
     for i in 1:length(add_types)
         T = add_types[i]
         stor_sym = Symbol("stor", i)
@@ -2317,10 +2351,10 @@ end
 
         push!(exprs, :($stor_sym = _get_storage(stores, $T)))
         push!(exprs, :(@inbounds begin
-            if xchg_local == 1
+            if xchg_local == 0
                 $col_sym = $stor_sym.primary[xchg_arch]
             else
-                $col_sym = $stor_sym.extra[xchg_arch][xchg_local - 1]
+                $col_sym = $stor_sym.extra[xchg_arch][xchg_local]
             end
         end))
         push!(exprs, :(push!($col_sym, $val_expr)))
@@ -2421,7 +2455,7 @@ end
 @generated function _activate_archetype_storage_for_comp!(
     stores::_WorldStorage{CS},
     comp::Int,
-    arch_id::UInt32,
+    arch_id::Int,
     cap::Int,
 ) where CS
     call_exprs =
@@ -2432,8 +2466,8 @@ end
 @generated function _create_column_for_comp!(
     stores::_WorldStorage{CS},
     comp::Int,
-    arch_id::UInt32,
-    local_table::UInt32,
+    arch_id::Int,
+    local_table::Int,
     initial_capacity::Int,
 ) where CS
     call_exprs =
@@ -2456,7 +2490,7 @@ end
     comp::Int,
     old_table::_Table,
     new_table::_Table,
-    row::UInt32,
+    row::Int,
 ) where CS
     call_exprs =
         Expr[:(_move_component_data!(stores._storages.$i, old_table.archetype, old_table.local_table, new_table.archetype, new_table.local_table, row)) for i in 1:fieldcount(CS)]
@@ -2468,7 +2502,7 @@ end
     comp::Int,
     old_table::_Table,
     new_table::_Table,
-    old_row::UInt32,
+    old_row::Int,
     mode::CP,
 ) where {CS<:Tuple,CP<:Val}
     if !(CP in (Val{:ref}, Val{:copy}, Val{:deepcopy}))
@@ -2506,7 +2540,7 @@ end
     stores::_WorldStorage{CS},
     comp::Int,
     table::_Table,
-    row::UInt32,
+    row::Int,
 ) where {CS<:Tuple}
     call_exprs = Expr[:(_remove_component_data!(stores._storages.$i, table.archetype, table.local_table, row)) for i in 1:fieldcount(CS)]
     _generate_component_switch(:comp, call_exprs)

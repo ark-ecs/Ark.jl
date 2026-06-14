@@ -1,18 +1,12 @@
 
-mutable struct _ArchetypeHot{M}
-    const mask::_Mask{M}
-    const table::UInt32
-    const has_relations::Bool
-    next_local_table::UInt32
+struct _ArchetypeHot{M}
+    mask::_Mask{M}
+    table::UInt32
+    has_relations::Bool
 end
 
 function _ArchetypeHot(node::_GraphNode, table::UInt32)
-    _ArchetypeHot(
-        node.mask,
-        table,
-        false,
-        UInt32(0),
-    )
+    _ArchetypeHot(node.mask, table, false)
 end
 
 function _ArchetypeHot(
@@ -20,12 +14,7 @@ function _ArchetypeHot(
     table::UInt32,
     relations::Vector{Int},
 )
-    _ArchetypeHot(
-        node.mask,
-        table,
-        !isempty(relations),
-        UInt32(0),
-    )
+    _ArchetypeHot(node.mask, table, !isempty(relations))
 end
 
 mutable struct _Archetype{M}
@@ -38,6 +27,7 @@ mutable struct _Archetype{M}
     const num_relations::UInt32
     const table::UInt32
     const id::UInt32
+    next_local_table::UInt32
 end
 
 function _Archetype(id::UInt32, node::_GraphNode, table::UInt32)
@@ -51,6 +41,7 @@ function _Archetype(id::UInt32, node::_GraphNode, table::UInt32)
         UInt32(0),
         table,
         id,
+        UInt32(0),
     )
 end
 
@@ -71,12 +62,14 @@ function _Archetype(
         UInt32(length(relations)),
         table,
         id,
+        UInt32(0),
     )
 end
 
-@inline function _new_local_table!(arch_hot::_ArchetypeHot)
-    arch_hot.next_local_table += UInt32(1)
-    return arch_hot.next_local_table
+@inline function _new_local_table!(arch::_Archetype)
+    local_id = arch.next_local_table
+    arch.next_local_table += UInt32(1)
+    return local_id
 end
 
 function _add_table!(indices::Vector{_ComponentRelations}, arch::_Archetype, t::_Table)

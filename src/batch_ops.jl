@@ -819,23 +819,31 @@ end
     push!(exprs, :(_move_entities!(world_state, stores, batch.table.id, new_table.id, batch.end_idx)))
 
     if DEF === Val{true}
-        push!(exprs, :(_batch_new_arch = Int(new_table.archetype)))
-        push!(exprs, :(_batch_new_local = Int(new_table.local_table)))
-        for i in 1:length(add_types)
-            T = add_types[i]
-            stor_sym = Symbol("stor", i)
-            col_sym = Symbol("col", i)
-            val_expr = :(add.$i)
+        push!(exprs, :(_batch_new_arch = new_table.archetype))
+        push!(exprs, :(_batch_new_local = new_table.local_table))
+        if length(add_types) > 0
+            batch_primary = Expr[]
+            batch_extra = Expr[]
+            for i in 1:length(add_types)
+                T = add_types[i]
+                stor_sym = Symbol("stor", i)
+                col_sym = Symbol("col", i)
+                val_expr = :(add.$i)
 
-            push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-            push!(exprs, :(@inbounds begin
-                if _batch_new_local == 1
-                    $col_sym = $stor_sym.primary[_batch_new_arch]
+                push!(batch_primary, :($stor_sym = _get_storage(stores, $T)))
+                push!(batch_extra,   :($stor_sym = _get_storage(stores, $T)))
+                push!(batch_primary, :(@inbounds $col_sym = $stor_sym.primary[_batch_new_arch]))
+                push!(batch_extra,   :(@inbounds $col_sym = $stor_sym.extra[_batch_new_arch][_batch_new_local]))
+                push!(batch_primary, :(@inbounds fill!(view($col_sym, start_idx:length($col_sym)), $val_expr)))
+                push!(batch_extra,   :(@inbounds fill!(view($col_sym, start_idx:length($col_sym)), $val_expr)))
+            end
+            push!(exprs, :(
+                if _batch_new_local == 0
+                    $(Expr(:block, batch_primary...))
                 else
-                    $col_sym = $stor_sym.extra[_batch_new_arch][_batch_new_local - 1]
+                    $(Expr(:block, batch_extra...))
                 end
-            end))
-            push!(exprs, :(@inbounds fill!(view($col_sym, start_idx:length($col_sym)), $val_expr)))
+            ))
         end
     end
 
@@ -1072,28 +1080,30 @@ end
     push!(exprs, :(table = world_state._tables[table_idx]))
 
     if length(types) > 0 && DEF === Val{true}
-        body_exprs = Expr(:block)
-        push!(body_exprs.args, :(_ne_arch = Int(table.archetype)))
-        push!(body_exprs.args, :(_ne_local = Int(table.local_table)))
+        ne_primary = Expr[]
+        ne_extra = Expr[]
         for i in 1:length(types)
             T = types[i]
             stor_sym = Symbol("stor", i)
             col_sym = Symbol("col", i)
             val_expr = :(values.$i)
 
-            push!(body_exprs.args, :($stor_sym = _get_storage(stores, $T)))
-            push!(body_exprs.args, :(@inbounds begin
-                if _ne_local == 1
-                    $col_sym = $stor_sym.primary[_ne_arch]
-                else
-                    $col_sym = $stor_sym.extra[_ne_arch][_ne_local - 1]
-                end
-            end))
-            push!(body_exprs.args, :(fill!(view($col_sym, indices[1]:indices[2]), $val_expr)))
+            push!(ne_primary, :($stor_sym = _get_storage(stores, $T)))
+            push!(ne_extra,   :($stor_sym = _get_storage(stores, $T)))
+            push!(ne_primary, :(@inbounds $col_sym = $stor_sym.primary[_ne_arch]))
+            push!(ne_extra,   :(@inbounds $col_sym = $stor_sym.extra[_ne_arch][_ne_local]))
+            push!(ne_primary, :(fill!(view($col_sym, indices[1]:indices[2]), $val_expr)))
+            push!(ne_extra,   :(fill!(view($col_sym, indices[1]:indices[2]), $val_expr)))
         end
         push!(exprs, :(
             if !isempty(values)
-                $(body_exprs)
+                _ne_arch = table.archetype
+                _ne_local = table.local_table
+                if _ne_local == 0
+                    $(Expr(:block, ne_primary...))
+                else
+                    $(Expr(:block, ne_extra...))
+                end
             end
         ))
     end
@@ -1169,41 +1179,45 @@ end
         for T in comp_types
     ]
 
-    exprs = Expr[]
-    push!(exprs, :(entities = view(table.entities, Int(start_idx):Int(end_idx))))
-    push!(exprs, :(_bop_arch = Int(table.archetype)))
-    push!(exprs, :(_bop_local = Int(table.local_table)))
+    primary_exprs = Expr[]
+    extra_exprs = Expr[]
     for i in 1:length(comp_types)
         stor_sym = Symbol("stor", i)
         col_sym = Symbol("col", i)
         vec_sym = Symbol("vec", i)
-        push!(exprs, :(@inbounds $stor_sym = _get_storage(stores, $(comp_types[i]))))
-        push!(exprs, :(@inbounds begin
-            if _bop_local == 1
-                $col_sym = $stor_sym.primary[_bop_arch]
-            else
-                $col_sym = $stor_sym.extra[_bop_arch][_bop_local - 1]
-            end
-        end))
+        push!(primary_exprs, :(@inbounds $stor_sym = _get_storage(stores, $(comp_types[i]))))
+        push!(extra_exprs,   :(@inbounds $stor_sym = _get_storage(stores, $(comp_types[i]))))
+        push!(primary_exprs, :(@inbounds $col_sym = $stor_sym.primary[_bop_arch]))
+        push!(extra_exprs,   :(@inbounds $col_sym = $stor_sym.extra[_bop_arch][_bop_extra]))
 
         if storage_types[i] <: GPUVector
-            push!(exprs, :($vec_sym = view(($col_sym).mem, Int(start_idx):Int(end_idx))))
+            push!(primary_exprs, :($vec_sym = view(($col_sym).mem, Int(start_idx):Int(end_idx))))
+            push!(extra_exprs,   :($vec_sym = view(($col_sym).mem, Int(start_idx):Int(end_idx))))
         elseif storage_types[i] <: StructArray || storage_types[i] <: GPUStructArray ||
                fieldcount(comp_types[i]) == 0
-            push!(exprs, :($vec_sym = view($col_sym, Int(start_idx):Int(end_idx))))
+            push!(primary_exprs, :($vec_sym = view($col_sym, Int(start_idx):Int(end_idx))))
+            push!(extra_exprs,   :($vec_sym = view($col_sym, Int(start_idx):Int(end_idx))))
         else
-            push!(exprs, :($vec_sym = FieldViewable(view($col_sym, Int(start_idx):Int(end_idx)))))
+            push!(primary_exprs, :($vec_sym = FieldViewable(view($col_sym, Int(start_idx):Int(end_idx)))))
+            push!(extra_exprs,   :($vec_sym = FieldViewable(view($col_sym, Int(start_idx):Int(end_idx)))))
         end
     end
-    result_exprs = Symbol[:entities]
-    for i in 1:length(comp_types)
-        push!(result_exprs, Symbol("vec", i))
-    end
-    push!(exprs, Expr(:return, Expr(:tuple, result_exprs...)))
+    result_syms = [Symbol("vec", i) for i in 1:length(comp_types)]
+    push!(primary_exprs, Expr(:return, Expr(:tuple, :entities, result_syms...)))
+    push!(extra_exprs,   Expr(:return, Expr(:tuple, :entities, result_syms...)))
 
     return quote
         @inbounds begin
-            $(Expr(:block, exprs...))
+            entities = view(table.entities, Int(start_idx):Int(end_idx))
+            _bop_arch = table.archetype
+            _bop_local = table.local_table
+
+            if _bop_local == 0
+                $(Expr(:block, primary_exprs...))
+            else
+                _bop_extra = _bop_local
+                $(Expr(:block, extra_exprs...))
+            end
         end
     end
 end

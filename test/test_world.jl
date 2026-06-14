@@ -213,9 +213,9 @@ end
 
     @test child1_info.id != child2_info.id
     @test child1_info.archetype == child2_info.archetype
-    # First table in archetype is primary (local_table=1), second is extra
-    @test child1_info.local_table == 1
-    @test child2_info.local_table == 2
+    # First table in archetype is primary (local_table=0), second is extra
+    @test child1_info.local_table == 0
+    @test child2_info.local_table == 1
 
     # Archetype for ChildOf: child_storage has primary activated, pos/vel have sentinels
     child_arch = child1_info.archetype
@@ -224,7 +224,7 @@ end
     @test vel_storage.primary[child_arch] === vel_storage.empty_column
     # Primary column vs extra column are different
     @test child_storage.primary[child_arch] !==
-          child_storage.extra[child_arch][child2_info.local_table - 1]
+          child_storage.extra[child_arch][child2_info.local_table]
 
     entity1 = new_entity!(world, (Position(1, 1), Velocity(1, 1), ChildOf() => parent1))
     entity2 = new_entity!(world, (Position(2, 2), Velocity(2, 2), ChildOf() => parent2))
@@ -235,8 +235,8 @@ end
     @test entity1_info.id != entity2_info.id
     full_arch = entity1_info.archetype
     @test full_arch == entity2_info.archetype
-    @test entity1_info.local_table == 1
-    @test entity2_info.local_table == 2
+    @test entity1_info.local_table == 0
+    @test entity2_info.local_table == 1
 
     # All three components have activated storage for this archetype
     for storage in (pos_storage, vel_storage, child_storage)
@@ -448,9 +448,9 @@ end
     @test vel == Velocity(3, 4)
 
     # TODO: do we want that, or do we want it to return `nothing`?
-    @test_throws("ArgumentError: entity has no Position component",
+    @test_throws("ArgumentError: entity has no requested components",
         get_components(world, e2, (Position, Velocity)))
-    @test_throws("ArgumentError: entity has no Position component",
+    @test_throws("ArgumentError: entity has no requested components",
         set_components!(world, e2, (Position(0, 0),)))
     @test_throws("ArgumentError: can't get components of a dead entity",
         get_components(world, zero_entity, (Position, Velocity)))
@@ -1685,10 +1685,10 @@ end
             if storage.primary[table.archetype] === storage.empty_column
                 @test true  # component absent from this archetype
             else
-                if table.local_table == 1
+                if table.local_table == 0
                     @test length(storage.primary[table.archetype]) == 0
                 else
-                    @test length(storage.extra[table.archetype][table.local_table - 1]) == 0
+                    @test length(storage.extra[table.archetype][table.local_table]) == 0
                 end
             end
         end

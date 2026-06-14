@@ -9,11 +9,11 @@ struct _Table
     relations::Vector{Pair{Int32,Entity}}
     filters::Base.RefValue{_IdCollection}
     id::UInt32
-    archetype::UInt32
-    local_table::UInt32
+    archetype::Int
+    local_table::Int
 end
 
-function _new_table(id::UInt32, archetype::UInt32, local_table::UInt32, cap::Int, relations::Vector{Pair{Int32,Entity}})
+function _new_table(id::UInt32, archetype::Int, local_table::Int, cap::Int, relations::Vector{Pair{Int32,Entity}})
     return _Table(Entities(cap), relations, Ref(_empty_id_collection), id, archetype, local_table)
 end
 
