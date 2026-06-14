@@ -10,10 +10,11 @@ struct _Table
     filters::Base.RefValue{_IdCollection}
     id::UInt32
     archetype::UInt32
+    local_table::UInt32
 end
 
-function _new_table(id::UInt32, archetype::UInt32, cap::Int, relations::Vector{Pair{Int32,Entity}})
-    return _Table(Entities(cap), relations, Ref(_empty_id_collection), id, archetype)
+function _new_table(id::UInt32, archetype::UInt32, local_table::UInt32, cap::Int, relations::Vector{Pair{Int32,Entity}})
+    return _Table(Entities(cap), relations, Ref(_empty_id_collection), id, archetype, local_table)
 end
 
 _has_relations(t::_Table) = !isempty(t.relations)

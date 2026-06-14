@@ -35,6 +35,7 @@ mutable struct _Archetype{M}
     const num_relations::UInt32
     const table::UInt32
     const id::UInt32
+    next_local_table::UInt32
 end
 
 function _Archetype(id::UInt32, node::_GraphNode, table::UInt32)
@@ -48,6 +49,7 @@ function _Archetype(id::UInt32, node::_GraphNode, table::UInt32)
         UInt32(0),
         table,
         id,
+        UInt32(1),
     )
 end
 
@@ -68,7 +70,14 @@ function _Archetype(
         UInt32(length(relations)),
         table,
         id,
+        UInt32(1),
     )
+end
+
+@inline function _new_local_table!(arch::_Archetype)
+    local_id = arch.next_local_table
+    arch.next_local_table += 1
+    return local_id
 end
 
 function _add_table!(indices::Vector{_ComponentRelations}, arch::_Archetype, t::_Table)

@@ -393,8 +393,8 @@ end
         for comp in archetype.components
             $(
                 inline_jtable ?
-                :(@inline _swap_remove_in_column_for_comp!(stores, comp, index.table, index.row)) :
-                :(_swap_remove_in_column_for_comp!(stores, comp, index.table, index.row))
+                :(@inline _swap_remove_in_column_for_comp!(stores, comp, table, index.row)) :
+                :(_swap_remove_in_column_for_comp!(stores, comp, table, index.row))
             )
         end
 
@@ -818,7 +818,7 @@ function reset!(world::W) where {W<:World}
         _clear!(table.filters[])
         archetype = world_state._archetypes[table.archetype]
         for comp in archetype.components
-            _clear_component_data!(world_storage, comp, table.id)
+            _clear_component_data!(world_storage, comp, table)
         end
     end
 
@@ -934,7 +934,7 @@ end
             [_Archetype(UInt32(1), node, UInt32(1))],
             [_ArchetypeHot(node, UInt32(1))],
             Vector{UInt32}(),
-            [_new_table(UInt32(1), UInt32(1), 0, _empty_relations)],
+            [_new_table(UInt32(1), UInt32(1), UInt32(1), 0, _empty_relations)],
             _LastTable{$M}(_Mask{$M}(), UInt32(1)),
             _ComponentIndex{$(M)}($(length(types))),
             registry,
@@ -1180,12 +1180,12 @@ function _create_table!(
     _check_relation_targets(state, relations)
 
     new_table_id = length(state._tables) + 1
-    table = _new_table(UInt32(new_table_id), arch.id, state._initial_capacity, relations)
+    local_table = _new_local_table!(arch)
+    table = _new_table(UInt32(new_table_id), arch.id, local_table, state._initial_capacity, relations)
     push!(state._tables, table)
 
-    _push_empty_to_all_storages!(stores)
     for comp in arch.components
-        _activate_new_column_for_comp!(stores, comp, new_table_id, state._initial_capacity)
+        _create_column_for_comp!(stores, comp, arch.id, local_table, state._initial_capacity)
     end
 
     _push_zero_to_all_table_relations!(state, stores)
@@ -1269,6 +1269,11 @@ function _create_archetype!(
 
     index = length(state._archetypes)
     node.archetype[] = UInt32(index)
+
+    _add_archetype_slot_to_all_storages!(stores)
+    for comp in arch.components
+        _activate_archetype_storage_for_comp!(stores, comp, UInt32(index))
+    end
 
     _push_zero_to_all_archetype_relations!(state, stores)
 
@@ -1517,7 +1522,7 @@ end
     push!(
         exprs,
         :(
-            table = _find_or_create_table!(
+            table_id = _find_or_create_table!(
                 world_state,
                 stores,
                 world_state._tables[1],
@@ -1532,7 +1537,8 @@ end
             )[1]
         ),
     )
-    push!(exprs, :(tmp = _create_entity!(world_state, table)))
+    push!(exprs, :(table = world_state._tables[table_id]))
+    push!(exprs, :(tmp = _create_entity!(world_state, table_id)))
     push!(exprs, :(entity = tmp[1]))
 
     # Set each component
@@ -1543,11 +1549,11 @@ end
         val_expr = :(values.$i)
 
         push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-        push!(exprs, :(@inbounds $col_sym = $stor_sym.data[table]))
+        push!(exprs, :(@inbounds $col_sym = _column($stor_sym, table.archetype, table.local_table)))
         push!(exprs, :(push!($col_sym, $val_expr)))
     end
 
-    push!(exprs, Expr(:return, Expr(:tuple, :entity, :table)))
+    push!(exprs, Expr(:return, Expr(:tuple, :entity, :table_id)))
 
     return quote
         @inbounds begin
@@ -1627,7 +1633,7 @@ end
         end
 
         for comp in archetype.components
-            _ensure_column_size_for_comp!(stores, comp, table_index, new_length)
+            _ensure_column_size_for_comp!(stores, comp, table, new_length)
         end
 
         return old_length + 1, new_length
@@ -1663,14 +1669,14 @@ end
             if _get_bit(new_archetype.node.mask, comp)
                 $(
                     inline_jtable ?
-                    :(@inline _move_component_data!(stores, comp, index.table, table_index, index.row)) :
-                    :(_move_component_data!(stores, comp, index.table, table_index, index.row))
+                    :(@inline _move_component_data!(stores, comp, old_table, new_table, index.row)) :
+                    :(_move_component_data!(stores, comp, old_table, new_table, index.row))
                 )
             else
                 $(
                     inline_jtable ?
-                    :(@inline _swap_remove_in_column_for_comp!(stores, comp, index.table, index.row)) :
-                    :(_swap_remove_in_column_for_comp!(stores, comp, index.table, index.row))
+                    :(@inline _swap_remove_in_column_for_comp!(stores, comp, old_table, index.row)) :
+                    :(_swap_remove_in_column_for_comp!(stores, comp, old_table, index.row))
                 )
             end
         end
@@ -1706,7 +1712,7 @@ function _move_entities!(
 
     resize!(new_table, total_entities)
     for comp in new_archetype.components
-        _ensure_column_size_for_comp!(stores, comp, table_index, total_entities)
+        _ensure_column_size_for_comp!(stores, comp, new_table, total_entities)
     end
 
     @inbounds @simd for from in 1:num_entities
@@ -1717,9 +1723,9 @@ function _move_entities!(
     end
     for comp in old_archetype.components
         if _get_bit(new_archetype.node.mask, comp)
-            _copy_component_data_to_end!(stores, comp, old_table_index, table_index)
+            _copy_component_data_to_end!(stores, comp, old_table, new_table)
         end
-        _clear_component_data!(stores, comp, old_table_index)
+        _clear_component_data!(stores, comp, old_table)
     end
 
     empty!(old_table)
@@ -1750,8 +1756,8 @@ end
         for comp in archetype.components
             $(
                 inline_jtable ?
-                :(@inline _copy_component_data!(stores, comp, index.table, index.table, index.row, mode)) :
-                :(_copy_component_data!(stores, comp, index.table, index.table, index.row, mode))
+                :(@inline _copy_component_data!(stores, comp, table, table, index.row, mode)) :
+                :(_copy_component_data!(stores, comp, table, table, index.row, mode))
             )
         end
 
@@ -1830,7 +1836,7 @@ end
         ),
     )
     push!(exprs, :(new_table = world_state._tables[new_table_index]))
-    push!(exprs, :(new_archetype = world_state._archetypes_hot[new_table.archetype]))
+    push!(exprs, :(new_archetype_hot = world_state._archetypes_hot[new_table.archetype]))
 
     push!(exprs, :(entity_and_row = _create_entity!(world_state, new_table_index)))
     push!(exprs, :(new_entity = entity_and_row[1]))
@@ -1839,10 +1845,10 @@ end
         exprs,
         :(
             for comp in old_archetype.components
-                if !_get_bit(new_archetype.mask, comp)
+                if !_get_bit(new_archetype_hot.mask, comp)
                     continue
                 end
-                _copy_component_data!(stores, comp, index.table, new_table_index, index.row, mode)
+                _copy_component_data!(stores, comp, old_table, new_table, index.row, mode)
             end
         ),
     )
@@ -1854,17 +1860,17 @@ end
         val_expr = :(add.$i)
 
         push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-        push!(exprs, :(@inbounds $col_sym = $stor_sym.data[new_table_index]))
+        push!(exprs, :(@inbounds $col_sym = _column($stor_sym, new_table.archetype, new_table.local_table)))
         push!(exprs, :(@inbounds push!($col_sym, $val_expr)))
     end
 
     push!(exprs, :(
         begin
             if _has_observers(world_state._event_manager, OnCreateEntity)
-                _fire_create_entity(world_state._event_manager, new_entity, new_archetype.mask)
+                _fire_create_entity(world_state._event_manager, new_entity, new_archetype_hot.mask)
             end
-            if new_archetype.has_relations && _has_observers(world_state._event_manager, OnAddRelations)
-                _fire_create_entity_relations(world_state._event_manager, new_entity, new_archetype.mask)
+            if new_archetype_hot.has_relations && _has_observers(world_state._event_manager, OnAddRelations)
+                _fire_create_entity_relations(world_state._event_manager, new_entity, new_archetype_hot.mask)
             end
         end
     ))
@@ -1903,6 +1909,7 @@ end
     end
 
     push!(exprs, :(@inbounds idx = world_state._entities[entity._id]))
+    push!(exprs, :(@inbounds tbl = world_state._tables[idx.table]))
 
     for i in 1:length(types)
         T = types[i]
@@ -1910,7 +1917,7 @@ end
         val_sym = Symbol("v", i)
 
         push!(exprs, :($(stor_sym) = _get_storage(stores, $T)))
-        push!(exprs, :($(val_sym) = _get_component($(stor_sym), idx.table, idx.row, $(Val(Unchecked)))))
+        push!(exprs, :($(val_sym) = _get_component($(stor_sym), tbl.archetype, tbl.local_table, idx.row, $(Val(Unchecked)))))
     end
 
     vals = Symbol[Symbol("v", i) for i in 1:length(types)]
@@ -1958,14 +1965,23 @@ end
         ))
         push!(exprs, :(return _contains_all(arch_hot.mask, $query_mask)))
     else
-        push!(exprs, :(@inbounds index = world_state._entities[entity._id]))
+        push!(exprs, :(@inbounds begin
+            index = world_state._entities[entity._id]
+            table = world_state._tables[index.table]
+        end))
         for i in 1:length(types)
             T = types[i]
             stor_sym = Symbol("stor", i)
             col_sym = Symbol("col", i)
 
             push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-            push!(exprs, :(@inbounds $col_sym = $stor_sym.data[index.table]))
+            push!(exprs, :(@inbounds begin
+                arch_cols = $stor_sym.data[table.archetype]
+                if arch_cols === $stor_sym.empty_arch
+                    return false
+                end
+                $col_sym = arch_cols[table.local_table]
+            end))
             push!(exprs, :(
                 if length($col_sym) == 0
                     return false
@@ -1999,7 +2015,10 @@ end
             end
         ))
     end
-    push!(exprs, :(@inbounds idx = world_state._entities[entity._id]))
+    push!(exprs, :(@inbounds begin
+        idx = world_state._entities[entity._id]
+        tbl = world_state._tables[idx.table]
+    end))
 
     for i in 1:length(types)
         T = types[i]
@@ -2007,7 +2026,7 @@ end
         val_expr = :(values.$i)
 
         push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-        push!(exprs, :(_set_component!($stor_sym, idx.table, idx.row, $val_expr, $(Val(Unchecked)))))
+        push!(exprs, :(_set_component!($stor_sym, tbl.archetype, tbl.local_table, idx.row, $val_expr, $(Val(Unchecked)))))
     end
 
     push!(exprs, Expr(:return, :values))
@@ -2272,7 +2291,7 @@ end
         val_expr = :(add.$i)
 
         push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-        push!(exprs, :(@inbounds $col_sym = $stor_sym.data[new_table_index]))
+        push!(exprs, :(@inbounds $col_sym = _column($stor_sym, new_table.archetype, new_table.local_table)))
         push!(exprs, :(push!($col_sym, $val_expr)))
     end
 
@@ -2359,53 +2378,64 @@ function _do_emit_event!(world_state::_WorldState, event::Event, mask::_Mask, ha
     return _fire_custom_event(world_state._event_manager, event, entity, mask, entity_mask)
 end
 
-@generated function _push_empty_to_all_storages!(stores::_WorldStorage{CS}) where {CS<:Tuple}
+@generated function _add_archetype_slot_to_all_storages!(stores::_WorldStorage{CS}) where {CS<:Tuple}
     n = fieldcount(CS)
     exprs = Expr[]
     for i in 1:n
-        push!(exprs, :(_add_column!(stores._storages.$i)))
+        push!(exprs, :(_add_archetype_slot!(stores._storages.$i)))
     end
     return Expr(:block, exprs...)
 end
 
-@generated function _activate_new_column_for_comp!(
+@generated function _activate_archetype_storage_for_comp!(
     stores::_WorldStorage{CS},
     comp::Int,
-    index::Int,
+    arch_id::UInt32,
+) where CS
+    call_exprs =
+        Expr[:(_activate_archetype_storage_for_comp!(stores._storages.$i, arch_id)) for i in 1:fieldcount(CS)]
+    _generate_component_switch(:comp, call_exprs)
+end
+
+@generated function _create_column_for_comp!(
+    stores::_WorldStorage{CS},
+    comp::Int,
+    arch_id::UInt32,
+    local_table::UInt32,
     initial_capacity::Int,
 ) where CS
     call_exprs =
-        Expr[:(_activate_column!(stores._storages.$i, index, initial_capacity)) for i in 1:fieldcount(CS)]
+        Expr[:(_create_column!(stores._storages.$i, arch_id, local_table, initial_capacity)) for i in 1:fieldcount(CS)]
     _generate_component_switch(:comp, call_exprs)
 end
 
 @generated function _ensure_column_size_for_comp!(
     stores::_WorldStorage{CS},
     comp::Int,
-    arch::UInt32,
+    table::_Table,
     needed::Int,
 ) where CS
-    call_exprs = Expr[:(_ensure_column_size!(stores._storages.$i, arch, needed)) for i in 1:fieldcount(CS)]
+    call_exprs = Expr[:(_ensure_column_size!(stores._storages.$i, table.archetype, table.local_table, needed)) for i in 1:fieldcount(CS)]
     _generate_component_switch(:comp, call_exprs)
 end
 
 @generated function _move_component_data!(
     stores::_WorldStorage{CS},
     comp::Int,
-    old_table::UInt32,
-    new_table::UInt32,
+    old_table::_Table,
+    new_table::_Table,
     row::UInt32,
 ) where CS
     call_exprs =
-        Expr[:(_move_component_data!(stores._storages.$i, old_table, new_table, row)) for i in 1:fieldcount(CS)]
+        Expr[:(_move_component_data!(stores._storages.$i, old_table.archetype, old_table.local_table, new_table.archetype, new_table.local_table, row)) for i in 1:fieldcount(CS)]
     _generate_component_switch(:comp, call_exprs)
 end
 
 @generated function _copy_component_data!(
     stores::_WorldStorage{CS},
     comp::Int,
-    old_table::UInt32,
-    new_table::UInt32,
+    old_table::_Table,
+    new_table::_Table,
     old_row::UInt32,
     mode::CP,
 ) where {CS<:Tuple,CP<:Val}
@@ -2414,7 +2444,7 @@ end
         throw(ArgumentError(":$mode is not a valid copy mode, must be :ref, :copy or :deepcopy"))
     end
     call_exprs = Expr[
-        :(_copy_component_data!(stores._storages.$i, old_table, new_table, old_row, mode))
+        :(_copy_component_data!(stores._storages.$i, old_table.archetype, old_table.local_table, new_table.archetype, new_table.local_table, old_row, mode))
         for i in 1:fieldcount(CS)
     ]
     _generate_component_switch(:comp, call_exprs)
@@ -2423,48 +2453,48 @@ end
 @generated function _copy_component_data_to_end!(
     stores::_WorldStorage{CS},
     comp::Int,
-    old_table::UInt32,
-    new_table::UInt32,
+    old_table::_Table,
+    new_table::_Table,
 ) where {CS<:Tuple}
     call_exprs =
-        Expr[:(_copy_component_data_to_end!(stores._storages.$i, old_table, new_table)) for i in 1:fieldcount(CS)]
+        Expr[:(_copy_component_data_to_end!(stores._storages.$i, old_table.archetype, old_table.local_table, new_table.archetype, new_table.local_table)) for i in 1:fieldcount(CS)]
     _generate_component_switch(:comp, call_exprs)
 end
 
 @generated function _clear_component_data!(
     stores::_WorldStorage{CS},
     comp::Int,
-    table::UInt32,
+    table::_Table,
 ) where {CS<:Tuple}
-    call_exprs = Expr[:(_clear_column!(stores._storages.$i, table)) for i in 1:fieldcount(CS)]
+    call_exprs = Expr[:(_clear_column!(stores._storages.$i, table.archetype, table.local_table)) for i in 1:fieldcount(CS)]
     _generate_component_switch(:comp, call_exprs)
 end
 
 @generated function _swap_remove_in_column_for_comp!(
     stores::_WorldStorage{CS},
     comp::Int,
-    table::UInt32,
+    table::_Table,
     row::UInt32,
 ) where {CS<:Tuple}
-    call_exprs = Expr[:(_remove_component_data!(stores._storages.$i, table, row)) for i in 1:fieldcount(CS)]
+    call_exprs = Expr[:(_remove_component_data!(stores._storages.$i, table.archetype, table.local_table, row)) for i in 1:fieldcount(CS)]
     _generate_component_switch(:comp, call_exprs)
 end
 
 @generated function _swap_components!(
     stores::_WorldStorage{CS},
     comp::Int,
-    table::UInt32,
+    table::_Table,
     i::Int,
     j::Int,
 ) where {CS<:Tuple}
-    call_exprs = Expr[:(_swap_component_data!(stores._storages.$k, table, i, j)) for k in 1:fieldcount(CS)]
+    call_exprs = Expr[:(_swap_component_data!(stores._storages.$k, table.archetype, table.local_table, i, j)) for k in 1:fieldcount(CS)]
     _generate_component_switch(:comp, call_exprs)
 end
 
 @generated function _permute_component_cycle!(
     stores::_WorldStorage{CS},
     comp::Int,
-    table::UInt32,
+    table::_Table,
     entities::Entities,
     entity_index::Vector{_EntityIndex},
     start::Int,
@@ -2472,7 +2502,8 @@ end
     call_exprs = Expr[
         :(_permute_component_cycle!(
             stores._storages.$i,
-            table,
+            table.archetype,
+            table.local_table,
             entities,
             entity_index,
             start,
@@ -2547,7 +2578,7 @@ end
         state._entities[entity_j._id] = _EntityIndex(table.id, i)
 
         for comp in archetype.components
-            _swap_components!(stores, comp, table.id, i, j)
+            _swap_components!(stores, comp, table, i, j)
         end
     end
     return

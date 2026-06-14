@@ -368,7 +368,14 @@ end
         col_sym = Symbol("col", i)
         vec_sym = Symbol("vec", i)
         push!(exprs, :(@inbounds $stor_sym = q._storages[$i]))
-        push!(exprs, :(@inbounds $col_sym = $stor_sym.data[table.id]))
+        push!(exprs, :(@inbounds begin
+            _arch_cols = $stor_sym.data[table.archetype]
+            if _arch_cols === $stor_sym.empty_arch
+                $col_sym = $stor_sym.empty_column
+            else
+                $col_sym = _arch_cols[table.local_table]
+            end
+        end))
 
         if _get_bit(OF, i)
             if storage_array_types[i] <: GPUVector

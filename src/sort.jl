@@ -91,7 +91,7 @@ function _sort_table_entities!(
                     _permute_component_cycle!(
                         stores,
                         comp,
-                        table.id,
+                        table,
                         entities,
                         state._entities,
                         start,

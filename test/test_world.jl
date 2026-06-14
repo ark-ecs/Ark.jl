@@ -28,15 +28,17 @@ end
         _get_storage(_storage(world), Position),
         _ComponentStorage{Position,_storage_from_component(world, Position)},
     )
-    @test isa(_get_storage(_storage(world), Position).data[1], _storage_from_component(world, Position))
+    position_storage_type = _storage_from_component(world, Position)
+    @test isa(_get_storage(_storage(world), Position).data[1], Vector{position_storage_type})
     velocity_storage_type = _storage_from_component(world, Velocity)
     @test isa(_get_storage(_storage(world), Velocity), _ComponentStorage{Velocity,velocity_storage_type})
-    @test isa(_get_storage(_storage(world), Velocity).data[1], velocity_storage_type)
+    @test isa(_get_storage(_storage(world), Velocity).data[1], Vector{velocity_storage_type})
+    altitude_storage_type = _storage_from_component(world, Altitude)
     @test isa(
         _get_storage(_storage(world), Altitude),
-        _ComponentStorage{Altitude,_storage_from_component(world, Altitude)},
+        _ComponentStorage{Altitude,altitude_storage_type},
     )
-    @test isa(_get_storage(_storage(world), Altitude).data[1], _storage_from_component(world, Altitude))
+    @test isa(_get_storage(_storage(world), Altitude).data[1], Vector{altitude_storage_type})
 
     world_state = _state(world)
     stores = _storage(world)
@@ -184,53 +186,65 @@ end
     @test length(_state(world)._tables) == 3
 end
 
-@testset "World shares inactive storage columns" begin
+@testset "World archetype-indexed storage columns" begin
     world = World(Position, Velocity => Storage{StructArray}, Relation{ChildOf})
     pos_storage = _get_storage(_storage(world), Position)
     vel_storage = _get_storage(_storage(world), Velocity)
     child_storage = _get_storage(_storage(world), ChildOf)
 
-    @test pos_storage.data[1] === pos_storage.empty_column
-    @test vel_storage.data[1] === vel_storage.empty_column
-    @test child_storage.data[1] === child_storage.empty_column
+    # Archetype 1 (no components): all storages have empty_arch sentinel
+    @test pos_storage.data[1] === pos_storage.empty_arch
+    @test vel_storage.data[1] === vel_storage.empty_arch
+    @test child_storage.data[1] === child_storage.empty_arch
 
     parent1 = new_entity!(world, ())
     parent2 = new_entity!(world, ())
     child1 = new_entity!(world, (ChildOf() => parent1,))
     child2 = new_entity!(world, (ChildOf() => parent2,))
-    child_table1 = _state(world)._entities[child1._id].table
-    child_table2 = _state(world)._entities[child2._id].table
 
-    @test child_table1 != child_table2
-    for table in (child_table1, child_table2)
-        @test pos_storage.data[table] === pos_storage.empty_column
-        @test vel_storage.data[table] === vel_storage.empty_column
-        @test child_storage.data[table] !== child_storage.empty_column
-    end
-    @test child_storage.data[child_table1] !== child_storage.data[child_table2]
+    child1_info = _state(world)._tables[_state(world)._entities[child1._id].table]
+    child2_info = _state(world)._tables[_state(world)._entities[child2._id].table]
+
+    @test child1_info.id != child2_info.id
+    @test child1_info.archetype == child2_info.archetype
+    @test child1_info.local_table != child2_info.local_table
+
+    # Archetype for ChildOf: child_storage has columns, pos/vel do not
+    child_arch = child1_info.archetype
+    @test child_storage.data[child_arch] !== child_storage.empty_arch
+    @test pos_storage.data[child_arch] === pos_storage.empty_arch
+    @test vel_storage.data[child_arch] === vel_storage.empty_arch
+    # Different local tables have different columns
+    @test child_storage.data[child_arch][child1_info.local_table] !==
+          child_storage.data[child_arch][child2_info.local_table]
 
     entity1 = new_entity!(world, (Position(1, 1), Velocity(1, 1), ChildOf() => parent1))
     entity2 = new_entity!(world, (Position(2, 2), Velocity(2, 2), ChildOf() => parent2))
-    table1 = _state(world)._entities[entity1._id].table
-    table2 = _state(world)._entities[entity2._id].table
 
-    @test table1 != table2
+    entity1_info = _state(world)._tables[_state(world)._entities[entity1._id].table]
+    entity2_info = _state(world)._tables[_state(world)._entities[entity2._id].table]
+
+    @test entity1_info.id != entity2_info.id
+    full_arch = entity1_info.archetype
+    @test full_arch == entity2_info.archetype
+
+    # All three components have activated storage for this archetype
     for storage in (pos_storage, vel_storage, child_storage)
-        @test storage.data[table1] !== storage.empty_column
-        @test storage.data[table2] !== storage.empty_column
-        @test storage.data[table1] !== storage.data[table2]
+        @test storage.data[full_arch] !== storage.empty_arch
+        @test storage.data[full_arch][entity1_info.local_table] !==
+              storage.data[full_arch][entity2_info.local_table]
     end
 
-    pos_column = pos_storage.data[table1]
-    vel_column = vel_storage.data[table1]
+    pos_column = pos_storage.data[full_arch][entity1_info.local_table]
+    vel_column = vel_storage.data[full_arch][entity1_info.local_table]
     reset!(world)
 
-    @test pos_storage.data[table1] === pos_column
-    @test vel_storage.data[table1] === vel_column
+    @test pos_storage.data[full_arch][entity1_info.local_table] === pos_column
+    @test vel_storage.data[full_arch][entity1_info.local_table] === vel_column
     @test isempty(pos_column)
     @test isempty(vel_column)
-    @test isempty(pos_storage.empty_column)
-    @test isempty(vel_storage.empty_column)
+    @test isempty(pos_storage.empty_arch)
+    @test isempty(vel_storage.empty_arch)
 end
 
 @testset "World Component Registration" begin
@@ -385,25 +399,26 @@ end
         Val(false),
     )
     @test table_index == (2, false)
+    table = _state(world)._tables[table_index[1]]
 
     entity, index = _create_entity!(_state(world), table_index[1])
-    push!(_get_storage(_storage(world), Position).data[table_index[1]], Position(0, 0))
-    push!(_get_storage(_storage(world), Velocity).data[table_index[1]], Velocity(0, 0))
+    push!(Ark._column(_get_storage(_storage(world), Position), table.archetype, table.local_table), Position(0, 0))
+    push!(Ark._column(_get_storage(_storage(world), Velocity), table.archetype, table.local_table), Velocity(0, 0))
     @test entity == _new_entity(2, 0)
     @test index == 1
     @test _state(world)._entities == [_EntityIndex(typemax(UInt32), 0), _EntityIndex(table_index[1], UInt32(1))]
 
     remove_entity!(world, entity)
     entity, index = _create_entity!(_state(world), table_index[1])
-    push!(_get_storage(_storage(world), Position).data[table_index[1]], Position(0, 0))
-    push!(_get_storage(_storage(world), Velocity).data[table_index[1]], Velocity(0, 0))
+    push!(Ark._column(_get_storage(_storage(world), Position), table.archetype, table.local_table), Position(0, 0))
+    push!(Ark._column(_get_storage(_storage(world), Velocity), table.archetype, table.local_table), Velocity(0, 0))
     @test entity == _new_entity(2, 1)
 
     pos_storage = _get_storage(_storage(world), Position)
     vel_storage = _get_storage(_storage(world), Velocity)
 
-    @test length(pos_storage.data[table_index[1]]) == 1
-    @test length(vel_storage.data[table_index[1]]) == 1
+    @test length(Ark._column(pos_storage, table.archetype, table.local_table)) == 1
+    @test length(Ark._column(vel_storage, table.archetype, table.local_table)) == 1
 end
 
 @testset "World get/set components" begin
@@ -464,8 +479,8 @@ end
     entity = new_entity!(world, (Position(1, 2), Velocity(3, 4)))
     @test entity == _new_entity(3, 0)
     @test is_alive(world, entity) == true
-    @test length(_storage(world)._storages[offset_ID+2].data[2]) == 1
-    @test length(_storage(world)._storages[offset_ID+3].data[2]) == 1
+    @test length(_storage(world)._storages[offset_ID+2].data[2][1]) == 1
+    @test length(_storage(world)._storages[offset_ID+3].data[2][1]) == 1
 
     pos, vel = get_components(world, entity, (Position, Velocity))
     @test pos == Position(1, 2)
@@ -756,8 +771,8 @@ end
     @test entity2._id == entity._id + 1
     @test entity2._id == 4
     @test _state(world)._tables[2].entities == [entity, entity2]
-    @test length(_storage(world)._storages[offset_ID+2].data[2]) == 2
-    @test length(_storage(world)._storages[offset_ID+3].data[2]) == 2
+    @test length(_storage(world)._storages[offset_ID+2].data[2][1]) == 2
+    @test length(_storage(world)._storages[offset_ID+3].data[2][1]) == 2
 
     pos, vel = get_components(world, entity2, (Position, Velocity))
     @test pos == Position(1, 2)
@@ -915,8 +930,8 @@ end
     @test cnt == 100
     @test is_locked(world) == false
     @test length(_state(world)._tables[2].entities) == 101
-    @test length(_storage(world)._storages[offset_ID+2].data[2]) == 101
-    @test length(_storage(world)._storages[offset_ID+3].data[2]) == 101
+    @test length(_storage(world)._storages[offset_ID+2].data[2][1]) == 101
+    @test length(_storage(world)._storages[offset_ID+3].data[2][1]) == 101
 
     cnt = 0
     for (ent, pos_col, vel_col) in Query(world, (Position, Velocity))
@@ -973,8 +988,8 @@ end
     @test count == 100
     @test is_locked(world) == false
     @test length(_state(world)._tables[2].entities) == 101
-    @test length(_storage(world)._storages[offset_ID+2].data[2]) == 101
-    @test length(_storage(world)._storages[offset_ID+3].data[2]) == 101
+    @test length(_storage(world)._storages[offset_ID+2].data[2][1]) == 101
+    @test length(_storage(world)._storages[offset_ID+3].data[2][1]) == 101
 
     count = 0
     for (ent, pos_col, vel_col) in Query(world, (Position, Velocity))
@@ -1652,8 +1667,14 @@ end
     end
 
     for s in 2:4
+        storage = _storage(world)._storages[offset_ID + s]
         for t in 2:6
-            @test length(_storage(world)._storages[offset_ID+s].data[t]) == 0
+            table = _state(world)._tables[t]
+            if storage.data[table.archetype] === storage.empty_arch
+                @test true  # component absent from this archetype, empty_arch has length 0
+            else
+                @test length(storage.data[table.archetype][table.local_table]) == 0
+            end
         end
     end
 

@@ -1,7 +1,7 @@
 
 function _storage_from_component(world, comp)
-    i = findfirst(x -> first(x.data) isa AbstractArray{comp}, _storage(world)._storages)
-    return typeof(first(_storage(world)._storages[i].data))
+    i = findfirst(x -> Ark._component_type(typeof(x)) == comp, _storage(world)._storages)
+    return Ark._storage_array_type(typeof(_storage(world)._storages[i]))
 end
 
 const N_fake = 0
