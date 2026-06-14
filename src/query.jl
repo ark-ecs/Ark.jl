@@ -377,12 +377,7 @@ end
                 if _local_id == 1
                     $col_sym = $stor_sym.primary[_arch_id]
                 else
-                    _extras = $stor_sym.extra[_arch_id]
-                    if _extras === $stor_sym.empty_extra
-                        $col_sym = $stor_sym.empty_column
-                    else
-                        $col_sym = _extras[_local_id - 1]
-                    end
+                    $col_sym = $stor_sym.extra[_arch_id][_local_id - 1]
                 end
             end))
             if storage_array_types[i] <: GPUVector

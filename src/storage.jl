@@ -70,11 +70,7 @@ end
     @inbounds if local_table == 1
         col = s.primary[Int(arch_id)]
     else
-        extras = s.extra[Int(arch_id)]
-        if extras === s.empty_extra
-            throw(ArgumentError(lazy"entity has no $C component"))
-        end
-        col = extras[Int(local_table) - 1]
+        col = s.extra[Int(arch_id)][Int(local_table) - 1]
     end
     if col === s.empty_column
         throw(ArgumentError(lazy"entity has no $C component"))
@@ -104,11 +100,7 @@ end
     @inbounds if local_table == 1
         col = s.primary[Int(arch_id)]
     else
-        extras = s.extra[Int(arch_id)]
-        if extras === s.empty_extra
-            throw(ArgumentError(lazy"entity has no $C component"))
-        end
-        col = extras[Int(local_table) - 1]
+        col = s.extra[Int(arch_id)][Int(local_table) - 1]
     end
     if col === s.empty_column || length(col) == 0
         throw(ArgumentError(lazy"entity has no $C component"))
