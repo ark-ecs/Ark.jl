@@ -20,15 +20,11 @@ function setup_world_add_remove_1_buffer(n_entities::Int)
     end
     apply!(world, buf)
 
-    return (entities, world)
+    return (entities, world, buf)
 end
 
 function benchmark_world_add_remove_1_buffer(args, n)
-    entities, world = args
-    buf = CommandBuffer(world, (
-        (add_components!, (Velocity,)),
-        (remove_components!, (Velocity,)),
-    ))
+    entities, world, buf = args
     for e in entities
         add_components!(world, buf, e, (Velocity(0, 0),))
     end
