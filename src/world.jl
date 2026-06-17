@@ -1576,6 +1576,17 @@ end
     end
 end
 
+@inline @generated function _place_entity!(state::_WorldState{M,K}, entity::Entity, table_index::UInt32)::Int where {M,K}
+    world_has_rel = K > 0
+    quote
+        @inbounds table = state._tables[table_index]
+        index = _add_entity!(table, entity)
+        @inbounds state._entities[Int(entity._id)] = _EntityIndex(table_index, UInt32(index))
+        $(world_has_rel ? :(@inbounds state._targets[Int(entity._id)] = false) : (:(nothing)))
+        return index
+    end
+end
+
 @generated function _create_entities!(
     state::_WorldState{M,K},
     stores::_WorldStorage,
