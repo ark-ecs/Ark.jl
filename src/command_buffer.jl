@@ -110,20 +110,24 @@ end
     end
 end
 
-function remove_components!(world::World, buf::CommandBuffer, entity::Entity, types::Tuple)
+Base.@constprop :aggressive function remove_components!(world::World, buf::CommandBuffer, entity::Entity, types::Tuple)
     push!(buf.commands, _make_remove_cmd(entity, typeof(_valtuple(types))))
     return nothing
 end
 
-@generated function _make_exchange_cmd(entity::Entity, add::Tuple, ::Type{T}) where {T<:Tuple}
+@generated function _make_exchange_cmd(
+    entity::Entity,
+    add::A,
+    ::Type{T},
+) where {A<:Tuple,T<:Tuple}
     inner = [fieldtype(T, i).parameters[1] for i in 1:fieldcount(T)]
     R = Tuple{inner...}
-    quote
-        ExchangeComponents{typeof(add), $R}(entity, add)
+    return quote
+        ExchangeComponents{$A,$R}(entity, add)
     end
 end
 
-function exchange_components!(world::World, buf::CommandBuffer, entity::Entity; add::Tuple=(), remove::Tuple=())
+Base.@constprop :aggressive function exchange_components!(world::World, buf::CommandBuffer, entity::Entity; add::Tuple=(), remove::Tuple=())
     push!(buf.commands, _make_exchange_cmd(entity, add, typeof(_valtuple(remove))))
     return nothing
 end
