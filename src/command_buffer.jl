@@ -50,7 +50,7 @@ end
 function _specs_to_types(specs::Tuple)
     n = length(specs)
     if n == 0
-        return ()
+        throw(ArgumentError("command buffer needs to contain at least one deferred operation"))
     end
     types = Vector{DataType}(undef, n)
     for i in 1:n
@@ -227,7 +227,7 @@ end
 @generated function apply!(world::World, buf::CommandBuffer{C}) where C
     member_types = C isa Union ? Base.uniontypes(C) : (C,)
 
-    err = :(error("unreachable reached"))
+    err = :(throw(ErrorException("unreachable reached")))
     chain = err
     for T in member_types
         if T <: NewEntity
@@ -246,7 +246,7 @@ end
             body = :(Ark.exchange_components!(world, cmd.entity; add=cmd.add,
                 remove=$(Expr(:tuple, types...))))
         else
-            throw(error("unreachable reached"))
+            throw(ErrorException("unreachable reached"))
         end
         if length(member_types) == 1
             chain = body
