@@ -227,7 +227,7 @@ end
 @generated function apply!(world::World, buf::CommandBuffer{C}) where C
     member_types = C isa Union ? Base.uniontypes(C) : (C,)
 
-    err = :(error("unrecognized command type: ", typeof(cmd)))
+    err = :(error("unreachable reached"))
     chain = err
     for T in member_types
         if T <: NewEntity
@@ -246,7 +246,7 @@ end
             body = :(Ark.exchange_components!(world, cmd.entity; add=cmd.add,
                 remove=$(Expr(:tuple, types...))))
         else
-            continue
+            throw(error("unreachable reached"))
         end
         if length(member_types) == 1
             chain = body
