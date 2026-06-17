@@ -15,63 +15,68 @@ end
 
 struct RemoveComponents{R<:Tuple}
     entity::Entity
-    types::R
 end
 
 struct ExchangeComponents{A<:Tuple,R<:Tuple}
     entity::Entity
     add::A
-    remove::R
 end
 
 struct CommandBuffer{C}
     commands::Vector{C}
 end
 
-const _CMD_TYPES = Union{NewEntity{<:Tuple}, RemoveEntity, AddComponents{<:Tuple}, RemoveComponents{<:Tuple}, ExchangeComponents{<:Tuple,<:Tuple}}
+@generated function _val_cmd_type(::Type{T}, ::typeof(new_entity!)) where {T<:Tuple}
+    inner = [fieldtype(T, i).parameters[1] for i in 1:fieldcount(T)]
+    NewEntity{Tuple{inner...}}
+end
 
-@generated function CommandBuffer(::World, specs::T) where {T<:Tuple}
-    cmd_types = Expr(:tuple)
-    for i in 1:fieldcount(T)
-        spec = fieldtype(T, i)
-        spec isa DataType || error("spec must be a tuple, got $spec")
-        if !(spec <: Tuple{Vararg{Any}}) || fieldcount(spec) < 1
-            return :(throw(ArgumentError("each spec must be a tuple like (fn, types...)")))
-        end
-        fn_type = fieldtype(spec, 1)
-        cmd_type = if fn_type <: typeof(new_entity!)
-            if fieldcount(spec) < 2 || !(fieldtype(spec, 2) <: Tuple)
-                return :(throw(ArgumentError("(new_entity!, types) spec needs a tuple of component types")))
-            end
-            NewEntity
-        elseif fn_type <: typeof(remove_entity!)
+@generated function _val_cmd_type(::Type{T}, ::typeof(add_components!)) where {T<:Tuple}
+    inner = [fieldtype(T, i).parameters[1] for i in 1:fieldcount(T)]
+    AddComponents{Tuple{inner...}}
+end
+
+@generated function _val_cmd_type(::Type{T}, ::typeof(remove_components!)) where {T<:Tuple}
+    inner = [fieldtype(T, i).parameters[1] for i in 1:fieldcount(T)]
+    RemoveComponents{Tuple{inner...}}
+end
+
+@generated function _val_cmd_type(::Type{T}, ::typeof(exchange_components!), ::Type{U}) where {T<:Tuple, U<:Tuple}
+    add_inner = [fieldtype(T, i).parameters[1] for i in 1:fieldcount(T)]
+    rem_inner = [fieldtype(U, i).parameters[1] for i in 1:fieldcount(U)]
+    ExchangeComponents{Tuple{add_inner...}, Tuple{rem_inner...}}
+end
+
+function _specs_to_types(specs::Tuple)
+    n = length(specs)
+    if n == 0
+        return ()
+    end
+    types = Vector{DataType}(undef, n)
+    for i in 1:n
+        spec = specs[i]
+        fn = spec[1]
+        types[i] = if fn === new_entity!
+            _val_cmd_type(typeof(_valtuple(spec[2])), new_entity!)
+        elseif fn === remove_entity!
             RemoveEntity
-        elseif fn_type <: typeof(add_components!)
-            if fieldcount(spec) < 2 || !(fieldtype(spec, 2) <: Tuple)
-                return :(throw(ArgumentError("(add_components!, types) spec needs a tuple of component types")))
-            end
-            AddComponents
-        elseif fn_type <: typeof(remove_components!)
-            if fieldcount(spec) < 2 || !(fieldtype(spec, 2) <: Tuple)
-                return :(throw(ArgumentError("(remove_components!, types) spec needs a tuple of component types")))
-            end
-            RemoveComponents
-        elseif fn_type <: typeof(exchange_components!)
-            if fieldcount(spec) < 3 || !(fieldtype(spec, 2) <: Tuple) || !(fieldtype(spec, 3) <: Tuple)
-                return :(throw(ArgumentError("(exchange_components!, add_types, remove_types) spec needs two tuples")))
-            end
-            ExchangeComponents
+        elseif fn === add_components!
+            _val_cmd_type(typeof(_valtuple(spec[2])), add_components!)
+        elseif fn === remove_components!
+            _val_cmd_type(typeof(_valtuple(spec[2])), remove_components!)
+        elseif fn === exchange_components!
+            _val_cmd_type(typeof(_valtuple(spec[2])), exchange_components!, typeof(_valtuple(spec[3])))
         else
-            return :(throw(ArgumentError(
-                "unknown command function in spec, expected new_entity!, remove_entity!, " *
-                "add_components!, remove_components!, or exchange_components!")))
+            throw(ArgumentError("unknown command function $fn"))
         end
-        push!(cmd_types.args, cmd_type)
     end
-    C = Expr(:curly, :Union, cmd_types.args...)
-    quote
-        CommandBuffer{$C}(Vector{$C}())
-    end
+    Tuple(types)
+end
+
+function CommandBuffer(world::World, specs::Tuple)
+    cmd_types = _specs_to_types(specs)
+    C = Union{cmd_types...}
+    CommandBuffer{C}(Vector{C}())
 end
 
 function new_entity!(world::World, buf::CommandBuffer, values::Tuple)
@@ -97,13 +102,29 @@ function add_components!(world::World, buf::CommandBuffer, entity::Entity, value
     return nothing
 end
 
+@generated function _make_remove_cmd(entity::Entity, ::Type{T}) where {T<:Tuple}
+    inner = [fieldtype(T, i).parameters[1] for i in 1:fieldcount(T)]
+    R = Tuple{inner...}
+    quote
+        RemoveComponents{$R}(entity)
+    end
+end
+
 function remove_components!(world::World, buf::CommandBuffer, entity::Entity, types::Tuple)
-    push!(buf.commands, RemoveComponents(entity, types))
+    push!(buf.commands, _make_remove_cmd(entity, typeof(_valtuple(types))))
     return nothing
 end
 
+@generated function _make_exchange_cmd(entity::Entity, add::Tuple, ::Type{T}) where {T<:Tuple}
+    inner = [fieldtype(T, i).parameters[1] for i in 1:fieldcount(T)]
+    R = Tuple{inner...}
+    quote
+        ExchangeComponents{typeof(add), $R}(entity, add)
+    end
+end
+
 function exchange_components!(world::World, buf::CommandBuffer, entity::Entity; add::Tuple=(), remove::Tuple=())
-    push!(buf.commands, ExchangeComponents(entity, add, remove))
+    push!(buf.commands, _make_exchange_cmd(entity, add, typeof(_valtuple(remove))))
     return nothing
 end
 
@@ -213,9 +234,14 @@ end
         elseif T <: AddComponents
             body = :(Ark.add_components!(world, cmd.entity, cmd.components))
         elseif T <: RemoveComponents
-            body = :(Ark.remove_components!(world, cmd.entity, cmd.types))
+            R = T.parameters[1]
+            types = [fieldtype(R, i) for i in 1:fieldcount(R)]
+            body = :(Ark.remove_components!(world, cmd.entity, $(Expr(:tuple, types...))))
         elseif T <: ExchangeComponents
-            body = :(Ark.exchange_components!(world, cmd.entity; add=cmd.add, remove=cmd.remove))
+            R = T.parameters[2]
+            types = [fieldtype(R, i) for i in 1:fieldcount(R)]
+            body = :(Ark.exchange_components!(world, cmd.entity; add=cmd.add,
+                remove=$(Expr(:tuple, types...))))
         else
             continue
         end

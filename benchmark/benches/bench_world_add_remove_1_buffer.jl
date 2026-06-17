@@ -2,7 +2,7 @@
 function setup_world_add_remove_1_buffer(n_entities::Int)
     world = World(Position, Velocity)
     buf = CommandBuffer(world, (
-        (add_components!, (Velocity,)),
+        (add_components!, (Velocity(0, 0),)),
         (remove_components!, (Velocity,)),
     ))
 
@@ -26,7 +26,7 @@ end
 function benchmark_world_add_remove_1_buffer(args, n)
     entities, world = args
     buf = CommandBuffer(world, (
-        (add_components!, (Velocity,)),
+        (add_components!, (Velocity(0, 0),)),
         (remove_components!, (Velocity,)),
     ))
     for e in entities
