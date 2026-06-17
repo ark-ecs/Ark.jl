@@ -34,7 +34,6 @@ function benchmark_world_add_remove_1_buffer(args, n)
     apply!(world, buf)
 end
 
-
 function setup_world_add_remove_1_buffer_single(n_entities::Int)
     world = World(Position, Velocity)
     buf1 = CommandBuffer(world, (

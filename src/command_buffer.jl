@@ -229,8 +229,7 @@ end
 
     err = :(error("unrecognized command type: ", typeof(cmd)))
     chain = err
-    for T in reverse(member_types)
-        cond = :(cmd isa $T)
+    for T in member_types
         if T <: NewEntity
             body = :(_apply_new_entity!(world, cmd.entity, cmd.components))
         elseif T <: RemoveEntity
@@ -249,7 +248,12 @@ end
         else
             continue
         end
-        chain = Expr(:if, cond, body, chain)
+        if length(member_types) == 1
+            chain = body
+        else
+            cond = :(cmd isa $T)
+            chain = Expr(:if, cond, body, chain)
+        end
     end
 
     return quote

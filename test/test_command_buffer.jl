@@ -140,19 +140,32 @@ end
     world = World(Position)
     buf = CommandBuffer(world, ((remove_entity!,),))
     apply!(world, buf)
-    @test true
 end
 
 @testset "CommandBuffer reuse after apply" begin
     world = World(Position)
     buf = CommandBuffer(world, ((new_entity!, (Position,)),))
 
-    new_entity!(world, buf, (Position(1.0, 2.0),))
+    e1 = new_entity!(world, buf, (Position(1.0, 2.0),))
     apply!(world, buf)
 
-    new_entity!(world, buf, (Position(3.0, 4.0),))
+    e2 = new_entity!(world, buf, (Position(3.0, 4.0),))
     apply!(world, buf)
 
-    e = new_entity!(world, (Position(5.0, 6.0),))
-    @test is_alive(world, e)
+    e3 = new_entity!(world, (Position(5.0, 6.0),))
+
+    pos1, = get_components(world, e1, (Position,))
+    pos2, = get_components(world, e2, (Position,))
+    pos3, = get_components(world, e3, (Position,))
+    @test pos1 == Position(1.0, 2.0)
+    @test pos2 == Position(3.0, 4.0)
+    @test pos3 == Position(5.0, 6.0)
+    @test is_alive(world, e1)
+    @test is_alive(world, e2)
+    @test is_alive(world, e3)
+
+    remove_entity!(world, e2)
+    @test is_alive(world, e1)
+    @test !is_alive(world, e2)
+    @test is_alive(world, e3) 
 end

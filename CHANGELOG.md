@@ -2,6 +2,10 @@
 
 ## [[unpublished]](https://github.com/ark-ecs/Ark.jl/compare/v0.5.0...main)
 
+### Features
+
+- Adds command buffers support for deferred structural operations (#670).
+
 ### Breaking changes
 
 - `unregister!` and `register!` now require the world as an argument (#660).
