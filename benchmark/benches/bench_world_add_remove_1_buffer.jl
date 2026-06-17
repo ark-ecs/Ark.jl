@@ -26,7 +26,7 @@ end
 function benchmark_world_add_remove_1_buffer(args, n)
     entities, world = args
     buf = CommandBuffer(world, (
-        (add_components!, (Velocity(0, 0),)),
+        (add_components!, (Velocity,)),
         (remove_components!, (Velocity,)),
     ))
     for e in entities
