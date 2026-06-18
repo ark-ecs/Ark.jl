@@ -38,21 +38,6 @@ struct SetRelations{R<:Tuple}
     relations::R
 end
 
-"""
-    CommandBuffer{C}
-
-A buffer for staging structural changes to apply later.
-
-Use [CommandBuffer](@ref CommandBuffer(::World, ::Tuple)) to create one,
-record changes with [new_entity!](@ref), [remove_entity!](@ref),
-[add_components!](@ref), [remove_components!](@ref),
-[exchange_components!](@ref), [set_components!](@ref),
-and [set_relations!](@ref), then apply them all at once with [apply!](@ref).
-
-All recorded commands are stored in a `Vector{C}` and executed when `apply!` is called.
-
-See the [manual](@ref "Command buffer") for details and examples.
-"""
 struct CommandBuffer{C}
     commands::Vector{C}
 end
@@ -121,7 +106,8 @@ end
 """
     CommandBuffer(world::World, specs::Tuple)
 
-Creates a new command buffer for the given [World](@ref).
+Creates a new command buffer for the given [World](@ref)
+for staging structural changes to apply later.
 
 The `specs` tuple specifies which operations the buffer supports.
 Each element is a tuple of the form `(function, component_types...)`:
@@ -138,7 +124,9 @@ buf = CommandBuffer(world, (
 ))
 ```
 
-The component types are used to specialize the command types at construction time.
+All recorded commands are stored and executed when `apply!` is called.
+
+See the [manual](@ref "Command buffer") for details and examples.
 """
 function CommandBuffer(world::World, specs::Tuple)
     cmd_types = _specs_to_types(specs)
@@ -325,10 +313,6 @@ end
     apply!(world::World, buf::CommandBuffer)
 
 Executes all commands recorded in the buffer in FIFO order.
-
-New entities are created via [new_entity!](@ref) with pre-allocated entity IDs,
-and events `OnCreateEntity` / `OnAddRelations` are fired. All other commands
-delegate to the corresponding [World](@ref) methods.
 
 After execution the command buffer is cleared and can be reused.
 """

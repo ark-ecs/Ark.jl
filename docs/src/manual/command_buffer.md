@@ -62,46 +62,6 @@ apply!(world, buf)
 
 ```
 
-### Removing entities
-
-```jldoctest
-buf = CommandBuffer(world, ((remove_entity!,),))
-e = new_entity!(world, (Position(0.0, 0.0),))
-remove_entity!(world, buf, e)
-apply!(world, buf)
-
-# output
-
-```
-
-### Adding and removing components
-
-```jldoctest
-buf = CommandBuffer(world, (
-    (add_components!, (Velocity,)),
-    (remove_components!, (Velocity,)),
-))
-e = new_entity!(world, (Position(1.0, 2.0),))
-add_components!(world, buf, e, (Velocity(10.0, 20.0),))
-remove_components!(world, buf, e, (Velocity,))
-apply!(world, buf)
-
-# output
-
-```
-
-### Exchanging components
-
-```jldoctest
-buf = CommandBuffer(world, ((exchange_components!, (Health,), (Velocity,)),))
-e = new_entity!(world, (Position(0.0, 0.0), Velocity(1.0, 1.0)))
-exchange_components!(world, buf, e; add=(Health(100.0),), remove=(Velocity,))
-apply!(world, buf)
-
-# output
-
-```
-
 ## Applying commands
 
 Call [apply!](@ref) to execute all staged commands in FIFO order:
@@ -111,7 +71,10 @@ buf = CommandBuffer(world, (
     (new_entity!, (Position, Velocity)),
     (add_components!, (Health,)),
 ))
-new_entity!(world, buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)))
+
+e = new_entity!(world, buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)))
+add_components!(world, buf, e, (Health(1.0),))
+
 apply!(world, buf)
 
 # output
@@ -119,16 +82,3 @@ apply!(world, buf)
 ```
 
 After `apply!` the buffer is cleared and can be reused.
-
-## Type stability
-
-The buffer's element type is a `Union` of concrete command types determined at construction.
-Each command struct stores only isbits data, so the internal `Vector` stores them inline
-without boxing. The generated `apply!` emits an efficient if-elseif chain over the exact
-types present in the union, with types for removal operations hardcoded at compile time.
-
-```@docs
-CommandBuffer
-CommandBuffer(::World, ::Tuple)
-apply!
-```
