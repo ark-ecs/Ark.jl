@@ -17,8 +17,6 @@ function initialize_world!(world::World, N::Int, I0::Int, beta::Float64, c::Floa
 
     if isnothing(buffer)
         buffer = Buffer(world)
-    else
-        empty!(buffer.transitions.commands)
     end
     @eval global const BufferType = typeof($buffer)
 
