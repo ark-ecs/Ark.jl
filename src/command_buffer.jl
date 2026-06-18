@@ -257,7 +257,7 @@ function add_components!(world::World, buf::CommandBuffer, entity::StagedEntity,
     return add_components!(world, buf, entity.entity, values)
 end
 
-@generated function _make_remove_cmd(entity::Entity, ::Type{T}) where {T<:Tuple}
+@generated function _make_remove_cmd(entity::Entity, types::T) where {T<:Tuple}
     inner = [fieldtype(T, i).parameters[1] for i in 1:fieldcount(T)]
     R = Tuple{inner...}
     quote
@@ -266,7 +266,7 @@ end
 end
 
 Base.@constprop :aggressive function remove_components!(world::World, buf::CommandBuffer, entity::Entity, types::Tuple)
-    push!(buf.commands, _make_remove_cmd(entity, typeof(_valtuple(types))))
+    push!(buf.commands, _make_remove_cmd(entity, _valtuple(types)))
     return nothing
 end
 
@@ -277,7 +277,7 @@ end
 @generated function _make_exchange_cmd(
     entity::Entity,
     add::A,
-    ::Type{T},
+    remove::T,
 ) where {A<:Tuple,T<:Tuple}
     inner = [fieldtype(T, i).parameters[1] for i in 1:fieldcount(T)]
     R = Tuple{inner...}
@@ -293,7 +293,7 @@ Base.@constprop :aggressive function exchange_components!(
     add::Tuple=(),
     remove::Tuple=(),
 )
-    push!(buf.commands, _make_exchange_cmd(entity, add, typeof(_valtuple(remove))))
+    push!(buf.commands, _make_exchange_cmd(entity, add, _valtuple(remove)))
     return nothing
 end
 
