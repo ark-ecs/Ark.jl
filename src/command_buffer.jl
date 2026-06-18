@@ -7,18 +7,17 @@ Identifier for an [Entity](@ref Entities) whose creation has been recorded in a
 
 A `StagedEntity` is returned by [`new_entity!`](@ref) when entity creation is
 staged through a command buffer. It reserves an entity identity for later use,
-but the entity is not alive, is not stored in any archetype table, and cannot be
-matched by queries until the command buffer is applied.
+but the staged handle is never alive, is not stored in any archetype table, and
+cannot be matched by queries.
 
 Use a staged entity to record additional commands that should affect the same
-future entity, such as adding components, setting component values, or using it
-as a relation target in the same command buffer.
+future entity, such as adding components or setting component values.
 """
 struct StagedEntity
-    entity::Entity
+    _entity::Entity
 end
 
-Base.isless(a::StagedEntity, b::StagedEntity) = isless(a.entity, b.entity)
+Base.isless(a::StagedEntity, b::StagedEntity) = isless(a._entity, b._entity)
 
 struct NewEntity{V<:Tuple}
     entity::Entity
@@ -91,20 +90,12 @@ end
 
 _spec_valtuple_type(spec::Tuple) = typeof(_valtuple(spec))
 
-@generated function _command_type(::Type{T}, ::typeof(new_entity!)) where {T<:Tuple}
-    NewEntity{_spec_value_tuple_type(T)}
-end
-
 @generated function _command_type(
     ::Type{T},
     ::typeof(new_entity!),
     ::Type{Storage},
 ) where {T<:Tuple,Storage<:_WorldStorage}
     NewEntity{_spec_value_tuple_type(T, Storage)}
-end
-
-@generated function _command_type(::Type{T}, ::typeof(add_components!)) where {T<:Tuple}
-    AddComponents{_spec_value_tuple_type(T)}
 end
 
 @generated function _command_type(
@@ -245,7 +236,7 @@ function remove_entity!(world::World, buf::CommandBuffer, entity::Entity)
 end
 
 function remove_entity!(world::World, buf::CommandBuffer, entity::StagedEntity)
-    return remove_entity!(world, buf, entity.entity)
+    return remove_entity!(world, buf, entity._entity)
 end
 
 function add_components!(world::World, buf::CommandBuffer, entity::Entity, values::Tuple)
@@ -254,7 +245,7 @@ function add_components!(world::World, buf::CommandBuffer, entity::Entity, value
 end
 
 function add_components!(world::World, buf::CommandBuffer, entity::StagedEntity, values::Tuple)
-    return add_components!(world, buf, entity.entity, values)
+    return add_components!(world, buf, entity._entity, values)
 end
 
 @generated function _make_remove_cmd(entity::Entity, types::T) where {T<:Tuple}
@@ -271,7 +262,7 @@ Base.@constprop :aggressive function remove_components!(world::World, buf::Comma
 end
 
 function remove_components!(world::World, buf::CommandBuffer, entity::StagedEntity, types::Tuple)
-    return remove_components!(world, buf, entity.entity, types)
+    return remove_components!(world, buf, entity._entity, types)
 end
 
 @generated function _make_exchange_cmd(
@@ -298,7 +289,7 @@ Base.@constprop :aggressive function exchange_components!(
 end
 
 function exchange_components!(world::World, buf::CommandBuffer, entity::StagedEntity; add::Tuple=(), remove::Tuple=())
-    return exchange_components!(world, buf, entity.entity; add=add, remove=remove)
+    return exchange_components!(world, buf, entity._entity; add=add, remove=remove)
 end
 
 function set_components!(world::World, buf::CommandBuffer, entity::Entity, values::Tuple)
@@ -307,7 +298,7 @@ function set_components!(world::World, buf::CommandBuffer, entity::Entity, value
 end
 
 function set_components!(world::World, buf::CommandBuffer, entity::StagedEntity, values::Tuple)
-    return set_components!(world, buf, entity.entity, values)
+    return set_components!(world, buf, entity._entity, values)
 end
 
 function set_relations!(world::World, buf::CommandBuffer, entity::Entity, relations::Tuple)
@@ -316,7 +307,7 @@ function set_relations!(world::World, buf::CommandBuffer, entity::Entity, relati
 end
 
 function set_relations!(world::World, buf::CommandBuffer, entity::StagedEntity, relations::Tuple)
-    return set_relations!(world, buf, entity.entity, relations)
+    return set_relations!(world, buf, entity._entity, relations)
 end
 
 @inline Base.@constprop :aggressive function _apply_new_entity!(world::World, entity::Entity, values::Tuple)
