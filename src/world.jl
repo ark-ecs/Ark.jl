@@ -249,7 +249,7 @@ Base.@constprop :aggressive function new_entity!(
     return entity
 end
 
-@inline Base.@constprop :aggressive function _fire_new_entity_events!(
+@inline function _fire_new_entity_events!(
     world_state::_WorldState,
     entity::Entity,
     table_id::UInt32,
