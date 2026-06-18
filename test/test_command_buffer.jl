@@ -311,6 +311,8 @@ end
 
 @testset "CommandBuffer reuse after apply" begin
     world = World(Position)
+    remove_entity!(world, new_entity!(world, (Position(1.0, 2.0),)))
+
     buf = CommandBuffer(world, ((new_entity!, (Position,)),))
 
     e1 = new_entity!(world, buf, (Position(1.0, 2.0),))
@@ -318,6 +320,8 @@ end
 
     e2 = new_entity!(world, buf, (Position(3.0, 4.0),))
     apply!(world, buf)
+
+    @test e1 < e2
 
     e3 = new_entity!(world, (Position(5.0, 6.0),))
 
