@@ -75,7 +75,6 @@ export unpack, @unpack
 
 export @unchecked
 
-export NewEntity, RemoveEntity, AddComponents, RemoveComponents, ExchangeComponents, SetComponents, SetRelations
 export StagedEntity, CommandBuffer, apply!
 
 export Relation

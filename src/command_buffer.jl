@@ -1,4 +1,19 @@
 
+"""
+    StagedEntity
+
+Identifier for an [Entity](@ref Entities) whose creation has been recorded in a
+[CommandBuffer](@ref), but has not been applied to the [World](@ref) yet.
+
+A `StagedEntity` is returned by [`new_entity!`](@ref) when entity creation is
+staged through a command buffer. It reserves an entity identity for later use,
+but the entity is not alive, is not stored in any archetype table, and cannot be
+matched by queries until the command buffer is applied.
+
+Use a staged entity to record additional commands that should affect the same
+future entity, such as adding components, setting component values, or using it
+as a relation target in the same command buffer.
+"""
 struct StagedEntity
     entity::Entity
 end
@@ -161,7 +176,9 @@ function CommandBuffer(world::World, specs::Tuple)
     CommandBuffer{C}(Vector{C}())
 end
 
-Ark.is_alive(::World, ::StagedEntity) = false
+function is_alive(::World, ::StagedEntity)
+    return false
+end
 
 function new_entity!(world::World, buf::CommandBuffer, values::Tuple)
     state = _state(world)
@@ -176,16 +193,18 @@ function remove_entity!(world::World, buf::CommandBuffer, entity::Entity)
     return nothing
 end
 
-remove_entity!(world::World, buf::CommandBuffer, entity::StagedEntity) =
-    remove_entity!(world, buf, entity.entity)
+function remove_entity!(world::World, buf::CommandBuffer, entity::StagedEntity)
+    return remove_entity!(world, buf, entity.entity)
+end
 
 function add_components!(world::World, buf::CommandBuffer, entity::Entity, values::Tuple)
     push!(buf.commands, AddComponents(entity, values))
     return nothing
 end
 
-add_components!(world::World, buf::CommandBuffer, entity::StagedEntity, values::Tuple) =
-    add_components!(world, buf, entity.entity, values)
+function add_components!(world::World, buf::CommandBuffer, entity::StagedEntity, values::Tuple)
+    return add_components!(world, buf, entity.entity, values)
+end
 
 @generated function _make_remove_cmd(entity::Entity, ::Type{T}) where {T<:Tuple}
     inner = [fieldtype(T, i).parameters[1] for i in 1:fieldcount(T)]
@@ -200,8 +219,9 @@ Base.@constprop :aggressive function remove_components!(world::World, buf::Comma
     return nothing
 end
 
-remove_components!(world::World, buf::CommandBuffer, entity::StagedEntity, types::Tuple) =
-    remove_components!(world, buf, entity.entity, types)
+function remove_components!(world::World, buf::CommandBuffer, entity::StagedEntity, types::Tuple)
+    return remove_components!(world, buf, entity.entity, types)
+end
 
 @generated function _make_exchange_cmd(
     entity::Entity,
@@ -220,24 +240,27 @@ Base.@constprop :aggressive function exchange_components!(world::World, buf::Com
     return nothing
 end
 
-exchange_components!(world::World, buf::CommandBuffer, entity::StagedEntity; add::Tuple=(), remove::Tuple=()) =
-    exchange_components!(world, buf, entity.entity; add=add, remove=remove)
+function exchange_components!(world::World, buf::CommandBuffer, entity::StagedEntity; add::Tuple=(), remove::Tuple=())
+    return exchange_components!(world, buf, entity.entity; add=add, remove=remove)
+end
 
 function set_components!(world::World, buf::CommandBuffer, entity::Entity, values::Tuple)
     push!(buf.commands, SetComponents(entity, values))
     return nothing
 end
 
-set_components!(world::World, buf::CommandBuffer, entity::StagedEntity, values::Tuple) =
-    set_components!(world, buf, entity.entity, values)
+function set_components!(world::World, buf::CommandBuffer, entity::StagedEntity, values::Tuple)
+    return set_components!(world, buf, entity.entity, values)
+end
 
 function set_relations!(world::World, buf::CommandBuffer, entity::Entity, relations::Tuple)
     push!(buf.commands, SetRelations(entity, relations))
     return nothing
 end
 
-set_relations!(world::World, buf::CommandBuffer, entity::StagedEntity, relations::Tuple) =
-    set_relations!(world, buf, entity.entity, relations)
+function set_relations!(world::World, buf::CommandBuffer, entity::StagedEntity, relations::Tuple)
+    return set_relations!(world, buf, entity.entity, relations)
+end
 
 function _apply_new_entity!(world::World, entity::Entity, values::Tuple)
     values, relations = _normalize_relations(values, Val(:value))
