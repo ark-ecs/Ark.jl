@@ -13,14 +13,14 @@ end
     buf = CommandBuffer(world, ((new_entity!, (Position, Velocity)),))
 
     e = new_entity!(world, buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)))
-    @test e isa Entity
-    @test is_alive(world, e)
+    @test e isa StagedEntity
+    @test !is_alive(world, e)
 
     apply!(world, buf)
-    @test is_alive(world, e)
-    pos, = get_components(world, e, (Position,))
+    @test is_alive(world, e.entity)
+    pos, = get_components(world, e.entity, (Position,))
     @test pos == Position(1.0, 2.0)
-    vel, = get_components(world, e, (Velocity,))
+    vel, = get_components(world, e.entity, (Velocity,))
     @test vel == Velocity(10.0, 20.0)
 end
 
@@ -33,8 +33,8 @@ end
     @test e1 != e2
 
     apply!(world, buf)
-    pos1, = get_components(world, e1, (Position,))
-    pos2, = get_components(world, e2, (Position,))
+    pos1, = get_components(world, e1.entity, (Position,))
+    pos2, = get_components(world, e2.entity, (Position,))
     @test pos1 == Position(1.0, 2.0)
     @test pos2 == Position(3.0, 4.0)
 end
@@ -111,12 +111,12 @@ end
 
     apply!(world, buf)
 
-    @assert is_alive(world, e1)
-    @assert !is_alive(world, e2)
+    @assert is_alive(world, e1.entity)
+    @assert !is_alive(world, e2.entity)
     @assert is_alive(world, e3)
 
-    @test has_components(world, e1, (Position, Health))
-    @test !has_components(world, e1, (Velocity,))
+    @test has_components(world, e1.entity, (Position, Health))
+    @test !has_components(world, e1.entity, (Velocity,))
     @test has_components(world, e3, (Position, Health))
     @test !has_components(world, e3, (Velocity,))
 end
@@ -132,8 +132,8 @@ end
     remove_components!(world, buf, e, (Velocity,))
 
     apply!(world, buf)
-    @test has_components(world, e, (Position,))
-    @test !has_components(world, e, (Velocity,))
+    @test has_components(world, e.entity, (Position,))
+    @test !has_components(world, e.entity, (Velocity,))
 end
 
 @testset "CommandBuffer empty apply" begin
@@ -154,18 +154,18 @@ end
 
     e3 = new_entity!(world, (Position(5.0, 6.0),))
 
-    pos1, = get_components(world, e1, (Position,))
-    pos2, = get_components(world, e2, (Position,))
+    pos1, = get_components(world, e1.entity, (Position,))
+    pos2, = get_components(world, e2.entity, (Position,))
     pos3, = get_components(world, e3, (Position,))
     @test pos1 == Position(1.0, 2.0)
     @test pos2 == Position(3.0, 4.0)
     @test pos3 == Position(5.0, 6.0)
-    @test is_alive(world, e1)
-    @test is_alive(world, e2)
+    @test is_alive(world, e1.entity)
+    @test is_alive(world, e2.entity)
     @test is_alive(world, e3)
 
-    remove_entity!(world, e2)
-    @test is_alive(world, e1)
-    @test !is_alive(world, e2)
+    remove_entity!(world, e2.entity)
+    @test is_alive(world, e1.entity)
+    @test !is_alive(world, e2.entity)
     @test is_alive(world, e3) 
 end

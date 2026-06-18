@@ -32,6 +32,7 @@ makedocs(;
             "manual/resources.md",
             "manual/relations.md",
             "manual/batch.md",
+            "manual/command_buffer.md",
             "manual/events.md",
             "manual/architecture.md"
         ],

@@ -1,4 +1,10 @@
 
+struct StagedEntity
+    entity::Entity
+end
+
+Base.isless(a::StagedEntity, b::StagedEntity) = isless(a.entity, b.entity)
+
 struct NewEntity{V<:Tuple}
     entity::Entity
     components::V
@@ -22,6 +28,31 @@ struct ExchangeComponents{A<:Tuple,R<:Tuple}
     add::A
 end
 
+struct SetComponents{V<:Tuple}
+    entity::Entity
+    values::V
+end
+
+struct SetRelations{R<:Tuple}
+    entity::Entity
+    relations::R
+end
+
+"""
+    CommandBuffer{C}
+
+A buffer for staging structural changes to apply later.
+
+Use [CommandBuffer](@ref CommandBuffer(::World, ::Tuple)) to create one,
+record changes with [new_entity!](@ref), [remove_entity!](@ref),
+[add_components!](@ref), [remove_components!](@ref),
+[exchange_components!](@ref), [set_components!](@ref),
+and [set_relations!](@ref), then apply them all at once with [apply!](@ref).
+
+All recorded commands are stored in a `Vector{C}` and executed when `apply!` is called.
+
+See the [manual](@ref "Command buffer") for details and examples.
+"""
 struct CommandBuffer{C}
     commands::Vector{C}
 end
@@ -47,6 +78,16 @@ end
     ExchangeComponents{Tuple{add_inner...}, Tuple{rem_inner...}}
 end
 
+@generated function _val_cmd_type(::Type{T}, ::typeof(set_components!)) where {T<:Tuple}
+    inner = [fieldtype(T, i).parameters[1] for i in 1:fieldcount(T)]
+    SetComponents{Tuple{inner...}}
+end
+
+@generated function _val_cmd_type(::Type{T}, ::typeof(set_relations!)) where {T<:Tuple}
+    pair_types = [Pair{DataType, Entity} for _ in 1:fieldcount(T)]
+    SetRelations{Tuple{pair_types...}}
+end
+
 function _specs_to_types(specs::Tuple)
     n = length(specs)
     if n == 0
@@ -66,6 +107,10 @@ function _specs_to_types(specs::Tuple)
             _val_cmd_type(typeof(_valtuple(spec[2])), remove_components!)
         elseif fn === exchange_components!
             _val_cmd_type(typeof(_valtuple(spec[2])), exchange_components!, typeof(_valtuple(spec[3])))
+        elseif fn === set_components!
+            _val_cmd_type(typeof(_valtuple(spec[2])), set_components!)
+        elseif fn === set_relations!
+            _val_cmd_type(typeof(_valtuple(spec[2])), set_relations!)
         else
             throw(ArgumentError("unknown command function $fn"))
         end
@@ -73,11 +118,35 @@ function _specs_to_types(specs::Tuple)
     Tuple(types)
 end
 
+"""
+    CommandBuffer(world::World, specs::Tuple)
+
+Creates a new command buffer for the given [World](@ref).
+
+The `specs` tuple specifies which operations the buffer supports.
+Each element is a tuple of the form `(function, component_types...)`:
+
+```julia
+buf = CommandBuffer(world, (
+    (new_entity!, (Position, Velocity)),
+    (remove_entity!,),
+    (add_components!, (Velocity,)),
+    (remove_components!, (Velocity,)),
+    (exchange_components!, (Health,), (Velocity,)),
+    (set_components!, (Position,)),
+    (set_relations!, (ChildOf,)),
+))
+```
+
+The component types are used to specialize the command types at construction time.
+"""
 function CommandBuffer(world::World, specs::Tuple)
     cmd_types = _specs_to_types(specs)
     C = Union{cmd_types...}
     CommandBuffer{C}(Vector{C}())
 end
+
+Ark.is_alive(::World, ::StagedEntity) = false
 
 function new_entity!(world::World, buf::CommandBuffer, values::Tuple)
     state = _state(world)
@@ -89,7 +158,7 @@ function new_entity!(world::World, buf::CommandBuffer, values::Tuple)
     end
     state._targets[id] = false
     push!(buf.commands, NewEntity(entity, values))
-    return entity
+    return StagedEntity(entity)
 end
 
 function remove_entity!(world::World, buf::CommandBuffer, entity::Entity)
@@ -97,10 +166,16 @@ function remove_entity!(world::World, buf::CommandBuffer, entity::Entity)
     return nothing
 end
 
+remove_entity!(world::World, buf::CommandBuffer, entity::StagedEntity) =
+    remove_entity!(world, buf, entity.entity)
+
 function add_components!(world::World, buf::CommandBuffer, entity::Entity, values::Tuple)
     push!(buf.commands, AddComponents(entity, values))
     return nothing
 end
+
+add_components!(world::World, buf::CommandBuffer, entity::StagedEntity, values::Tuple) =
+    add_components!(world, buf, entity.entity, values)
 
 @generated function _make_remove_cmd(entity::Entity, ::Type{T}) where {T<:Tuple}
     inner = [fieldtype(T, i).parameters[1] for i in 1:fieldcount(T)]
@@ -114,6 +189,9 @@ Base.@constprop :aggressive function remove_components!(world::World, buf::Comma
     push!(buf.commands, _make_remove_cmd(entity, typeof(_valtuple(types))))
     return nothing
 end
+
+remove_components!(world::World, buf::CommandBuffer, entity::StagedEntity, types::Tuple) =
+    remove_components!(world, buf, entity.entity, types)
 
 @generated function _make_exchange_cmd(
     entity::Entity,
@@ -131,6 +209,25 @@ Base.@constprop :aggressive function exchange_components!(world::World, buf::Com
     push!(buf.commands, _make_exchange_cmd(entity, add, typeof(_valtuple(remove))))
     return nothing
 end
+
+exchange_components!(world::World, buf::CommandBuffer, entity::StagedEntity; add::Tuple=(), remove::Tuple=()) =
+    exchange_components!(world, buf, entity.entity; add=add, remove=remove)
+
+function set_components!(world::World, buf::CommandBuffer, entity::Entity, values::Tuple)
+    push!(buf.commands, SetComponents(entity, values))
+    return nothing
+end
+
+set_components!(world::World, buf::CommandBuffer, entity::StagedEntity, values::Tuple) =
+    set_components!(world, buf, entity.entity, values)
+
+function set_relations!(world::World, buf::CommandBuffer, entity::Entity, relations::Tuple)
+    push!(buf.commands, SetRelations(entity, relations))
+    return nothing
+end
+
+set_relations!(world::World, buf::CommandBuffer, entity::StagedEntity, relations::Tuple) =
+    set_relations!(world, buf, entity.entity, relations)
 
 @generated function _new_entity_prealloc!(
     world_state::_WorldState,
@@ -224,6 +321,17 @@ function _apply_new_entity!(world::World, entity::Entity, values::Tuple)
     return nothing
 end
 
+"""
+    apply!(world::World, buf::CommandBuffer)
+
+Executes all commands recorded in the buffer in FIFO order.
+
+New entities are created via [new_entity!](@ref) with pre-allocated entity IDs,
+and events `OnCreateEntity` / `OnAddRelations` are fired. All other commands
+delegate to the corresponding [World](@ref) methods.
+
+After execution the command buffer is cleared and can be reused.
+"""
 @generated function apply!(world::World, buf::CommandBuffer{C}) where C
     member_types = C isa Union ? Base.uniontypes(C) : (C,)
 
@@ -245,6 +353,10 @@ end
             types = [fieldtype(R, i) for i in 1:fieldcount(R)]
             body = :(Ark.exchange_components!(world, cmd.entity; add=cmd.add,
                 remove=$(Expr(:tuple, types...))))
+        elseif T <: SetComponents
+            body = :(Ark.set_components!(world, cmd.entity, cmd.values))
+        elseif T <: SetRelations
+            body = :(Ark.set_relations!(world, cmd.entity, cmd.relations))
         else
             throw(ErrorException("unreachable reached"))
         end
