@@ -17,8 +17,8 @@ function initialize_world!(world::World, N::Int, I0::Int, beta::Float64, c::Floa
 
     if isnothing(buffer)
         buffer = Buffer(world)
+        @eval global const BufferType = typeof($buffer)
     end
-    @eval global const BufferType = typeof($buffer)
 
     add_resource!(world, buffer)
     add_resource!(world, Params(N, I0, beta, c, r, dt))
