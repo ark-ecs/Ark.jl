@@ -1,15 +1,14 @@
 
-struct GrazerDecision <: System
-    to_graze::Vector{Entity}
-    to_move::Vector{Entity}
+struct GrazerDecision <: System end
+
+function initialize!(::GrazerDecision, world::World)
+    resource = GrazerDecisionCommands(world)
+    @eval global const GrazerDecisionCommandsType = typeof($resource)
+    add_resource!(world, resource)
 end
 
-GrazerDecision() = GrazerDecision(Vector{Entity}(), Vector{Entity}())
-
-function update!(s::GrazerDecision, world::World)
-    resize!(s.to_graze, 0)
-    resize!(s.to_move, 0)
-
+function update!(::GrazerDecision, world::World)
+    commands = get_resource(world, GrazerDecisionCommandsType).commands
     grass = get_resource(world, GrassGrid).grass[]
 
     for (entities, positions, genes) in Query(world, (Position, Genes); with=(Moving,))
@@ -19,7 +18,7 @@ function update!(s::GrazerDecision, world::World)
             cx, cy = floor(Int, pos[1]) + 1, floor(Int, pos[2]) + 1
             grass_here = grass[cx, cy]
             if grass_here > gene.graze_thresh
-                push!(s.to_graze, entities[i])
+                exchange_components!(world, commands, entities[i]; add=(Grazing(),), remove=(Moving,))
             end
         end
     end
@@ -30,15 +29,10 @@ function update!(s::GrazerDecision, world::World)
             cx, cy = floor(Int, pos[1]) + 1, floor(Int, pos[2]) + 1
             grass_here = grass[cx, cy]
             if grass_here < gene.graze_thresh * gene.move_thresh
-                push!(s.to_move, entities[i])
+                exchange_components!(world, commands, entities[i]; add=(Moving(),), remove=(Grazing,))
             end
         end
     end
 
-    for e in s.to_graze
-        exchange_components!(world, e; add=(Grazing(),), remove=(Moving,))
-    end
-    for e in s.to_move
-        exchange_components!(world, e; add=(Moving(),), remove=(Grazing,))
-    end
+    apply!(world, commands)
 end
