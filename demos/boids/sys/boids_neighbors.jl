@@ -40,7 +40,7 @@ function update!(s::BoidsNeighbors, world::World)
 
             row, col = cell(grid, pos1.p)
 
-            for r in max(row - 1, 1):min(row + 1, grid.rows), c in max(col - 1, 1):min(col + 1, grid.cols)
+            for r in max(row-1, 1):min(row+1, grid.rows), c in max(col-1, 1):min(col+1, grid.cols)
                 candidates = grid.entities[r, c]
                 for entity2 in candidates
                     if entity1 == entity2

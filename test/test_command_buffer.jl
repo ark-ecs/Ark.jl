@@ -121,13 +121,16 @@ end
 
 @testset "CommandBuffer combined operations" begin
     world = World(Position, Velocity, Health)
-    buf = CommandBuffer(world, (
-        (new_entity!, (Position, Velocity)),
-        (remove_entity!,),
-        (add_components!, (Health,)),
-        (remove_components!, (Velocity,)),
-        (exchange_components!, (add=(Health,), remove=(Velocity,))),
-    ))
+    buf = CommandBuffer(
+        world,
+        (
+            (new_entity!, (Position, Velocity)),
+            (remove_entity!,),
+            (add_components!, (Health,)),
+            (remove_components!, (Velocity,)),
+            (exchange_components!, (add=(Health,), remove=(Velocity,))),
+        ),
+    )
 
     e1 = new_entity!(world, buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)))
     e2 = new_entity!(world, buf, (Position(3.0, 4.0), Velocity(30.0, 40.0)))
@@ -214,5 +217,5 @@ end
     remove_entity!(world, e2.entity)
     @test is_alive(world, e1.entity)
     @test !is_alive(world, e2.entity)
-    @test is_alive(world, e3) 
+    @test is_alive(world, e3)
 end

@@ -77,5 +77,6 @@ for n in (100, 10_000)
     SUITE["benchmark_world_add_remove_1_buffer n=$(n)"] =
         @be setup_world_add_remove_1_buffer($n) benchmark_world_add_remove_1_buffer(_, $n) seconds = SECONDS
     SUITE["benchmark_world_add_remove_1_buffer_single n=$(n)"] =
-        @be setup_world_add_remove_1_buffer_single($n) benchmark_world_add_remove_1_buffer_single(_, $n) seconds = SECONDS
+        @be setup_world_add_remove_1_buffer_single($n) benchmark_world_add_remove_1_buffer_single(_, $n) seconds =
+            SECONDS
 end

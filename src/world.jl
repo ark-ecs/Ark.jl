@@ -1489,7 +1489,13 @@ function _cleanup_archetypes(
     end
 end
 
-function _new_entity_expr(Storage::Type{<:_WorldStorage}, TS::Type{<:Tuple}, TR::Type{<:Tuple}, Unchecked::Bool, Preallocated::Bool)
+function _new_entity_expr(
+    Storage::Type{<:_WorldStorage},
+    TS::Type{<:Tuple},
+    TR::Type{<:Tuple},
+    Unchecked::Bool,
+    Preallocated::Bool,
+)
     types = _to_types(fieldtypes(TS))
     rel_types = _to_types(TR)
     relation_types = _schema_relation_types(Storage)
@@ -1611,7 +1617,11 @@ end
     return entity, index
 end
 
-@inline @generated function _place_entity!(state::_WorldState{M,K}, entity::Entity, table_index::UInt32)::Int where {M,K}
+@inline @generated function _place_entity!(
+    state::_WorldState{M,K},
+    entity::Entity,
+    table_index::UInt32,
+)::Int where {M,K}
     world_has_rel = K > 0
     quote
         @inbounds table = state._tables[table_index]
