@@ -79,6 +79,34 @@ end
     @test target == parent
 end
 
+@testset "CommandBuffer set_components!" begin
+    world = World(Position, Velocity)
+    buf = CommandBuffer(world, ((set_components!, (Position, Velocity)),))
+
+    e = new_entity!(world, (Position(0.0, 0.0), Velocity(1.0, 1.0)))
+    set_components!(world, buf, e, (Position(2.0, 3.0), Velocity(4.0, 5.0)))
+    apply!(world, buf)
+
+    pos, vel = get_components(world, e, (Position, Velocity))
+    @test pos == Position(2.0, 3.0)
+    @test vel == Velocity(4.0, 5.0)
+end
+
+@testset "CommandBuffer set_relations!" begin
+    world = World(Position, Relation{ChildOf})
+    buf = CommandBuffer(world, ((set_relations!, (ChildOf,)),))
+
+    parent1 = new_entity!(world, (Position(1.0, 2.0),))
+    parent2 = new_entity!(world, (Position(3.0, 4.0),))
+    child = new_entity!(world, (Position(5.0, 6.0), ChildOf() => parent1))
+
+    set_relations!(world, buf, child, (ChildOf => parent2,))
+    apply!(world, buf)
+
+    target, = get_relations(world, child, (ChildOf,))
+    @test target == parent2
+end
+
 @testset "CommandBuffer remove_components!" begin
     world = World(Position, Velocity)
     buf = CommandBuffer(world, ((remove_components!, (Velocity,)),))

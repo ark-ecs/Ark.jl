@@ -64,61 +64,76 @@ function _cmd_value_type(T, relation_types::Type{<:Tuple})
     return T
 end
 
-@generated function _val_cmd_type(::Type{T}, ::typeof(new_entity!)) where {T<:Tuple}
-    inner = [fieldtype(T, i).parameters[1] for i in 1:fieldcount(T)]
-    NewEntity{Tuple{inner...}}
+function _spec_component_types(::Type{T}) where {T<:Tuple}
+    return [_val_parameter(fieldtype(T, i)) for i in 1:fieldcount(T)]
 end
 
-@generated function _val_cmd_type(
+function _spec_value_tuple_type(::Type{T}) where {T<:Tuple}
+    component_types = _spec_component_types(T)
+    return Tuple{component_types...}
+end
+
+function _spec_value_tuple_type(
+    ::Type{T},
+    ::Type{Storage},
+) where {T<:Tuple,Storage<:_WorldStorage}
+    relation_types = _schema_relation_types(Storage)
+    value_types = [
+        _cmd_value_type(component_type, relation_types) for component_type in _spec_component_types(T)
+    ]
+    return Tuple{value_types...}
+end
+
+function _spec_relations_tuple_type(::Type{T}) where {T<:Tuple}
+    relation_types = fill(Pair{DataType,Entity}, fieldcount(T))
+    return Tuple{relation_types...}
+end
+
+_spec_valtuple_type(spec::Tuple) = typeof(_valtuple(spec))
+
+@generated function _command_type(::Type{T}, ::typeof(new_entity!)) where {T<:Tuple}
+    NewEntity{_spec_value_tuple_type(T)}
+end
+
+@generated function _command_type(
     ::Type{T},
     ::typeof(new_entity!),
     ::Type{Storage},
 ) where {T<:Tuple,Storage<:_WorldStorage}
-    relation_types = _schema_relation_types(Storage)
-    inner = [_cmd_value_type(fieldtype(T, i).parameters[1], relation_types) for i in 1:fieldcount(T)]
-    NewEntity{Tuple{inner...}}
+    NewEntity{_spec_value_tuple_type(T, Storage)}
 end
 
-@generated function _val_cmd_type(::Type{T}, ::typeof(add_components!)) where {T<:Tuple}
-    inner = [fieldtype(T, i).parameters[1] for i in 1:fieldcount(T)]
-    AddComponents{Tuple{inner...}}
+@generated function _command_type(::Type{T}, ::typeof(add_components!)) where {T<:Tuple}
+    AddComponents{_spec_value_tuple_type(T)}
 end
 
-@generated function _val_cmd_type(
+@generated function _command_type(
     ::Type{T},
     ::typeof(add_components!),
     ::Type{Storage},
 ) where {T<:Tuple,Storage<:_WorldStorage}
-    relation_types = _schema_relation_types(Storage)
-    inner = [_cmd_value_type(fieldtype(T, i).parameters[1], relation_types) for i in 1:fieldcount(T)]
-    AddComponents{Tuple{inner...}}
+    AddComponents{_spec_value_tuple_type(T, Storage)}
 end
 
-@generated function _val_cmd_type(::Type{T}, ::typeof(remove_components!)) where {T<:Tuple}
-    inner = [fieldtype(T, i).parameters[1] for i in 1:fieldcount(T)]
-    RemoveComponents{Tuple{inner...}}
+@generated function _command_type(::Type{T}, ::typeof(remove_components!)) where {T<:Tuple}
+    RemoveComponents{_spec_value_tuple_type(T)}
 end
 
-@generated function _val_cmd_type(
+@generated function _command_type(
     ::Type{T},
     ::typeof(exchange_components!),
     ::Type{U},
     ::Type{Storage},
 ) where {T<:Tuple,U<:Tuple,Storage<:_WorldStorage}
-    relation_types = _schema_relation_types(Storage)
-    add_inner = [_cmd_value_type(fieldtype(T, i).parameters[1], relation_types) for i in 1:fieldcount(T)]
-    rem_inner = [fieldtype(U, i).parameters[1] for i in 1:fieldcount(U)]
-    ExchangeComponents{Tuple{add_inner...},Tuple{rem_inner...}}
+    ExchangeComponents{_spec_value_tuple_type(T, Storage), _spec_value_tuple_type(U)}
 end
 
-@generated function _val_cmd_type(::Type{T}, ::typeof(set_components!)) where {T<:Tuple}
-    inner = [fieldtype(T, i).parameters[1] for i in 1:fieldcount(T)]
-    SetComponents{Tuple{inner...}}
+@generated function _command_type(::Type{T}, ::typeof(set_components!)) where {T<:Tuple}
+    SetComponents{_spec_value_tuple_type(T)}
 end
 
-@generated function _val_cmd_type(::Type{T}, ::typeof(set_relations!)) where {T<:Tuple}
-    pair_types = [Pair{DataType,Entity} for _ in 1:fieldcount(T)]
-    SetRelations{Tuple{pair_types...}}
+@generated function _command_type(::Type{T}, ::typeof(set_relations!)) where {T<:Tuple}
+    SetRelations{_spec_relations_tuple_type(T)}
 end
 
 function _exchange_spec_components(spec::Tuple)
@@ -138,6 +153,33 @@ function _exchange_spec_components(spec::Tuple)
     return add, remove
 end
 
+function _spec_command_type(::Type{Storage}, spec::Tuple) where {Storage<:_WorldStorage}
+    fn = spec[1]
+    if fn === new_entity!
+        return _command_type(_spec_valtuple_type(spec[2]), new_entity!, Storage)
+    elseif fn === remove_entity!
+        return RemoveEntity
+    elseif fn === add_components!
+        return _command_type(_spec_valtuple_type(spec[2]), add_components!, Storage)
+    elseif fn === remove_components!
+        return _command_type(_spec_valtuple_type(spec[2]), remove_components!)
+    elseif fn === exchange_components!
+        add, remove = _exchange_spec_components(spec)
+        return _command_type(
+            _spec_valtuple_type(add),
+            exchange_components!,
+            _spec_valtuple_type(remove),
+            Storage,
+        )
+    elseif fn === set_components!
+        return _command_type(_spec_valtuple_type(spec[2]), set_components!)
+    elseif fn === set_relations!
+        return _command_type(_spec_valtuple_type(spec[2]), set_relations!)
+    else
+        throw(ArgumentError("unknown command function $fn"))
+    end
+end
+
 function _specs_to_types(world::World, specs::Tuple)
     n = length(specs)
     if n == 0
@@ -146,26 +188,7 @@ function _specs_to_types(world::World, specs::Tuple)
     storage_type = typeof(_storage(world))
     types = Vector{DataType}(undef, n)
     for i in 1:n
-        spec = specs[i]
-        fn = spec[1]
-        types[i] = if fn === new_entity!
-            _val_cmd_type(typeof(_valtuple(spec[2])), new_entity!, storage_type)
-        elseif fn === remove_entity!
-            RemoveEntity
-        elseif fn === add_components!
-            _val_cmd_type(typeof(_valtuple(spec[2])), add_components!, storage_type)
-        elseif fn === remove_components!
-            _val_cmd_type(typeof(_valtuple(spec[2])), remove_components!)
-        elseif fn === exchange_components!
-            add, remove = _exchange_spec_components(spec)
-            _val_cmd_type(typeof(_valtuple(add)), exchange_components!, typeof(_valtuple(remove)), storage_type)
-        elseif fn === set_components!
-            _val_cmd_type(typeof(_valtuple(spec[2])), set_components!)
-        elseif fn === set_relations!
-            _val_cmd_type(typeof(_valtuple(spec[2])), set_relations!)
-        else
-            throw(ArgumentError("unknown command function $fn"))
-        end
+        types[i] = _spec_command_type(storage_type, specs[i])
     end
     Tuple(types)
 end
