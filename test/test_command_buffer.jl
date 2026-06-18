@@ -63,6 +63,19 @@ end
     @test vel == Velocity(5.0, 5.0)
 end
 
+@testset "CommandBuffer add_components! relations" begin
+    world = World(Position, Relation{ChildOf})
+    buf = CommandBuffer(world, ((add_components!, (ChildOf,)),))
+
+    parent = new_entity!(world, (Position(1.0, 2.0),))
+    child = new_entity!(world, (Position(3.0, 4.0),))
+    add_components!(world, buf, child, (ChildOf() => parent,))
+    apply!(world, buf)
+
+    target, = get_relations(world, child, (ChildOf,))
+    @test target == parent
+end
+
 @testset "CommandBuffer remove_components!" begin
     world = World(Position, Velocity)
     buf = CommandBuffer(world, ((remove_components!, (Velocity,)),))
@@ -87,6 +100,20 @@ end
     @test !has_components(world, e, (Velocity,))
     health, = get_components(world, e, (Health,))
     @test health == Health(100.0)
+end
+
+@testset "CommandBuffer exchange_components! add relation" begin
+    world = World(Position, Velocity, Relation{ChildOf})
+    buf = CommandBuffer(world, ((exchange_components!, (ChildOf,), (Velocity,)),))
+
+    parent = new_entity!(world, (Position(1.0, 2.0),))
+    child = new_entity!(world, (Position(3.0, 4.0), Velocity(1.0, 1.0)))
+    exchange_components!(world, buf, child; add=(ChildOf() => parent,), remove=(Velocity,))
+    apply!(world, buf)
+
+    target, = get_relations(world, child, (ChildOf,))
+    @test target == parent
+    @test !has_components(world, child, (Velocity,))
 end
 
 @testset "CommandBuffer combined operations" begin
@@ -134,6 +161,23 @@ end
     apply!(world, buf)
     @test has_components(world, e.entity, (Position,))
     @test !has_components(world, e.entity, (Velocity,))
+end
+
+@testset "CommandBuffer new_entity! relations" begin
+    world = World(Position, Relation{ChildOf})
+    buf = CommandBuffer(world, (
+        (new_entity!, (Position,)),
+        (new_entity!, (Position, ChildOf)),
+    ))
+
+    parent = new_entity!(world, buf, (Position(1.0, 2.0),))
+    child = new_entity!(world, buf, (Position(3.0, 4.0), ChildOf() => parent.entity))
+    apply!(world, buf)
+
+    target, = get_relations(world, child.entity, (ChildOf,))
+    pos, = get_components(world, child.entity, (Position,))
+    @test target == parent.entity
+    @test pos == Position(3.0, 4.0)
 end
 
 @testset "CommandBuffer empty apply" begin

@@ -42,13 +42,32 @@ struct CommandBuffer{C}
     commands::Vector{C}
 end
 
+function _cmd_value_type(T, relation_types::Type{<:Tuple})
+    if T isa Type && _is_relation_type(T, relation_types)
+        return Pair{T,Entity}
+    end
+    return T
+end
+
 @generated function _val_cmd_type(::Type{T}, ::typeof(new_entity!)) where {T<:Tuple}
     inner = [fieldtype(T, i).parameters[1] for i in 1:fieldcount(T)]
     NewEntity{Tuple{inner...}}
 end
 
+@generated function _val_cmd_type(::Type{T}, ::typeof(new_entity!), ::Type{Storage}) where {T<:Tuple,Storage<:_WorldStorage}
+    relation_types = _schema_relation_types(Storage)
+    inner = [_cmd_value_type(fieldtype(T, i).parameters[1], relation_types) for i in 1:fieldcount(T)]
+    NewEntity{Tuple{inner...}}
+end
+
 @generated function _val_cmd_type(::Type{T}, ::typeof(add_components!)) where {T<:Tuple}
     inner = [fieldtype(T, i).parameters[1] for i in 1:fieldcount(T)]
+    AddComponents{Tuple{inner...}}
+end
+
+@generated function _val_cmd_type(::Type{T}, ::typeof(add_components!), ::Type{Storage}) where {T<:Tuple,Storage<:_WorldStorage}
+    relation_types = _schema_relation_types(Storage)
+    inner = [_cmd_value_type(fieldtype(T, i).parameters[1], relation_types) for i in 1:fieldcount(T)]
     AddComponents{Tuple{inner...}}
 end
 
@@ -63,6 +82,13 @@ end
     ExchangeComponents{Tuple{add_inner...}, Tuple{rem_inner...}}
 end
 
+@generated function _val_cmd_type(::Type{T}, ::typeof(exchange_components!), ::Type{U}, ::Type{Storage}) where {T<:Tuple,U<:Tuple,Storage<:_WorldStorage}
+    relation_types = _schema_relation_types(Storage)
+    add_inner = [_cmd_value_type(fieldtype(T, i).parameters[1], relation_types) for i in 1:fieldcount(T)]
+    rem_inner = [fieldtype(U, i).parameters[1] for i in 1:fieldcount(U)]
+    ExchangeComponents{Tuple{add_inner...}, Tuple{rem_inner...}}
+end
+
 @generated function _val_cmd_type(::Type{T}, ::typeof(set_components!)) where {T<:Tuple}
     inner = [fieldtype(T, i).parameters[1] for i in 1:fieldcount(T)]
     SetComponents{Tuple{inner...}}
@@ -73,25 +99,26 @@ end
     SetRelations{Tuple{pair_types...}}
 end
 
-function _specs_to_types(specs::Tuple)
+function _specs_to_types(world::World, specs::Tuple)
     n = length(specs)
     if n == 0
         throw(ArgumentError("command buffer needs to contain at least one deferred operation"))
     end
+    storage_type = typeof(_storage(world))
     types = Vector{DataType}(undef, n)
     for i in 1:n
         spec = specs[i]
         fn = spec[1]
         types[i] = if fn === new_entity!
-            _val_cmd_type(typeof(_valtuple(spec[2])), new_entity!)
+            _val_cmd_type(typeof(_valtuple(spec[2])), new_entity!, storage_type)
         elseif fn === remove_entity!
             RemoveEntity
         elseif fn === add_components!
-            _val_cmd_type(typeof(_valtuple(spec[2])), add_components!)
+            _val_cmd_type(typeof(_valtuple(spec[2])), add_components!, storage_type)
         elseif fn === remove_components!
             _val_cmd_type(typeof(_valtuple(spec[2])), remove_components!)
         elseif fn === exchange_components!
-            _val_cmd_type(typeof(_valtuple(spec[2])), exchange_components!, typeof(_valtuple(spec[3])))
+            _val_cmd_type(typeof(_valtuple(spec[2])), exchange_components!, typeof(_valtuple(spec[3])), storage_type)
         elseif fn === set_components!
             _val_cmd_type(typeof(_valtuple(spec[2])), set_components!)
         elseif fn === set_relations!
@@ -129,7 +156,7 @@ All recorded commands are stored and executed when `apply!` is called.
 See the [manual](@ref "Command buffer") for details and examples.
 """
 function CommandBuffer(world::World, specs::Tuple)
-    cmd_types = _specs_to_types(specs)
+    cmd_types = _specs_to_types(world, specs)
     C = Union{cmd_types...}
     CommandBuffer{C}(Vector{C}())
 end
