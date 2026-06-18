@@ -245,6 +245,16 @@ Base.@constprop :aggressive function new_entity!(
     entity, table_id =
         _new_entity!(world_state, world_storage, Val{typeof(values)}(), values, rel_types, targets, Val(_unchecked))
 
+    _fire_new_entity_events!(world_state, entity, table_id, relations)
+    return entity
+end
+
+@inline Base.@constprop :aggressive function _fire_new_entity_events!(
+    world_state::_WorldState,
+    entity::Entity,
+    table_id::UInt32,
+    relations::Tuple,
+)
     has_entity_obs = _has_observers(world_state._event_manager, OnCreateEntity)
     has_rel_obs = !isempty(relations) && _has_observers(world_state._event_manager, OnAddRelations)
     if has_entity_obs || has_rel_obs
@@ -257,7 +267,7 @@ Base.@constprop :aggressive function new_entity!(
             _fire_create_entity_relations(world_state._event_manager, entity, mask)
         end
     end
-    return entity
+    return nothing
 end
 
 """

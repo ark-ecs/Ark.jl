@@ -91,12 +91,6 @@ end
     RemoveComponents{Tuple{inner...}}
 end
 
-@generated function _val_cmd_type(::Type{T}, ::typeof(exchange_components!), ::Type{U}) where {T<:Tuple, U<:Tuple}
-    add_inner = [fieldtype(T, i).parameters[1] for i in 1:fieldcount(T)]
-    rem_inner = [fieldtype(U, i).parameters[1] for i in 1:fieldcount(U)]
-    ExchangeComponents{Tuple{add_inner...}, Tuple{rem_inner...}}
-end
-
 @generated function _val_cmd_type(::Type{T}, ::typeof(exchange_components!), ::Type{U}, ::Type{Storage}) where {T<:Tuple,U<:Tuple,Storage<:_WorldStorage}
     relation_types = _schema_relation_types(Storage)
     add_inner = [_cmd_value_type(fieldtype(T, i).parameters[1], relation_types) for i in 1:fieldcount(T)]
@@ -112,6 +106,19 @@ end
 @generated function _val_cmd_type(::Type{T}, ::typeof(set_relations!)) where {T<:Tuple}
     pair_types = [Pair{DataType, Entity} for _ in 1:fieldcount(T)]
     SetRelations{Tuple{pair_types...}}
+end
+
+function _exchange_spec_components(spec::Tuple)
+    if length(spec) != 2 || !(spec[2] isa NamedTuple) ||
+       !hasproperty(spec[2], :add) || !hasproperty(spec[2], :remove)
+        throw(ArgumentError("exchange_components! command spec must be (exchange_components!, (add=(...), remove=(...)))"))
+    end
+    add = spec[2].add
+    remove = spec[2].remove
+    if !(add isa Tuple) || !(remove isa Tuple)
+        throw(ArgumentError("exchange_components! command spec add and remove fields must be tuples"))
+    end
+    return add, remove
 end
 
 function _specs_to_types(world::World, specs::Tuple)
@@ -133,7 +140,8 @@ function _specs_to_types(world::World, specs::Tuple)
         elseif fn === remove_components!
             _val_cmd_type(typeof(_valtuple(spec[2])), remove_components!)
         elseif fn === exchange_components!
-            _val_cmd_type(typeof(_valtuple(spec[2])), exchange_components!, typeof(_valtuple(spec[3])), storage_type)
+            add, remove = _exchange_spec_components(spec)
+            _val_cmd_type(typeof(_valtuple(add)), exchange_components!, typeof(_valtuple(remove)), storage_type)
         elseif fn === set_components!
             _val_cmd_type(typeof(_valtuple(spec[2])), set_components!)
         elseif fn === set_relations!
@@ -160,7 +168,7 @@ buf = CommandBuffer(world, (
     (remove_entity!,),
     (add_components!, (Velocity,)),
     (remove_components!, (Velocity,)),
-    (exchange_components!, (Health,), (Velocity,)),
+    (exchange_components!, (add=(Health,), remove=(Velocity,))),
     (set_components!, (Position,)),
     (set_relations!, (ChildOf,)),
 ))
@@ -262,21 +270,14 @@ function set_relations!(world::World, buf::CommandBuffer, entity::StagedEntity, 
     return set_relations!(world, buf, entity.entity, relations)
 end
 
-function _apply_new_entity!(world::World, entity::Entity, values::Tuple)
+@inline Base.@constprop :aggressive function _apply_new_entity!(world::World, entity::Entity, values::Tuple)
     values, relations = _normalize_relations(values, Val(:value))
     rel_types, targets = _relation_types_and_targets(relations)
     world_state = _state(world)
     world_storage = _storage(world)
     _, table_id = _new_entity!(world_state, world_storage, entity,
         Val{typeof(values)}(), values, rel_types, targets, Val(false))
-    table = world_state._tables[table_id]
-    mask = world_state._archetypes_hot[table.archetype].mask
-    if _has_observers(world_state._event_manager, OnCreateEntity)
-        _fire_create_entity(world_state._event_manager, entity, mask)
-    end
-    if !isempty(relations) && _has_observers(world_state._event_manager, OnAddRelations)
-        _fire_create_entity_relations(world_state._event_manager, entity, mask)
-    end
+    _fire_new_entity_events!(world_state, entity, table_id, relations)
     return nothing
 end
 

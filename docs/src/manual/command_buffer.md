@@ -33,7 +33,7 @@ buf = CommandBuffer(world, (
     (remove_entity!,),
     (add_components!, (Velocity,)),
     (remove_components!, (Velocity,)),
-    (exchange_components!, (Health,), (Velocity,)),
+    (exchange_components!, (add=(Health,), remove=(Velocity,))),
 ))
 
 # output

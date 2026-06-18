@@ -6,6 +6,9 @@
     @test buf isa CommandBuffer
 
     @test_throws ArgumentError CommandBuffer(world, ((sin,),))
+
+    world_exchange = World(Position, Velocity, Health)
+    @test_throws ArgumentError CommandBuffer(world_exchange, ((exchange_components!, (Health,), (Velocity,)),))
 end
 
 @testset "CommandBuffer new_entity!" begin
@@ -90,7 +93,7 @@ end
 
 @testset "CommandBuffer exchange_components!" begin
     world = World(Position, Velocity, Health)
-    buf = CommandBuffer(world, ((exchange_components!, (Health,), (Velocity,)),))
+    buf = CommandBuffer(world, ((exchange_components!, (add=(Health,), remove=(Velocity,))),))
 
     e = new_entity!(world, (Position(0.0, 0.0), Velocity(1.0, 1.0)))
     exchange_components!(world, buf, e; add=(Health(100.0),), remove=(Velocity,))
@@ -104,7 +107,7 @@ end
 
 @testset "CommandBuffer exchange_components! add relation" begin
     world = World(Position, Velocity, Relation{ChildOf})
-    buf = CommandBuffer(world, ((exchange_components!, (ChildOf,), (Velocity,)),))
+    buf = CommandBuffer(world, ((exchange_components!, (add=(ChildOf,), remove=(Velocity,))),))
 
     parent = new_entity!(world, (Position(1.0, 2.0),))
     child = new_entity!(world, (Position(3.0, 4.0), Velocity(1.0, 1.0)))
@@ -123,7 +126,7 @@ end
         (remove_entity!,),
         (add_components!, (Health,)),
         (remove_components!, (Velocity,)),
-        (exchange_components!, (Health,), (Velocity,)),
+        (exchange_components!, (add=(Health,), remove=(Velocity,))),
     ))
 
     e1 = new_entity!(world, buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)))
