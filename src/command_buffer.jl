@@ -165,13 +165,8 @@ Ark.is_alive(::World, ::StagedEntity) = false
 
 function new_entity!(world::World, buf::CommandBuffer, values::Tuple)
     state = _state(world)
-    entity = _get_entity(state._entity_pool)
-    id = Int(entity._id)
-    if id > length(state._entities)
-        push!(state._entities, _EntityIndex(UInt32(0), UInt32(0)))
-        resize!(state._targets, id)
-    end
-    state._targets[id] = false
+    entity = _reserve_entity!(state)
+    _reserve_entity_index!(state, entity)
     push!(buf.commands, NewEntity(entity, values))
     return StagedEntity(entity)
 end
@@ -244,88 +239,14 @@ end
 set_relations!(world::World, buf::CommandBuffer, entity::StagedEntity, relations::Tuple) =
     set_relations!(world, buf, entity.entity, relations)
 
-@generated function _new_entity_prealloc!(
-    world_state::_WorldState,
-    stores::Storage,
-    entity::Entity,
-    ::Val{TS},
-    values::Tuple,
-    ::TR,
-    targets::Tuple{Vararg{Entity}},
-) where {Storage<:_WorldStorage,TS<:Tuple,TR<:Tuple}
-    types = _to_types(fieldtypes(TS))
-    rel_types = _to_types(TR)
-    relation_types = _schema_relation_types(Storage)
-
-    _check_no_duplicates(types)
-    _check_no_duplicates(rel_types)
-    _check_relations(rel_types, relation_types)
-    _check_is_subset(rel_types, types)
-
-    CS = _schema_storage_types(Storage)
-    ids = tuple(Int[_component_index(CS, T) for T in types]...)
-    rel_ids = tuple(Int[_component_index(CS, T) for T in rel_types]...)
-    num_ids = length(ids)
-    use_map = num_ids >= 4 ? _UseMap() : _NoUseMap()
-
-    M = max(1, cld(fieldcount(CS), 64))
-    add_mask = _Mask{M}(ids...)
-    rem_mask = _Mask{M}()
-
-    world_has_rel = Val{_has_relations(relation_types)}()
-
-    exprs = Expr[]
-    push!(exprs, :(_check_relation_targets(world_state, targets)))
-    push!(exprs, :(_check_locked(world_state)))
-    push!(
-        exprs,
-        :(
-            table = _find_or_create_table!(
-                world_state,
-                stores,
-                world_state._tables[1],
-                $ids,
-                (),
-                $rel_ids,
-                targets,
-                $add_mask,
-                $rem_mask,
-                $use_map,
-                $world_has_rel,
-            )[1]
-        ),
-    )
-    push!(exprs, :(_place_entity!(world_state, entity, table)))
-
-    for i in 1:length(types)
-        T = types[i]
-        stor_sym = Symbol("stor", i)
-        col_sym = Symbol("col", i)
-        val_expr = :(values.$i)
-
-        push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-        push!(exprs, :(@inbounds $col_sym = $stor_sym.data[table]))
-        push!(exprs, :(push!($col_sym, $val_expr)))
-    end
-
-    push!(exprs, Expr(:return, :nothing))
-
-    return quote
-        @inbounds begin
-            $(Expr(:block, exprs...))
-        end
-    end
-end
-
 function _apply_new_entity!(world::World, entity::Entity, values::Tuple)
     values, relations = _normalize_relations(values, Val(:value))
     rel_types, targets = _relation_types_and_targets(relations)
     world_state = _state(world)
     world_storage = _storage(world)
-    _new_entity_prealloc!(world_state, world_storage, entity,
-        Val{typeof(values)}(), values, rel_types, targets)
-    index = world_state._entities[entity._id]
-    table = world_state._tables[index.table]
+    _, table_id = _new_entity!(world_state, world_storage, entity,
+        Val{typeof(values)}(), values, rel_types, targets, Val(false))
+    table = world_state._tables[table_id]
     mask = world_state._archetypes_hot[table.archetype].mask
     if _has_observers(world_state._event_manager, OnCreateEntity)
         _fire_create_entity(world_state._event_manager, entity, mask)
