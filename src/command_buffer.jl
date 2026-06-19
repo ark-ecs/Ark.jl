@@ -62,8 +62,9 @@ const _Command = Union{
     SetRelations,
 }
 
-struct CommandBuffer{C<:_Command}
-    commands::Vector{C}
+struct CommandBuffer{W<:World,C<:_Command}
+    _world::W
+    _commands::Vector{C}
 end
 
 function _cmd_value_type(T, relation_types::Type{<:Tuple})
@@ -225,37 +226,38 @@ See the [manual](@ref "Command buffer") for details and examples.
 function CommandBuffer(world::World, specs::Tuple)
     cmd_types = _specs_to_types(world, specs)
     C = Union{cmd_types...}
-    CommandBuffer{C}(Vector{C}())
+    CommandBuffer{C}(world, Vector{C}())
 end
 
 function is_alive(::World, ::StagedEntity)
     return false
 end
 
-function new_entity!(world::World, buf::CommandBuffer, values::Tuple)
+function new_entity!(buf::CommandBuffer, values::Tuple)
+    world = buf._world
     state = _state(world)
     entity = _reserve_entity!(state)
     _reserve_entity_index!(state, entity)
-    push!(buf.commands, NewEntity(entity, values))
+    push!(buf._commands, NewEntity(entity, values))
     return StagedEntity(entity)
 end
 
-function remove_entity!(world::World, buf::CommandBuffer, entity::Entity)
-    push!(buf.commands, RemoveEntity(entity))
+function remove_entity!(buf::CommandBuffer, entity::Entity)
+    push!(buf._commands, RemoveEntity(entity))
     return nothing
 end
 
-function remove_entity!(world::World, buf::CommandBuffer, entity::StagedEntity)
-    return remove_entity!(world, buf, entity._entity)
+function remove_entity!(buf::CommandBuffer, entity::StagedEntity)
+    return remove_entity!(buf, entity._entity)
 end
 
-function add_components!(world::World, buf::CommandBuffer, entity::Entity, values::Tuple)
-    push!(buf.commands, AddComponents(entity, values))
+function add_components!(buf::CommandBuffer, entity::Entity, values::Tuple)
+    push!(buf._commands, AddComponents(entity, values))
     return nothing
 end
 
-function add_components!(world::World, buf::CommandBuffer, entity::StagedEntity, values::Tuple)
-    return add_components!(world, buf, entity._entity, values)
+function add_components!(buf::CommandBuffer, entity::StagedEntity, values::Tuple)
+    return add_components!(buf, entity._entity, values)
 end
 
 @generated function _make_remove_cmd(entity::Entity, types::T) where {T<:Tuple}
@@ -266,13 +268,13 @@ end
     end
 end
 
-Base.@constprop :aggressive function remove_components!(world::World, buf::CommandBuffer, entity::Entity, types::Tuple)
-    push!(buf.commands, _make_remove_cmd(entity, _valtuple(types)))
+Base.@constprop :aggressive function remove_components!(buf::CommandBuffer, entity::Entity, types::Tuple)
+    push!(buf._commands, _make_remove_cmd(entity, _valtuple(types)))
     return nothing
 end
 
-function remove_components!(world::World, buf::CommandBuffer, entity::StagedEntity, types::Tuple)
-    return remove_components!(world, buf, entity._entity, types)
+function remove_components!(buf::CommandBuffer, entity::StagedEntity, types::Tuple)
+    return remove_components!(buf, entity._entity, types)
 end
 
 @generated function _make_exchange_cmd(
@@ -288,36 +290,35 @@ end
 end
 
 Base.@constprop :aggressive function exchange_components!(
-    world::World,
     buf::CommandBuffer,
     entity::Entity;
     add::Tuple=(),
     remove::Tuple=(),
 )
-    push!(buf.commands, _make_exchange_cmd(entity, add, _valtuple(remove)))
+    push!(buf._commands, _make_exchange_cmd(entity, add, _valtuple(remove)))
     return nothing
 end
 
-function exchange_components!(world::World, buf::CommandBuffer, entity::StagedEntity; add::Tuple=(), remove::Tuple=())
-    return exchange_components!(world, buf, entity._entity; add=add, remove=remove)
+function exchange_components!(buf::CommandBuffer, entity::StagedEntity; add::Tuple=(), remove::Tuple=())
+    return exchange_components!(buf, entity._entity; add=add, remove=remove)
 end
 
-function set_components!(world::World, buf::CommandBuffer, entity::Entity, values::Tuple)
-    push!(buf.commands, SetComponents(entity, values))
+function set_components!(buf::CommandBuffer, entity::Entity, values::Tuple)
+    push!(buf._commands, SetComponents(entity, values))
     return nothing
 end
 
-function set_components!(world::World, buf::CommandBuffer, entity::StagedEntity, values::Tuple)
-    return set_components!(world, buf, entity._entity, values)
+function set_components!(buf::CommandBuffer, entity::StagedEntity, values::Tuple)
+    return set_components!(buf, entity._entity, values)
 end
 
-function set_relations!(world::World, buf::CommandBuffer, entity::Entity, relations::Tuple)
-    push!(buf.commands, SetRelations(entity, relations))
+function set_relations!(buf::CommandBuffer, entity::Entity, relations::Tuple)
+    push!(buf._commands, SetRelations(entity, relations))
     return nothing
 end
 
-function set_relations!(world::World, buf::CommandBuffer, entity::StagedEntity, relations::Tuple)
-    return set_relations!(world, buf, entity._entity, relations)
+function set_relations!(buf::CommandBuffer, entity::StagedEntity, relations::Tuple)
+    return set_relations!(buf, entity._entity, relations)
 end
 
 @inline Base.@constprop :aggressive function _apply_new_entity!(world::World, entity::Entity, values::Tuple)
@@ -332,36 +333,36 @@ end
 end
 
 """
-    apply!(world::World, buf::CommandBuffer)
+    apply!(buf::CommandBuffer)
 
 Executes all commands recorded in the buffer in FIFO order.
 
 After execution the command buffer is cleared and can be reused.
 """
-@generated function apply!(world::World, buf::CommandBuffer{C}) where C
+@generated function apply!(buf::CommandBuffer{C}) where C
     member_types = C isa Union ? Base.uniontypes(C) : (C,)
 
     chain = nothing
     for (i, T) in enumerate(member_types)
         if T <: NewEntity
-            body = :(_apply_new_entity!(world, cmd.entity, cmd.components))
+            body = :(_apply_new_entity!(buf._world, cmd.entity, cmd.components))
         elseif T <: RemoveEntity
-            body = :(Ark.remove_entity!(world, cmd.entity))
+            body = :(Ark.remove_entity!(buf._world, cmd.entity))
         elseif T <: AddComponents
-            body = :(Ark.add_components!(world, cmd.entity, cmd.components))
+            body = :(Ark.add_components!(buf._world, cmd.entity, cmd.components))
         elseif T <: RemoveComponents
             R = T.parameters[1]
             types = [fieldtype(R, i) for i in 1:fieldcount(R)]
-            body = :(Ark.remove_components!(world, cmd.entity, $(Expr(:tuple, types...))))
+            body = :(Ark.remove_components!(buf._world, cmd.entity, $(Expr(:tuple, types...))))
         elseif T <: ExchangeComponents
             R = T.parameters[2]
             types = [fieldtype(R, i) for i in 1:fieldcount(R)]
-            body = :(Ark.exchange_components!(world, cmd.entity; add=cmd.add,
+            body = :(Ark.exchange_components!(buf._world, cmd.entity; add=cmd.add,
                 remove=($(Expr(:tuple, types...)))))
         elseif T <: SetComponents
-            body = :(Ark.set_components!(world, cmd.entity, cmd.values))
+            body = :(Ark.set_components!(buf._world, cmd.entity, cmd.values))
         elseif T <: SetRelations
-            body = :(Ark.set_relations!(world, cmd.entity, cmd.relations))
+            body = :(Ark.set_relations!(buf._world, cmd.entity, cmd.relations))
         end
         if i == 1
             chain = body

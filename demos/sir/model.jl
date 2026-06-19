@@ -67,7 +67,7 @@ function step_world!(world::World)
     end
 
     # Apply Transitions
-    apply!(world, transitions)
+    apply!(transitions)
 
     return world
 end

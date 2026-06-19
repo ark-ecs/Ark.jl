@@ -32,5 +32,5 @@ function update!(::GrazerDecision, world::World)
         end
     end
 
-    apply!(world, commands)
+    apply!(commands)
 end

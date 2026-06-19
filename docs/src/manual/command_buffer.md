@@ -57,8 +57,8 @@ and returned, allowing it to be used in subsequent commands before [apply!](@ref
 world = World(Position, Velocity)
 buf = CommandBuffer(world, ((new_entity!, (Position, Velocity)),))
 
-e = new_entity!(world, buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)))
-apply!(world, buf)
+e = new_entity!(buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)))
+apply!(buf)
 
 # output
 
@@ -75,10 +75,10 @@ buf = CommandBuffer(world, (
     (add_components!, (Health,)),
 ))
 
-e = new_entity!(world, buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)))
-add_components!(world, buf, e, (Health(1.0),))
+e = new_entity!(buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)))
+add_components!(buf, e, (Health(1.0),))
 
-apply!(world, buf)
+apply!(buf)
 
 # output
 

@@ -18,7 +18,7 @@ function setup_world_add_remove_1_buffer(n_entities::Int)
     for e in entities
         remove_components!(world, buf, e, (Velocity,))
     end
-    apply!(world, buf)
+    apply!(buf)
 
     return (entities, world, buf)
 end
@@ -31,7 +31,7 @@ function benchmark_world_add_remove_1_buffer(args, n)
     for e in entities
         remove_components!(world, buf, e, (Velocity,))
     end
-    apply!(world, buf)
+    apply!(buf)
 end
 
 function setup_world_add_remove_1_buffer_single(n_entities::Int)
@@ -55,8 +55,8 @@ function setup_world_add_remove_1_buffer_single(n_entities::Int)
     for e in entities
         remove_components!(world, buf2, e, (Velocity,))
     end
-    apply!(world, buf1)
-    apply!(world, buf2)
+    apply!(buf1)
+    apply!(buf2)
 
     return (entities, world, buf1, buf2)
 end
@@ -69,8 +69,8 @@ function benchmark_world_add_remove_1_buffer_single(args, n)
     for e in entities
         remove_components!(world, buf2, e, (Velocity,))
     end
-    apply!(world, buf1)
-    apply!(world, buf2)
+    apply!(buf1)
+    apply!(buf2)
 end
 
 for n in (100, 10_000)
