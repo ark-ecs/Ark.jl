@@ -34,7 +34,7 @@ buf = CommandBuffer(world, (
     (add_components!, (Velocity,)),
     (remove_components!, (Velocity,)),
     (exchange_components!, (add=(Health,), remove=(Velocity,))),
-))
+));
 
 # output
 
@@ -53,6 +53,7 @@ Use [new_entity!](@ref) to stage entity creation. The entity ID is pre-allocated
 and returned, allowing it to be used in subsequent commands before [apply!](@ref) is called.
 
 ```jldoctest
+world = World(Position, Velocity)
 buf = CommandBuffer(world, ((new_entity!, (Position, Velocity)),))
 
 e = new_entity!(world, buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)))
@@ -67,6 +68,7 @@ apply!(world, buf)
 Call [apply!](@ref) to execute all staged commands in FIFO order:
 
 ```jldoctest
+world = World(Position, Velocity, Health)
 buf = CommandBuffer(world, (
     (new_entity!, (Position, Velocity)),
     (add_components!, (Health,)),
