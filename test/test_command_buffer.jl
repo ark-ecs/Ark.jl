@@ -285,6 +285,28 @@ end
     @test positions[1] == Position(3.0, 4.0)
 end
 
+@testset "CommandBuffer new_entity! reuses relation world index" begin
+    world = World(Position, Relation{ChildOf})
+    recycled = new_entity!(world, (Position(1.0, 2.0),))
+    remove_entity!(world, recycled)
+
+    targets_len = length(_state(world)._targets)
+    buf = CommandBuffer(world, ((new_entity!, (Position,)),))
+    entity = new_entity!(world, buf, (Position(3.0, 4.0),))
+
+    @test length(_state(world)._targets) == targets_len
+    @test all(!, _state(world)._targets)
+
+    apply!(world, buf)
+
+    @test !is_alive(world, entity)
+    @test is_alive(world, entity._entity)
+
+    _, positions = only(Query(world, (Position,)))
+    @test length(positions) == 1
+    @test positions[1] == Position(3.0, 4.0)
+end
+
 @testset "CommandBuffer new_entity! relations" begin
     world = World(Position, Relation{ChildOf})
     buf = CommandBuffer(world, (
