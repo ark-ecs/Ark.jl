@@ -1,7 +1,7 @@
 # Command buffer
 
 The [CommandBuffer](@ref) allows deferring structural changes and applying them later in batch.
-This is useful when you need to record changes during [query](@ref) iteration (when the [World](@ref) is locked),
+This is useful when you need to record changes during [Query](@ref) iteration (when the [World](@ref) is locked),
 or when you want to amortize the cost of structural changes across many operations.
 
 ## Creating a buffer
