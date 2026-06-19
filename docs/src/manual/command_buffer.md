@@ -8,6 +8,24 @@ or when you want to amortize the cost of structural changes across many operatio
 
 Create a [CommandBuffer](@ref) by providing the [World](@ref) and a tuple of operation specs:
 
+```@meta
+DocTestSetup = quote
+    using Ark
+
+    struct Position
+        x::Float64
+        y::Float64
+    end
+    struct Velocity
+        dx::Float64
+        dy::Float64
+    end
+    struct Health
+        value::Float64
+    end
+end
+```
+
 ```jldoctest
 world = World(Position, Velocity, Health)
 buf = CommandBuffer(world, (
