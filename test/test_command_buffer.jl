@@ -6,7 +6,7 @@
 
     @test_throws TypeError CommandBuffer{Nothing}(Nothing[])
     @test_throws ArgumentError CommandBuffer(world, ((sin,),))
-    @test_throws "ArgumentError: command buffer needs to contain at least one deferred operation", CommandBuffer(world, ())
+    @test_throws("ArgumentError: command buffer needs to contain at least one deferred operation", CommandBuffer(world, ()))
 
     world_exchange = World(Position, Velocity, Health)
     @test_throws ArgumentError CommandBuffer(world_exchange, ((exchange_components!, (Health,), (Velocity,)),))
