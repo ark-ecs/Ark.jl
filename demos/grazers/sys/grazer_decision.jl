@@ -2,9 +2,7 @@
 struct GrazerDecision <: System end
 
 function initialize!(::GrazerDecision, world::World)
-    resource = GrazerDecisionCommands(world)
-    @eval global const GrazerDecisionCommandsType = typeof($resource)
-    add_resource!(world, resource)
+    add_resource!(world, GrazerDecisionCommands(world))
 end
 
 function update!(::GrazerDecision, world::World)

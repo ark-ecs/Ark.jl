@@ -24,7 +24,7 @@ include("sys/update_plots.jl")
 const IS_CI = "CI" in keys(ENV)
 
 function main()
-    world = World(Position, Rotation, Energy, Genes, Moving, Grazing)
+    world = new_grazer_world()
 
     size = WorldSize(120, 100, 6)
     add_resource!(world, size)

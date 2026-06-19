@@ -4,8 +4,8 @@ using Random
 using Parameters
 
 include("../_common/resources.jl")
-include("resources.jl")
 include("components.jl")
+include("resources.jl")
 include("utils.jl")
 
 new_world(N) = World(S, I, R; initial_capacity=10^6)
@@ -17,7 +17,6 @@ function initialize_world!(world::World, N::Int, I0::Int, beta::Float64, c::Floa
 
     if isnothing(buffer)
         buffer = Buffer(world)
-        @eval global const BufferType = typeof($buffer)
     end
 
     add_resource!(world, buffer)

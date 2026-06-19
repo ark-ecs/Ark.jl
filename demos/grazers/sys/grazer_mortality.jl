@@ -2,9 +2,7 @@
 struct GrazerMortality <: System end
 
 function initialize!(::GrazerMortality, world::World)
-    resource = GrazerMortalityCommands(world)
-    @eval global const GrazerMortalityCommandsType = typeof($resource)
-    add_resource!(world, resource)
+    add_resource!(world, GrazerMortalityCommands(world))
 end
 
 function update!(::GrazerMortality, world::World)
