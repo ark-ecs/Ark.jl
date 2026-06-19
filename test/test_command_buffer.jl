@@ -4,6 +4,7 @@
     buf = CommandBuffer(world, ((new_entity!, (Position,)), (remove_entity!,)))
     @test buf isa CommandBuffer
 
+    @test_throws TypeError CommandBuffer{Nothing}(Nothing[])
     @test_throws ArgumentError CommandBuffer(world, ((sin,),))
 
     world_exchange = World(Position, Velocity, Health)

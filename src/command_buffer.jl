@@ -52,7 +52,17 @@ struct SetRelations{R<:Tuple}
     relations::R
 end
 
-struct CommandBuffer{C}
+const _Command = Union{
+    NewEntity,
+    RemoveEntity,
+    AddComponents,
+    RemoveComponents,
+    ExchangeComponents,
+    SetComponents,
+    SetRelations,
+}
+
+struct CommandBuffer{C<:_Command}
     commands::Vector{C}
 end
 
@@ -331,9 +341,8 @@ After execution the command buffer is cleared and can be reused.
 @generated function apply!(world::World, buf::CommandBuffer{C}) where C
     member_types = C isa Union ? Base.uniontypes(C) : (C,)
 
-    err = :(throw(ErrorException("unreachable reached")))
-    chain = err
-    for T in member_types
+    chain = nothing
+    for (i, T) in enumerate(member_types)
         if T <: NewEntity
             body = :(_apply_new_entity!(world, cmd.entity, cmd.components))
         elseif T <: RemoveEntity
@@ -353,10 +362,8 @@ After execution the command buffer is cleared and can be reused.
             body = :(Ark.set_components!(world, cmd.entity, cmd.values))
         elseif T <: SetRelations
             body = :(Ark.set_relations!(world, cmd.entity, cmd.relations))
-        else
-            throw(ErrorException("unreachable reached"))
         end
-        if length(member_types) == 1
+        if i == 1
             chain = body
         else
             cond = :(cmd isa $T)
