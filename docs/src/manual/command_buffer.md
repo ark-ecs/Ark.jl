@@ -34,10 +34,11 @@ buf = CommandBuffer(world, (
     (add_components!, (Velocity,)),
     (remove_components!, (Velocity,)),
     (exchange_components!, (add=(Health,), remove=(Velocity,))),
-));
+))
 
 # output
 
+CommandBuffer{Union{Ark.AddComponents{Tuple{Velocity}}, Ark.ExchangeComponents{Tuple{Health}, Tuple{Velocity}}, Ark.NewEntity{Tuple{Position, Velocity}}, Ark.RemoveComponents{Tuple{Velocity}}, Ark.RemoveEntity}}(Union{Ark.AddComponents{Tuple{Velocity}}, Ark.ExchangeComponents{Tuple{Health}, Tuple{Velocity}}, Ark.NewEntity{Tuple{Position, Velocity}}, Ark.RemoveComponents{Tuple{Velocity}}, Ark.RemoveEntity}[])
 ```
 
 Each spec corresponds to one command type. The component types are captured at construction time
