@@ -30,7 +30,7 @@ jobs:
       with:
         access_token: ${{ github.token }}
     - name: Checkout code
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
     - name: Set up Julia
       uses: ./.github/actions/setup-julia
       with:
@@ -51,7 +51,7 @@ jobs:
 
     - name: Checkout code
       if: github.event_name == 'pull_request'
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         fetch-depth: 0
     - name: Switch to base commit
@@ -80,7 +80,7 @@ jobs:
     needs:
     - benchmark
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - uses: actions/download-artifact@v8
       with:
         name: bench_main_1
