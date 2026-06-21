@@ -373,10 +373,10 @@ After execution the command buffer is cleared and can be reused.
     end
 
     return quote
-        for cmd in buf.commands
+        for cmd in buf._commands
             $chain
         end
-        empty!(buf.commands)
+        empty!(buf._commands)
         return buf
     end
 end
