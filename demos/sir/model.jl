@@ -50,7 +50,7 @@ function step_world!(world::World)
         rand!(rands)
         @inbounds for k in eachindex(entities)
             if rands[k] <= prob_infection
-                exchange_components!(world, transitions, entities[k]; add=(I(),), remove=(S,))
+                exchange_components!(transitions, entities[k]; add=(I(),), remove=(S,))
             end
         end
     end
@@ -61,12 +61,11 @@ function step_world!(world::World)
         rand!(rands)
         @inbounds for k in eachindex(entities)
             if rands[k] <= prob_recovery
-                exchange_components!(world, transitions, entities[k]; add=(R(),), remove=(I,))
+                exchange_components!(transitions, entities[k]; add=(R(),), remove=(I,))
             end
         end
     end
 
-    # Apply Transitions
     apply!(transitions)
 
     return world

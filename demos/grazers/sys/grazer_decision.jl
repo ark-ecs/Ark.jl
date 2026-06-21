@@ -16,7 +16,7 @@ function update!(::GrazerDecision, world::World)
             cx, cy = floor(Int, pos[1]) + 1, floor(Int, pos[2]) + 1
             grass_here = grass[cx, cy]
             if grass_here > gene.graze_thresh
-                exchange_components!(world, commands, entities[i]; add=(Grazing(),), remove=(Moving,))
+                exchange_components!(commands, entities[i]; add=(Grazing(),), remove=(Moving,))
             end
         end
     end
@@ -27,7 +27,7 @@ function update!(::GrazerDecision, world::World)
             cx, cy = floor(Int, pos[1]) + 1, floor(Int, pos[2]) + 1
             grass_here = grass[cx, cy]
             if grass_here < gene.graze_thresh * gene.move_thresh
-                exchange_components!(world, commands, entities[i]; add=(Moving(),), remove=(Grazing,))
+                exchange_components!(commands, entities[i]; add=(Moving(),), remove=(Grazing,))
             end
         end
     end

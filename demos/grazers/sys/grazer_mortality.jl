@@ -11,7 +11,7 @@ function update!(::GrazerMortality, world::World)
     for (entities, energies) in Query(world, (Energy,))
         for i in eachindex(entities, energies)
             if energies[i].value <= 0
-                remove_entity!(world, commands, entities[i])
+                remove_entity!(commands, entities[i])
             end
         end
     end
