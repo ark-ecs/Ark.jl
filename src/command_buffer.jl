@@ -377,6 +377,6 @@ After execution the command buffer is cleared and can be reused.
             $chain
         end
         empty!(buf.commands)
-        return nothing
+        return buf
     end
 end
