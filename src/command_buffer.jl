@@ -223,10 +223,10 @@ All recorded commands are stored and executed when `apply!` is called.
 
 See the [manual](@ref "Command buffer") for details and examples.
 """
-function CommandBuffer(world::World, specs::Tuple)
+function CommandBuffer(world::W, specs::Tuple) where W
     cmd_types = _specs_to_types(world, specs)
     C = Union{cmd_types...}
-    CommandBuffer{C}(world, Vector{C}())
+    CommandBuffer{W,C}(world, Vector{C}())
 end
 
 function is_alive(::World, ::StagedEntity)
