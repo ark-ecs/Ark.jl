@@ -86,7 +86,7 @@ mutable struct _WorldState{M,K}
     const _entity_pool::_EntityPool
     const _lock::_Lock
     const _graph::_Graph{M}
-    const _resources::_Linear_Map{DataType,Any,false,false,DataType,NoResource}
+    const _resources::Dict{DataType,Any}
     const _event_manager::_EventManager{M}
     const _cache::_Cache{M,K}
     const _pool::_WorldPool{M}
