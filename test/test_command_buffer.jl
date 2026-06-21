@@ -240,7 +240,7 @@ end
     @assert !is_alive(world, e2)
     @assert is_alive(world, e3)
 
-    _, positions, healths = only(Query(world, (Position, Health); with=(Velocity,)))
+    _, positions, healths = only(Query(world, (Position, Health); without=(Velocity,)))
     @test length(positions) == 2
     @test Position(1.0, 2.0) in positions
     @test Position(5.0, 6.0) in positions
