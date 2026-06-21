@@ -6,7 +6,10 @@
 
     @test_throws TypeError CommandBuffer{Nothing}(Nothing[])
     @test_throws ArgumentError CommandBuffer(world, ((sin,),))
-    @test_throws("ArgumentError: command buffer needs to contain at least one deferred operation", CommandBuffer(world, ()))
+    @test_throws(
+        "ArgumentError: command buffer needs to contain at least one deferred operation",
+        CommandBuffer(world, ())
+    )
 
     world_exchange = World(Position, Velocity, Health)
     @test_throws ArgumentError CommandBuffer(world_exchange, ((exchange_components!, (Health,), (Velocity,)),))
@@ -175,10 +178,13 @@ end
 
 @testset "CommandBuffer exchange_components! staged entity" begin
     world = World(Position, Velocity, Health)
-    buf = CommandBuffer(world, (
-        (new_entity!, (Position, Velocity)),
-        (exchange_components!, (add=(Health,), remove=(Velocity,))),
-    ))
+    buf = CommandBuffer(
+        world,
+        (
+            (new_entity!, (Position, Velocity)),
+            (exchange_components!, (add=(Health,), remove=(Velocity,))),
+        ),
+    )
 
     e = new_entity!(buf, (Position(0.0, 0.0), Velocity(1.0, 1.0)))
     exchange_components!(buf, e; add=(Health(100.0),), remove=(Velocity,))

@@ -127,7 +127,7 @@ end
     ::Type{U},
     ::Type{Storage},
 ) where {T<:Tuple,U<:Tuple,Storage<:_WorldStorage}
-    ExchangeComponents{_spec_value_tuple_type(T, Storage), _spec_value_tuple_type(U)}
+    ExchangeComponents{_spec_value_tuple_type(T, Storage),_spec_value_tuple_type(U)}
 end
 
 @generated function _command_type(::Type{T}, ::typeof(set_components!)) where {T<:Tuple}

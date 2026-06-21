@@ -24,10 +24,15 @@ struct GrazerDecisionCommands{B<:CommandBuffer}
     commands::B
 end
 
-GrazerDecisionCommands(world::World) = GrazerDecisionCommands(CommandBuffer(world, (
-    (exchange_components!, (add=(Grazing,), remove=(Moving,))),
-    (exchange_components!, (add=(Moving,), remove=(Grazing,))),
-)))
+GrazerDecisionCommands(world::World) = GrazerDecisionCommands(
+    CommandBuffer(
+        world,
+        (
+            (exchange_components!, (add=(Grazing,), remove=(Moving,))),
+            (exchange_components!, (add=(Moving,), remove=(Grazing,))),
+        ),
+    ),
+)
 
 new_grazer_world() = World(Position, Rotation, Energy, Genes, Moving, Grazing)
 
