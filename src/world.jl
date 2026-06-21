@@ -46,8 +46,6 @@ const _no_entity::Entity = _new_entity(0, 0)
 
 const _empty_relations::Vector{Pair{Int32,Entity}} = Vector{Pair{Int32,Entity}}()
 
-struct NoResource end
-
 struct _WorldPool{M}
     relations::Vector{Pair{Int32,Entity}}
     cleanup_relations::Vector{Pair{Int32,Entity}}
