@@ -941,7 +941,7 @@ end
             _EntityPool(max(UInt32(initial_capacity), UInt32(1024))),
             _Lock(),
             graph,
-            _Linear_Map{DataType,Any}(; zero_key=NoResource, zero_value=NoResource()),
+            Dict{DataType,Any}(),
             _EventManager{$(M)}(),
             _Cache{$M,$K}(),
             _WorldPool{$M}(),
