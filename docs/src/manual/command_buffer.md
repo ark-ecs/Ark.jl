@@ -38,7 +38,7 @@ buf = CommandBuffer(world, (
 
 # output
 
-CommandBuffer{Union{Ark.AddComponents{Tuple{Velocity}}, Ark.ExchangeComponents{Tuple{Health}, Tuple{Velocity}}, Ark.NewEntity{Tuple{Position, Velocity}}, Ark.RemoveComponents{Tuple{Velocity}}, Ark.RemoveEntity}}(Union{Ark.AddComponents{Tuple{Velocity}}, Ark.ExchangeComponents{Tuple{Health}, Tuple{Velocity}}, Ark.NewEntity{Tuple{Position, Velocity}}, Ark.RemoveComponents{Tuple{Velocity}}, Ark.RemoveEntity}[])
+CommandBuffer{World{Ark._WorldStorage{Tuple{Ark._ComponentStorage{Position, Vector{Position}}, Ark._ComponentStorage{Velocity, Vector{Velocity}}, Ark._ComponentStorage{Health, Vector{Health}}}, (0x0000000000000000,)}, Ark._WorldState{1, 0}}, Union{Ark.AddComponents{Tuple{Velocity}}, Ark.ExchangeComponents{Tuple{Health}, Tuple{Velocity}}, Ark.NewEntity{Tuple{Position, Velocity}}, Ark.RemoveComponents{Tuple{Velocity}}, Ark.RemoveEntity}}(World(entities=0, comp_types=(Position, Velocity, Health)), Union{Ark.AddComponents{Tuple{Velocity}}, Ark.ExchangeComponents{Tuple{Health}, Tuple{Velocity}}, Ark.NewEntity{Tuple{Position, Velocity}}, Ark.RemoveComponents{Tuple{Velocity}}, Ark.RemoveEntity}[])
 ```
 
 Each spec corresponds to one command type. The component types are captured at construction time
@@ -62,6 +62,7 @@ apply!(buf)
 
 # output
 
+CommandBuffer{World{Ark._WorldStorage{Tuple{Ark._ComponentStorage{Position, Vector{Position}}, Ark._ComponentStorage{Velocity, Vector{Velocity}}}, (0x0000000000000000,)}, Ark._WorldState{1, 0}}, Ark.NewEntity{Tuple{Position, Velocity}}}(World(entities=1, comp_types=(Position, Velocity)), Ark.NewEntity{Tuple{Position, Velocity}}[])
 ```
 
 ## Applying commands
@@ -82,6 +83,7 @@ apply!(buf)
 
 # output
 
+CommandBuffer{World{Ark._WorldStorage{Tuple{Ark._ComponentStorage{Position, Vector{Position}}, Ark._ComponentStorage{Velocity, Vector{Velocity}}, Ark._ComponentStorage{Health, Vector{Health}}}, (0x0000000000000000,)}, Ark._WorldState{1, 0}}, Union{Ark.AddComponents{Tuple{Health}}, Ark.NewEntity{Tuple{Position, Velocity}}}}(World(entities=1, comp_types=(Position, Velocity, Health)), Union{Ark.AddComponents{Tuple{Health}}, Ark.NewEntity{Tuple{Position, Velocity}}}[])
 ```
 
 After `apply!` the buffer is cleared and can be reused.

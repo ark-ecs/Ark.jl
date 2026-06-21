@@ -13,23 +13,23 @@ function setup_world_add_remove_1_buffer(n_entities::Int)
     end
 
     for e in entities
-        add_components!(world, buf, e, (Velocity(0, 0),))
+        add_components!(buf, e, (Velocity(0, 0),))
     end
     for e in entities
-        remove_components!(world, buf, e, (Velocity,))
+        remove_components!(buf, e, (Velocity,))
     end
     apply!(buf)
 
-    return (entities, world, buf)
+    return (entities, buf)
 end
 
 function benchmark_world_add_remove_1_buffer(args, n)
-    entities, world, buf = args
+    entities, buf = args
     for e in entities
-        add_components!(world, buf, e, (Velocity(0, 0),))
+        add_components!(buf, e, (Velocity(0, 0),))
     end
     for e in entities
-        remove_components!(world, buf, e, (Velocity,))
+        remove_components!(buf, e, (Velocity,))
     end
     apply!(buf)
 end
@@ -50,24 +50,24 @@ function setup_world_add_remove_1_buffer_single(n_entities::Int)
     end
 
     for e in entities
-        add_components!(world, buf1, e, (Velocity(0, 0),))
+        add_components!(buf1, e, (Velocity(0, 0),))
     end
     for e in entities
-        remove_components!(world, buf2, e, (Velocity,))
+        remove_components!(buf2, e, (Velocity,))
     end
     apply!(buf1)
     apply!(buf2)
 
-    return (entities, world, buf1, buf2)
+    return (entities, buf1, buf2)
 end
 
 function benchmark_world_add_remove_1_buffer_single(args, n)
-    entities, world, buf1, buf2 = args
+    entities, buf1, buf2 = args
     for e in entities
-        add_components!(world, buf1, e, (Velocity(0, 0),))
+        add_components!(buf1, e, (Velocity(0, 0),))
     end
     for e in entities
-        remove_components!(world, buf2, e, (Velocity,))
+        remove_components!(buf2, e, (Velocity,))
     end
     apply!(buf1)
     apply!(buf2)
