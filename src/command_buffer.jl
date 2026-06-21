@@ -7,8 +7,8 @@ Identifier for an [Entity](@ref Entities) whose creation has been recorded in a
 
 A `StagedEntity` is returned by [`new_entity!`](@ref) when entity creation is
 staged through a command buffer. It reserves an entity identity for later use,
-but the staged handle is never alive, is not stored in any archetype table, and
-cannot be matched by queries.
+but the staged handle is not stored in any archetype table, and cannot be matched
+by queries.
 
 Use a staged entity to record additional commands that should affect the same
 future entity, such as adding components or setting component values.
@@ -229,8 +229,10 @@ function CommandBuffer(world::W, specs::Tuple) where W
     CommandBuffer{W,C}(world, Vector{C}())
 end
 
-function is_alive(::World, ::StagedEntity)
-    return false
+function is_alive(w::World, se::StagedEntity)
+    e = se._entity
+    id = Int(e._id)
+    return is_alive(w, e) && _state(w)._entities[id] != _EntityIndex(UInt32(0), UInt32(0))
 end
 
 function new_entity!(buf::CommandBuffer, values::Tuple)
