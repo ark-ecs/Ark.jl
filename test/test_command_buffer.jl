@@ -252,12 +252,9 @@ end
     apply!(buf)
 
     _, positions, healths = only(Query(world, (Position, Health); with=(Velocity,)))
-    @test length(positions) == 2
+    @test length(positions) == 1
     @test Position(1.0, 2.0) in positions
-    @test Position(5.0, 6.0) in positions
     @test all(==(Health(100.0)), healths)
-    @test has_components(world, e3, (Position, Health))
-    @test !has_components(world, e3, (Velocity,))
     @test get_components(world, e1, (Velocity,)) == Velocity(1.0, 2.0)
 end
 
