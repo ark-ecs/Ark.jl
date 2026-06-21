@@ -75,7 +75,7 @@ export unpack, @unpack
 
 export @unchecked
 
-export StagedEntity, CommandBuffer, apply!
+export CommandBuffer, apply!, StagedEntity, get_entity
 
 export Relation
 

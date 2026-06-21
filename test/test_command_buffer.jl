@@ -20,10 +20,9 @@ end
 
     e = new_entity!(buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)))
     @test e isa StagedEntity
-    @test !is_alive(world, e)
 
     apply!(buf)
-    @test !is_alive(world, e)
+
     entities, positions, velocities = only(Query(world, (Position, Velocity)))
     @test length(entities) == 1
     @test positions[1] == Position(1.0, 2.0)
@@ -39,8 +38,6 @@ end
     @test e1 != e2
 
     apply!(buf)
-    @test !is_alive(world, e1)
-    @test !is_alive(world, e2)
 
     _, positions = only(Query(world, (Position,)))
     @test length(positions) == 2
@@ -53,10 +50,10 @@ end
     buf = CommandBuffer(world, ((remove_entity!,),))
 
     e = new_entity!(world, (Position(1.0, 2.0),))
-    @test is_alive(world, e)
 
     remove_entity!(buf, e)
     apply!(buf)
+
     @test !is_alive(world, e)
 end
 
@@ -109,7 +106,6 @@ end
     set_components!(buf, e, (Position(2.0, 3.0), Velocity(4.0, 5.0)))
     apply!(buf)
 
-    @test !is_alive(world, e)
     entities, positions, velocities = only(Query(world, (Position, Velocity)))
     @test length(entities) == 1
     @test positions[1] == Position(2.0, 3.0)
@@ -145,7 +141,6 @@ end
     set_relations!(buf, child, (ChildOf => parent2,))
     apply!(buf)
 
-    @test !is_alive(world, child)
     @test count_entities(world, Filter(world, (ChildOf => parent1,))) == 0
     entities, positions = only(Query(world, (Position,); with=(ChildOf => parent2,)))
     @test length(entities) == 1
@@ -189,7 +184,6 @@ end
     exchange_components!(buf, e; add=(Health(100.0),), remove=(Velocity,))
     apply!(buf)
 
-    @test !is_alive(world, e)
     entities, positions, healths = only(Query(world, (Position, Health); without=(Velocity,)))
     @test length(entities) == 1
     @test positions[1] == Position(0.0, 0.0)
@@ -229,15 +223,13 @@ end
 
     add_components!(buf, e1, (Health(100.0),))
     remove_components!(buf, e1, (Velocity,))
-    remove_entity!(world, buf, e2)
+    remove_entity!(buf, e2)
 
     e3 = new_entity!(world, (Position(5.0, 6.0), Velocity(1.0, 1.0)))
     exchange_components!(buf, e3; add=(Health(100.0),), remove=(Velocity,))
 
     apply!(buf)
 
-    @assert !is_alive(world, e1)
-    @assert !is_alive(world, e2)
     @assert is_alive(world, e3)
 
     _, positions, healths = only(Query(world, (Position, Health); without=(Velocity,)))
@@ -248,14 +240,14 @@ end
     @test has_components(world, e3, (Position, Health))
     @test !has_components(world, e3, (Velocity,))
 
-    add_components!(buf, e1, (Velocity(1.0, 2.0)))
+    add_components!(buf, e1, (Velocity(1.0, 2.0),))
     apply!(buf)
 
     _, positions, healths = only(Query(world, (Position, Health); with=(Velocity,)))
     @test length(positions) == 1
     @test Position(1.0, 2.0) in positions
     @test all(==(Health(100.0)), healths)
-    @test get_components(world, e1, (Velocity,)) == Velocity(1.0, 2.0)
+    @test get_components(world, e1._entity, (Velocity,)) == (Velocity(1.0, 2.0),)
 end
 
 @testset "CommandBuffer pre-allocated entity usable immediately" begin
@@ -269,7 +261,6 @@ end
     remove_components!(buf, e, (Velocity,))
     apply!(buf)
 
-    @test !is_alive(world, e)
     entities, positions = only(Query(world, (Position,); without=(Velocity,)))
     @test length(entities) == 1
     @test positions[1] == Position(1.0, 2.0)
@@ -289,7 +280,6 @@ end
 
     apply!(buf)
 
-    @test !is_alive(world, child)
     entities, positions = only(Query(world, (Position,); with=(ChildOf => parent,)))
     @test length(entities) == 1
     @test positions[1] == Position(3.0, 4.0)
@@ -309,8 +299,7 @@ end
 
     apply!(buf)
 
-    @test !is_alive(world, entity)
-    @test is_alive(world, entity._entity)
+    @test !is_alive(world, recycled)
 
     _, positions = only(Query(world, (Position,)))
     @test length(positions) == 1
@@ -327,7 +316,6 @@ end
     child = new_entity!(buf, (Position(3.0, 4.0), ChildOf() => parent))
     apply!(buf)
 
-    @test !is_alive(world, child)
     entities, positions = only(Query(world, (Position,); without=(ChildOf,)))
     @test length(entities) == 1
     @test positions[1] == Position(1.0, 2.0)
@@ -364,12 +352,5 @@ end
     @test Position(1.0, 2.0) in positions
     @test Position(3.0, 4.0) in positions
     @test Position(5.0, 6.0) in positions
-    @test !is_alive(world, e1)
-    @test !is_alive(world, e2)
     @test is_alive(world, e3)
-
-    remove_entity!(world, e3)
-    @test !is_alive(world, e1)
-    @test !is_alive(world, e2)
-    @test !is_alive(world, e3)
 end

@@ -229,12 +229,6 @@ function CommandBuffer(world::W, specs::Tuple) where W
     CommandBuffer{W,C}(world, Vector{C}())
 end
 
-function is_alive(w::World, se::StagedEntity)
-    e = se._entity
-    id = Int(e._id)
-    return is_alive(w, e) && _state(w)._entities[id] != _EntityIndex(UInt32(0), UInt32(0))
-end
-
 function new_entity!(buf::CommandBuffer, values::Tuple)
     world = buf._world
     state = _state(world)
@@ -341,7 +335,7 @@ Executes all commands recorded in the buffer in FIFO order.
 
 After execution the command buffer is cleared and can be reused.
 """
-@generated function apply!(buf::CommandBuffer{C}) where C
+@generated function apply!(buf::CommandBuffer{W,C}) where {W,C}
     member_types = C isa Union ? Base.uniontypes(C) : (C,)
 
     chain = nothing
@@ -366,6 +360,7 @@ After execution the command buffer is cleared and can be reused.
         elseif T <: SetRelations
             :(Ark.set_relations!(buf._world, cmd.entity, cmd.relations))
         end
+
         if i == 1
             chain = body
         else
