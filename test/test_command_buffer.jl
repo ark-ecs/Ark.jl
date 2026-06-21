@@ -218,6 +218,7 @@ end
             (new_entity!, (Position, Velocity)),
             (remove_entity!,),
             (add_components!, (Health,)),
+            (add_components!, (Velocity,)),
             (remove_components!, (Velocity,)),
             (exchange_components!, (add=(Health,), remove=(Velocity,))),
         ),
@@ -239,13 +240,25 @@ end
     @assert !is_alive(world, e2)
     @assert is_alive(world, e3)
 
-    _, positions, healths = only(Query(world, (Position, Health); without=(Velocity,)))
+    _, positions, healths = only(Query(world, (Position, Health); with=(Velocity,)))
     @test length(positions) == 2
     @test Position(1.0, 2.0) in positions
     @test Position(5.0, 6.0) in positions
     @test all(==(Health(100.0)), healths)
     @test has_components(world, e3, (Position, Health))
     @test !has_components(world, e3, (Velocity,))
+
+    add_components!(buf, e1, (Velocity(1.0, 2.0)))
+    apply!(buf)
+
+    _, positions, healths = only(Query(world, (Position, Health); with=(Velocity,)))
+    @test length(positions) == 2
+    @test Position(1.0, 2.0) in positions
+    @test Position(5.0, 6.0) in positions
+    @test all(==(Health(100.0)), healths)
+    @test has_components(world, e3, (Position, Health))
+    @test !has_components(world, e3, (Velocity,))
+    @test get_components(world, e1, (Velocity,)) == Velocity(1.0, 2.0)
 end
 
 @testset "CommandBuffer pre-allocated entity usable immediately" begin
