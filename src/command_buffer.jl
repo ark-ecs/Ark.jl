@@ -344,25 +344,25 @@ After execution the command buffer is cleared and can be reused.
 
     chain = nothing
     for (i, T) in enumerate(member_types)
-        if T <: NewEntity
-            body = :(_apply_new_entity!(buf._world, cmd.entity, cmd.components))
+        body = if T <: NewEntity
+            :(_apply_new_entity!(buf._world, cmd.entity, cmd.components))
         elseif T <: RemoveEntity
-            body = :(Ark.remove_entity!(buf._world, cmd.entity))
+            :(Ark.remove_entity!(buf._world, cmd.entity))
         elseif T <: AddComponents
-            body = :(Ark.add_components!(buf._world, cmd.entity, cmd.components))
+            :(Ark.add_components!(buf._world, cmd.entity, cmd.components))
         elseif T <: RemoveComponents
             R = T.parameters[1]
             types = [fieldtype(R, i) for i in 1:fieldcount(R)]
-            body = :(Ark.remove_components!(buf._world, cmd.entity, $(Expr(:tuple, types...))))
+            :(Ark.remove_components!(buf._world, cmd.entity, $(Expr(:tuple, types...))))
         elseif T <: ExchangeComponents
             R = T.parameters[2]
             types = [fieldtype(R, i) for i in 1:fieldcount(R)]
-            body = :(Ark.exchange_components!(buf._world, cmd.entity; add=cmd.add,
+            :(Ark.exchange_components!(buf._world, cmd.entity; add=cmd.add,
                 remove=($(Expr(:tuple, types...)))))
         elseif T <: SetComponents
-            body = :(Ark.set_components!(buf._world, cmd.entity, cmd.values))
+            :(Ark.set_components!(buf._world, cmd.entity, cmd.values))
         elseif T <: SetRelations
-            body = :(Ark.set_relations!(buf._world, cmd.entity, cmd.relations))
+            :(Ark.set_relations!(buf._world, cmd.entity, cmd.relations))
         end
         if i == 1
             chain = body
