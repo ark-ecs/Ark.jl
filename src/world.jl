@@ -46,8 +46,6 @@ const _no_entity::Entity = _new_entity(0, 0)
 
 const _empty_relations::Vector{Pair{Int32,Entity}} = Vector{Pair{Int32,Entity}}()
 
-struct NoResource end
-
 struct _WorldPool{M}
     relations::Vector{Pair{Int32,Entity}}
     cleanup_relations::Vector{Pair{Int32,Entity}}
@@ -86,7 +84,7 @@ mutable struct _WorldState{M,K}
     const _entity_pool::_EntityPool
     const _lock::_Lock
     const _graph::_Graph{M}
-    const _resources::_Linear_Map{DataType,Any,false,false,DataType,NoResource}
+    const _resources::Dict{DataType,Any}
     const _event_manager::_EventManager{M}
     const _cache::_Cache{M,K}
     const _pool::_WorldPool{M}
@@ -941,7 +939,7 @@ end
             _EntityPool(max(UInt32(initial_capacity), UInt32(1024))),
             _Lock(),
             graph,
-            _Linear_Map{DataType,Any}(; zero_key=NoResource, zero_value=NoResource()),
+            Dict{DataType,Any}(),
             _EventManager{$(M)}(),
             _Cache{$M,$K}(),
             _WorldPool{$M}(),
