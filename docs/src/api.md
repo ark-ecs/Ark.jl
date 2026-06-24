@@ -111,7 +111,6 @@ A [CommandBuffer](@ref) defers structural changes and applies them in batch.
 ```@docs
 CommandBuffer(::World, ::Tuple)
 apply!
-StagedEntity
 ```
 
 ## [Event system](@id events-api)

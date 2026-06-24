@@ -1541,6 +1541,7 @@ function _new_entity_expr(
         ),
     )
     if Preallocated
+        push!(exprs, :(_activate_entity!(world_state._entity_pool, entity)))
         push!(exprs, :(_place_entity!(world_state, entity, table)))
     else
         push!(exprs, :(tmp = _create_entity!(world_state, table)))
@@ -1595,6 +1596,10 @@ end
 
 @inline function _reserve_entity!(state::_WorldState)::Entity
     return _get_entity(state._entity_pool)
+end
+
+@inline function _reserve_pending_entity!(state::_WorldState)::Entity
+    return _get_pending_entity(state._entity_pool)
 end
 
 @inline @generated function _reserve_entity_index!(state::_WorldState{M,K}, entity::Entity)::Nothing where {M,K}

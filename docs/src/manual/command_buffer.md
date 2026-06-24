@@ -50,8 +50,9 @@ All recording methods mirror the [World](@ref) API but take the buffer as an ext
 
 ### Creating entities
 
-Use [new_entity!](@ref) to stage entity creation. The entity ID is pre-allocated immediately
-and returned, allowing it to be used in subsequent commands before [apply!](@ref) is called.
+Use [new_entity!](@ref) to stage entity creation. An [Entity](@ref) ID is pre-allocated
+immediately and returned, allowing it to be used in subsequent commands before [apply!](@ref)
+is called. The returned entity is not considered alive until the buffer is applied.
 
 ```jldoctest
 world = World(Position, Velocity)

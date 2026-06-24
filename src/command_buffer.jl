@@ -1,24 +1,3 @@
-
-"""
-    StagedEntity
-
-Identifier for an [Entity](@ref Entities) whose creation has been recorded in a
-[CommandBuffer](@ref), but has not been applied to the [World](@ref) yet.
-
-A `StagedEntity` is returned by [`new_entity!`](@ref) when entity creation is
-staged through a command buffer. It reserves an entity identity for later use,
-but the staged handle is not stored in any archetype table, and cannot be matched
-by queries.
-
-Use a staged entity to record additional commands that should affect the same
-future entity, such as adding components or setting component values.
-"""
-struct StagedEntity
-    _entity::Entity
-end
-
-Base.isless(a::StagedEntity, b::StagedEntity) = isless(a._entity, b._entity)
-
 struct _NewEntity{V<:Tuple}
     entity::Entity
     components::V
@@ -232,10 +211,10 @@ end
 function new_entity!(buf::CommandBuffer, values::Tuple)
     world = buf._world
     state = _state(world)
-    entity = _reserve_entity!(state)
+    entity = _reserve_pending_entity!(state)
     _reserve_entity_index!(state, entity)
     push!(buf._commands, _NewEntity(entity, values))
-    return StagedEntity(entity)
+    return entity
 end
 
 function remove_entity!(buf::CommandBuffer, entity::Entity)
@@ -243,17 +222,9 @@ function remove_entity!(buf::CommandBuffer, entity::Entity)
     return nothing
 end
 
-function remove_entity!(buf::CommandBuffer, entity::StagedEntity)
-    return remove_entity!(buf, entity._entity)
-end
-
 function add_components!(buf::CommandBuffer, entity::Entity, values::Tuple)
     push!(buf._commands, _AddComponents(entity, values))
     return nothing
-end
-
-function add_components!(buf::CommandBuffer, entity::StagedEntity, values::Tuple)
-    return add_components!(buf, entity._entity, values)
 end
 
 @generated function _make_remove_cmd(entity::Entity, types::T) where {T<:Tuple}
@@ -267,10 +238,6 @@ end
 Base.@constprop :aggressive function remove_components!(buf::CommandBuffer, entity::Entity, types::Tuple)
     push!(buf._commands, _make_remove_cmd(entity, _valtuple(types)))
     return nothing
-end
-
-function remove_components!(buf::CommandBuffer, entity::StagedEntity, types::Tuple)
-    return remove_components!(buf, entity._entity, types)
 end
 
 @generated function _make_exchange_cmd(
@@ -295,26 +262,14 @@ Base.@constprop :aggressive function exchange_components!(
     return nothing
 end
 
-function exchange_components!(buf::CommandBuffer, entity::StagedEntity; add::Tuple=(), remove::Tuple=())
-    return exchange_components!(buf, entity._entity; add=add, remove=remove)
-end
-
 function set_components!(buf::CommandBuffer, entity::Entity, values::Tuple)
     push!(buf._commands, _SetComponents(entity, values))
     return nothing
 end
 
-function set_components!(buf::CommandBuffer, entity::StagedEntity, values::Tuple)
-    return set_components!(buf, entity._entity, values)
-end
-
 function set_relations!(buf::CommandBuffer, entity::Entity, relations::Tuple)
     push!(buf._commands, _SetRelations(entity, relations))
     return nothing
-end
-
-function set_relations!(buf::CommandBuffer, entity::StagedEntity, relations::Tuple)
-    return set_relations!(buf, entity._entity, relations)
 end
 
 @inline Base.@constprop :aggressive function _apply_new_entity!(world::World, entity::Entity, values::Tuple)

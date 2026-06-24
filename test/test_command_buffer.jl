@@ -22,12 +22,15 @@ end
     buf = CommandBuffer(world, ((new_entity!, (Position, Velocity)),))
 
     e = new_entity!(buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)))
-    @test e isa StagedEntity
+    @test e isa Entity
+    @test !is_alive(world, e)
 
     apply!(buf)
 
+    @test is_alive(world, e)
     entities, positions, velocities = only(Query(world, (Position, Velocity)))
     @test length(entities) == 1
+    @test entities[1] == e
     @test positions[1] == Position(1.0, 2.0)
     @test velocities[1] == Velocity(10.0, 20.0)
 end
@@ -39,9 +42,13 @@ end
     e1 = new_entity!(buf, (Position(1.0, 2.0),))
     e2 = new_entity!(buf, (Position(3.0, 4.0),))
     @test e1 != e2
+    @test !is_alive(world, e1)
+    @test !is_alive(world, e2)
 
     apply!(buf)
 
+    @test is_alive(world, e1)
+    @test is_alive(world, e2)
     _, positions = only(Query(world, (Position,)))
     @test length(positions) == 2
     @test Position(1.0, 2.0) in positions
@@ -98,7 +105,7 @@ end
     @test vel == Velocity(4.0, 5.0)
 end
 
-@testset "CommandBuffer set_components! staged entity" begin
+@testset "CommandBuffer set_components! pending entity" begin
     world = World(Position, Velocity)
     buf = CommandBuffer(world, (
         (new_entity!, (Position, Velocity)),
@@ -106,11 +113,14 @@ end
     ))
 
     e = new_entity!(buf, (Position(0.0, 0.0), Velocity(1.0, 1.0)))
+    @test !is_alive(world, e)
     set_components!(buf, e, (Position(2.0, 3.0), Velocity(4.0, 5.0)))
     apply!(buf)
 
+    @test is_alive(world, e)
     entities, positions, velocities = only(Query(world, (Position, Velocity)))
     @test length(entities) == 1
+    @test entities[1] == e
     @test positions[1] == Position(2.0, 3.0)
     @test velocities[1] == Velocity(4.0, 5.0)
 end
@@ -130,7 +140,7 @@ end
     @test target == parent2
 end
 
-@testset "CommandBuffer set_relations! staged entity" begin
+@testset "CommandBuffer set_relations! pending entity" begin
     world = World(Position, Relation{ChildOf})
     buf = CommandBuffer(world, (
         (new_entity!, (Position, ChildOf)),
@@ -140,13 +150,16 @@ end
     parent1 = new_entity!(world, (Position(1.0, 2.0),))
     parent2 = new_entity!(world, (Position(3.0, 4.0),))
     child = new_entity!(buf, (Position(5.0, 6.0), ChildOf() => parent1))
+    @test !is_alive(world, child)
 
     set_relations!(buf, child, (ChildOf => parent2,))
     apply!(buf)
 
+    @test is_alive(world, child)
     @test count_entities(world, Filter(world, (ChildOf => parent1,))) == 0
     entities, positions = only(Query(world, (Position,); with=(ChildOf => parent2,)))
     @test length(entities) == 1
+    @test entities[1] == child
     @test positions[1] == Position(5.0, 6.0)
 end
 
@@ -176,7 +189,7 @@ end
     @test health == Health(100.0)
 end
 
-@testset "CommandBuffer exchange_components! staged entity" begin
+@testset "CommandBuffer exchange_components! pending entity" begin
     world = World(Position, Velocity, Health)
     buf = CommandBuffer(
         world,
@@ -187,11 +200,14 @@ end
     )
 
     e = new_entity!(buf, (Position(0.0, 0.0), Velocity(1.0, 1.0)))
+    @test !is_alive(world, e)
     exchange_components!(buf, e; add=(Health(100.0),), remove=(Velocity,))
     apply!(buf)
 
+    @test is_alive(world, e)
     entities, positions, healths = only(Query(world, (Position, Health); without=(Velocity,)))
     @test length(entities) == 1
+    @test entities[1] == e
     @test positions[1] == Position(0.0, 0.0)
     @test healths[1] == Health(100.0)
 end
@@ -226,6 +242,8 @@ end
 
     e1 = new_entity!(buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)))
     e2 = new_entity!(buf, (Position(3.0, 4.0), Velocity(30.0, 40.0)))
+    @test !is_alive(world, e1)
+    @test !is_alive(world, e2)
 
     add_components!(buf, e1, (Health(100.0),))
     remove_components!(buf, e1, (Velocity,))
@@ -236,6 +254,8 @@ end
 
     apply!(buf)
 
+    @test is_alive(world, e1)
+    @test !is_alive(world, e2)
     @assert is_alive(world, e3)
 
     _, positions, healths = only(Query(world, (Position, Health); without=(Velocity,)))
@@ -253,7 +273,7 @@ end
     @test length(positions) == 1
     @test Position(1.0, 2.0) in positions
     @test all(==(Health(100.0)), healths)
-    @test get_components(world, e1._entity, (Velocity,)) == (Velocity(1.0, 2.0),)
+    @test get_components(world, e1, (Velocity,)) == (Velocity(1.0, 2.0),)
 end
 
 @testset "CommandBuffer pre-allocated entity usable immediately" begin
@@ -264,11 +284,14 @@ end
     ))
 
     e = new_entity!(buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)))
+    @test !is_alive(world, e)
     remove_components!(buf, e, (Velocity,))
     apply!(buf)
 
+    @test is_alive(world, e)
     entities, positions = only(Query(world, (Position,); without=(Velocity,)))
     @test length(entities) == 1
+    @test entities[1] == e
     @test positions[1] == Position(1.0, 2.0)
 end
 
@@ -281,13 +304,16 @@ end
     parent = new_entity!(world, (Position(1.0, 2.0),))
     targets_len = length(_state(world)._targets)
     child = new_entity!(buf, (Position(3.0, 4.0), ChildOf() => parent))
+    @test !is_alive(world, child)
     @test length(_state(world)._targets) == targets_len + 1
     @test !_state(world)._targets[end]
 
     apply!(buf)
 
+    @test is_alive(world, child)
     entities, positions = only(Query(world, (Position,); with=(ChildOf => parent,)))
     @test length(entities) == 1
+    @test entities[1] == child
     @test positions[1] == Position(3.0, 4.0)
 end
 
@@ -299,6 +325,7 @@ end
     targets_len = length(_state(world)._targets)
     buf = CommandBuffer(world, ((new_entity!, (Position,)),))
     entity = new_entity!(buf, (Position(3.0, 4.0),))
+    @test !is_alive(world, entity)
 
     @test length(_state(world)._targets) == targets_len
     @test all(!, _state(world)._targets)
@@ -306,6 +333,7 @@ end
     apply!(buf)
 
     @test !is_alive(world, recycled)
+    @test is_alive(world, entity)
 
     _, positions = only(Query(world, (Position,)))
     @test length(positions) == 1
@@ -320,14 +348,17 @@ end
 
     parent = new_entity!(world, (Position(1.0, 2.0),))
     child = new_entity!(buf, (Position(3.0, 4.0), ChildOf() => parent))
+    @test !is_alive(world, child)
     apply!(buf)
 
+    @test is_alive(world, child)
     entities, positions = only(Query(world, (Position,); without=(ChildOf,)))
     @test length(entities) == 1
     @test positions[1] == Position(1.0, 2.0)
 
     entities, positions = only(Query(world, (Position,); with=(ChildOf => parent,)))
     @test length(entities) == 1
+    @test entities[1] == child
     @test positions[1] == Position(3.0, 4.0)
 end
 
@@ -344,10 +375,14 @@ end
     buf = CommandBuffer(world, ((new_entity!, (Position,)),))
 
     e1 = new_entity!(buf, (Position(1.0, 2.0),))
+    @test !is_alive(world, e1)
     apply!(buf)
+    @test is_alive(world, e1)
 
     e2 = new_entity!(buf, (Position(3.0, 4.0),))
+    @test !is_alive(world, e2)
     apply!(buf)
+    @test is_alive(world, e2)
 
     @test e1 < e2
 
