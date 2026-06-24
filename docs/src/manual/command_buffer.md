@@ -126,4 +126,7 @@ grid # now it contains the entity created in the buffer
 
 # output
 
+2×2 Matrix{Vector{Entity}}:
+  [Entity(2, 1)]  []
+  []              []
 ```
