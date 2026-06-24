@@ -10,6 +10,10 @@
     @test ExchangeComponentsCommand(add=(Health,), remove=(Velocity,)) isa Type
     @test SetComponentsCommand((Position,)) isa Type
     @test SetRelationsCommand((ChildOf,)) isa Type
+    @test NewEntityCommand((Position,)) == NewEntityCommand{Tuple{Position}}
+    @test RemoveComponentsCommand((Velocity,)) == RemoveComponentsCommand{Tuple{Velocity}}
+    @test ExchangeComponentsCommand(add=(Health,), remove=(Velocity,)) ==
+          ExchangeComponentsCommand{Tuple{Health},Tuple{Velocity}}
 
     @test_throws TypeError CommandBuffer{Nothing}(Nothing[])
     @test_throws ArgumentError CommandBuffer(world, ((sin,),))
@@ -24,6 +28,11 @@
     )
 
     world_exchange = World(Position, Velocity, Health)
+    @test eltype(CommandBuffer(world_exchange, (RemoveComponentsCommand((Velocity,)),))._commands) ==
+          RemoveComponentsCommand{Tuple{Velocity}}
+    @test eltype(
+        CommandBuffer(world_exchange, (ExchangeComponentsCommand(add=(Health,), remove=(Velocity,)),))._commands,
+    ) == ExchangeComponentsCommand{Tuple{Health},Tuple{Velocity}}
     @test_throws ArgumentError CommandBuffer(world_exchange, ((exchange_components!, (Health,), (Velocity,)),))
     @test_throws ArgumentError ExchangeComponentsCommand(add=Health, remove=(Velocity,))
     @test_throws ArgumentError ExchangeComponentsCommand(add=(Health,), remove=Velocity)
