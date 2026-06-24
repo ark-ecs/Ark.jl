@@ -231,16 +231,6 @@ end
     @test !has_components(world, child, (Velocity,))
 end
 
-struct TestExternalCommand
-    log::Vector{Int}
-    value::Int
-end
-
-function Ark.apply!(world::World, cmd::TestExternalCommand)
-    push!(cmd.log, count_entities(world, Filter(world, (Position,))) + cmd.value)
-    return nothing
-end
-
 @testset "CommandBuffer arbitrary command" begin
     world = World(Position)
     log = Int[]
