@@ -38,6 +38,7 @@ buf = CommandBuffer(world, (
 
 # output
 
+CommandBuffer{World{Ark._WorldStorage{Tuple{Ark._ComponentStorage{Position, Vector{Position}}, Ark._ComponentStorage{Velocity, Vector{Velocity}}, Ark._ComponentStorage{Health, Vector{Health}}}, (0x0000000000000000,)}, Ark._WorldState{1, 0}}, Union{AddComponentsCommand{Tuple{Velocity}}, ExchangeComponentsCommand{Tuple{Health}, Tuple{Velocity}}, NewEntityCommand{Tuple{Position, Velocity}}, RemoveComponentsCommand{Tuple{Velocity}}, RemoveEntityCommand}}(World(entities=0, comp_types=(Position, Velocity, Health)), Union{AddComponentsCommand{Tuple{Velocity}}, ExchangeComponentsCommand{Tuple{Health}, Tuple{Velocity}}, NewEntityCommand{Tuple{Position, Velocity}}, RemoveComponentsCommand{Tuple{Velocity}}, RemoveEntityCommand}[])
 ```
 
 Each spec corresponds to one command type. The component types are captured at construction time
@@ -63,6 +64,7 @@ apply!(buf)
 
 # output
 
+CommandBuffer{World{Ark._WorldStorage{Tuple{Ark._ComponentStorage{Position, Vector{Position}}, Ark._ComponentStorage{Velocity, Vector{Velocity}}}, (0x0000000000000000,)}, Ark._WorldState{1, 0}}, NewEntityCommand{Tuple{Position, Velocity}}}(World(entities=1, comp_types=(Position, Velocity)), NewEntityCommand{Tuple{Position, Velocity}}[])
 ```
 
 ## Applying commands
@@ -83,6 +85,7 @@ apply!(buf)
 
 # output
 
+CommandBuffer{World{Ark._WorldStorage{Tuple{Ark._ComponentStorage{Position, Vector{Position}}, Ark._ComponentStorage{Velocity, Vector{Velocity}}, Ark._ComponentStorage{Health, Vector{Health}}}, (0x0000000000000000,)}, Ark._WorldState{1, 0}}, Union{AddComponentsCommand{Tuple{Health}}, NewEntityCommand{Tuple{Position, Velocity}}}}(World(entities=1, comp_types=(Position, Velocity, Health)), Union{AddComponentsCommand{Tuple{Health}}, NewEntityCommand{Tuple{Position, Velocity}}}[])
 ```
 
 After `apply!` the buffer is cleared and can be reused.
@@ -93,22 +96,32 @@ To coordinate world changes with non-world state, include a custom command type 
 the command specs, define `apply!(world, command)`, and record command values with
 [`record!`](@ref):
 
-```julia
-struct ExternalCommand
-    graph::Graph
+```jldoctest
+struct PushOnGridCommand
+    grid::Matrix{Vector{Entity}}
+    entity::Entity
 end
 
-function Ark.apply!(world, cmd::ExternalCommand)
-    change_something_on_graph!(cmd.graph)
-    return nothing
+function Ark.apply!(world, cmd::PushOnGridCommand)
+    pos, = get_components(world, cmd.entity, (Position,))
+    push!(cmd.grid[Int(pos.x), Int(pos.y)], cmd.entity)
+    return
 end
 
 buf = CommandBuffer(world, (
     NewEntityCommand((Position,)),
-    ExternalCommand,
+    PushOnGridCommand,
 ))
 
-entity = new_entity!(buf, (Position(1.0, 2.0),))
-record!(buf, ExternalCommand(graph))
+grid = [Entity[] for _ in 1:2, _ in 1:2]
+
+entity = new_entity!(buf, (Position(1.0, 1.0),))
+record!(buf, PushOnGridCommand(grid, entity))
+
 apply!(buf)
+
+grid # now it contains the entity created in the buffer
+
+# output
+
 ```
