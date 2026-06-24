@@ -27,18 +27,19 @@ end
 ```
 
 ```jldoctest
-world = World(Position, Velocity, Health)
+world = World(Position, Velocity, Health);
 buf = CommandBuffer(world, (
     NewEntityCommand((Position, Velocity)),
     RemoveEntityCommand(),
     AddComponentsCommand((Velocity,)),
     RemoveComponentsCommand((Velocity,)),
     ExchangeComponentsCommand(add=(Health,), remove=(Velocity,)),
-))
+));
+buf isa CommandBuffer
 
 # output
 
-CommandBuffer{World{Ark._WorldStorage{Tuple{Ark._ComponentStorage{Position, Vector{Position}}, Ark._ComponentStorage{Velocity, Vector{Velocity}}, Ark._ComponentStorage{Health, Vector{Health}}}, (0x0000000000000000,)}, Ark._WorldState{1, 0}}, Union{Ark._AddComponents{Tuple{Velocity}}, Ark._ExchangeComponents{Tuple{Health}, Tuple{Velocity}}, Ark._NewEntity{Tuple{Position, Velocity}}, Ark._RemoveComponents{Tuple{Velocity}}, Ark._RemoveEntity}}(World(entities=0, comp_types=(Position, Velocity, Health)), Union{Ark._AddComponents{Tuple{Velocity}}, Ark._ExchangeComponents{Tuple{Health}, Tuple{Velocity}}, Ark._NewEntity{Tuple{Position, Velocity}}, Ark._RemoveComponents{Tuple{Velocity}}, Ark._RemoveEntity}[])
+true
 ```
 
 Each spec corresponds to one command type. The component types are captured at construction time
@@ -56,15 +57,16 @@ immediately and returned, allowing it to be used in subsequent commands before [
 is called. The returned entity is not considered alive until the buffer is applied.
 
 ```jldoctest
-world = World(Position, Velocity)
-buf = CommandBuffer(world, (NewEntityCommand((Position, Velocity)),))
+world = World(Position, Velocity);
+buf = CommandBuffer(world, (NewEntityCommand((Position, Velocity)),));
 
-e = new_entity!(buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)))
-apply!(buf)
+e = new_entity!(buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)));
+apply!(buf);
+is_alive(world, e)
 
 # output
 
-CommandBuffer{World{Ark._WorldStorage{Tuple{Ark._ComponentStorage{Position, Vector{Position}}, Ark._ComponentStorage{Velocity, Vector{Velocity}}}, (0x0000000000000000,)}, Ark._WorldState{1, 0}}, Ark._NewEntity{Tuple{Position, Velocity}}}(World(entities=1, comp_types=(Position, Velocity)), Ark._NewEntity{Tuple{Position, Velocity}}[])
+true
 ```
 
 ## Applying commands
@@ -72,20 +74,21 @@ CommandBuffer{World{Ark._WorldStorage{Tuple{Ark._ComponentStorage{Position, Vect
 Call [apply!](@ref) to execute all staged commands in FIFO order:
 
 ```jldoctest
-world = World(Position, Velocity, Health)
+world = World(Position, Velocity, Health);
 buf = CommandBuffer(world, (
     NewEntityCommand((Position, Velocity)),
     AddComponentsCommand((Health,)),
-))
+));
 
-e = new_entity!(buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)))
-add_components!(buf, e, (Health(1.0),))
+e = new_entity!(buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)));
+add_components!(buf, e, (Health(1.0),));
 
-apply!(buf)
+apply!(buf);
+has_components(world, e, (Health,))
 
 # output
 
-CommandBuffer{World{Ark._WorldStorage{Tuple{Ark._ComponentStorage{Position, Vector{Position}}, Ark._ComponentStorage{Velocity, Vector{Velocity}}, Ark._ComponentStorage{Health, Vector{Health}}}, (0x0000000000000000,)}, Ark._WorldState{1, 0}}, Union{Ark._AddComponents{Tuple{Health}}, Ark._NewEntity{Tuple{Position, Velocity}}}}(World(entities=1, comp_types=(Position, Velocity, Health)), Union{Ark._AddComponents{Tuple{Health}}, Ark._NewEntity{Tuple{Position, Velocity}}}[])
+true
 ```
 
 After `apply!` the buffer is cleared and can be reused.
