@@ -6,8 +6,8 @@ struct Buffer{B<:CommandBuffer}
 end
 
 const TRANSITION_COMMAND_SPECS = (
-    (exchange_components!, (add=(I,), remove=(S,))),
-    (exchange_components!, (add=(R,), remove=(I,))),
+    ExchangeComponentsCommand(add=(I,), remove=(S,)),
+    ExchangeComponentsCommand(add=(R,), remove=(I,)),
 )
 
 function Buffer(world::World, rands=Float64[], ents=Entity[])

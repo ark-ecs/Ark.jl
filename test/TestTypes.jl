@@ -65,3 +65,13 @@ end
 function Base.getproperty(value::Position_Mod, name::Symbol)
     return nothing
 end
+
+struct TestExternalCommand
+    log::Vector{Int}
+    value::Int
+end
+
+function Ark.apply!(world::World, cmd::TestExternalCommand)
+    push!(cmd.log, count_entities(world, Filter(world, (Position,))) + cmd.value)
+    return nothing
+end

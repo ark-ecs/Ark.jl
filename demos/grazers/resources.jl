@@ -18,7 +18,7 @@ struct GrazerMortalityCommands{B<:CommandBuffer}
 end
 
 GrazerMortalityCommands(world::World) =
-    GrazerMortalityCommands(CommandBuffer(world, ((remove_entity!,),)))
+    GrazerMortalityCommands(CommandBuffer(world, (RemoveEntityCommand(),)))
 
 struct GrazerDecisionCommands{B<:CommandBuffer}
     commands::B
@@ -28,8 +28,8 @@ GrazerDecisionCommands(world::World) = GrazerDecisionCommands(
     CommandBuffer(
         world,
         (
-            (exchange_components!, (add=(Grazing,), remove=(Moving,))),
-            (exchange_components!, (add=(Moving,), remove=(Grazing,))),
+            ExchangeComponentsCommand(add=(Grazing,), remove=(Moving,)),
+            ExchangeComponentsCommand(add=(Moving,), remove=(Grazing,)),
         ),
     ),
 )

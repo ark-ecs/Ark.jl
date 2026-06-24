@@ -27,22 +27,23 @@ end
 ```
 
 ```jldoctest
-world = World(Position, Velocity, Health)
+world = World(Position, Velocity, Health);
 buf = CommandBuffer(world, (
-    (new_entity!, (Position, Velocity)),
-    (remove_entity!,),
-    (add_components!, (Velocity,)),
-    (remove_components!, (Velocity,)),
-    (exchange_components!, (add=(Health,), remove=(Velocity,))),
-))
+    NewEntityCommand((Position, Velocity)),
+    RemoveEntityCommand(),
+    AddComponentsCommand((Velocity,)),
+    RemoveComponentsCommand((Velocity,)),
+    ExchangeComponentsCommand(add=(Health,), remove=(Velocity,)),
+));
 
 # output
 
-CommandBuffer{World{Ark._WorldStorage{Tuple{Ark._ComponentStorage{Position, Vector{Position}}, Ark._ComponentStorage{Velocity, Vector{Velocity}}, Ark._ComponentStorage{Health, Vector{Health}}}, (0x0000000000000000,)}, Ark._WorldState{1, 0}}, Union{Ark._AddComponents{Tuple{Velocity}}, Ark._ExchangeComponents{Tuple{Health}, Tuple{Velocity}}, Ark._NewEntity{Tuple{Position, Velocity}}, Ark._RemoveComponents{Tuple{Velocity}}, Ark._RemoveEntity}}(World(entities=0, comp_types=(Position, Velocity, Health)), Union{Ark._AddComponents{Tuple{Velocity}}, Ark._ExchangeComponents{Tuple{Health}, Tuple{Velocity}}, Ark._NewEntity{Tuple{Position, Velocity}}, Ark._RemoveComponents{Tuple{Velocity}}, Ark._RemoveEntity}[])
+CommandBuffer{World{Ark._WorldStorage{Tuple{Ark._ComponentStorage{Position, Vector{Position}}, Ark._ComponentStorage{Velocity, Vector{Velocity}}, Ark._ComponentStorage{Health, Vector{Health}}}, (0x0000000000000000,)}, Ark._WorldState{1, 0}}, Union{AddComponentsCommand{Tuple{Velocity}}, ExchangeComponentsCommand{Tuple{Health}, Tuple{Velocity}}, NewEntityCommand{Tuple{Position, Velocity}}, RemoveComponentsCommand{Tuple{Velocity}}, RemoveEntityCommand}}(World(entities=0, comp_types=(Position, Velocity, Health)), Union{AddComponentsCommand{Tuple{Velocity}}, ExchangeComponentsCommand{Tuple{Health}, Tuple{Velocity}}, NewEntityCommand{Tuple{Position, Velocity}}, RemoveComponentsCommand{Tuple{Velocity}}, RemoveEntityCommand}[])
 ```
 
 Each spec corresponds to one command type. The component types are captured at construction time
 so the buffer's internal storage is specialized and allocation-free.
+Arbitrary command types can also be included in the specs and recorded with [`record!`](@ref).
 
 ## Recording commands
 
@@ -55,15 +56,15 @@ immediately and returned, allowing it to be used in subsequent commands before [
 is called. The returned entity is not considered alive until the buffer is applied.
 
 ```jldoctest
-world = World(Position, Velocity)
-buf = CommandBuffer(world, ((new_entity!, (Position, Velocity)),))
+world = World(Position, Velocity);
+buf = CommandBuffer(world, (NewEntityCommand((Position, Velocity)),));
 
-e = new_entity!(buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)))
+e = new_entity!(buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)));
 apply!(buf)
 
 # output
 
-CommandBuffer{World{Ark._WorldStorage{Tuple{Ark._ComponentStorage{Position, Vector{Position}}, Ark._ComponentStorage{Velocity, Vector{Velocity}}}, (0x0000000000000000,)}, Ark._WorldState{1, 0}}, Ark._NewEntity{Tuple{Position, Velocity}}}(World(entities=1, comp_types=(Position, Velocity)), Ark._NewEntity{Tuple{Position, Velocity}}[])
+CommandBuffer{World{Ark._WorldStorage{Tuple{Ark._ComponentStorage{Position, Vector{Position}}, Ark._ComponentStorage{Velocity, Vector{Velocity}}}, (0x0000000000000000,)}, Ark._WorldState{1, 0}}, NewEntityCommand{Tuple{Position, Velocity}}}(World(entities=1, comp_types=(Position, Velocity)), NewEntityCommand{Tuple{Position, Velocity}}[])
 ```
 
 ## Applying commands
@@ -71,20 +72,60 @@ CommandBuffer{World{Ark._WorldStorage{Tuple{Ark._ComponentStorage{Position, Vect
 Call [apply!](@ref) to execute all staged commands in FIFO order:
 
 ```jldoctest
-world = World(Position, Velocity, Health)
+world = World(Position, Velocity, Health);
 buf = CommandBuffer(world, (
-    (new_entity!, (Position, Velocity)),
-    (add_components!, (Health,)),
-))
+    NewEntityCommand((Position, Velocity)),
+    AddComponentsCommand((Health,)),
+));
 
-e = new_entity!(buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)))
-add_components!(buf, e, (Health(1.0),))
+e = new_entity!(buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)));
+add_components!(buf, e, (Health(1.0),));
 
 apply!(buf)
 
 # output
 
-CommandBuffer{World{Ark._WorldStorage{Tuple{Ark._ComponentStorage{Position, Vector{Position}}, Ark._ComponentStorage{Velocity, Vector{Velocity}}, Ark._ComponentStorage{Health, Vector{Health}}}, (0x0000000000000000,)}, Ark._WorldState{1, 0}}, Union{Ark._AddComponents{Tuple{Health}}, Ark._NewEntity{Tuple{Position, Velocity}}}}(World(entities=1, comp_types=(Position, Velocity, Health)), Union{Ark._AddComponents{Tuple{Health}}, Ark._NewEntity{Tuple{Position, Velocity}}}[])
+CommandBuffer{World{Ark._WorldStorage{Tuple{Ark._ComponentStorage{Position, Vector{Position}}, Ark._ComponentStorage{Velocity, Vector{Velocity}}, Ark._ComponentStorage{Health, Vector{Health}}}, (0x0000000000000000,)}, Ark._WorldState{1, 0}}, Union{AddComponentsCommand{Tuple{Health}}, NewEntityCommand{Tuple{Position, Velocity}}}}(World(entities=1, comp_types=(Position, Velocity, Health)), Union{AddComponentsCommand{Tuple{Health}}, NewEntityCommand{Tuple{Position, Velocity}}}[])
 ```
 
 After `apply!` the buffer is cleared and can be reused.
+
+### Recording arbitrary commands
+
+To coordinate world changes with non-world state, include a custom command type in
+the command specs, define `apply!(world, command)`, and record command values with
+[`record!`](@ref):
+
+```jldoctest
+world = World(Position, Velocity, Health)
+
+struct PushOnGridCommand
+    grid::Matrix{Vector{Entity}}
+    entity::Entity
+end
+
+function Ark.apply!(world, cmd::PushOnGridCommand)
+    pos, = get_components(world, cmd.entity, (Position,))
+    push!(cmd.grid[Int(pos.x), Int(pos.y)], cmd.entity)
+    return
+end
+
+buf = CommandBuffer(world, (
+    NewEntityCommand((Position,)),
+    PushOnGridCommand,
+))
+
+grid = [Entity[] for _ in 1:2, _ in 1:2]
+
+entity = new_entity!(buf, (Position(1.0, 1.0),))
+record!(buf, PushOnGridCommand(grid, entity))
+
+apply!(buf)
+
+grid[1] # now it contains the entity created in the buffer
+
+# output
+
+1-element Vector{Entity}:
+ Entity(2, 1)
+```

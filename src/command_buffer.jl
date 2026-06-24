@@ -1,47 +1,102 @@
-struct _NewEntity{V<:Tuple}
+"""
+    NewEntityCommand(component_types)
+
+Command-buffer spec for [`new_entity!`](@ref).
+"""
+struct NewEntityCommand{T<:Tuple}
     entity::Entity
-    components::V
+    components::T
 end
 
-struct _RemoveEntity
+NewEntityCommand(component_types::Tuple) =
+    NewEntityCommand{_spec_tuple_type(component_types)}
+
+"""
+    RemoveEntityCommand()
+
+Command-buffer spec for [`remove_entity!`](@ref).
+"""
+struct RemoveEntityCommand
     entity::Entity
 end
 
-struct _AddComponents{C<:Tuple}
+RemoveEntityCommand() = RemoveEntityCommand
+
+"""
+    AddComponentsCommand(component_types)
+
+Command-buffer spec for [`add_components!`](@ref).
+"""
+struct AddComponentsCommand{T<:Tuple}
     entity::Entity
-    components::C
+    components::T
 end
 
-struct _RemoveComponents{R<:Tuple}
+AddComponentsCommand(component_types::Tuple) =
+    AddComponentsCommand{_spec_tuple_type(component_types)}
+
+"""
+    RemoveComponentsCommand(component_types)
+
+Command-buffer spec for [`remove_components!`](@ref).
+"""
+struct RemoveComponentsCommand{T<:Tuple}
     entity::Entity
 end
 
-struct _ExchangeComponents{A<:Tuple,R<:Tuple}
+RemoveComponentsCommand(component_types::Tuple) =
+    RemoveComponentsCommand{_spec_tuple_type(component_types)}
+
+RemoveComponentsCommand(entity::Entity, component_types::Tuple) =
+    RemoveComponentsCommand{_spec_tuple_type(component_types)}(entity)
+
+"""
+    ExchangeComponentsCommand(; add=(), remove=())
+
+Command-buffer spec for [`exchange_components!`](@ref).
+"""
+struct ExchangeComponentsCommand{A<:Tuple,R<:Tuple}
     entity::Entity
     add::A
 end
 
-struct _SetComponents{V<:Tuple}
-    entity::Entity
-    values::V
+function ExchangeComponentsCommand(; add=(), remove=())
+    if !(add isa Tuple) || !(remove isa Tuple)
+        throw(ArgumentError("ExchangeComponentsCommand add and remove arguments must be tuples"))
+    end
+    return ExchangeComponentsCommand{_spec_tuple_type(add),_spec_tuple_type(remove)}
 end
 
-struct _SetRelations{R<:Tuple}
+ExchangeComponentsCommand(entity::Entity, add::Tuple, remove::Tuple) =
+    ExchangeComponentsCommand{typeof(add),_spec_tuple_type(remove)}(entity, add)
+
+"""
+    SetComponentsCommand(component_types)
+
+Command-buffer spec for [`set_components!`](@ref).
+"""
+struct SetComponentsCommand{T<:Tuple}
     entity::Entity
-    relations::R
+    components::T
 end
 
-const _Command = Union{
-    _NewEntity,
-    _RemoveEntity,
-    _AddComponents,
-    _RemoveComponents,
-    _ExchangeComponents,
-    _SetComponents,
-    _SetRelations,
-}
+SetComponentsCommand(component_types::Tuple) =
+    SetComponentsCommand{_spec_tuple_type(component_types)}
 
-struct CommandBuffer{W<:World,C<:_Command}
+"""
+    SetRelationsCommand(relation_types)
+
+Command-buffer spec for [`set_relations!`](@ref).
+"""
+struct SetRelationsCommand{T<:Tuple}
+    entity::Entity
+    relations::T
+end
+
+SetRelationsCommand(relation_types::Tuple) =
+    SetRelationsCommand{_spec_tuple_type(relation_types)}
+
+struct CommandBuffer{W<:World,C}
     _world::W
     _commands::Vector{C}
 end
@@ -54,7 +109,7 @@ function _cmd_value_type(T, relation_types::Type{<:Tuple})
 end
 
 function _spec_component_types(::Type{T}) where {T<:Tuple}
-    return [_val_parameter(fieldtype(T, i)) for i in 1:fieldcount(T)]
+    return [fieldtype(T, i) for i in 1:fieldcount(T)]
 end
 
 function _spec_value_tuple_type(::Type{T}) where {T<:Tuple}
@@ -78,87 +133,99 @@ function _spec_relations_tuple_type(::Type{T}) where {T<:Tuple}
     return Tuple{relation_types...}
 end
 
-_spec_valtuple_type(spec::Tuple) = typeof(_valtuple(spec))
+_spec_tuple_type(spec::Tuple) = Tuple{spec...}
 
 @generated function _command_type(
     ::Type{T},
-    ::typeof(new_entity!),
+    ::Type{NewEntityCommand},
     ::Type{Storage},
 ) where {T<:Tuple,Storage<:_WorldStorage}
-    _NewEntity{_spec_value_tuple_type(T, Storage)}
+    NewEntityCommand{_spec_value_tuple_type(T, Storage)}
 end
 
 @generated function _command_type(
     ::Type{T},
-    ::typeof(add_components!),
+    ::Type{AddComponentsCommand},
     ::Type{Storage},
 ) where {T<:Tuple,Storage<:_WorldStorage}
-    _AddComponents{_spec_value_tuple_type(T, Storage)}
+    AddComponentsCommand{_spec_value_tuple_type(T, Storage)}
 end
 
-@generated function _command_type(::Type{T}, ::typeof(remove_components!)) where {T<:Tuple}
-    _RemoveComponents{_spec_value_tuple_type(T)}
+@generated function _command_type(::Type{T}, ::Type{RemoveComponentsCommand}) where {T<:Tuple}
+    RemoveComponentsCommand{T}
 end
 
 @generated function _command_type(
     ::Type{T},
-    ::typeof(exchange_components!),
+    ::Type{ExchangeComponentsCommand},
     ::Type{U},
     ::Type{Storage},
 ) where {T<:Tuple,U<:Tuple,Storage<:_WorldStorage}
-    _ExchangeComponents{_spec_value_tuple_type(T, Storage),_spec_value_tuple_type(U)}
+    ExchangeComponentsCommand{_spec_value_tuple_type(T, Storage),U}
 end
 
-@generated function _command_type(::Type{T}, ::typeof(set_components!)) where {T<:Tuple}
-    _SetComponents{_spec_value_tuple_type(T)}
+@generated function _command_type(::Type{T}, ::Type{SetComponentsCommand}) where {T<:Tuple}
+    SetComponentsCommand{_spec_value_tuple_type(T)}
 end
 
-@generated function _command_type(::Type{T}, ::typeof(set_relations!)) where {T<:Tuple}
-    _SetRelations{_spec_relations_tuple_type(T)}
+@generated function _command_type(::Type{T}, ::Type{SetRelationsCommand}) where {T<:Tuple}
+    SetRelationsCommand{_spec_relations_tuple_type(T)}
 end
 
-function _exchange_spec_components(spec::Tuple)
-    if length(spec) != 2 || !(spec[2] isa NamedTuple) ||
-       !hasproperty(spec[2], :add) || !hasproperty(spec[2], :remove)
-        throw(
-            ArgumentError(
-                "exchange_components! command spec must be (exchange_components!, (add=(...), remove=(...)))",
-            ),
-        )
-    end
-    add = spec[2].add
-    remove = spec[2].remove
-    if !(add isa Tuple) || !(remove isa Tuple)
-        throw(ArgumentError("exchange_components! command spec add and remove fields must be tuples"))
-    end
-    return add, remove
+function _spec_command_type(
+    ::Type{Storage},
+    ::Type{NewEntityCommand{T}},
+) where {Storage<:_WorldStorage,T<:Tuple}
+    return _command_type(T, NewEntityCommand, Storage)
 end
 
-function _spec_command_type(::Type{Storage}, spec::Tuple) where {Storage<:_WorldStorage}
-    fn = spec[1]
-    if fn === new_entity!
-        return _command_type(_spec_valtuple_type(spec[2]), new_entity!, Storage)
-    elseif fn === remove_entity!
-        return _RemoveEntity
-    elseif fn === add_components!
-        return _command_type(_spec_valtuple_type(spec[2]), add_components!, Storage)
-    elseif fn === remove_components!
-        return _command_type(_spec_valtuple_type(spec[2]), remove_components!)
-    elseif fn === exchange_components!
-        add, remove = _exchange_spec_components(spec)
-        return _command_type(
-            _spec_valtuple_type(add),
-            exchange_components!,
-            _spec_valtuple_type(remove),
-            Storage,
-        )
-    elseif fn === set_components!
-        return _command_type(_spec_valtuple_type(spec[2]), set_components!)
-    elseif fn === set_relations!
-        return _command_type(_spec_valtuple_type(spec[2]), set_relations!)
-    else
-        throw(ArgumentError("unknown command function $fn"))
-    end
+_spec_command_type(::Type{Storage}, ::Type{RemoveEntityCommand}) where {Storage<:_WorldStorage} =
+    RemoveEntityCommand
+
+function _spec_command_type(
+    ::Type{Storage},
+    ::Type{AddComponentsCommand{T}},
+) where {Storage<:_WorldStorage,T<:Tuple}
+    return _command_type(T, AddComponentsCommand, Storage)
+end
+
+function _spec_command_type(
+    ::Type{Storage},
+    ::Type{RemoveComponentsCommand{T}},
+) where {Storage<:_WorldStorage,T<:Tuple}
+    return _command_type(T, RemoveComponentsCommand)
+end
+
+function _spec_command_type(
+    ::Type{Storage},
+    ::Type{ExchangeComponentsCommand{A,R}},
+) where {Storage<:_WorldStorage,A<:Tuple,R<:Tuple}
+    return _command_type(
+        A,
+        ExchangeComponentsCommand,
+        R,
+        Storage,
+    )
+end
+
+function _spec_command_type(
+    ::Type{Storage},
+    ::Type{SetComponentsCommand{T}},
+) where {Storage<:_WorldStorage,T<:Tuple}
+    return _command_type(T, SetComponentsCommand)
+end
+
+function _spec_command_type(
+    ::Type{Storage},
+    ::Type{SetRelationsCommand{T}},
+) where {Storage<:_WorldStorage,T<:Tuple}
+    return _command_type(T, SetRelationsCommand)
+end
+
+_spec_command_type(::Type{Storage}, command_type::Type) where {Storage<:_WorldStorage} = command_type
+
+function _spec_command_type(::Type{Storage}, spec) where {Storage<:_WorldStorage}
+    throw(ArgumentError("unknown command spec $spec"))
 end
 
 function _specs_to_types(world::World, specs::Tuple)
@@ -167,7 +234,7 @@ function _specs_to_types(world::World, specs::Tuple)
         throw(ArgumentError("command buffer needs to contain at least one deferred operation"))
     end
     storage_type = typeof(_storage(world))
-    types = Vector{DataType}(undef, n)
+    types = Vector{Any}(undef, n)
     for i in 1:n
         types[i] = _spec_command_type(storage_type, specs[i])
     end
@@ -181,19 +248,21 @@ Creates a new command buffer for the given [World](@ref)
 for staging structural changes to apply later.
 
 The `specs` tuple specifies which operations the buffer supports.
-Each element is a tuple of the form `(function, component_types...)`:
+Built-in world operations are specified with command spec constructors that return command types.
+Arbitrary command types can also be included and later recorded with [`record!`](@ref):
 
 ```julia
 buf = CommandBuffer(
     world,
     (
-        (new_entity!, (Position, Velocity)),
-        (remove_entity!,),
-        (add_components!, (Velocity,)),
-        (remove_components!, (Velocity,)),
-        (exchange_components!, (add=(Health,), remove=(Velocity,))),
-        (set_components!, (Position,)),
-        (set_relations!, (ChildOf,)),
+        NewEntityCommand((Position, Velocity)),
+        RemoveEntityCommand(),
+        AddComponentsCommand((Velocity,)),
+        RemoveComponentsCommand((Velocity,)),
+        ExchangeComponentsCommand(add=(Health,), remove=(Velocity,)),
+        SetComponentsCommand((Position,)),
+        SetRelationsCommand((ChildOf,)),
+        ExternalCommand,
     ),
 )
 ```
@@ -213,43 +282,35 @@ function new_entity!(buf::CommandBuffer, values::Tuple)
     state = _state(world)
     entity = _reserve_pending_entity!(state)
     _reserve_entity_index!(state, entity)
-    push!(buf._commands, _NewEntity(entity, values))
+    push!(buf._commands, NewEntityCommand(entity, values))
     return entity
 end
 
 function remove_entity!(buf::CommandBuffer, entity::Entity)
-    push!(buf._commands, _RemoveEntity(entity))
+    push!(buf._commands, RemoveEntityCommand(entity))
     return nothing
 end
 
 function add_components!(buf::CommandBuffer, entity::Entity, values::Tuple)
-    push!(buf._commands, _AddComponents(entity, values))
+    push!(buf._commands, AddComponentsCommand(entity, values))
     return nothing
 end
 
-@generated function _make_remove_cmd(entity::Entity, types::T) where {T<:Tuple}
-    inner = [fieldtype(T, i).parameters[1] for i in 1:fieldcount(T)]
-    R = Tuple{inner...}
-    quote
-        _RemoveComponents{$R}(entity)
-    end
+@inline function _make_remove_cmd(entity::Entity, types::Tuple)
+    return RemoveComponentsCommand(entity, types)
 end
 
 Base.@constprop :aggressive function remove_components!(buf::CommandBuffer, entity::Entity, types::Tuple)
-    push!(buf._commands, _make_remove_cmd(entity, _valtuple(types)))
+    push!(buf._commands, _make_remove_cmd(entity, types))
     return nothing
 end
 
-@generated function _make_exchange_cmd(
+@inline function _make_exchange_cmd(
     entity::Entity,
-    add::A,
-    remove::T,
-) where {A<:Tuple,T<:Tuple}
-    inner = [fieldtype(T, i).parameters[1] for i in 1:fieldcount(T)]
-    R = Tuple{inner...}
-    return quote
-        _ExchangeComponents{$A,$R}(entity, add)
-    end
+    add::Tuple,
+    remove::Tuple,
+)
+    return ExchangeComponentsCommand(entity, add, remove)
 end
 
 Base.@constprop :aggressive function exchange_components!(
@@ -258,17 +319,30 @@ Base.@constprop :aggressive function exchange_components!(
     add::Tuple=(),
     remove::Tuple=(),
 )
-    push!(buf._commands, _make_exchange_cmd(entity, add, _valtuple(remove)))
+    push!(buf._commands, _make_exchange_cmd(entity, add, remove))
     return nothing
 end
 
 function set_components!(buf::CommandBuffer, entity::Entity, values::Tuple)
-    push!(buf._commands, _SetComponents(entity, values))
+    push!(buf._commands, SetComponentsCommand(entity, values))
     return nothing
 end
 
 function set_relations!(buf::CommandBuffer, entity::Entity, relations::Tuple)
-    push!(buf._commands, _SetRelations(entity, relations))
+    push!(buf._commands, SetRelationsCommand(entity, relations))
+    return nothing
+end
+
+"""
+    record!(buf::CommandBuffer, command)
+
+Records an arbitrary command in the buffer.
+
+The command's type must be included in the buffer specs. When the buffer is
+applied, arbitrary commands are executed with `apply!(world, command)`.
+"""
+function record!(buf::CommandBuffer, command)
+    push!(buf._commands, command)
     return nothing
 end
 
@@ -295,25 +369,27 @@ After execution the command buffer is cleared and can be reused.
 
     chain = nothing
     for (i, T) in enumerate(member_types)
-        body = if T <: _NewEntity
+        body = if T <: NewEntityCommand
             :(_apply_new_entity!(buf._world, cmd.entity, cmd.components))
-        elseif T <: _RemoveEntity
+        elseif T <: RemoveEntityCommand
             :(Ark.remove_entity!(buf._world, cmd.entity))
-        elseif T <: _AddComponents
+        elseif T <: AddComponentsCommand
             :(Ark.add_components!(buf._world, cmd.entity, cmd.components))
-        elseif T <: _RemoveComponents
+        elseif T <: RemoveComponentsCommand
             R = T.parameters[1]
             types = [fieldtype(R, i) for i in 1:fieldcount(R)]
             :(Ark.remove_components!(buf._world, cmd.entity, $(Expr(:tuple, types...))))
-        elseif T <: _ExchangeComponents
+        elseif T <: ExchangeComponentsCommand
             R = T.parameters[2]
             types = [fieldtype(R, i) for i in 1:fieldcount(R)]
             :(Ark.exchange_components!(buf._world, cmd.entity; add=cmd.add,
                 remove=($(Expr(:tuple, types...)))))
-        elseif T <: _SetComponents
-            :(Ark.set_components!(buf._world, cmd.entity, cmd.values))
-        elseif T <: _SetRelations
+        elseif T <: SetComponentsCommand
+            :(Ark.set_components!(buf._world, cmd.entity, cmd.components))
+        elseif T <: SetRelationsCommand
             :(Ark.set_relations!(buf._world, cmd.entity, cmd.relations))
+        else
+            :(Ark.apply!(buf._world, cmd))
         end
 
         if i == 1
