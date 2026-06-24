@@ -29,11 +29,11 @@ end
 ```jldoctest
 world = World(Position, Velocity, Health)
 buf = CommandBuffer(world, (
-    (new_entity!, (Position, Velocity)),
-    (remove_entity!,),
-    (add_components!, (Velocity,)),
-    (remove_components!, (Velocity,)),
-    (exchange_components!, (add=(Health,), remove=(Velocity,))),
+    NewEntityCommand((Position, Velocity)),
+    RemoveEntityCommand(),
+    AddComponentsCommand(Velocity),
+    RemoveComponentsCommand(Velocity),
+    ExchangeComponentsCommand(add=Health, remove=Velocity),
 ))
 
 # output
@@ -43,6 +43,7 @@ CommandBuffer{World{Ark._WorldStorage{Tuple{Ark._ComponentStorage{Position, Vect
 
 Each spec corresponds to one command type. The component types are captured at construction time
 so the buffer's internal storage is specialized and allocation-free.
+Arbitrary command types can also be included in the specs and recorded with [`record!`](@ref).
 
 ## Recording commands
 
@@ -56,7 +57,7 @@ is called. The returned entity is not considered alive until the buffer is appli
 
 ```jldoctest
 world = World(Position, Velocity)
-buf = CommandBuffer(world, ((new_entity!, (Position, Velocity)),))
+buf = CommandBuffer(world, (NewEntityCommand((Position, Velocity)),))
 
 e = new_entity!(buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)))
 apply!(buf)
@@ -73,8 +74,8 @@ Call [apply!](@ref) to execute all staged commands in FIFO order:
 ```jldoctest
 world = World(Position, Velocity, Health)
 buf = CommandBuffer(world, (
-    (new_entity!, (Position, Velocity)),
-    (add_components!, (Health,)),
+    NewEntityCommand((Position, Velocity)),
+    AddComponentsCommand(Health),
 ))
 
 e = new_entity!(buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)))
@@ -88,3 +89,29 @@ CommandBuffer{World{Ark._WorldStorage{Tuple{Ark._ComponentStorage{Position, Vect
 ```
 
 After `apply!` the buffer is cleared and can be reused.
+
+### Arbitrary commands
+
+To coordinate world changes with non-world state, include a custom command type in
+the command specs, define `apply!(world, command)`, and record command values with
+[`record!`](@ref):
+
+```julia
+struct ExternalCommand
+    graph::Graph
+end
+
+function Ark.apply!(world, cmd::ExternalCommand)
+    change_something_on_graph!(cmd.graph)
+    return nothing
+end
+
+buf = CommandBuffer(world, (
+    NewEntityCommand(Position),
+    ExternalCommand,
+))
+
+entity = new_entity!(buf, (Position(1.0, 2.0),))
+record!(buf, ExternalCommand(graph))
+apply!(buf)
+```

@@ -75,7 +75,10 @@ export unpack, @unpack
 
 export @unchecked
 
-export CommandBuffer, apply!
+export CommandBuffer, apply!, record!
+export NewEntityCommand, RemoveEntityCommand
+export AddComponentsCommand, RemoveComponentsCommand, ExchangeComponentsCommand
+export SetComponentsCommand, SetRelationsCommand
 
 export Relation
 

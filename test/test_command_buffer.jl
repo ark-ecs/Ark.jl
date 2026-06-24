@@ -1,7 +1,7 @@
 @testset "CommandBuffer constructor validation" begin
     world = World(Position)
 
-    buf = CommandBuffer(world, ((new_entity!, (Position,)), (remove_entity!,)))
+    buf = CommandBuffer(world, (NewEntityCommand(Position), RemoveEntityCommand()))
     @test buf isa CommandBuffer
 
     @test_throws TypeError CommandBuffer{Nothing}(Nothing[])
@@ -13,13 +13,12 @@
 
     world_exchange = World(Position, Velocity, Health)
     @test_throws ArgumentError CommandBuffer(world_exchange, ((exchange_components!, (Health,), (Velocity,)),))
-    @test_throws("exchange_components! command spec add and remove fields must be tuples",
-        CommandBuffer(world_exchange, ((exchange_components!, (add=Health, remove=(Velocity,))),)))
+    @test_throws ArgumentError ExchangeComponentsCommand(add=[Health], remove=(Velocity,))
 end
 
 @testset "CommandBuffer new_entity!" begin
     world = World(Position, Velocity)
-    buf = CommandBuffer(world, ((new_entity!, (Position, Velocity)),))
+    buf = CommandBuffer(world, (NewEntityCommand((Position, Velocity)),))
 
     e = new_entity!(buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)))
     @test e isa Entity
@@ -37,7 +36,7 @@ end
 
 @testset "CommandBuffer new_entity! multiple" begin
     world = World(Position)
-    buf = CommandBuffer(world, ((new_entity!, (Position,)),))
+    buf = CommandBuffer(world, (NewEntityCommand(Position),))
 
     e1 = new_entity!(buf, (Position(1.0, 2.0),))
     e2 = new_entity!(buf, (Position(3.0, 4.0),))
@@ -57,7 +56,7 @@ end
 
 @testset "CommandBuffer remove_entity!" begin
     world = World(Position)
-    buf = CommandBuffer(world, ((remove_entity!,),))
+    buf = CommandBuffer(world, (RemoveEntityCommand(),))
 
     e = new_entity!(world, (Position(1.0, 2.0),))
 
@@ -69,7 +68,7 @@ end
 
 @testset "CommandBuffer add_components!" begin
     world = World(Position, Velocity)
-    buf = CommandBuffer(world, ((add_components!, (Velocity,)),))
+    buf = CommandBuffer(world, (AddComponentsCommand(Velocity),))
 
     e = new_entity!(world, (Position(0.0, 0.0),))
     add_components!(buf, e, (Velocity(5.0, 5.0),))
@@ -81,7 +80,7 @@ end
 
 @testset "CommandBuffer add_components! relations" begin
     world = World(Position, Relation{ChildOf})
-    buf = CommandBuffer(world, ((add_components!, (ChildOf,)),))
+    buf = CommandBuffer(world, (AddComponentsCommand(ChildOf),))
 
     parent = new_entity!(world, (Position(1.0, 2.0),))
     child = new_entity!(world, (Position(3.0, 4.0),))
@@ -94,7 +93,7 @@ end
 
 @testset "CommandBuffer set_components!" begin
     world = World(Position, Velocity)
-    buf = CommandBuffer(world, ((set_components!, (Position, Velocity)),))
+    buf = CommandBuffer(world, (SetComponentsCommand((Position, Velocity)),))
 
     e = new_entity!(world, (Position(0.0, 0.0), Velocity(1.0, 1.0)))
     set_components!(buf, e, (Position(2.0, 3.0), Velocity(4.0, 5.0)))
@@ -108,8 +107,8 @@ end
 @testset "CommandBuffer set_components! pending entity" begin
     world = World(Position, Velocity)
     buf = CommandBuffer(world, (
-        (new_entity!, (Position, Velocity)),
-        (set_components!, (Position, Velocity)),
+        NewEntityCommand((Position, Velocity)),
+        SetComponentsCommand((Position, Velocity)),
     ))
 
     e = new_entity!(buf, (Position(0.0, 0.0), Velocity(1.0, 1.0)))
@@ -127,7 +126,7 @@ end
 
 @testset "CommandBuffer set_relations!" begin
     world = World(Position, Relation{ChildOf})
-    buf = CommandBuffer(world, ((set_relations!, (ChildOf,)),))
+    buf = CommandBuffer(world, (SetRelationsCommand(ChildOf),))
 
     parent1 = new_entity!(world, (Position(1.0, 2.0),))
     parent2 = new_entity!(world, (Position(3.0, 4.0),))
@@ -143,8 +142,8 @@ end
 @testset "CommandBuffer set_relations! pending entity" begin
     world = World(Position, Relation{ChildOf})
     buf = CommandBuffer(world, (
-        (new_entity!, (Position, ChildOf)),
-        (set_relations!, (ChildOf,)),
+        NewEntityCommand((Position, ChildOf)),
+        SetRelationsCommand(ChildOf),
     ))
 
     parent1 = new_entity!(world, (Position(1.0, 2.0),))
@@ -165,7 +164,7 @@ end
 
 @testset "CommandBuffer remove_components!" begin
     world = World(Position, Velocity)
-    buf = CommandBuffer(world, ((remove_components!, (Velocity,)),))
+    buf = CommandBuffer(world, (RemoveComponentsCommand(Velocity),))
 
     e = new_entity!(world, (Position(0.0, 0.0), Velocity(1.0, 1.0)))
     remove_components!(buf, e, (Velocity,))
@@ -177,7 +176,7 @@ end
 
 @testset "CommandBuffer exchange_components!" begin
     world = World(Position, Velocity, Health)
-    buf = CommandBuffer(world, ((exchange_components!, (add=(Health,), remove=(Velocity,))),))
+    buf = CommandBuffer(world, (ExchangeComponentsCommand(add=Health, remove=Velocity),))
 
     e = new_entity!(world, (Position(0.0, 0.0), Velocity(1.0, 1.0)))
     exchange_components!(buf, e; add=(Health(100.0),), remove=(Velocity,))
@@ -194,8 +193,8 @@ end
     buf = CommandBuffer(
         world,
         (
-            (new_entity!, (Position, Velocity)),
-            (exchange_components!, (add=(Health,), remove=(Velocity,))),
+            NewEntityCommand((Position, Velocity)),
+            ExchangeComponentsCommand(add=Health, remove=Velocity),
         ),
     )
 
@@ -214,7 +213,7 @@ end
 
 @testset "CommandBuffer exchange_components! add relation" begin
     world = World(Position, Velocity, Relation{ChildOf})
-    buf = CommandBuffer(world, ((exchange_components!, (add=(ChildOf,), remove=(Velocity,))),))
+    buf = CommandBuffer(world, (ExchangeComponentsCommand(add=ChildOf, remove=Velocity),))
 
     parent = new_entity!(world, (Position(1.0, 2.0),))
     child = new_entity!(world, (Position(3.0, 4.0), Velocity(1.0, 1.0)))
@@ -226,17 +225,44 @@ end
     @test !has_components(world, child, (Velocity,))
 end
 
+struct TestExternalCommand
+    log::Vector{Int}
+    value::Int
+end
+
+function Ark.apply!(world::World, cmd::TestExternalCommand)
+    push!(cmd.log, count_entities(world, Filter(world, (Position,))) + cmd.value)
+    return nothing
+end
+
+@testset "CommandBuffer arbitrary command" begin
+    world = World(Position)
+    log = Int[]
+    buf = CommandBuffer(world, (
+        NewEntityCommand(Position),
+        TestExternalCommand,
+    ))
+
+    entity = new_entity!(buf, (Position(1.0, 2.0),))
+    @test !is_alive(world, entity)
+    record!(buf, TestExternalCommand(log, 10))
+    apply!(buf)
+
+    @test is_alive(world, entity)
+    @test log == [11]
+end
+
 @testset "CommandBuffer combined operations" begin
     world = World(Position, Velocity, Health)
     buf = CommandBuffer(
         world,
         (
-            (new_entity!, (Position, Velocity)),
-            (remove_entity!,),
-            (add_components!, (Health,)),
-            (add_components!, (Velocity,)),
-            (remove_components!, (Velocity,)),
-            (exchange_components!, (add=(Health,), remove=(Velocity,))),
+            NewEntityCommand((Position, Velocity)),
+            RemoveEntityCommand(),
+            AddComponentsCommand(Health),
+            AddComponentsCommand(Velocity),
+            RemoveComponentsCommand(Velocity),
+            ExchangeComponentsCommand(add=Health, remove=Velocity),
         ),
     )
 
@@ -279,8 +305,8 @@ end
 @testset "CommandBuffer pre-allocated entity usable immediately" begin
     world = World(Position, Velocity)
     buf = CommandBuffer(world, (
-        (new_entity!, (Position, Velocity)),
-        (remove_components!, (Velocity,)),
+        NewEntityCommand((Position, Velocity)),
+        RemoveComponentsCommand(Velocity),
     ))
 
     e = new_entity!(buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)))
@@ -298,7 +324,7 @@ end
 @testset "CommandBuffer new_entity! reserves relation world index" begin
     world = World(Position, Relation{ChildOf})
     buf = CommandBuffer(world, (
-        (new_entity!, (Position, ChildOf)),
+        NewEntityCommand((Position, ChildOf)),
     ))
 
     parent = new_entity!(world, (Position(1.0, 2.0),))
@@ -323,7 +349,7 @@ end
     remove_entity!(world, recycled)
 
     targets_len = length(_state(world)._targets)
-    buf = CommandBuffer(world, ((new_entity!, (Position,)),))
+    buf = CommandBuffer(world, (NewEntityCommand(Position),))
     entity = new_entity!(buf, (Position(3.0, 4.0),))
     @test !is_alive(world, entity)
 
@@ -343,7 +369,7 @@ end
 @testset "CommandBuffer new_entity! relations" begin
     world = World(Position, Relation{ChildOf})
     buf = CommandBuffer(world, (
-        (new_entity!, (Position, ChildOf)),
+        NewEntityCommand((Position, ChildOf)),
     ))
 
     parent = new_entity!(world, (Position(1.0, 2.0),))
@@ -364,7 +390,7 @@ end
 
 @testset "CommandBuffer empty apply" begin
     world = World(Position)
-    buf = CommandBuffer(world, ((remove_entity!,),))
+    buf = CommandBuffer(world, (RemoveEntityCommand(),))
     apply!(buf)
 end
 
@@ -372,7 +398,7 @@ end
     world = World(Position)
     remove_entity!(world, new_entity!(world, (Position(1.0, 2.0),)))
 
-    buf = CommandBuffer(world, ((new_entity!, (Position,)),))
+    buf = CommandBuffer(world, (NewEntityCommand(Position),))
 
     e1 = new_entity!(buf, (Position(1.0, 2.0),))
     @test !is_alive(world, e1)
