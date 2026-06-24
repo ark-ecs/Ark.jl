@@ -244,7 +244,7 @@ Creates a new command buffer for the given [World](@ref)
 for staging structural changes to apply later.
 
 The `specs` tuple specifies which operations the buffer supports.
-Built-in world operations are specified with command spec objects.
+Built-in world operations are specified with command spec constructors that return command types.
 Arbitrary command types can also be included and later recorded with [`record!`](@ref):
 
 ```julia
