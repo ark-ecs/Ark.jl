@@ -90,13 +90,15 @@ CommandBuffer{World{Ark._WorldStorage{Tuple{Ark._ComponentStorage{Position, Vect
 
 After `apply!` the buffer is cleared and can be reused.
 
-### Arbitrary commands
+### Recording arbitrary commands
 
 To coordinate world changes with non-world state, include a custom command type in
 the command specs, define `apply!(world, command)`, and record command values with
 [`record!`](@ref):
 
 ```jldoctest
+world = World(Position, Velocity, Health)
+
 struct PushOnGridCommand
     grid::Matrix{Vector{Entity}}
     entity::Entity
