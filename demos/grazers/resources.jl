@@ -28,8 +28,8 @@ GrazerDecisionCommands(world::World) = GrazerDecisionCommands(
     CommandBuffer(
         world,
         (
-            ExchangeComponentsCommand(add=Grazing, remove=Moving),
-            ExchangeComponentsCommand(add=Moving, remove=Grazing),
+            ExchangeComponentsCommand(add=(Grazing,), remove=(Moving,)),
+            ExchangeComponentsCommand(add=(Moving,), remove=(Grazing,)),
         ),
     ),
 )

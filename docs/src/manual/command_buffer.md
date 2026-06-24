@@ -31,9 +31,9 @@ world = World(Position, Velocity, Health)
 buf = CommandBuffer(world, (
     NewEntityCommand((Position, Velocity)),
     RemoveEntityCommand(),
-    AddComponentsCommand(Velocity),
-    RemoveComponentsCommand(Velocity),
-    ExchangeComponentsCommand(add=Health, remove=Velocity),
+    AddComponentsCommand((Velocity,)),
+    RemoveComponentsCommand((Velocity,)),
+    ExchangeComponentsCommand(add=(Health,), remove=(Velocity,)),
 ))
 
 # output
@@ -75,7 +75,7 @@ Call [apply!](@ref) to execute all staged commands in FIFO order:
 world = World(Position, Velocity, Health)
 buf = CommandBuffer(world, (
     NewEntityCommand((Position, Velocity)),
-    AddComponentsCommand(Health),
+    AddComponentsCommand((Health,)),
 ))
 
 e = new_entity!(buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)))
@@ -107,7 +107,7 @@ function Ark.apply!(world, cmd::ExternalCommand)
 end
 
 buf = CommandBuffer(world, (
-    NewEntityCommand(Position),
+    NewEntityCommand((Position,)),
     ExternalCommand,
 ))
 
