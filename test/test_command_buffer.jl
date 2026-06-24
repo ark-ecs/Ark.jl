@@ -3,6 +3,13 @@
 
     buf = CommandBuffer(world, (NewEntityCommand((Position,)), RemoveEntityCommand()))
     @test buf isa CommandBuffer
+    @test NewEntityCommand((Position,)) isa Type
+    @test RemoveEntityCommand() isa Type
+    @test AddComponentsCommand((Velocity,)) isa Type
+    @test RemoveComponentsCommand((Velocity,)) isa Type
+    @test ExchangeComponentsCommand(add=(Health,), remove=(Velocity,)) isa Type
+    @test SetComponentsCommand((Position,)) isa Type
+    @test SetRelationsCommand((ChildOf,)) isa Type
 
     @test_throws TypeError CommandBuffer{Nothing}(Nothing[])
     @test_throws ArgumentError CommandBuffer(world, ((sin,),))
