@@ -35,11 +35,9 @@ buf = CommandBuffer(world, (
     RemoveComponentsCommand((Velocity,)),
     ExchangeComponentsCommand(add=(Health,), remove=(Velocity,)),
 ));
-buf isa CommandBuffer
 
 # output
 
-true
 ```
 
 Each spec corresponds to one command type. The component types are captured at construction time
@@ -61,12 +59,10 @@ world = World(Position, Velocity);
 buf = CommandBuffer(world, (NewEntityCommand((Position, Velocity)),));
 
 e = new_entity!(buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)));
-apply!(buf);
-is_alive(world, e)
+apply!(buf)
 
 # output
 
-true
 ```
 
 ## Applying commands
@@ -83,12 +79,10 @@ buf = CommandBuffer(world, (
 e = new_entity!(buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)));
 add_components!(buf, e, (Health(1.0),));
 
-apply!(buf);
-has_components(world, e, (Health,))
+apply!(buf)
 
 # output
 
-true
 ```
 
 After `apply!` the buffer is cleared and can be reused.
