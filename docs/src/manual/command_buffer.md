@@ -1,0 +1,90 @@
+# Command buffer
+
+The [CommandBuffer](@ref) allows deferring structural changes and applying them later in batch.
+This is useful when you need to record changes during [Query](@ref) iteration (when the [World](@ref) is locked),
+or when you want to amortize the cost of structural changes across many operations.
+
+## Creating a buffer
+
+Create a [CommandBuffer](@ref) by providing the [World](@ref) and a tuple of operation specs:
+
+```@meta
+DocTestSetup = quote
+    using Ark
+
+    struct Position
+        x::Float64
+        y::Float64
+    end
+    struct Velocity
+        dx::Float64
+        dy::Float64
+    end
+    struct Health
+        value::Float64
+    end
+end
+```
+
+```jldoctest
+world = World(Position, Velocity, Health)
+buf = CommandBuffer(world, (
+    (new_entity!, (Position, Velocity)),
+    (remove_entity!,),
+    (add_components!, (Velocity,)),
+    (remove_components!, (Velocity,)),
+    (exchange_components!, (add=(Health,), remove=(Velocity,))),
+))
+
+# output
+
+CommandBuffer{World{Ark._WorldStorage{Tuple{Ark._ComponentStorage{Position, Vector{Position}}, Ark._ComponentStorage{Velocity, Vector{Velocity}}, Ark._ComponentStorage{Health, Vector{Health}}}, (0x0000000000000000,)}, Ark._WorldState{1, 0}}, Union{Ark._AddComponents{Tuple{Velocity}}, Ark._ExchangeComponents{Tuple{Health}, Tuple{Velocity}}, Ark._NewEntity{Tuple{Position, Velocity}}, Ark._RemoveComponents{Tuple{Velocity}}, Ark._RemoveEntity}}(World(entities=0, comp_types=(Position, Velocity, Health)), Union{Ark._AddComponents{Tuple{Velocity}}, Ark._ExchangeComponents{Tuple{Health}, Tuple{Velocity}}, Ark._NewEntity{Tuple{Position, Velocity}}, Ark._RemoveComponents{Tuple{Velocity}}, Ark._RemoveEntity}[])
+```
+
+Each spec corresponds to one command type. The component types are captured at construction time
+so the buffer's internal storage is specialized and allocation-free.
+
+## Recording commands
+
+All recording methods mirror the [World](@ref) API but take the buffer as an extra argument.
+
+### Creating entities
+
+Use [new_entity!](@ref) to stage entity creation. An [Entity](@ref) ID is pre-allocated
+immediately and returned, allowing it to be used in subsequent commands before [apply!](@ref)
+is called. The returned entity is not considered alive until the buffer is applied.
+
+```jldoctest
+world = World(Position, Velocity)
+buf = CommandBuffer(world, ((new_entity!, (Position, Velocity)),))
+
+e = new_entity!(buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)))
+apply!(buf)
+
+# output
+
+CommandBuffer{World{Ark._WorldStorage{Tuple{Ark._ComponentStorage{Position, Vector{Position}}, Ark._ComponentStorage{Velocity, Vector{Velocity}}}, (0x0000000000000000,)}, Ark._WorldState{1, 0}}, Ark._NewEntity{Tuple{Position, Velocity}}}(World(entities=1, comp_types=(Position, Velocity)), Ark._NewEntity{Tuple{Position, Velocity}}[])
+```
+
+## Applying commands
+
+Call [apply!](@ref) to execute all staged commands in FIFO order:
+
+```jldoctest
+world = World(Position, Velocity, Health)
+buf = CommandBuffer(world, (
+    (new_entity!, (Position, Velocity)),
+    (add_components!, (Health,)),
+))
+
+e = new_entity!(buf, (Position(1.0, 2.0), Velocity(10.0, 20.0)))
+add_components!(buf, e, (Health(1.0),))
+
+apply!(buf)
+
+# output
+
+CommandBuffer{World{Ark._WorldStorage{Tuple{Ark._ComponentStorage{Position, Vector{Position}}, Ark._ComponentStorage{Velocity, Vector{Velocity}}, Ark._ComponentStorage{Health, Vector{Health}}}, (0x0000000000000000,)}, Ark._WorldState{1, 0}}, Union{Ark._AddComponents{Tuple{Health}}, Ark._NewEntity{Tuple{Position, Velocity}}}}(World(entities=1, comp_types=(Position, Velocity, Health)), Union{Ark._AddComponents{Tuple{Health}}, Ark._NewEntity{Tuple{Position, Velocity}}}[])
+```
+
+After `apply!` the buffer is cleared and can be reused.

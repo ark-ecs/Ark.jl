@@ -25,7 +25,7 @@ function reset_sim!(world, obs_S, obs_I, obs_R, btn_run, ax, sl_N, sl_r, sl_beta
     btn_run.label[] = "Run"
 
     Parameters.@unpack N, I0, beta, c, r, dt = get_resource(world, Params)
-    buffer = get_resource(world, Buffer)
+    buffer = get_resource(world, BufferType)
     reset!(world)
     N, beta, r = sl_N.value[], sl_beta.value[], sl_r.value[]
     initialize_world!(world, N, I0, beta, c, r, dt, buffer)
@@ -44,7 +44,7 @@ function update_sim!(world, sl_N, sl_r, sl_beta)
     if N > params.N
         new_entities!(world, N - params.N, (S(),))
     elseif N < params.N
-        all_entities = get_resource(world, Buffer).ents
+        all_entities = get_resource(world, BufferType).ents
         resize!(all_entities, 0)
         for (entities,) in Query(world, ())
             append!(all_entities, entities)

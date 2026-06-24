@@ -243,6 +243,16 @@ Base.@constprop :aggressive function new_entity!(
     entity, table_id =
         _new_entity!(world_state, world_storage, Val{typeof(values)}(), values, rel_types, targets, Val(_unchecked))
 
+    _fire_new_entity_events!(world_state, entity, table_id, relations)
+    return entity
+end
+
+@inline function _fire_new_entity_events!(
+    world_state::_WorldState,
+    entity::Entity,
+    table_id::UInt32,
+    relations::Tuple,
+)
     has_entity_obs = _has_observers(world_state._event_manager, OnCreateEntity)
     has_rel_obs = !isempty(relations) && _has_observers(world_state._event_manager, OnAddRelations)
     if has_entity_obs || has_rel_obs
@@ -255,7 +265,7 @@ Base.@constprop :aggressive function new_entity!(
             _fire_create_entity_relations(world_state._event_manager, entity, mask)
         end
     end
-    return entity
+    return nothing
 end
 
 """
@@ -1477,15 +1487,13 @@ function _cleanup_archetypes(
     end
 end
 
-@generated function _new_entity!(
-    world_state::_WorldState,
-    stores::Storage,
-    ::Val{TS},
-    values::Tuple,
-    ::TR,
-    targets::Tuple{Vararg{Entity}},
-    ::Val{Unchecked},
-) where {Storage<:_WorldStorage,TS<:Tuple,TR<:Tuple,Unchecked}
+function _new_entity_expr(
+    Storage::Type{<:_WorldStorage},
+    TS::Type{<:Tuple},
+    TR::Type{<:Tuple},
+    Unchecked::Bool,
+    Preallocated::Bool,
+)
     types = _to_types(fieldtypes(TS))
     rel_types = _to_types(TR)
     relation_types = _schema_relation_types(Storage)
@@ -1530,8 +1538,13 @@ end
             )[1]
         ),
     )
-    push!(exprs, :(tmp = _create_entity!(world_state, table)))
-    push!(exprs, :(entity = tmp[1]))
+    if Preallocated
+        push!(exprs, :(_activate_entity!(world_state._entity_pool, entity)))
+        push!(exprs, :(_place_entity!(world_state, entity, table)))
+    else
+        push!(exprs, :(tmp = _create_entity!(world_state, table)))
+        push!(exprs, :(entity = tmp[1]))
+    end
 
     # Set each component
     for i in 1:length(types)
@@ -1554,23 +1567,77 @@ end
     end
 end
 
-@inline @generated function _create_entity!(state::_WorldState{M,K}, table_index::UInt32)::Tuple{Entity,Int} where {M,K}
+@generated function _new_entity!(
+    world_state::_WorldState,
+    stores::Storage,
+    ::Val{TS},
+    values::Tuple,
+    ::TR,
+    targets::Tuple{Vararg{Entity}},
+    ::Val{Unchecked},
+) where {Storage<:_WorldStorage,TS<:Tuple,TR<:Tuple,Unchecked}
+    return _new_entity_expr(Storage, TS, TR, Unchecked, false)
+end
+
+@generated function _new_entity!(
+    world_state::_WorldState,
+    stores::Storage,
+    entity::Entity,
+    ::Val{TS},
+    values::Tuple,
+    ::TR,
+    targets::Tuple{Vararg{Entity}},
+    ::Val{Unchecked},
+) where {Storage<:_WorldStorage,TS<:Tuple,TR<:Tuple,Unchecked}
+    return _new_entity_expr(Storage, TS, TR, Unchecked, true)
+end
+
+@inline function _reserve_entity!(state::_WorldState)::Entity
+    return _get_entity(state._entity_pool)
+end
+
+@inline function _reserve_pending_entity!(state::_WorldState)::Entity
+    return _get_pending_entity(state._entity_pool)
+end
+
+@inline @generated function _reserve_entity_index!(state::_WorldState{M,K}, entity::Entity)::Nothing where {M,K}
     world_has_rel = K > 0
     quote
-        entity = _get_entity(state._entity_pool)
+        id = Int(entity._id)
+        if id > length(state._entities)
+            push!(state._entities, _EntityIndex(UInt32(0), UInt32(0)))
+            $(world_has_rel ? :(push!(state._targets, false)) : (:(nothing)))
+        else
+            $(world_has_rel ? :(@inbounds state._targets[id] = false) : (:(nothing)))
+        end
+        return nothing
+    end
+end
+
+@inline function _create_entity!(state::_WorldState, table_index::UInt32)::Tuple{Entity,Int}
+    entity = _reserve_entity!(state)
+    index = _place_entity!(state, entity, table_index)
+    return entity, index
+end
+
+@inline @generated function _place_entity!(
+    state::_WorldState{M,K},
+    entity::Entity,
+    table_index::UInt32,
+)::Int where {M,K}
+    world_has_rel = K > 0
+    quote
         @inbounds table = state._tables[table_index]
-        @inbounds archetype = state._archetypes[table.archetype]
-
         index = _add_entity!(table, entity)
-
-        if entity._id > length(state._entities)
+        id = Int(entity._id)
+        if id > length(state._entities)
             push!(state._entities, _EntityIndex(table_index, UInt32(index)))
             $(world_has_rel ? :(push!(state._targets, false)) : (:(nothing)))
         else
-            @inbounds state._entities[Int(entity._id)] = _EntityIndex(table_index, UInt32(index))
-            $(world_has_rel ? :(@inbounds state._targets[Int(entity._id)] = false) : (:(nothing)))
+            @inbounds state._entities[id] = _EntityIndex(table_index, UInt32(index))
+            $(world_has_rel ? :(@inbounds state._targets[id] = false) : (:(nothing)))
         end
-        return entity, index
+        return index
     end
 end
 

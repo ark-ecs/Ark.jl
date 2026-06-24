@@ -42,6 +42,7 @@ include("partition.jl")
 include("batch_ops.jl")
 include("handle.jl")
 include("unchecked.jl")
+include("command_buffer.jl")
 !_is_testing() && include("precompile.jl")
 
 #include("docs.jl") # doctest setup
@@ -73,6 +74,8 @@ export Observer, observe!, register!, emit_event!
 export unpack, @unpack
 
 export @unchecked
+
+export CommandBuffer, apply!
 
 export Relation
 

@@ -104,6 +104,15 @@ set_resource!
 remove_resource!
 ```
 
+## [Command buffer](@id command-buffer-api)
+
+A [CommandBuffer](@ref) defers structural changes and applies them in batch.
+
+```@docs
+CommandBuffer(::World, ::Tuple)
+apply!
+```
+
 ## [Event system](@id events-api)
 
 The [event system](@ref "Event system") allows user code to react on structural changes

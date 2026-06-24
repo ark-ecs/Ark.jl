@@ -1,18 +1,25 @@
 
-struct Buffer
-    i_to_r::Vector{Entity}
-    s_to_i::Vector{Entity}
+struct Buffer{B<:CommandBuffer}
+    transitions::B
     rands::Vector{Float64}
     ents::Vector{Entity}
-    function Buffer(i_to_r, s_to_i, rands, ents)
-        # hint to max capacity for more fluid simulations
-        sizehint!(i_to_r, 10^6)
-        sizehint!(s_to_i, 10^6)
-        sizehint!(rands, 10^6)
-        sizehint!(ents, 10^6)
-        return new(i_to_r, s_to_i, rands, ents)
-    end
 end
+
+const TRANSITION_COMMAND_SPECS = (
+    (exchange_components!, (add=(I,), remove=(S,))),
+    (exchange_components!, (add=(R,), remove=(I,))),
+)
+
+function Buffer(world::World, rands=Float64[], ents=Entity[])
+    transitions = CommandBuffer(world, TRANSITION_COMMAND_SPECS)
+
+    # hint to max capacity for more fluid simulations
+    sizehint!(rands, 10^6)
+    sizehint!(ents, 10^6)
+    return Buffer(transitions, rands, ents)
+end
+
+const BufferType = Buffer{typeof(CommandBuffer(World(S, I, R), TRANSITION_COMMAND_SPECS))}
 
 mutable struct Params
     N::Int

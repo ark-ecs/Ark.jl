@@ -18,10 +18,10 @@
 
     for _ in 1:2
         Threads.@sync begin
-            Threads.@spawn for _ in 1:10^3
+            Threads.@spawn for _ in 1:(10^3)
                 _lock(lock)
             end
-            Threads.@spawn for _ in 1:10^3
+            Threads.@spawn for _ in 1:(10^3)
                 _unlock(lock)
             end
         end
