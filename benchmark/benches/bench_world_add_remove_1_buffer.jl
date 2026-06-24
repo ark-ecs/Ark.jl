@@ -2,8 +2,8 @@
 function setup_world_add_remove_1_buffer(n_entities::Int)
     world = World(Position, Velocity)
     buf = CommandBuffer(world, (
-        (add_components!, (Velocity,)),
-        (remove_components!, (Velocity,)),
+        AddComponentsCommand(Velocity),
+        RemoveComponentsCommand(Velocity),
     ))
 
     entities = Vector{Entity}()
@@ -37,10 +37,10 @@ end
 function setup_world_add_remove_1_buffer_single(n_entities::Int)
     world = World(Position, Velocity)
     buf1 = CommandBuffer(world, (
-        (add_components!, (Velocity,)),
+        AddComponentsCommand(Velocity),
     ))
     buf2 = CommandBuffer(world, (
-        (remove_components!, (Velocity,)),
+        RemoveComponentsCommand(Velocity),
     ))
 
     entities = Vector{Entity}()
