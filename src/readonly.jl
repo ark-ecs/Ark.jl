@@ -1,6 +1,6 @@
 
 """
-    Const{T}
+    Const(T)
 
 Marks component `T` as read-only in a [`Query`](@ref) or [`Filter`](@ref).
 
@@ -10,14 +10,21 @@ but the returned component column is a read-only view.
 # Example
 
 ```julia
-for (_, positions, velocities) in Query(world, (Const{Position}, Velocity))
+for (_, positions, velocities) in Query(world, (Const(Position), Velocity))
     pos = positions[1]            # allowed
     velocities[1] = velocities[1] # allowed
     positions[1] = pos            # errors
 end
 ```
 """
-abstract type Const{T} end
+struct Const{T}
+    function Const(::T) where T
+        if !isbitstype(T)
+            throw(ArgumentError("A component can be marked constant only if immutable."))
+        end
+        return Const{T}
+    end
+end
 
 function _unwrap_const_type(::Type{Const{T}}) where {T}
     return T
