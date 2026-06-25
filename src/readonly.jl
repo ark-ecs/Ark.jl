@@ -17,7 +17,7 @@ for (_, positions, velocities) in Query(world, (Const{Position}, Velocity))
 end
 ```
 """
-struct Const{T} end
+abstract type Const{T} end
 
 function _unwrap_const_type(::Type{Const{T}}) where {T}
     return T
