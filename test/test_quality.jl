@@ -22,6 +22,8 @@ if RUN_JET
         end
         filtered = filter(!is_known_false_positive, reports)
 
+        println(filtered)
+
         @test length(filtered) == 0
     end
 end
