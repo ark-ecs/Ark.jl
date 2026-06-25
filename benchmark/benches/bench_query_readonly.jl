@@ -55,8 +55,8 @@ function benchmark_query_posvel_mean(world, n)
 end
 
 for n in (100, 100_000)
-    SUITE["benchmark_query_mean n=$(n)"] =
+    SUITE["benchmark_query_posvel_mean n=$(n)"] =
         @be setup_query_readonly($n) benchmark_query_posvel_mean(_, $n) evals = 100 seconds = SECONDS
-    SUITE["benchmark_query_mean_readonly n=$(n)"] =
+    SUITE["benchmark_query_posvel_mean_readonly n=$(n)"] =
         @be setup_query_readonly($n) benchmark_query_posvel_mean_readonly(_, $n) evals = 100 seconds = SECONDS
 end
