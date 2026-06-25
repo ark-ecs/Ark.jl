@@ -230,7 +230,7 @@ entity = new_entity!(world, (Position(0, 0), ChildOf() => parent))
 Entity(5, 0)
 ```
 """
-Base.@constprop :aggressive function new_entity!(
+Base.@constprop :aggressive @inline function new_entity!(
     world::World,
     values::Tuple;
     _unchecked=false,
