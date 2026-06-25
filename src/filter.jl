@@ -14,7 +14,7 @@ end
 @inline _filter_component_mask(::Type{<:Filter{OM,IDS,RO,M}}) where {OM,IDS,RO,M} = _Mask{M}(IDS...)
 @inline _filter_optional_mask(::Type{<:Filter{OM}}) where {OM} = OM
 @inline _filter_output_ids(::Type{<:Filter{OM,IDS}}) where {OM,IDS} = IDS
-@inline _filter_readonly_mask(::Type{<:Filter{OM,IDS,RO}}) where {OM,IDS,RO} = RO
+@inline _filter_output_readonly_mask(::Type{<:Filter{OM,IDS,RO}}) where {OM,IDS,RO} = RO
 @inline _filter_mask_chunks(::Type{<:Filter{OM,IDS,RO,M}}) where {OM,IDS,RO,M} = M
 @inline _filter_relation_count(::Type{<:Filter{OM,IDS,RO,M,K}}) where {OM,IDS,RO,M,K} = K
 
@@ -135,12 +135,12 @@ end
     exclude_mask = exclusive ? _Mask{M}(_Not(), non_exclude_ids...) : _Mask{M}(without_ids...)
     has_excluded = (length(without_ids) > 0) || exclusive
     optional_mask = _Mask{M}(optional_ids...)
-    readonly_positions = Int[i for i in eachindex(requested_types) if _is_const_type(requested_types[i])]
+    output_readonly_positions = Int[i for i in eachindex(requested_types) if _is_const_type(requested_types[i])]
     append!(
-        readonly_positions,
+        output_readonly_positions,
         Int[length(requested_types) + i for i in eachindex(requested_optional_types) if _is_const_type(requested_optional_types[i])],
     )
-    readonly_mask = _Mask{M}(readonly_positions...)
+    output_readonly_mask = _Mask{M}(output_readonly_positions...)
     register = REG === Val{true}
 
     relation_id_exprs = Expr(:tuple)
@@ -155,7 +155,7 @@ end
         :(_FilterRelations{$K}($(length(rel_ids)), $relation_id_exprs, $relation_target_exprs))
 
     return quote
-        filter_type = Filter{$(QuoteNode(optional_mask)),$(QuoteNode(output_ids)),$(QuoteNode(readonly_mask)),$M,$K}
+        filter_type = Filter{$(QuoteNode(optional_mask)),$(QuoteNode(output_ids)),$(QuoteNode(output_readonly_mask)),$M,$K}
         mask_filter = _MaskFilter{$M,$K}(
             $(mask),
             $(exclude_mask),

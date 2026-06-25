@@ -76,8 +76,6 @@ Base.@constprop :aggressive function Query(
     optional::Tuple=(),
     exclusive::Bool=false,
 ) where {W<:World}
-    comp_types_f, _ = _normalize_relations(comp_types, Val(:type))
-    optional_f, _ = _normalize_relations(optional, Val(:type))
     filter = Filter(
         world,
         comp_types;
@@ -86,7 +84,7 @@ Base.@constprop :aggressive function Query(
         optional=optional,
         exclusive=exclusive,
     )
-    return _Query_from_filter(world, filter, _valtuple(comp_types_f), _valtuple(optional_f))
+    return Query(world, filter)
 end
 
 """
@@ -116,17 +114,14 @@ function _format_mask_types_except(world_state::_WorldState, mask::_Mask, exclud
     return join(map(_format_type, types), ", ")
 end
 
-function _Query_from_filter_expr(
-    ::Type{W},
-    ::Type{F},
-    output_ids::Tuple{Vararg{Int}},
-    output_readonly_mask,
-) where {W<:World,F<:Filter}
+function _Query_from_filter_expr(::Type{W}, ::Type{F}) where {W<:World,F<:Filter}
     Storage = _world_storage(W)
     CM = _filter_component_mask(F)
     OM = _filter_optional_mask(F)
     M = _filter_mask_chunks(F)
     K = _filter_relation_count(F)
+    output_ids = _filter_output_ids(F)
+    output_readonly_mask = _filter_output_readonly_mask(F)
 
     component_ids = _active_bit_indices(CM)
 
@@ -169,34 +164,7 @@ end
     world::W,
     filter::F,
 ) where {W<:World,F<:Filter}
-    output_ids = _filter_output_ids(F)
-    output_readonly_mask = _filter_readonly_mask(F)
-    return _Query_from_filter_expr(W, F, output_ids, output_readonly_mask)
-end
-
-@generated function _Query_from_filter(
-    world::W,
-    filter::F,
-    ::CT,
-    ::OT,
-) where {W<:World,F<:Filter,CT<:Tuple,OT<:Tuple}
-    CS = _world_storage_types(W)
-    M = max(1, cld(fieldcount(CS), 64))
-
-    required_types = _to_types(CT)
-    optional_types = _to_types(OT)
-    output_ids = tuple(Int[_component_index(CS, C) for C in (required_types..., optional_types...)]...)
-
-    requested_types = _to_requested_types(CT)
-    requested_optional_types = _to_requested_types(OT)
-    readonly_positions = Int[i for i in eachindex(requested_types) if _is_const_type(requested_types[i])]
-    append!(
-        readonly_positions,
-        Int[length(requested_types) + i for i in eachindex(requested_optional_types) if _is_const_type(requested_optional_types[i])],
-    )
-    output_readonly_mask = _Mask{M}(readonly_positions...)
-
-    return _Query_from_filter_expr(W, F, output_ids, output_readonly_mask)
+    return _Query_from_filter_expr(W, F)
 end
 
 @inline function Base.iterate(q::Query, state::Tuple{Int,Int})
