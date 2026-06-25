@@ -12,6 +12,7 @@ isdefined(@__MODULE__, :Memory) || const Memory = Vector # Compat for Julia < 1.
 
 include("abstract.jl")
 include("util.jl")
+include("readonly.jl")
 include("linear_map.jl")
 include("collections.jl")
 include("structarray.jl")
@@ -60,6 +61,7 @@ export Entity, EntityHandle
 export is_zero
 
 export Query, Filter
+export Const
 export close!, unregister!
 export count_tables, count_entities, shuffle_entities!, sort_entities!, partition_entities!
 

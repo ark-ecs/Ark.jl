@@ -6,16 +6,17 @@ A filter for components. See function
 [Filter](@ref Filter(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)) for details.
 See also [Query](@ref).
 """
-struct Filter{OM,IDS,M,K}
+struct Filter{OM,IDS,RO,M,K}
     _filter::_MaskFilter{M,K}
     _world_state::_WorldState{M,K}
 end
 
-@inline _filter_component_mask(::Type{<:Filter{OM,IDS,M}}) where {OM,IDS,M} = _Mask{M}(IDS...)
+@inline _filter_component_mask(::Type{<:Filter{OM,IDS,RO,M}}) where {OM,IDS,RO,M} = _Mask{M}(IDS...)
 @inline _filter_optional_mask(::Type{<:Filter{OM}}) where {OM} = OM
 @inline _filter_output_ids(::Type{<:Filter{OM,IDS}}) where {OM,IDS} = IDS
-@inline _filter_mask_chunks(::Type{<:Filter{OM,IDS,M}}) where {OM,IDS,M} = M
-@inline _filter_relation_count(::Type{<:Filter{OM,IDS,M,K}}) where {OM,IDS,M,K} = K
+@inline _filter_readonly_mask(::Type{<:Filter{OM,IDS,RO}}) where {OM,IDS,RO} = RO
+@inline _filter_mask_chunks(::Type{<:Filter{OM,IDS,RO,M}}) where {OM,IDS,RO,M} = M
+@inline _filter_relation_count(::Type{<:Filter{OM,IDS,RO,M,K}}) where {OM,IDS,RO,M,K} = K
 
 @inline function _check_filter_world(world::World, filter::Filter)
     _state(world) === filter._world_state || throw(ArgumentError("filter belongs to a different world"))
@@ -98,6 +99,8 @@ end
     without_types = _to_types(WO)
     optional_types = _to_types(OT)
     rel_types = _to_types(TR)
+    requested_types = _to_requested_types(CT)
+    requested_optional_types = _to_requested_types(OT)
 
     # check for duplicates
     all_comps = vcat(required_types, with_types, without_types, optional_types)
@@ -132,6 +135,12 @@ end
     exclude_mask = exclusive ? _Mask{M}(_Not(), non_exclude_ids...) : _Mask{M}(without_ids...)
     has_excluded = (length(without_ids) > 0) || exclusive
     optional_mask = _Mask{M}(optional_ids...)
+    readonly_positions = Int[i for i in eachindex(requested_types) if _is_const_type(requested_types[i])]
+    append!(
+        readonly_positions,
+        Int[length(requested_types) + i for i in eachindex(requested_optional_types) if _is_const_type(requested_optional_types[i])],
+    )
+    readonly_mask = _Mask{M}(readonly_positions...)
     register = REG === Val{true}
 
     relation_id_exprs = Expr(:tuple)
@@ -146,7 +155,7 @@ end
         :(_FilterRelations{$K}($(length(rel_ids)), $relation_id_exprs, $relation_target_exprs))
 
     return quote
-        filter_type = Filter{$(QuoteNode(optional_mask)),$(QuoteNode(output_ids)),$M,$K}
+        filter_type = Filter{$(QuoteNode(optional_mask)),$(QuoteNode(output_ids)),$(QuoteNode(readonly_mask)),$M,$K}
         mask_filter = _MaskFilter{$M,$K}(
             $(mask),
             $(exclude_mask),
@@ -290,16 +299,17 @@ function _count_entities_registered(state::_WorldState, filter::_MaskFilter{M,K}
     return count
 end
 
-function Base.show(io::IO, filter::Filter{OM,IDS,M,K}) where {OM,IDS,M,K}
+function Base.show(io::IO, filter::Filter{OM,IDS,RO,M,K}) where {OM,IDS,RO,M,K}
     world_types = filter._world_state._registry.types
     component_ids = IDS
     comp_types = tuple(DataType[world_types[Int(id)] for id in component_ids]...)
+    display_types = tuple(DataType[_get_bit(RO, i) ? Const{comp_types[i]} : comp_types[i] for i in eachindex(comp_types)]...)
 
     mask_ids = _active_bit_indices(filter._filter.mask)
     mask_types = tuple(DataType[world_types[Int(i)] for i in mask_ids]...)
 
-    required_types = tuple(DataType[comp_types[i] for i in eachindex(comp_types) if !_get_bit(OM, component_ids[i])]...)
-    optional_types = tuple(DataType[comp_types[i] for i in eachindex(comp_types) if _get_bit(OM, component_ids[i])]...)
+    required_types = tuple(DataType[display_types[i] for i in eachindex(display_types) if !_get_bit(OM, component_ids[i])]...)
+    optional_types = tuple(DataType[display_types[i] for i in eachindex(display_types) if _get_bit(OM, component_ids[i])]...)
     with_types = setdiff(mask_types, comp_types)
 
     required_names = join(map(_format_type, required_types), ", ")

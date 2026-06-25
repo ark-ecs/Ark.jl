@@ -80,6 +80,7 @@ Query(::World, ::Filter)
 close!(::Query)
 Filter
 Filter(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)
+Const
 unregister!(::World, ::Filter)
 count_tables
 count_entities

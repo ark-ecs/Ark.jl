@@ -5,6 +5,7 @@
 ### Features
 
 - Adds command buffers support for deferred structural operations (#670).
+- Adds the possibility to specify that a query column is read-only (#677).
 
 ### Breaking changes
 
