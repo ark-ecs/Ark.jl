@@ -269,3 +269,25 @@ to avoid repeated memory allocations.
 The world is automatically unlocked when query iteration finishes.
 When breaking out of a query loop, however, it must be unlocked by calling
 [close!](@ref close!(::Query)) on the query.
+
+## `Const` components
+
+Components wrapped in [`Const`](@ref) are read-only during query iteration.
+The query still matches entities by the component type, but the returned column
+rejects mutations:
+
+```jldoctest; output = false
+for (entities, positions, velocities) in Query(world, (Const{Position}, Velocity))
+    @inbounds for i in eachindex(entities)
+        pos = positions[i]                 # allowed
+        velocities[i] = Velocity(3, 4)     # allowed
+        # positions[i] = pos               # would error
+    end
+end
+
+# output
+
+```
+
+This annotation can be added to required and optional components in both [`Query`](@ref) 
+and [`Filter`](@ref).

@@ -66,6 +66,53 @@ end
     @test positions[1] == Position(1, 2)
 end
 
+@testset "Query Const components return read-only columns" begin
+    world = World(Position, Velocity, Altitude)
+
+    new_entity!(world, (Position(1, 2), Velocity(3, 4), Altitude(5)))
+
+    _, positions, velocities = only(Query(world, (Const{Position}, Velocity)))
+
+    @test size(positions) == (1,)
+    @test axes(positions) == (Base.OneTo(1),)
+    @test positions isa ReadOnly
+    @test !(velocities isa ReadOnly)
+    @test eltype(positions) == Position
+    @test positions[1] == Position(1, 2)
+    @test velocities[1] == Velocity(3, 4)
+    @test_throws Exception setindex!(positions, Position(10, 20), 1)
+
+    if !(typeof(positions) <: ReadOnly{<:Any,<:TestVectorView})
+        xs = positions.x
+        @test xs isa ReadOnly
+        @test eltype(xs) == Float64
+        @test xs[1] == 1
+        @test_throws Exception setindex!(xs, 10.0, 1)
+    end
+
+    velocities[1] = Velocity(5, 6)
+    _, updated_positions, updated_velocities = only(Query(world, (Position, Velocity)))
+    @test updated_positions[1] == Position(1, 2)
+    @test updated_velocities[1] == Velocity(5, 6)
+
+    _, _, altitudes = only(Query(world, (Position,); optional=(Const{Altitude},)))
+    @test altitudes isa ReadOnly
+    @test altitudes[1] == Altitude(5)
+    @test_throws Exception setindex!(altitudes, Altitude(10), 1)
+
+    filter = Filter(world, (Const{Position}, Velocity); optional=(Const{Altitude},))
+    @test string(filter) == "Filter((Const{Position}, Velocity); optional=(Const{Altitude}))"
+    _, filter_positions, filter_velocities, filter_altitudes = only(Query(world, filter))
+    @test filter_positions isa ReadOnly
+    @test !(filter_velocities isa ReadOnly)
+    @test filter_altitudes isa ReadOnly
+
+    registered_filter = Filter(world, (Const{Position},); register=true)
+    _, registered_positions = only(Query(world, registered_filter))
+    @test registered_positions isa ReadOnly
+    unregister!(world, registered_filter)
+end
+
 @testset "Query from filter preserves requested column order" begin
     world = World(Position, Velocity)
 
@@ -485,6 +532,24 @@ end
             Nothing,
             SubArray{Float64,1,_storage_from_component(world, Float64),Tuple{Base.Slice{Base.OneTo{Int64}}},true},
         },
+    } Base.eltype(typeof(query))
+
+    expected_type = Base.eltype(typeof(query))
+    @inferred Union{Nothing,Tuple{expected_type,Any}} Base.iterate(query)
+end
+
+@testset "Query Const eltype" begin
+    world = World(Position, Velocity, Altitude)
+
+    new_entity!(world, (Position(1, 2), Velocity(3, 4), Altitude(5)))
+
+    query = Query(world, (Const{Position}, Velocity); optional=(Const{Altitude},))
+
+    @inferred Tuple{
+        Entities,
+        ReadOnly{Position,FieldViews.FieldViewable{Position,1,_storage_from_component(world, Position)}},
+        FieldViews.FieldViewable{Velocity,1,_storage_from_component(world, Velocity)},
+        Union{Nothing,ReadOnly{Altitude,FieldViews.FieldViewable{Altitude,1,_storage_from_component(world, Altitude)}}},
     } Base.eltype(typeof(query))
 
     expected_type = Base.eltype(typeof(query))
