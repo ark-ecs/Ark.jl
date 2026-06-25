@@ -17,5 +17,6 @@
 /test/Manifest*.toml
 /test/ext/Manifest*.toml
 /docs/build/
+src/tmp_ark/
 statprof/
 .vscode
