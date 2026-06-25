@@ -138,7 +138,10 @@ end
     output_readonly_positions = Int[i for i in eachindex(requested_types) if _is_const_type(requested_types[i])]
     append!(
         output_readonly_positions,
-        Int[length(requested_types) + i for i in eachindex(requested_optional_types) if _is_const_type(requested_optional_types[i])],
+        Int[
+            length(requested_types) + i for
+            i in eachindex(requested_optional_types) if _is_const_type(requested_optional_types[i])
+        ],
     )
     output_readonly_mask = _Mask{M}(output_readonly_positions...)
     register = REG === Val{true}
@@ -155,7 +158,8 @@ end
         :(_FilterRelations{$K}($(length(rel_ids)), $relation_id_exprs, $relation_target_exprs))
 
     return quote
-        filter_type = Filter{$(QuoteNode(optional_mask)),$(QuoteNode(output_ids)),$(QuoteNode(output_readonly_mask)),$M,$K}
+        filter_type =
+            Filter{$(QuoteNode(optional_mask)),$(QuoteNode(output_ids)),$(QuoteNode(output_readonly_mask)),$M,$K}
         mask_filter = _MaskFilter{$M,$K}(
             $(mask),
             $(exclude_mask),
@@ -303,13 +307,16 @@ function Base.show(io::IO, filter::Filter{OM,IDS,RO,M,K}) where {OM,IDS,RO,M,K}
     world_types = filter._world_state._registry.types
     component_ids = IDS
     comp_types = tuple(DataType[world_types[Int(id)] for id in component_ids]...)
-    display_types = tuple(DataType[_get_bit(RO, i) ? Const{comp_types[i]} : comp_types[i] for i in eachindex(comp_types)]...)
+    display_types =
+        tuple(DataType[_get_bit(RO, i) ? Const{comp_types[i]} : comp_types[i] for i in eachindex(comp_types)]...)
 
     mask_ids = _active_bit_indices(filter._filter.mask)
     mask_types = tuple(DataType[world_types[Int(i)] for i in mask_ids]...)
 
-    required_types = tuple(DataType[display_types[i] for i in eachindex(display_types) if !_get_bit(OM, component_ids[i])]...)
-    optional_types = tuple(DataType[display_types[i] for i in eachindex(display_types) if _get_bit(OM, component_ids[i])]...)
+    required_types =
+        tuple(DataType[display_types[i] for i in eachindex(display_types) if !_get_bit(OM, component_ids[i])]...)
+    optional_types =
+        tuple(DataType[display_types[i] for i in eachindex(display_types) if _get_bit(OM, component_ids[i])]...)
     with_types = setdiff(mask_types, comp_types)
 
     required_names = join(map(_format_type, required_types), ", ")

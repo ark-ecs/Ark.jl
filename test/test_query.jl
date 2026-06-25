@@ -73,6 +73,8 @@ end
 
     _, positions, velocities = only(Query(world, (Const{Position}, Velocity)))
 
+    @test size(positions) == (1,)
+    @test axes(positions) == Base.OneTo(1)
     @test positions isa ReadOnly
     @test !(velocities isa ReadOnly)
     @test eltype(positions) == Position
@@ -80,7 +82,7 @@ end
     @test velocities[1] == Velocity(3, 4)
     @test_throws Exception setindex!(positions, Position(10, 20), 1)
 
-    if !(typeof(positions) <: ReadOnly{<:Any, <:TestVectorView})
+    if !(typeof(positions) <: ReadOnly{<:Any,<:TestVectorView})
         xs = positions.x
         @test xs isa ReadOnly
         @test eltype(xs) == Float64

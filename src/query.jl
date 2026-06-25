@@ -429,7 +429,8 @@ end
 function Base.show(io::IO, query::Query{QS,OF,RO,M,K}) where {QS<:Tuple,OF,RO,M,K}
     component_storage_types = fieldtypes(QS)
     comp_types = tuple(DataType[_component_type(S) for S in component_storage_types]...)
-    display_types = tuple(DataType[_get_bit(RO, i) ? Const{comp_types[i]} : comp_types[i] for i in eachindex(comp_types)]...)
+    display_types =
+        tuple(DataType[_get_bit(RO, i) ? Const{comp_types[i]} : comp_types[i] for i in eachindex(comp_types)]...)
 
     required_types = tuple(DataType[display_types[i] for i in eachindex(display_types) if !_get_bit(OF, i)]...)
     optional_types = tuple(DataType[display_types[i] for i in eachindex(display_types) if _get_bit(OF, i)]...)

@@ -27,7 +27,7 @@ function benchmark_query_posvel_mean_readonly(world, n)
 
     inv_count = inv(count)
     return Position(x_sum * inv_count, y_sum * inv_count),
-           Velocity(dx_sum * inv_count, dy_sum * inv_count)
+    Velocity(dx_sum * inv_count, dy_sum * inv_count)
 end
 
 function benchmark_query_posvel_mean(world, n)
@@ -51,7 +51,7 @@ function benchmark_query_posvel_mean(world, n)
 
     inv_count = inv(count)
     return Position(x_sum * inv_count, y_sum * inv_count),
-           Velocity(dx_sum * inv_count, dy_sum * inv_count)
+    Velocity(dx_sum * inv_count, dy_sum * inv_count)
 end
 
 for n in (100, 100_000)
