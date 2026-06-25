@@ -1,4 +1,5 @@
 using Ark
+using BenchmarkTools
 using Chairmarks
 
 const SECONDS = 0.5
