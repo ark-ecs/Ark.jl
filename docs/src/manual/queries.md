@@ -273,7 +273,7 @@ When breaking out of a query loop, however, it must be unlocked by calling
 ## `Const` components
 
 Components wrapped in [`Const`](@ref) are read-only during query iteration.
-The query still matches entities by the component type `T`, but the returned column
+The query still matches entities by the component type, but the returned column
 rejects mutations:
 
 ```jldoctest; output = false
