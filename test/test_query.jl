@@ -71,7 +71,7 @@ end
 
     new_entity!(world, (Position(1, 2), Velocity(3, 4), Altitude(5)))
 
-    _, positions, velocities = only(Query(world, (Const{Position}, Velocity)))
+    _, positions, velocities = only(Query(world, (Const(Position), Velocity)))
 
     @test size(positions) == (1,)
     @test axes(positions) == (Base.OneTo(1),)
@@ -95,19 +95,19 @@ end
     @test updated_positions[1] == Position(1, 2)
     @test updated_velocities[1] == Velocity(5, 6)
 
-    _, _, altitudes = only(Query(world, (Position,); optional=(Const{Altitude},)))
+    _, _, altitudes = only(Query(world, (Position,); optional=(Const(Altitude),)))
     @test altitudes isa ReadOnly
     @test altitudes[1] == Altitude(5)
     @test_throws Exception setindex!(altitudes, Altitude(10), 1)
 
-    filter = Filter(world, (Const{Position}, Velocity); optional=(Const{Altitude},))
+    filter = Filter(world, (Const(Position), Velocity); optional=(Const(Altitude),))
     @test string(filter) == "Filter((Const{Position}, Velocity); optional=(Const{Altitude}))"
     _, filter_positions, filter_velocities, filter_altitudes = only(Query(world, filter))
     @test filter_positions isa ReadOnly
     @test !(filter_velocities isa ReadOnly)
     @test filter_altitudes isa ReadOnly
 
-    registered_filter = Filter(world, (Const{Position},); register=true)
+    registered_filter = Filter(world, (Const(Position),); register=true)
     _, registered_positions = only(Query(world, registered_filter))
     @test registered_positions isa ReadOnly
     unregister!(world, registered_filter)
@@ -543,7 +543,7 @@ end
 
     new_entity!(world, (Position(1, 2), Velocity(3, 4), Altitude(5)))
 
-    query = Query(world, (Const{Position}, Velocity); optional=(Const{Altitude},))
+    query = Query(world, (Const(Position), Velocity); optional=(Const(Altitude),))
 
     @inferred Tuple{
         Entities,

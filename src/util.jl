@@ -156,8 +156,8 @@ function _generate_component_switch(comp_idx_sym::Symbol, call_exprs::Vector{Exp
     return Expr(:block, exprs...)
 end
 
-@inline function _to_requested_types(::Type{TS})::Vector{DataType} where {TS<:Tuple}
-    return DataType[x <: Val ? _val_parameter(x) : x for x in fieldtypes(TS)]
+@inline function _to_requested_types(::Type{TS})::Vector{Any} where {TS<:Tuple}
+    return [x <: Val ? _val_parameter(x) : x for x in fieldtypes(TS)]
 end
 
 function _component_index(CS::Type{<:Tuple}, TargetType::Type)::Union{Int,Nothing}

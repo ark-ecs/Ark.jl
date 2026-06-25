@@ -18,15 +18,15 @@ end
 ```
 """
 struct Const{T}
-    function Const(::T) where T
+    function Const(::Type{T}) where T
         if !isbitstype(T)
             throw(ArgumentError("A component can be marked constant only if immutable."))
         end
-        return Const{T}
+        return new{T}()
     end
 end
 
-function _unwrap_const_type(::Type{Const{T}}) where {T}
+function _unwrap_const_type(::Const{T}) where {T}
     return T
 end
 
@@ -34,7 +34,7 @@ function _unwrap_const_type(::Type{T}) where {T}
     return T
 end
 
-function _is_const_type(::Type{Const{T}}) where {T}
+function _is_const_type(::Const{T}) where {T}
     return true
 end
 
