@@ -1,6 +1,4 @@
 
-using BenchmarkTools
-
 function process_benches(suite::BenchmarkGroup)::Vector{Row}
     data = Vector{Row}()
     sorted_keys = sort(collect(keys(suite)))
