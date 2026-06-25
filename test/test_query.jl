@@ -74,7 +74,7 @@ end
     _, positions, velocities = only(Query(world, (Const{Position}, Velocity)))
 
     @test size(positions) == (1,)
-    @test axes(positions) == Base.OneTo(1)
+    @test axes(positions) == (Base.OneTo(1),)
     @test positions isa ReadOnly
     @test !(velocities isa ReadOnly)
     @test eltype(positions) == Position
