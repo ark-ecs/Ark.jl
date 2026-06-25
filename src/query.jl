@@ -120,7 +120,7 @@ function _Query_from_filter_expr(
     ::Type{W},
     ::Type{F},
     output_ids::Tuple{Vararg{Int}},
-    output_readonly_mask=nothing,
+    output_readonly_mask,
 ) where {W<:World,F<:Filter}
     Storage = _world_storage(W)
     CM = _filter_component_mask(F)
@@ -146,9 +146,6 @@ function _Query_from_filter_expr(
     output_optional_ids = Int[i for i in eachindex(output_ids) if _get_bit(query_optional_mask, output_ids[i])]
     output_optional_mask = _Mask{M}(output_optional_ids...)
     query_storages = Expr(:tuple, (:(world_storage._storages[$id]) for id in output_ids)...)
-    if output_readonly_mask === nothing
-        output_readonly_mask = _Mask{M}()
-    end
 
     return quote
         _check_filter_world(world, filter)
