@@ -80,7 +80,7 @@ end
     @test velocities[1] == Velocity(3, 4)
     @test_throws Exception setindex!(positions, Position(10, 20), 1)
 
-    if !(positions <: ReadOnly{<:Any, <:TestVectorView})
+    if !(typeof(positions) <: ReadOnly{<:Any, <:TestVectorView})
         xs = positions.x
         @test xs isa ReadOnly
         @test eltype(xs) == Float64
