@@ -26,7 +26,15 @@ struct Const{T}
     end
 end
 
-function _unwrap_const_type(::Const{T}) where {T}
+function _unwrap_ext_const_type(::Const{T}) where {T}
+    return T
+end
+
+function _unwrap_ext_const_type(::Type{T}) where {T}
+    return T
+end
+
+function _unwrap_const_type(::Type{Const{T}}) where {T}
     return T
 end
 
@@ -34,7 +42,7 @@ function _unwrap_const_type(::Type{T}) where {T}
     return T
 end
 
-function _is_const_type(::Const{T}) where {T}
+function _is_const_type(::Type{Const{T}}) where {T}
     return true
 end
 

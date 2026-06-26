@@ -29,11 +29,11 @@ function _pair_first_type(::Type{<:Pair{T}}) where {T}
 end
 
 @inline function _to_types(::Type{TS})::Vector{DataType} where {TS<:Tuple}
-    return DataType[_unwrap_const_type(_val_parameter(x)) for x in fieldtypes(TS)]
+    return DataType[_unwrap_ext_const_type(_val_parameter(x)) for x in fieldtypes(TS)]
 end
 
 @inline function _to_types(::Type{Val{TS}})::Vector{DataType} where {TS<:Tuple}
-    return DataType[_unwrap_const_type(x <: Val ? _val_parameter(x) : x) for x in fieldtypes(TS)]
+    return DataType[_unwrap_ext_const_type(x <: Val ? _val_parameter(x) : x) for x in fieldtypes(TS)]
 end
 
 @inline function _to_types(::Type{Val{V}})::Vector{DataType} where {V<:Val}
@@ -41,7 +41,7 @@ end
 end
 
 @inline function _to_types(types::Tuple)::Vector{DataType}
-    return DataType[_unwrap_const_type(x) for x in types]
+    return DataType[_unwrap_ext_const_type(x) for x in types]
 end
 
 function _unwrap_relation_type(::Type{Relation{T}}) where {T}
@@ -156,8 +156,10 @@ function _generate_component_switch(comp_idx_sym::Symbol, call_exprs::Vector{Exp
     return Expr(:block, exprs...)
 end
 
-@inline function _to_requested_types(::Type{TS})::Vector{Any} where {TS<:Tuple}
-    return [x <: Val ? _val_parameter(x) : x for x in fieldtypes(TS)]
+@inline function _to_requested_types(::Type{TS})::Vector{DataType} where {TS<:Tuple}
+    return DataType[
+        (x <: Val ? _val_parameter(x) : x) isa Const ? Const{_unwrap_ext_const_type(x)} : x for x in fieldtypes(TS)
+    ]
 end
 
 function _component_index(CS::Type{<:Tuple}, TargetType::Type)::Union{Int,Nothing}
