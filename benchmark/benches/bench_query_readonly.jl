@@ -13,7 +13,7 @@ function benchmark_query_posvel_mean_readonly(world, n)
     dy_sum = 0.0
     count = 0
 
-    for (_, pos_column, vel_column) in Query(world, (Const{Position}, Const{Velocity}))
+    for (_, pos_column, vel_column) in Query(world, (Const(Position), Const(Velocity)))
         @inbounds for i in eachindex(pos_column, vel_column)
             pos = pos_column[i]
             vel = vel_column[i]
