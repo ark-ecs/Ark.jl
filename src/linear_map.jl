@@ -33,7 +33,7 @@ mutable struct _Linear_Map{K,V,ZK,ZV,ZKT,ZVT}
     end
 end
 
-function _grow!(d::_Linear_Map{K,V}) where {K,V}
+@noinline function _grow!(d::_Linear_Map{K,V}) where {K,V}
     old_keys = d.keys
     old_vals = d.vals
     old_occupied = d.occupied
@@ -68,10 +68,11 @@ function _grow!(d::_Linear_Map{K,V}) where {K,V}
     d.max_load = floor(Int, new_cap * _LOAD_FACTOR)
 end
 
-function _get_zero_index_loop(d, h)
+@noinline function _get_zero_index_loop(d, h)
     mask = d.mask
     idx = (h & mask) % Int + 1
-    @inbounds while d.occupied[idx] != 0x00
+    occupied = d.occupied
+    @inbounds while occupied[idx] != 0x00
         idx = (idx & mask) + 1
     end
     return idx
@@ -83,13 +84,15 @@ macro _get_value_loop(return_val)
         h = hash(key)
         idx = (h & mask) % Int + 1
         h2 = (h >> _RSHIFT) % UInt8 | 0x01
-        @inbounds h2_idx = d.occupied[idx]
+        occupied = d.occupied
+        keys = d.keys
+        @inbounds h2_idx = occupied[idx]
         @inbounds while h2_idx != 0x00
-            if h2 == h2_idx && isequal(d.keys[idx], key)
+            if h2 == h2_idx && isequal(keys[idx], key)
                 return $return_val
             end
             idx = (idx & mask) + 1
-            h2_idx = d.occupied[idx]
+            h2_idx = occupied[idx]
         end
     end)
 end
@@ -116,24 +119,27 @@ macro _remove_key(return_val)
         h = hash(key)
         idx = (h & mask) % Int + 1
         h2 = (h >> _RSHIFT) % UInt8 | 0x01
-        @inbounds h2_idx = d.occupied[idx]
+        occupied = d.occupied
+        keys = d.keys
+        @inbounds h2_idx = occupied[idx]
         @inbounds while h2_idx != 0x00
-            if h2_idx == h2 && isequal(d.keys[idx], key)
+            if h2_idx == h2 && isequal(keys[idx], key)
                 old_val = $return_val
                 _backshift_delete!(d, idx)
                 d.count -= 1
                 return old_val
             end
             idx = (idx & mask) + 1
-            h2_idx = d.occupied[idx]
+            h2_idx = occupied[idx]
         end
     end)
 end
 
 put_zero_keys!(d::_Linear_Map{K,V,true}) where {K,V} = nothing
 function put_zero_keys!(d::_Linear_Map{K,V,false}) where {K,V}
-    for i in eachindex(d.keys)
-        d.keys[i] = d.zero_key
+    keys = d.keys
+    for i in eachindex(keys)
+        keys[i] = d.zero_key
     end
 end
 
@@ -186,35 +192,38 @@ end
 function _backshift_delete!(d::_Linear_Map, hole::Int)
     mask = d.mask
     next = (hole & mask) + 1
+    occupied = d.occupied
+    keys = d.keys
+    vals = d.vals
     @inbounds next_occ = d.occupied[next]
     @inbounds while next_occ != 0x00
-        next_key = d.keys[next]
+        next_key = keys[next]
         start = (hash(next_key) & mask) % Int + 1
         # move next into hole iff hole lies on this key probe path
         if ((next - start) & mask) > ((hole - start) & mask)
-            d.keys[hole] = next_key
-            d.vals[hole] = d.vals[next]
-            d.occupied[hole] = next_occ
+            keys[hole] = next_key
+            vals[hole] = d.vals[next]
+            occupied[hole] = next_occ
             hole = next
         end
         next = (next & mask) + 1
-        next_occ = d.occupied[next]
+        next_occ = occupied[next]
     end
 
-    @inbounds d.occupied[hole] = 0x00
-    put_zero_key!(d, hole)
-    put_zero_val!(d, hole)
+    @inbounds occupied[hole] = 0x00
+    put_zero_key!(d, hole, keys)
+    put_zero_val!(d, hole, vals)
     return nothing
 end
 
-put_zero_key!(d::_Linear_Map{K,V,true}, idx) where {K,V} = nothing
-function put_zero_key!(d::_Linear_Map{K,V,false}, idx) where {K,V}
-    @inbounds d.keys[idx] = d.zero_key
+put_zero_key!(d::_Linear_Map{K,V,true}, idx, keys::Memory{K}) where {K,V} = nothing
+function put_zero_key!(d::_Linear_Map{K,V,false}, idx, keys::Memory{K}) where {K,V}
+    @inbounds keys[idx] = d.zero_key
 end
 
-put_zero_val!(d::_Linear_Map{K,V,ZK,true}, idx) where {K,V,ZK} = nothing
-function put_zero_val!(d::_Linear_Map{K,V,ZK,false}, idx) where {K,V,ZK}
-    @inbounds d.vals[idx] = d.zero_value
+put_zero_val!(d::_Linear_Map{K,V,ZK,true}, idx, vals::Memory{V}) where {K,V,ZK} = nothing
+function put_zero_val!(d::_Linear_Map{K,V,ZK,false}, idx, vals::Memory{V}) where {K,V,ZK}
+    @inbounds vals[idx] = d.zero_value
 end
 
 function Base.delete!(d::_Linear_Map, key)
@@ -240,8 +249,9 @@ Base.values(d::_Linear_Map{K,V}) where {K,V} = _Linear_Map_Values(d)
 
 macro _iterate_loop(return_val)
     return esc(quote
-        @inbounds while i <= length(d.occupied)
-            if d.occupied[i] != 0x00
+        occupied = d.occupied
+        @inbounds while i <= length(occupied)
+            if occupied[i] != 0x00
                 return ($return_val, i + 1)
             else
                 i += 1
