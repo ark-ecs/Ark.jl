@@ -53,6 +53,7 @@ struct _WorldPool{M}
     tables::Vector{UInt32}
     batches::Vector{_BatchTable{M}}
     mask::_MutableMask{M}
+    bit_indices::Vector{Int}
 end
 
 function _WorldPool{M}() where {M}
@@ -63,6 +64,7 @@ function _WorldPool{M}() where {M}
         Vector{UInt32}(),
         Vector{_BatchTable{M}}(),
         _MutableMask{M}(),
+        Int[],
     )
 end
 
@@ -1258,7 +1260,7 @@ function _create_archetype!(
     node::_GraphNode,
     table::UInt32,
 )::UInt32 where {M,K,Storage<:_WorldStorage}
-    components = _active_bit_indices(node.mask)
+    components = _active_bit_indices!(state._pool.bit_indices, node.mask)
     relations = Int[]
     for id in components
         if _is_relation(state._registry, id)

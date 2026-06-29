@@ -118,6 +118,20 @@ function _active_bit_indices(mask::_Mask{M})::Vector{Int} where M
     return indices
 end
 
+function _active_bit_indices!(buf::Vector{Int}, mask::_Mask{M})::Vector{Int} where M
+    empty!(buf)
+    for chunk_index in 1:M
+        chunk = mask.bits[chunk_index]
+        base = (chunk_index - 1) * 64
+        while chunk != 0
+            tz = trailing_zeros(chunk)
+            push!(buf, base + tz + 1)
+            chunk &= chunk - UInt64(1)
+        end
+    end
+    return buf
+end
+
 # TODO: simplify this when Julia 1.13 is released
 # from new hashing methodology in Base on Julia nightly
 const tuplehash_seed = UInt === UInt64 ? 0x77cfa1eef01bca90 : 0xf01bca90
