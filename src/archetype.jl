@@ -36,7 +36,7 @@ mutable struct _Archetype{M}
     const id::UInt32
 end
 
-function _Archetype(id::UInt32, node::_GraphNode)
+function _Archetype(id::UInt32, node::_GraphNode, table::UInt32)
     _Archetype(
         Memory{Int}(),
         _IdCollection(table),
