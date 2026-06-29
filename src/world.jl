@@ -1266,7 +1266,7 @@ function _create_archetype!(
         end
     end
 
-    arch = _Archetype(UInt32(length(state._archetypes) + 1), node, table, relations, components)
+    arch = _Archetype(UInt32(length(state._archetypes) + 1), node, relations, components)
     push!(state._archetypes, arch)
     arch_hot = _ArchetypeHot(node, table, relations)
     push!(state._archetypes_hot, arch_hot)
