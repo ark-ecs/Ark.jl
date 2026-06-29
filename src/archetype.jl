@@ -33,11 +33,10 @@ mutable struct _Archetype{M}
     const free_tables::Vector{UInt32}
     const node::_GraphNode{M}
     const num_relations::UInt32
-    const table::UInt32
     const id::UInt32
 end
 
-function _Archetype(id::UInt32, node::_GraphNode, table::UInt32)
+function _Archetype(id::UInt32, node::_GraphNode)
     _Archetype(
         Memory{Int}(),
         _IdCollection(table),
@@ -46,7 +45,6 @@ function _Archetype(id::UInt32, node::_GraphNode, table::UInt32)
         Vector{UInt32}(),
         node,
         UInt32(0),
-        table,
         id,
     )
 end
@@ -54,7 +52,6 @@ end
 function _Archetype(
     id::UInt32,
     node::_GraphNode,
-    table::UInt32,
     relations::Vector{Int},
     components::Vector{Int},
 )
@@ -66,7 +63,6 @@ function _Archetype(
         Vector{UInt32}(),
         node,
         UInt32(length(relations)),
-        table,
         id,
     )
 end
