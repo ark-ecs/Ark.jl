@@ -84,7 +84,7 @@ Base.@constprop :aggressive function Query(
         optional=optional,
         exclusive=exclusive,
     )
-    return Query(world, filter)
+    return _Query_from_filter(world, filter)
 end
 
 """
@@ -92,10 +92,7 @@ end
 
 Creates a query from a [Filter](@ref).
 """
-Base.@constprop :aggressive function Query(
-    world::World,
-    filter::F,
-) where {F<:Filter}
+Base.@constprop :aggressive function Query(world::World, filter::Filter)
     return _Query_from_filter(world, filter)
 end
 
