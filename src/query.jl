@@ -84,7 +84,7 @@ Base.@constprop :aggressive function Query(
         optional=optional,
         exclusive=exclusive,
     )
-    return _Query_from_filter(world, filter)
+    return Query(world, filter)
 end
 
 """
