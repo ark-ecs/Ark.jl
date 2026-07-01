@@ -81,6 +81,8 @@ end
     @test positions[1] == Position(1, 2)
     @test velocities[1] == Velocity(3, 4)
     @test_throws Exception setindex!(positions, Position(10, 20), 1)
+    @test_throws ArgumentError Const(MutableComponent)
+    @test string(Const(Position)) == "Const(Position)"
 
     if !(typeof(positions) <: ReadOnly{<:Any,<:TestVectorView})
         xs = positions.x
