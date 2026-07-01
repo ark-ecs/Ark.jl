@@ -71,7 +71,7 @@ end
 
     new_entity!(world, (Position(1, 2), Velocity(3, 4), Altitude(5)))
 
-    _, positions, velocities = only(Query(world, (Const(Position), Velocity)))
+    _, positions, velocities = only(Query(world, (Const{Position}, Velocity)))
 
     @test size(positions) == (1,)
     @test axes(positions) == (Base.OneTo(1),)
@@ -81,8 +81,6 @@ end
     @test positions[1] == Position(1, 2)
     @test velocities[1] == Velocity(3, 4)
     @test_throws Exception setindex!(positions, Position(10, 20), 1)
-    @test_throws ArgumentError Const(MutableComponent)
-    @test string(Const(Position)) == "Const(Position)"
 
     if !(typeof(positions) <: ReadOnly{<:Any,<:TestVectorView})
         xs = positions.x
@@ -97,19 +95,19 @@ end
     @test updated_positions[1] == Position(1, 2)
     @test updated_velocities[1] == Velocity(5, 6)
 
-    _, _, altitudes = only(Query(world, (Position,); optional=(Const(Altitude),)))
+    _, _, altitudes = only(Query(world, (Position,); optional=(Const{Altitude},)))
     @test altitudes isa ReadOnly
     @test altitudes[1] == Altitude(5)
     @test_throws Exception setindex!(altitudes, Altitude(10), 1)
 
-    filter = Filter(world, (Const(Position), Velocity); optional=(Const(Altitude),))
-    @test string(filter) == "Filter((Const(Position), Velocity); optional=(Const(Altitude)))"
+    filter = Filter(world, (Const{Position}, Velocity); optional=(Const{Altitude},))
+    @test string(filter) == "Filter((Const{Position}, Velocity); optional=(Const{Altitude}))"
     _, filter_positions, filter_velocities, filter_altitudes = only(Query(world, filter))
     @test filter_positions isa ReadOnly
     @test !(filter_velocities isa ReadOnly)
     @test filter_altitudes isa ReadOnly
 
-    registered_filter = Filter(world, (Const(Position),); register=true)
+    registered_filter = Filter(world, (Const{Position},); register=true)
     _, registered_positions = only(Query(world, registered_filter))
     @test registered_positions isa ReadOnly
     unregister!(world, registered_filter)
@@ -545,7 +543,7 @@ end
 
     new_entity!(world, (Position(1, 2), Velocity(3, 4), Altitude(5)))
 
-    query = Query(world, (Const(Position), Velocity); optional=(Const(Altitude),))
+    query = Query(world, (Const{Position}, Velocity); optional=(Const{Altitude},))
 
     @inferred Tuple{
         Entities,
@@ -641,4 +639,50 @@ end
 
     query = Query(world, (Position, Velocity); optional=(Altitude,), without=(Health,))
     @test string(query) == "Query((Position, Velocity); optional=(Altitude), without=(Health))"
+end
+
+@testset "Query cold compilation does not allocate in user functions" begin
+    # Regression test: a user function that creates a Query and iterates + calls
+    # get_components inside the loop should have negligible allocations after
+    # cold compilation.
+    world = World(Position, Velocity)
+    for i in 1:500
+        new_entity!(world, (Position(i, i * 2), Velocity(1.0, 1.0)))
+    end
+
+    # User-defined function that mirrors the pattern in schelling_step!
+    # Calls Query (keyword dispatch), Filter (keyword dispatch),
+    # iterate, and get_components inside the inner loop.
+    function query_user_work!(world::World)
+        for (ents, positions, velocities) in Query(world, (Position, Velocity))
+            for i in eachindex(ents)
+                pos = positions[i]
+                vel = velocities[i]
+                positions[i] = Position(pos.x + vel.dx, pos.y + vel.dy)
+                # Also read back to stress get_components cold path
+                _, = get_components(world, ents[i], (Position,))
+            end
+        end
+    end
+
+    # First call: cold compilation (ignore allocations)
+    query_user_work!(world)
+
+    # Fresh world to measure on
+    world2 = World(Position, Velocity)
+    for i in 1:500
+        new_entity!(world2, (Position(i, i * 2), Velocity(1.0, 1.0)))
+    end
+
+    allocs = @allocated query_user_work!(world2)
+    # With the fix (direct _Query_from_filter call), allocations stay very low.
+    # Without the fix (going through Query(world, filter) wrapper), the cold
+    # inliner exhausts budget and leaves keyword + generated fns uninlined,
+    # causing orders of magnitude more allocations.
+    max_allocs = 5000
+    if allocs > max_allocs
+        @warn "Query user function allocates $(allocs) bytes (expected < $(max_allocs)). " *
+              "This may indicate a cold-inlining regression."
+    end
+    @test allocs <= max_allocs
 end
