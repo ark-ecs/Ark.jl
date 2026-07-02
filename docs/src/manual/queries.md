@@ -277,7 +277,7 @@ The query still matches entities by the component type, but the returned column
 rejects mutations:
 
 ```jldoctest; output = false
-for (entities, positions, velocities) in Query(world, (Const{Position}, Velocity))
+for (entities, positions, velocities) in Query(world, (Const(Position), Velocity))
     @inbounds for i in eachindex(entities)
         pos = positions[i]                 # allowed
         velocities[i] = Velocity(3, 4)     # allowed
