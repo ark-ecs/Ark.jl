@@ -228,17 +228,17 @@ function _spec_command_type(::Type{Storage}, spec) where {Storage<:_WorldStorage
     throw(ArgumentError("unknown command spec $spec"))
 end
 
-function _specs_to_types(world::World, specs::Tuple)
+@generated function _specs_to_union(world::World{Storage}, ::S) where {Storage,S}
+    specs = _to_types(S)
     n = length(specs)
     if n == 0
-        throw(ArgumentError("command buffer needs to contain at least one deferred operation"))
+        return :(throw(ArgumentError("command buffer needs to contain at least one deferred operation")))
     end
-    storage_type = typeof(_storage(world))
-    types = Vector{Any}(undef, n)
+    types = Vector{DataType}(undef, n)
     for i in 1:n
-        types[i] = _spec_command_type(storage_type, specs[i])
+        types[i] = _spec_command_type(Storage, specs[i])
     end
-    Tuple(types)
+    return :($(Union{types...}))
 end
 
 """
@@ -271,9 +271,8 @@ All recorded commands are stored and executed when `apply!` is called.
 
 See the [manual](@ref "Command buffer") for details and examples.
 """
-function CommandBuffer(world::W, specs::Tuple) where W
-    cmd_types = _specs_to_types(world, specs)
-    C = Union{cmd_types...}
+Base.@constprop :aggressive function CommandBuffer(world::W, specs::Tuple) where W
+    C = _specs_to_union(world, _valtuple(specs))
     CommandBuffer{W,C}(world, Vector{C}())
 end
 

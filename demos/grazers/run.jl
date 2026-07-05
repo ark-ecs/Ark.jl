@@ -1,0 +1,3 @@
+
+include("main.jl")
+main()
