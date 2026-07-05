@@ -28,6 +28,7 @@ jobs:
           '
       - name: Compile with JuliaC
         run: |
+          # TODO: use --trim=safe when TypedCallable is available
           julia --project=/tmp/juliac_env -e '
             using Pkg
             Pkg.add("JuliaC")
@@ -36,7 +37,7 @@ jobs:
           ' -- \
             --output-exe test_juliac \
             --project=demos \
-            --trim=unsafe \ # TODO: use safe when TypedCallable is available
+            --trim=unsafe \
             --experimental \
             test/test_juliac.jl
       - name: Print executable size
