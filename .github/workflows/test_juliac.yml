@@ -1,4 +1,4 @@
-name: JuliaC compilation
+name: Test juliac
 on:
   push:
     branches: [main]
