@@ -228,7 +228,7 @@ function _spec_command_type(::Type{Storage}, spec) where {Storage<:_WorldStorage
     throw(ArgumentError("unknown command spec $spec"))
 end
 
-@generated function _specs_to_union(world::World{Storage}, ::S) where {Storage, S}
+@generated function _specs_to_union(world::World{Storage}, ::S) where {Storage,S}
     specs = _to_types(S)
     n = length(specs)
     if n == 0

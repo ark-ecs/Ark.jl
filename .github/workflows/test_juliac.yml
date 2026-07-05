@@ -1,4 +1,4 @@
-name: Test juliac
+name: Tests (juliac)
 on:
   push:
     branches: [main]
@@ -39,5 +39,7 @@ jobs:
             --trim=unsafe \ # TODO: use safe when TypedCallable is available
             --experimental \
             test/test_juliac.jl
+      - name: Print executable size
+        run: ls -lh test_juliac
       - name: Run compiled executable
         run: ./test_juliac
