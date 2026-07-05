@@ -383,11 +383,7 @@ end
         ))
     end
 
-    # An unrolled, mask-guarded pass over all storages beats the per-component
-    # switch dispatch, except when the entity has only a few components in a
-    # large world; there the bit tests over all storages dominate, so fall back
-    # to the loop with the shared switch function.
-    if fieldcount(CS) <= 16
+    if fieldcount(CS) <= 32
         remove_block = quote
             arch_mask = @inbounds world_state._archetypes_hot[table.archetype].mask
             $(Expr(:block, remove_exprs...))
@@ -1740,13 +1736,8 @@ end
     table_index::UInt32,
 )::Nothing where {CS<:Tuple}
     inline_jtable = fieldcount(CS) <= 10
-    # For small worlds, a fully unrolled, mask-guarded pass over all storages beats
-    # the per-component switch dispatch. For large worlds the unrolled body's many
-    # call sites produce too much machine code (front-end bound), so keep the
-    # loop over present components with the shared switch function.
-    unroll = fieldcount(CS) <= 16
 
-    if unroll
+    if fieldcount(CS) <= 16
         move_exprs = Expr[]
         for i in 1:fieldcount(CS)
             move_call =
@@ -1797,8 +1788,7 @@ end
 
         @inbounds state._entities[entity._id] = _EntityIndex(table_index, UInt32(new_row))
 
-        # Move component data only for components present in the old archetype;
-        # keep data for those also present in the new archetype, drop the rest.
+        # Move component data only for components present in old_archetype that are also present in new_archetype
         $move_block
 
         return nothing
