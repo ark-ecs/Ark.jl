@@ -7,7 +7,7 @@ on:
 
 jobs:
   juliac:
-    name: SIR model
+    name: Tests (juliac)
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
