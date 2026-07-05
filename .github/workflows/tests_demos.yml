@@ -32,7 +32,7 @@ jobs:
     - name: Run demos
       run: |
         cd demos
-        julia --color=yes --project=. logo/run.jl
+        julia --color=yes --project=. logo/main.jl
         xvfb-run --auto-servernum -s '-screen 0 1024x768x24' julia --color=yes --project=. nbody/run.jl
         xvfb-run --auto-servernum -s '-screen 0 1024x768x24' julia --color=yes --project=. sir/run.jl
         xvfb-run --auto-servernum -s '-screen 0 1024x768x24' julia --color=yes --project=. network/run.jl
