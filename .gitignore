@@ -19,3 +19,5 @@
 /docs/build/
 statprof/
 .vscode
+
+test_juliac

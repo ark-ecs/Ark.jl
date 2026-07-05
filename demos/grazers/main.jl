@@ -121,5 +121,3 @@ function run!(world::World, scheduler::Scheduler)
     GLMakie.start_renderloop!(window.screen)
     wait(window.screen)
 end
-
-main()

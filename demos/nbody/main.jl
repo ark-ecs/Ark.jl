@@ -53,10 +53,3 @@ function main(backend)
     n, dt = 10000, 0.01f0
     nbody_simulation(n, dt, backend)
 end
-
-main(CPU())
-
-# For better performance, use a GPU backend like so:
-#
-# using CUDA
-# main(CUDABackend())

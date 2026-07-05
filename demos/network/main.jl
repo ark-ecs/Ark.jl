@@ -84,5 +84,3 @@ function run!(world::World, scheduler::Scheduler)
 
     wait(window.screen)
 end
-
-main()

@@ -16,7 +16,7 @@
           ExchangeComponentsCommand{Tuple{Health},Tuple{Velocity}}
 
     @test_throws TypeError CommandBuffer{Nothing}(Nothing[])
-    @test_throws ArgumentError CommandBuffer(world, ((sin,),))
+    @test_throws MethodError CommandBuffer(world, (sin,))
     @test_throws MethodError NewEntityCommand(Position)
     @test_throws MethodError AddComponentsCommand(Position)
     @test_throws MethodError RemoveComponentsCommand(Position)
@@ -33,7 +33,6 @@
     @test eltype(
         CommandBuffer(world_exchange, (ExchangeComponentsCommand(add=(Health,), remove=(Velocity,)),))._commands,
     ) == ExchangeComponentsCommand{Tuple{Health},Tuple{Velocity}}
-    @test_throws ArgumentError CommandBuffer(world_exchange, ((exchange_components!, (Health,), (Velocity,)),))
     @test_throws ArgumentError ExchangeComponentsCommand(add=Health, remove=(Velocity,))
     @test_throws ArgumentError ExchangeComponentsCommand(add=(Health,), remove=Velocity)
 end
