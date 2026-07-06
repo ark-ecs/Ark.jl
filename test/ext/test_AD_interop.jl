@@ -1,5 +1,6 @@
 
 using DifferentiationInterface
+using Enzyme
 using FiniteDiff
 using FiniteDifferences
 using ForwardDiff
