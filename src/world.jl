@@ -2469,8 +2469,13 @@ end
     new_table::UInt32,
     row::UInt32,
 ) where CS
-    call_exprs =
-        Expr[:(_move_component_data!(stores._storages.$i, old_table, new_table, row)) for i in 1:fieldcount(CS)]
+    inline_jtable = fieldcount(CS) <= 10
+    call_exprs = Expr[
+        inline_jtable ?
+        :(@inline _move_component_data!(stores._storages.$i, old_table, new_table, row)) :
+        :(_move_component_data!(stores._storages.$i, old_table, new_table, row))
+        for i in 1:fieldcount(CS)
+    ]
     _generate_component_switch(:comp, call_exprs)
 end
 
@@ -2519,7 +2524,13 @@ end
     table::UInt32,
     row::UInt32,
 ) where {CS<:Tuple}
-    call_exprs = Expr[:(_remove_component_data!(stores._storages.$i, table, row)) for i in 1:fieldcount(CS)]
+    inline_jtable = fieldcount(CS) <= 10
+    call_exprs = Expr[
+        inline_jtable ?
+        :(@inline _remove_component_data!(stores._storages.$i, table, row)) :
+        :(_remove_component_data!(stores._storages.$i, table, row))
+        for i in 1:fieldcount(CS)
+    ]
     _generate_component_switch(:comp, call_exprs)
 end
 
