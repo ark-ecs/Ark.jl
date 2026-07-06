@@ -225,8 +225,17 @@ end
     offset = (i - 1) % UInt64 # which bit within that UInt64
     return ((mask.bits[1] >> offset) & UInt64(1)) % Bool
 end
+
 @inline function _get_bit(mask::Union{_Mask,_MutableMask}, i::Int)::Bool
     chunk = (i - 1) >>> 6 # which UInt64 (0-based)
     offset = ((i - 1) % UInt64) & UInt64(0x3F) # which bit within that UInt64
     return ((mask.bits[chunk+1] >> offset) & UInt64(1)) % Bool
+end
+
+@inline @generated function _count_bits(mask::Union{_Mask{M},_MutableMask{M}})::Int where {M}
+    exprs = Expr[]
+    for i in 1:M
+        push!(exprs, :(count_ones(mask.bits[$i])))
+    end
+    return Expr(:call, :+, exprs...)
 end
