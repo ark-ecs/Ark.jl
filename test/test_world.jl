@@ -1497,6 +1497,86 @@ end
         remove_entity!(world, zero_entity))
 end
 
+@testset "remove_entity! with more than 32 component types" begin
+    world = World(
+        Position,
+        Velocity => Storage{StructArray},
+        Health,
+        [CompN{i} for i in 1:30]...,
+    )
+
+    # few components: removal falls back to the component loop
+    e1 = new_entity!(world, (Position(1, 1), Velocity(1, 1)))
+    e2 = new_entity!(world, (Position(2, 2), Velocity(2, 2)))
+    e3 = new_entity!(world, (Position(3, 3), Velocity(3, 3)))
+
+    remove_entity!(world, e1)
+    @test is_alive(world, e1) == false
+    @test get_components(world, e2, (Position, Velocity)) == (Position(2, 2), Velocity(2, 2))
+    @test get_components(world, e3, (Position, Velocity)) == (Position(3, 3), Velocity(3, 3))
+
+    # many components: removal uses the unrolled pass
+    dense_values(i) = (Position(i, i), Velocity(i, i), Health(i), ntuple(j -> CompN{j}(), 30)...)
+    d1 = new_entity!(world, dense_values(1))
+    d2 = new_entity!(world, dense_values(2))
+    d3 = new_entity!(world, dense_values(3))
+
+    remove_entity!(world, d1)
+    @test is_alive(world, d1) == false
+    @test get_components(world, d2, (Position, Velocity, Health)) ==
+          (Position(2, 2), Velocity(2, 2), Health(2))
+    @test get_components(world, d3, (Position, Velocity, Health)) ==
+          (Position(3, 3), Velocity(3, 3), Health(3))
+    @test has_components(world, d2, (CompN{1}, CompN{15}, CompN{30})) == true
+
+    remove_entity!(world, d3)
+    remove_entity!(world, d2)
+    @test is_alive(world, d2) == false
+    @test is_alive(world, d3) == false
+    @test get_components(world, e2, (Position, Velocity)) == (Position(2, 2), Velocity(2, 2))
+    @test count_entities(world, Filter(world, ())) == 2
+end
+
+@testset "component exchange with more than 16 component types" begin
+    world = World(
+        Position,
+        Velocity => Storage{StructArray},
+        Health,
+        [CompN{i} for i in 1:15]...,
+    )
+
+    e1 = new_entity!(world, (Position(1, 1), Velocity(1, 1)))
+    e2 = new_entity!(world, (Position(2, 2), Velocity(2, 2)))
+    e3 = new_entity!(world, (Position(3, 3), Velocity(3, 3)))
+
+    add_components!(world, e1, (Health(10), CompN{1}()))
+    @test get_components(world, e1, (Position, Velocity, Health)) ==
+          (Position(1, 1), Velocity(1, 1), Health(10))
+    @test get_components(world, e3, (Position, Velocity)) == (Position(3, 3), Velocity(3, 3))
+
+    remove_components!(world, e1, (Velocity, CompN{1}))
+    @test has_components(world, e1, (Velocity,)) == false
+    @test get_components(world, e1, (Position, Health)) == (Position(1, 1), Health(10))
+
+    exchange_components!(world, e2; add=(Health(20),), remove=(Position,))
+    @test has_components(world, e2, (Position,)) == false
+    @test get_components(world, e2, (Velocity, Health)) == (Velocity(2, 2), Health(20))
+    @test get_components(world, e3, (Position, Velocity)) == (Position(3, 3), Velocity(3, 3))
+
+    dense_values = (Position(4, 4), Velocity(4, 4), Health(4), ntuple(j -> CompN{j}(), 15)...)
+    e4 = new_entity!(world, dense_values)
+    remove_components!(world, e4, (CompN{8},))
+    @test has_components(world, e4, (CompN{8},)) == false
+    @test get_components(world, e4, (Position, Velocity, Health)) ==
+          (Position(4, 4), Velocity(4, 4), Health(4))
+    @test has_components(world, e4, (CompN{1}, CompN{15})) == true
+
+    add_components!(world, e4, (CompN{8}(),))
+    @test has_components(world, e4, (CompN{8},)) == true
+    @test get_components(world, e4, (Position, Velocity, Health)) ==
+          (Position(4, 4), Velocity(4, 4), Health(4))
+end
+
 @testset "remove_entities! Tests" begin
     world = World(Dummy, Position, Velocity, Altitude, Relation{ChildOf})
 
