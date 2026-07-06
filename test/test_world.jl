@@ -870,6 +870,43 @@ end
     )
 end
 
+@testset "copy_entity! with more than 192 component types" begin
+    world = World(
+        Position,
+        Velocity => Storage{StructArray},
+        Health,
+        [CompN{i} for i in 1:197]...,
+    )
+
+    # few components: copying falls back to the component loop
+    e1 = new_entity!(world, (Position(1, 1), Velocity(1, 1)))
+    e2 = copy_entity!(world, e1)
+    @test get_components(world, e2, (Position, Velocity)) == (Position(1, 1), Velocity(1, 1))
+    @test has_components(world, e2, (Health,)) == false
+
+    e3 = copy_entity!(world, e1; add=(Health(3),), remove=(Velocity,))
+    @test get_components(world, e3, (Position, Health)) == (Position(1, 1), Health(3))
+    @test has_components(world, e3, (Velocity,)) == false
+    @test get_components(world, e1, (Position, Velocity)) == (Position(1, 1), Velocity(1, 1))
+
+    # many components: copying uses the unrolled pass
+    dense_values = (Position(4, 4), Velocity(4, 4), Health(4), ntuple(j -> CompN{j}(), 5)...)
+    d1 = new_entity!(world, dense_values)
+    d2 = copy_entity!(world, d1)
+    @test get_components(world, d2, (Position, Velocity, Health)) ==
+          (Position(4, 4), Velocity(4, 4), Health(4))
+    @test has_components(world, d2, (CompN{1}, CompN{3}, CompN{5})) == true
+    @test has_components(world, d2, (CompN{6},)) == false
+
+    d3 = copy_entity!(world, d1; add=(CompN{6}(),), remove=(CompN{1}, Health))
+    @test get_components(world, d3, (Position, Velocity)) == (Position(4, 4), Velocity(4, 4))
+    @test has_components(world, d3, (CompN{2}, CompN{5}, CompN{6})) == true
+    @test has_components(world, d3, (CompN{1},)) == false
+    @test has_components(world, d3, (Health,)) == false
+    @test get_components(world, d1, (Position, Velocity, Health)) ==
+          (Position(4, 4), Velocity(4, 4), Health(4))
+end
+
 @testset "Corrupted copy of special mutable types issue #514" begin
     world = World(String; allow_mutable=true)
 

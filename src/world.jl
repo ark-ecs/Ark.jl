@@ -1842,6 +1842,52 @@ function _move_entities!(
     return nothing
 end
 
+function _copy_entity_block_expr(
+    N::Int,
+    inline_jtable::Bool,
+    mask_expr::Expr,
+    new_table_expr::Union{Symbol,Expr},
+    components_expr::Expr,
+    filter_mask_expr::Union{Nothing,Expr},
+)
+    copy_exprs = Expr[]
+    for i in 1:N
+        call =
+            inline_jtable ?
+            :(@inline _copy_component_data!(stores._storages.$i, index.table, $new_table_expr, index.row, mode)) :
+            :(_copy_component_data!(stores._storages.$i, index.table, $new_table_expr, index.row, mode))
+        push!(copy_exprs, :(
+            if _get_bit(copy_mask, $i)
+                $call
+            end
+        ))
+    end
+
+    unrolled_block = quote
+        copy_mask = $mask_expr
+        $(Expr(:block, copy_exprs...))
+    end
+
+    if N <= 192
+        return unrolled_block
+    end
+
+    return quote
+        if length($components_expr) << 6 >= $N
+            $unrolled_block
+        else
+            for comp in $components_expr
+                $(filter_mask_expr === nothing ? :() : :(
+                    if !_get_bit($filter_mask_expr, comp)
+                        continue
+                    end
+                ))
+                _copy_component_data!(stores, comp, index.table, $new_table_expr, index.row, mode)
+            end
+        end
+    end
+end
+
 @inline @generated function _copy_entity!(
     world_state::_WorldState,
     stores::Storage,
@@ -1849,7 +1895,19 @@ end
     mode::Val,
     ::Val{Unchecked},
 )::Entity where {Storage<:_WorldStorage,Unchecked}
-    inline_jtable = fieldcount(_schema_storage_types(Storage)) <= 10
+    _check_copy_mode(mode)
+    CS = _schema_storage_types(Storage)
+    inline_jtable = fieldcount(CS) <= 10
+
+    copy_block = _copy_entity_block_expr(
+        fieldcount(CS),
+        inline_jtable,
+        :(@inbounds world_state._archetypes_hot[table.archetype].mask),
+        :(index.table),
+        :(archetype.components),
+        nothing,
+    )
+
     quote
         $(!Unchecked ? :(
             if !is_alive(world_state, entity)
@@ -1863,13 +1921,8 @@ end
         table = world_state._tables[index.table]
         archetype = world_state._archetypes[table.archetype]
 
-        for comp in archetype.components
-            $(
-                inline_jtable ?
-                :(@inline _copy_component_data!(stores, comp, index.table, index.table, index.row, mode)) :
-                :(_copy_component_data!(stores, comp, index.table, index.table, index.row, mode))
-            )
-        end
+        # Only operate on storages for components present in this archetype
+        $copy_block
 
         world_state._entities[new_entity._id] = _EntityIndex(index.table, UInt32(new_row))
 
@@ -1901,6 +1954,7 @@ end
     relation_types = _schema_relation_types(Storage)
     exprs = Expr[]
 
+    _check_copy_mode(CP)
     _check_no_duplicates(add_types)
     _check_no_duplicates(rem_types)
     _check_if_intersect(add_types, rem_types)
@@ -1951,15 +2005,16 @@ end
     push!(exprs, :(entity_and_row = _create_entity!(world_state, new_table_index)))
     push!(exprs, :(new_entity = entity_and_row[1]))
 
+    # Copy component data only for components present in both the old and the new archetype
     push!(
         exprs,
-        :(
-            for comp in old_archetype.components
-                if !_get_bit(new_archetype.mask, comp)
-                    continue
-                end
-                _copy_component_data!(stores, comp, index.table, new_table_index, index.row, mode)
-            end
+        _copy_entity_block_expr(
+            fieldcount(CS),
+            false,
+            :(_and(world_state._archetypes_hot[old_table.archetype].mask, new_archetype.mask)),
+            :new_table_index,
+            :(old_archetype.components),
+            :(new_archetype.mask),
         ),
     )
 
@@ -2525,10 +2580,7 @@ end
     old_row::UInt32,
     mode::CP,
 ) where {CS<:Tuple,CP<:Val}
-    if !(CP in (Val{:ref}, Val{:copy}, Val{:deepcopy}))
-        mode = _val_parameter(CP)
-        throw(ArgumentError(":$mode is not a valid copy mode, must be :ref, :copy or :deepcopy"))
-    end
+    _check_copy_mode(CP)
     call_exprs = Expr[
         :(_copy_component_data!(stores._storages.$i, old_table, new_table, old_row, mode))
         for i in 1:fieldcount(CS)
