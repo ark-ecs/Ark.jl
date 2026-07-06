@@ -360,15 +360,14 @@ Base.@constprop :aggressive function remove_entity!(world::World, entity::Entity
     return _remove_entity!(_state(world), _storage(world), entity, Val(_unchecked))
 end
 
-@generated function _remove_entity!(
+@generated function _remove_all_component_data!(
     world_state::_WorldState,
     stores::Storage,
-    entity::Entity,
-    ::Val{Unchecked},
-) where {Storage<:_WorldStorage,Unchecked}
+    table::_Table,
+    index::_EntityIndex,
+)::Nothing where {Storage<:_WorldStorage}
     CS = _schema_storage_types(Storage)
     inline_jtable = fieldcount(CS) <= 10
-    world_has_rel = _has_relations(_schema_relation_types(Storage))
 
     remove_exprs = Expr[]
     for i in 1:fieldcount(CS)
@@ -383,16 +382,29 @@ end
         ))
     end
 
+    quote
+        arch_mask = @inbounds world_state._archetypes_hot[table.archetype].mask
+        $(Expr(:block, remove_exprs...))
+        return nothing
+    end
+end
+
+@generated function _remove_entity!(
+    world_state::_WorldState,
+    stores::Storage,
+    entity::Entity,
+    ::Val{Unchecked},
+) where {Storage<:_WorldStorage,Unchecked}
+    CS = _schema_storage_types(Storage)
+    world_has_rel = _has_relations(_schema_relation_types(Storage))
+
+    unrolled_call = :(@inline _remove_all_component_data!(world_state, stores, table, index))
     if fieldcount(CS) <= 32
-        remove_block = quote
-            arch_mask = @inbounds world_state._archetypes_hot[table.archetype].mask
-            $(Expr(:block, remove_exprs...))
-        end
+        remove_block = unrolled_call
     else
         remove_block = quote
             if length(archetype.components) << 3 >= $(fieldcount(CS))
-                arch_mask = @inbounds world_state._archetypes_hot[table.archetype].mask
-                $(Expr(:block, remove_exprs...))
+                $unrolled_call
             else
                 for comp in archetype.components
                     _swap_remove_in_column_for_comp!(stores, comp, index.table, index.row)
@@ -1726,6 +1738,45 @@ end
     end
 end
 
+@generated function _move_all_component_data!(
+    state::_WorldState,
+    stores::_WorldStorage{CS},
+    old_table::_Table,
+    new_table::_Table,
+    table_index::UInt32,
+    index::_EntityIndex,
+)::Nothing where {CS<:Tuple}
+    inline_jtable = fieldcount(CS) <= 10
+
+    move_exprs = Expr[]
+    for i in 1:fieldcount(CS)
+        move_call =
+            inline_jtable ?
+            :(@inline _move_component_data!(stores._storages.$i, index.table, table_index, index.row)) :
+            :(_move_component_data!(stores._storages.$i, index.table, table_index, index.row))
+        remove_call =
+            inline_jtable ?
+            :(@inline _remove_component_data!(stores._storages.$i, index.table, index.row)) :
+            :(_remove_component_data!(stores._storages.$i, index.table, index.row))
+        push!(move_exprs, :(
+            if _get_bit(old_mask, $i)
+                if _get_bit(new_mask, $i)
+                    $move_call
+                else
+                    $remove_call
+                end
+            end
+        ))
+    end
+
+    quote
+        @inbounds old_mask = state._archetypes_hot[old_table.archetype].mask
+        @inbounds new_mask = state._archetypes_hot[new_table.archetype].mask
+        $(Expr(:block, move_exprs...))
+        return nothing
+    end
+end
+
 @inline @generated function _move_entity!(
     state::_WorldState,
     stores::_WorldStorage{CS},
@@ -1735,43 +1786,22 @@ end
     new_table::_Table,
     table_index::UInt32,
 )::Nothing where {CS<:Tuple}
-    inline_jtable = fieldcount(CS) <= 10
-
     if fieldcount(CS) <= 16
-        move_exprs = Expr[]
-        for i in 1:fieldcount(CS)
-            move_call =
-                inline_jtable ?
-                :(@inline _move_component_data!(stores._storages.$i, index.table, table_index, index.row)) :
-                :(_move_component_data!(stores._storages.$i, index.table, table_index, index.row))
-            remove_call =
-                inline_jtable ?
-                :(@inline _remove_component_data!(stores._storages.$i, index.table, index.row)) :
-                :(_remove_component_data!(stores._storages.$i, index.table, index.row))
-            push!(move_exprs, :(
-                if _get_bit(old_mask, $i)
-                    if _get_bit(new_mask, $i)
-                        $move_call
-                    else
-                        $remove_call
-                    end
-                end
-            ))
-        end
-        move_block = quote
-            @inbounds old_mask = state._archetypes_hot[old_table.archetype].mask
-            @inbounds new_mask = state._archetypes_hot[new_table.archetype].mask
-            $(Expr(:block, move_exprs...))
-        end
+        move_block = :(@inline _move_all_component_data!(state, stores, old_table, new_table, table_index, index))
     else
         move_block = quote
-            @inbounds old_archetype = state._archetypes[old_table.archetype]
-            @inbounds new_mask = state._archetypes_hot[new_table.archetype].mask
-            for comp in old_archetype.components
-                if _get_bit(new_mask, comp)
-                    _move_component_data!(stores, comp, index.table, table_index, index.row)
-                else
-                    _swap_remove_in_column_for_comp!(stores, comp, index.table, index.row)
+            @inbounds old_mask = state._archetypes_hot[old_table.archetype].mask
+            if _count_bits(old_mask) << 3 >= $(fieldcount(CS))
+                _move_all_component_data!(state, stores, old_table, new_table, table_index, index)
+            else
+                @inbounds old_archetype = state._archetypes[old_table.archetype]
+                @inbounds new_mask = state._archetypes_hot[new_table.archetype].mask
+                for comp in old_archetype.components
+                    if _get_bit(new_mask, comp)
+                        _move_component_data!(stores, comp, index.table, table_index, index.row)
+                    else
+                        _swap_remove_in_column_for_comp!(stores, comp, index.table, index.row)
+                    end
                 end
             end
         end
@@ -1842,20 +1872,23 @@ function _move_entities!(
     return nothing
 end
 
-function _copy_entity_block_expr(
-    N::Int,
-    inline_jtable::Bool,
-    mask_expr::Expr,
-    new_table_expr::Union{Symbol,Expr},
-    components_expr::Expr,
-    filter_mask_expr::Union{Nothing,Expr},
-)
+@generated function _copy_all_component_data!(
+    stores::Storage,
+    copy_mask::_Mask,
+    from_table::UInt32,
+    to_table::UInt32,
+    row::UInt32,
+    mode::Val,
+)::Nothing where {Storage<:_WorldStorage}
+    CS = _schema_storage_types(Storage)
+    inline_jtable = fieldcount(CS) <= 10
+
     copy_exprs = Expr[]
-    for i in 1:N
+    for i in 1:fieldcount(CS)
         call =
             inline_jtable ?
-            :(@inline _copy_component_data!(stores._storages.$i, index.table, $new_table_expr, index.row, mode)) :
-            :(_copy_component_data!(stores._storages.$i, index.table, $new_table_expr, index.row, mode))
+            :(@inline _copy_component_data!(stores._storages.$i, from_table, to_table, row, mode)) :
+            :(_copy_component_data!(stores._storages.$i, from_table, to_table, row, mode))
         push!(copy_exprs, :(
             if _get_bit(copy_mask, $i)
                 $call
@@ -1863,18 +1896,31 @@ function _copy_entity_block_expr(
         ))
     end
 
-    unrolled_block = quote
-        copy_mask = $mask_expr
+    quote
         $(Expr(:block, copy_exprs...))
+        return nothing
     end
+end
 
+function _copy_entity_block_expr(
+    N::Int,
+    mask_expr::Expr,
+    new_table_expr::Union{Symbol,Expr},
+    components_expr::Expr,
+    filter_mask_expr::Union{Nothing,Expr},
+)
+    unrolled_call = :(_copy_all_component_data!(stores, copy_mask, index.table, $new_table_expr, index.row, mode))
     if N <= 192
-        return unrolled_block
+        return quote
+            copy_mask = $mask_expr
+            @inline $unrolled_call
+        end
     end
 
     return quote
-        if length($components_expr) << 6 >= $N
-            $unrolled_block
+        copy_mask = $mask_expr
+        if _count_bits(copy_mask) << 6 >= $N
+            $unrolled_call
         else
             for comp in $components_expr
                 $(filter_mask_expr === nothing ? :() : :(
@@ -1897,11 +1943,9 @@ end
 )::Entity where {Storage<:_WorldStorage,Unchecked}
     _check_copy_mode(mode)
     CS = _schema_storage_types(Storage)
-    inline_jtable = fieldcount(CS) <= 10
 
     copy_block = _copy_entity_block_expr(
         fieldcount(CS),
-        inline_jtable,
         :(@inbounds world_state._archetypes_hot[table.archetype].mask),
         :(index.table),
         :(archetype.components),
@@ -2010,7 +2054,6 @@ end
         exprs,
         _copy_entity_block_expr(
             fieldcount(CS),
-            false,
             :(_and(world_state._archetypes_hot[old_table.archetype].mask, new_archetype.mask)),
             :new_table_index,
             :(old_archetype.components),
