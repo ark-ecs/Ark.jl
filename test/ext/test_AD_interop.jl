@@ -142,6 +142,7 @@ using ReverseDiff
             ("GTPSA", AutoGTPSA()),
             ("PolyesterForwardDiff", AutoPolyesterForwardDiff()),
             ("ReverseDiff", AutoReverseDiff()),
+            ("Enzyme (Reverse)", AutoEnzyme(mode=Enzyme.set_runtime_activity(Enzyme.Reverse))),
         )
             @testset "$name" begin
                 time = @elapsed ratios = gradient_ratios(backend)
