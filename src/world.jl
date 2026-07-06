@@ -2006,14 +2006,17 @@ end
     push!(exprs, :(new_entity = entity_and_row[1]))
 
     # Copy component data only for components present in both the old and the new archetype
-    push!(exprs, _copy_entity_block_expr(
-        fieldcount(CS),
-        false,
-        :(_and(world_state._archetypes_hot[old_table.archetype].mask, new_archetype.mask)),
-        :new_table_index,
-        :(old_archetype.components),
-        :(new_archetype.mask),
-    ))
+    push!(
+        exprs,
+        _copy_entity_block_expr(
+            fieldcount(CS),
+            false,
+            :(_and(world_state._archetypes_hot[old_table.archetype].mask, new_archetype.mask)),
+            :new_table_index,
+            :(old_archetype.components),
+            :(new_archetype.mask),
+        ),
+    )
 
     for i in 1:length(add_types)
         T = add_types[i]
