@@ -1766,9 +1766,9 @@ end
     else
         move_block = quote
             @inbounds old_archetype = state._archetypes[old_table.archetype]
-            @inbounds new_archetype = state._archetypes[new_table.archetype]
+            @inbounds new_mask = state._archetypes_hot[new_table.archetype].mask
             for comp in old_archetype.components
-                if _get_bit(new_archetype.node.mask, comp)
+                if _get_bit(new_mask, comp)
                     _move_component_data!(stores, comp, index.table, table_index, index.row)
                 else
                     _swap_remove_in_column_for_comp!(stores, comp, index.table, index.row)
