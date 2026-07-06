@@ -99,6 +99,13 @@ end
     end
 end
 
+@inline function _check_copy_mode(::Type{CP}) where {CP<:Val}
+    if !(CP in (Val{:ref}, Val{:copy}, Val{:deepcopy}))
+        mode = _val_parameter(CP)
+        throw(ArgumentError(":$mode is not a valid copy mode, must be :ref, :copy or :deepcopy"))
+    end
+end
+
 # TODO: improve the heuristic with something more robust, as of 1.12 though Julia doesn't
 # expose anything to set the flag more correctly
 function _is_testing()
