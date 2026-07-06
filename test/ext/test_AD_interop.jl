@@ -146,12 +146,12 @@ using ReverseDiff
             ("Enzyme (Reverse)", AutoEnzyme(mode=Enzyme.set_runtime_activity(Enzyme.Reverse))),
         )
             @testset "$name" begin
-                time = @elapsed ratios = gradient_ratios(backend)
+                println("Gradient TTFX with $name")
+                @time ratios = gradient_ratios(backend)
                 @test 0.99 < ratios.alpha < 1.01
                 @test 0.99 < ratios.beta < 1.01
-                println("Gradient TTFX with $name: $time s")
-                time = @elapsed ratios = gradient_ratios(backend)
-                println("Gradient RunTime with $name: $time s")
+                println("Gradient RunTime with $name")
+                @time ratios = gradient_ratios(backend)
             end
         end
     end
