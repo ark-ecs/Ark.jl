@@ -370,6 +370,37 @@ end
     inline_jtable = fieldcount(CS) <= 10
     world_has_rel = _has_relations(_schema_relation_types(Storage))
 
+    remove_exprs = Expr[]
+    for i in 1:fieldcount(CS)
+        call =
+            inline_jtable ?
+            :(@inline _remove_component_data!(stores._storages.$i, index.table, index.row)) :
+            :(_remove_component_data!(stores._storages.$i, index.table, index.row))
+        push!(remove_exprs, :(
+            if _get_bit(arch_mask, $i)
+                $call
+            end
+        ))
+    end
+
+    if fieldcount(CS) <= 32
+        remove_block = quote
+            arch_mask = @inbounds world_state._archetypes_hot[table.archetype].mask
+            $(Expr(:block, remove_exprs...))
+        end
+    else
+        remove_block = quote
+            if length(archetype.components) << 3 >= $(fieldcount(CS))
+                arch_mask = @inbounds world_state._archetypes_hot[table.archetype].mask
+                $(Expr(:block, remove_exprs...))
+            else
+                for comp in archetype.components
+                    _swap_remove_in_column_for_comp!(stores, comp, index.table, index.row)
+                end
+            end
+        end
+    end
+
     check_expr = Unchecked ? :() : :(
         if !is_alive(world_state, entity)
             throw(ArgumentError("can't remove a dead entity"))
@@ -400,13 +431,7 @@ end
         swapped = _swap_remove!(table.entities._data, index.row)
 
         # Only operate on storages for components present in this archetype
-        for comp in archetype.components
-            $(
-                inline_jtable ?
-                :(@inline _swap_remove_in_column_for_comp!(stores, comp, index.table, index.row)) :
-                :(_swap_remove_in_column_for_comp!(stores, comp, index.table, index.row))
-            )
-        end
+        $remove_block
 
         if swapped
             @inbounds swap_entity = table.entities[index.row]
@@ -1711,6 +1736,47 @@ end
     table_index::UInt32,
 )::Nothing where {CS<:Tuple}
     inline_jtable = fieldcount(CS) <= 10
+
+    if fieldcount(CS) <= 16
+        move_exprs = Expr[]
+        for i in 1:fieldcount(CS)
+            move_call =
+                inline_jtable ?
+                :(@inline _move_component_data!(stores._storages.$i, index.table, table_index, index.row)) :
+                :(_move_component_data!(stores._storages.$i, index.table, table_index, index.row))
+            remove_call =
+                inline_jtable ?
+                :(@inline _remove_component_data!(stores._storages.$i, index.table, index.row)) :
+                :(_remove_component_data!(stores._storages.$i, index.table, index.row))
+            push!(move_exprs, :(
+                if _get_bit(old_mask, $i)
+                    if _get_bit(new_mask, $i)
+                        $move_call
+                    else
+                        $remove_call
+                    end
+                end
+            ))
+        end
+        move_block = quote
+            @inbounds old_mask = state._archetypes_hot[old_table.archetype].mask
+            @inbounds new_mask = state._archetypes_hot[new_table.archetype].mask
+            $(Expr(:block, move_exprs...))
+        end
+    else
+        move_block = quote
+            @inbounds old_archetype = state._archetypes[old_table.archetype]
+            @inbounds new_archetype = state._archetypes[new_table.archetype]
+            for comp in old_archetype.components
+                if _get_bit(new_archetype.node.mask, comp)
+                    _move_component_data!(stores, comp, index.table, table_index, index.row)
+                else
+                    _swap_remove_in_column_for_comp!(stores, comp, index.table, index.row)
+                end
+            end
+        end
+    end
+
     quote
         new_row = _add_entity!(new_table, entity)
         swapped = _swap_remove!(old_table.entities._data, index.row)
@@ -1722,25 +1788,8 @@ end
 
         @inbounds state._entities[entity._id] = _EntityIndex(table_index, UInt32(new_row))
 
-        @inbounds old_archetype = state._archetypes[old_table.archetype]
-        @inbounds new_archetype = state._archetypes[new_table.archetype]
-
         # Move component data only for components present in old_archetype that are also present in new_archetype
-        for comp in old_archetype.components
-            if _get_bit(new_archetype.node.mask, comp)
-                $(
-                    inline_jtable ?
-                    :(@inline _move_component_data!(stores, comp, index.table, table_index, index.row)) :
-                    :(_move_component_data!(stores, comp, index.table, table_index, index.row))
-                )
-            else
-                $(
-                    inline_jtable ?
-                    :(@inline _swap_remove_in_column_for_comp!(stores, comp, index.table, index.row)) :
-                    :(_swap_remove_in_column_for_comp!(stores, comp, index.table, index.row))
-                )
-            end
-        end
+        $move_block
 
         return nothing
     end

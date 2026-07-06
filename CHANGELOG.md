@@ -15,9 +15,9 @@
 
 ### Performance
 
-- Getting components performance improved by 10% (#664).
-- Adding and removing components performance improved by 10% (#662).
+- Structural operations are now up to 2x faster (#662, #690).
 - Compile time performance is improved through a better internal specialization mechanism (#662).
+- Getting components performance improved by 10% (#664).
 
 ## [[v0.5.1]](https://github.com/ark-ecs/Ark.jl/compare/v0.5.0...v0.5.1)
 
