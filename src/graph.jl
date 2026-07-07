@@ -15,13 +15,14 @@ end
 mutable struct _Graph{M}
     const mask::_MutableMask{M}
     const nodes::_Linear_Map{_Mask{M},_GraphNode{M},true,true,NoZero,NoZero}
+    const root_node::_GraphNode{M}
     last_node::_GraphNode{M}
 end
 
 function _Graph{M}() where M
     m = _Mask{M}()
     node = _GraphNode(m, UInt32(1))
-    g = _Graph{M}(_MutableMask{M}(), _Linear_Map{_Mask{M},_GraphNode{M}}(), node)
+    g = _Graph{M}(_MutableMask{M}(), _Linear_Map{_Mask{M},_GraphNode{M}}(), node, node)
     get!(() -> node, g.nodes, m)
     return g
 end
@@ -31,13 +32,12 @@ function _find_or_create(g::_Graph, mask::_MutableMask)
     get!(() -> _GraphNode(immut_mask, typemax(UInt32)), g.nodes, immut_mask)
 end
 
-@inline function _find_node(g::_Graph, add::Tuple{Vararg{Int}}, 
-    add_mask::_Mask{M}, add_hash::UInt) where {M}
+@inline function _find_node(g::_Graph, add::Tuple{Vararg{Int}}, add_mask::_Mask, add_hash::UInt)
     idx = _prehashed_index(g.nodes, add_mask, add_hash)
     if idx != 0
         @inbounds return g.nodes.vals[idx]
     end
-    return _find_or_create_path(g, _Mask{M}(), add, ())
+    return _find_or_create_path(g, g.root_node, add, ())
 end
 
 function _find_node(g::_Graph, start::_GraphNode, add::Tuple{Vararg{Int}}, remove::Tuple{Vararg{Int}},
@@ -56,7 +56,7 @@ end
     if new_mask.bits == g.last_node.mask.bits
         return g.last_node
     end
-    node = get(() -> _find_or_create_path(g, start.mask, add, remove), g.nodes, new_mask)
+    node = get(() -> _find_or_create_path(g, start, add, remove), g.nodes, new_mask)
     g.last_node = node
     return node
 end
@@ -67,13 +67,14 @@ end
     if new_mask.bits == g.last_node.mask.bits
         return g.last_node
     end
-    node = _find_or_create_path(g, start.mask, add, remove)
+    node = _find_or_create_path(g, start, add, remove)
     g.last_node = node
     return node
 end
 
-function _find_or_create_path(g, start_mask, add, remove)
-    _set_mask!(g.mask, start_mask)
+function _find_or_create_path(g, start, add, remove)
+    curr = start
+    _set_mask!(g.mask, start.mask)
     for b in remove
         _clear_bit!(g.mask, b)
 
