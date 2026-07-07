@@ -1189,6 +1189,121 @@ function _find_or_create_table!(
     return new_table_id, relation_removed
 end
 
+@inline function _find_or_create_new_entity_archetype!(
+    state::_WorldState{M,K},
+    stores::Storage,
+    add::Tuple{Vararg{Int}},
+    relations::Tuple{Vararg{Int}},
+    add_mask::_Mask{M},
+    add_hash::UInt,
+)::Tuple{UInt32,Bool} where {M,K,Storage<:_WorldStorage}
+    node = _get_node_prehashed(state._graph, add_mask, add_hash)
+    if isnothing(node)
+        @inbounds start = state._archetypes[1].node
+        node = _find_or_create_path(state._graph, start, add, ())
+    end
+
+    arch_id = node.archetype[]
+    if arch_id == typemax(UInt32)
+        table = ifelse(isempty(relations), UInt32(length(state._tables) + 1), UInt32(0))
+        return (_create_archetype!(state, stores, node, table), true)
+    end
+
+    return (arch_id, false)
+end
+
+@inline function _find_or_create_new_entity_relation_table!(
+    state::_WorldState{M,K},
+    stores::Storage,
+    arch::_Archetype,
+    relations::Tuple{Vararg{Int}},
+    targets::Tuple{Vararg{Entity}},
+)::UInt32 where {M,K,Storage<:_WorldStorage}
+    all_relations = state._pool.relations
+    @inbounds for i in eachindex(relations)
+        push!(all_relations, Pair(relations[i], targets[i]))
+    end
+
+    new_table, found = _get_table(state, arch, all_relations)
+
+    if found
+        empty!(all_relations)
+        return new_table.id
+    end
+
+    if length(all_relations) > 0
+        sort!(all_relations; by=first)
+    end
+
+    new_table_id, found = _get_free_table!(arch)
+    if found
+        _recycle_table!(state, arch, new_table_id, all_relations)
+    else
+        new_table_id = _create_table!(state, stores, arch, copy(all_relations))
+    end
+    empty!(all_relations)
+
+    return new_table_id
+end
+
+@inline function _find_or_create_new_entity_table!(
+    state::_WorldState{M,K},
+    stores::Storage,
+    add::Tuple{Vararg{Int}},
+    relations::Tuple{Vararg{Int}},
+    targets::Tuple{Vararg{Entity}},
+    add_mask::_Mask{M},
+    add_hash::UInt,
+    world_has_rel::Val{false},
+)::UInt32 where {M,K,Storage<:_WorldStorage}
+    arch_id, is_new = _find_or_create_new_entity_archetype!(
+        state,
+        stores,
+        add,
+        relations,
+        add_mask,
+        add_hash,
+    )
+    if is_new
+        @inbounds arch = state._archetypes[arch_id]
+        return _create_table!(state, stores, arch, _empty_relations)
+    end
+
+    @inbounds return state._archetypes_hot[arch_id].table
+end
+
+@inline function _find_or_create_new_entity_table!(
+    state::_WorldState{M,K},
+    stores::Storage,
+    add::Tuple{Vararg{Int}},
+    relations::Tuple{Vararg{Int}},
+    targets::Tuple{Vararg{Entity}},
+    add_mask::_Mask{M},
+    add_hash::UInt,
+    world_has_rel::Val{true},
+)::UInt32 where {M,K,Storage<:_WorldStorage}
+    arch_id, is_new = _find_or_create_new_entity_archetype!(
+        state,
+        stores,
+        add,
+        relations,
+        add_mask,
+        add_hash,
+    )
+    @inbounds arch_hot = state._archetypes_hot[arch_id]
+
+    if !arch_hot.has_relations && isempty(relations)
+        if is_new
+            @inbounds arch = state._archetypes[arch_id]
+            return _create_table!(state, stores, arch, _empty_relations)
+        end
+        return arch_hot.table
+    end
+
+    @inbounds arch = state._archetypes[arch_id]
+    return _find_or_create_new_entity_relation_table!(state, stores, arch, relations, targets)
+end
+
 function _recycle_table!(
     state::_WorldState{M,K},
     arch::_Archetype,
@@ -1545,12 +1660,10 @@ function _new_entity_expr(
     CS = _schema_storage_types(Storage)
     ids = tuple(Int[_component_index(CS, T) for T in types]...)
     rel_ids = tuple(Int[_component_index(CS, T) for T in rel_types]...)
-    num_ids = length(ids)
-    use_map = num_ids >= 4 ? _UseMap() : _NoUseMap()
 
     M = max(1, cld(fieldcount(CS), 64))
     add_mask = _Mask{M}(ids...)
-    rem_mask = _Mask{M}()
+    add_hash = hash(add_mask)
 
     world_has_rel = Val{_has_relations(relation_types)}()
 
@@ -1562,19 +1675,16 @@ function _new_entity_expr(
     push!(
         exprs,
         :(
-            table = _find_or_create_table!(
+            table = _find_or_create_new_entity_table!(
                 world_state,
                 stores,
-                world_state._tables[1],
                 $ids,
-                (),
                 $rel_ids,
                 targets,
                 $add_mask,
-                $rem_mask,
-                $use_map,
+                $add_hash,
                 $world_has_rel,
-            )[1]
+            )
         ),
     )
     if Preallocated
