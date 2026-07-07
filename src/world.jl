@@ -1194,11 +1194,11 @@ end
     stores::Storage,
     add::Tuple{Vararg{Int}},
     relations::Tuple{Vararg{Int}},
-    add_mask::_Mask{M},
-    add_hash::UInt,
-)::Tuple{UInt32,Bool} where {M,K,Storage<:_WorldStorage}
-    node = _get_node_prehashed(state._graph, add_mask, add_hash)
-    if isnothing(node)
+    add_mask_bits::Val{MaskBits},
+    add_hash::Val{H},
+)::Tuple{UInt32,Bool} where {M,K,Storage<:_WorldStorage,MaskBits,H}
+    node = _get_node_prehashed(state._graph, add_mask_bits, add_hash)
+    if node.archetype[] == UInt32(0)
         @inbounds start = state._archetypes[1].node
         node = _find_or_create_path(state._graph, start, add, ())
     end
@@ -1252,16 +1252,16 @@ end
     add::Tuple{Vararg{Int}},
     relations::Tuple{Vararg{Int}},
     targets::Tuple{Vararg{Entity}},
-    add_mask::_Mask{M},
-    add_hash::UInt,
+    add_mask_bits::Val{MaskBits},
+    add_hash::Val{H},
     world_has_rel::Val{false},
-)::UInt32 where {M,K,Storage<:_WorldStorage}
+)::UInt32 where {M,K,Storage<:_WorldStorage,MaskBits,H}
     arch_id, is_new = _find_or_create_new_entity_archetype!(
         state,
         stores,
         add,
         relations,
-        add_mask,
+        add_mask_bits,
         add_hash,
     )
     if is_new
@@ -1278,16 +1278,16 @@ end
     add::Tuple{Vararg{Int}},
     relations::Tuple{Vararg{Int}},
     targets::Tuple{Vararg{Entity}},
-    add_mask::_Mask{M},
-    add_hash::UInt,
+    add_mask_bits::Val{MaskBits},
+    add_hash::Val{H},
     world_has_rel::Val{true},
-)::UInt32 where {M,K,Storage<:_WorldStorage}
+)::UInt32 where {M,K,Storage<:_WorldStorage,MaskBits,H}
     arch_id, is_new = _find_or_create_new_entity_archetype!(
         state,
         stores,
         add,
         relations,
-        add_mask,
+        add_mask_bits,
         add_hash,
     )
     @inbounds arch_hot = state._archetypes_hot[arch_id]
@@ -1663,6 +1663,7 @@ function _new_entity_expr(
 
     M = max(1, cld(fieldcount(CS), 64))
     add_mask = _Mask{M}(ids...)
+    add_mask_bits = add_mask.bits
     add_hash = hash(add_mask)
 
     world_has_rel = Val{_has_relations(relation_types)}()
@@ -1681,8 +1682,8 @@ function _new_entity_expr(
                 $ids,
                 $rel_ids,
                 targets,
-                $add_mask,
-                $add_hash,
+                Val{$add_mask_bits}(),
+                Val{$add_hash}(),
                 $world_has_rel,
             )
         ),
