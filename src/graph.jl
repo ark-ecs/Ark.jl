@@ -15,15 +15,14 @@ end
 mutable struct _Graph{M}
     const mask::_MutableMask{M}
     const nodes::_Linear_Map{_Mask{M},_GraphNode{M},true,true,NoZero,NoZero}
-    const missing_node::_GraphNode{M}
+    const root_node::_GraphNode{M}
     last_node::_GraphNode{M}
 end
 
 function _Graph{M}() where M
     m = _Mask{M}()
     node = _GraphNode(m, UInt32(1))
-    missing_node = _GraphNode(m, UInt32(0))
-    g = _Graph{M}(_MutableMask{M}(), _Linear_Map{_Mask{M},_GraphNode{M}}(), missing_node, node)
+    g = _Graph{M}(_MutableMask{M}(), _Linear_Map{_Mask{M},_GraphNode{M}}(), node, node)
     get!(() -> node, g.nodes, m)
     return g
 end
@@ -33,36 +32,12 @@ function _find_or_create(g::_Graph, mask::_MutableMask)
     get!(() -> _GraphNode(immut_mask, typemax(UInt32)), g.nodes, immut_mask)
 end
 
-@inline function _get_node_prehashed(
-    g::_Graph{M},
-    ::Val{MaskBits},
-    ::Val{H},
-)::_GraphNode{M} where {M,MaskBits,H}
-    nodes = g.nodes
-    map_mask = nodes.mask
-    idx = (H & map_mask) % Int + 1
-    h2 = (H >> _RSHIFT) % UInt8 | 0x01
-    @inbounds occ = nodes.occupied[idx]
-
-    if occ == h2
-        @inbounds if nodes.keys[idx].bits == MaskBits
-            return nodes.vals[idx]
-        end
-    elseif occ == 0x00
-        return g.missing_node
+@inline function _find_node(g::_Graph, add::Tuple{Vararg{Int}}, add_mask::_Mask, add_hash::UInt)
+    idx = _prehashed_index(g.nodes, add_mask, add_hash)
+    if idx != 0
+        @inbounds return g.nodes.vals[idx]
     end
-
-    while true
-        idx = (idx & map_mask) + 1
-        @inbounds occ = nodes.occupied[idx]
-        if occ == 0x00
-            return g.missing_node
-        elseif occ == h2
-            @inbounds if nodes.keys[idx].bits == MaskBits
-                return nodes.vals[idx]
-            end
-        end
-    end
+    return _find_or_create_path(g, g.root_node, add, ())
 end
 
 function _find_node(g::_Graph, start::_GraphNode, add::Tuple{Vararg{Int}}, remove::Tuple{Vararg{Int}},
