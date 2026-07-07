@@ -280,7 +280,6 @@ function new_entity!(buf::CommandBuffer, values::Tuple)
     world = buf._world
     state = _state(world)
     entity = _reserve_pending_entity!(state)
-    _reserve_entity_index!(state, entity)
     push!(buf._commands, NewEntityCommand(entity, values))
     return entity
 end

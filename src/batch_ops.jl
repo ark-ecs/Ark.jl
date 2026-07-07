@@ -969,7 +969,7 @@ end
             for entity in table.entities
                 $(world_has_rel ?
                   :(
-                    if world_state._targets[entity._id]
+                    if _is_target(@inbounds world_state._entities[entity._id])
                         push!(cleanup, entity)
                     end
                 ) :
@@ -985,9 +985,9 @@ end
 
         $(world_has_rel ?
           :(
+            # _recycle already cleared the entities' target flags.
             for entity in cleanup
                 _cleanup_archetypes(world_state, stores, entity)
-                world_state._targets[entity._id] = false
             end
         ) :
           (:(nothing))

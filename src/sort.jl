@@ -103,7 +103,7 @@ function _sort_table_entities!(
         # Restore the entity index to the final shuffled positions
         for row in 1:len
             entity = entities[row]
-            state._entities[entity._id] = _EntityIndex(table.id, UInt32(row))
+            _set_location!(state._entities, entity._id, table.id, UInt32(row))
         end
     end
 

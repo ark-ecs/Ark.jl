@@ -5,7 +5,7 @@
 
     @test isa(pool, _EntityPool)
     @test length(pool.entities) == 1
-    @test all(e -> e._gen == typemax(UInt32), pool.entities)
+    @test all(e -> e.gen == typemax(UInt32), pool.entities)
     @test pool.next == 0
 end
 
@@ -34,7 +34,7 @@ end
     # Test _recycle with non-reserved entity
     _recycle(pool, e1)
     @test pool.next == e1._id
-    @test pool.entities[e1._id]._gen == e1._gen + 1
+    @test pool.entities[e1._id].gen == e1._gen + 1
 
     # Test _get_entity now uses recycled entity
     e3 = _get_entity(pool)

@@ -84,7 +84,8 @@ end
         @test _healths(world, entities) == 2 .* sorted_xs
 
         for (row, entity) in enumerate(entities)
-            @test _state(world)._entities[entity._id] == _EntityIndex(2, row)
+            index = _state(world)._entities[entity._id]
+            @test (index.table, index.row) == (UInt32(2), UInt32(row))
         end
     end
 

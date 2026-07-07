@@ -74,7 +74,6 @@ end
 
 mutable struct _WorldState{M,K}
     const _entities::Vector{_EntityIndex}
-    const _targets::BitVector
     const _relations::Vector{_ComponentRelations}
     const _archetypes::Vector{_Archetype{M}}
     const _archetypes_hot::Vector{_ArchetypeHot{M}}
@@ -447,16 +446,16 @@ end
 
         if swapped
             @inbounds swap_entity = table.entities[index.row]
-            @inbounds world_state._entities[swap_entity._id] = index
+            _set_location!(world_state._entities, swap_entity._id, index.table, index.row)
         end
 
         _recycle(world_state._entity_pool, entity)
 
         $(world_has_rel ?
           :(
-            if world_state._targets[entity._id]
+            # `index` was read before `_recycle` cleared the record's flags.
+            if _is_target(index)
                 _cleanup_archetypes(world_state, stores, entity)
-                world_state._targets[entity._id] = false
             end
         ) :
           (:(nothing))
@@ -853,8 +852,6 @@ function reset!(world::W) where {W<:World}
     world_storage = _storage(world)
     _check_locked(world_state)
 
-    resize!(world_state._entities, 1)
-    resize!(world_state._targets, 1)
     _reset!(world_state._entity_pool)
     _reset!(world_state._lock)
     _reset!(world_state._event_manager)
@@ -962,10 +959,7 @@ end
         registry = _ComponentRegistry()
         ids = $id_tuple
         graph = _Graph{$(M)}()
-        index = _EntityIndex[_EntityIndex(typemax(UInt32), 0)]
-        sizehint!(index, initial_capacity)
-        targets = BitVector((false,))
-        sizehint!(targets, initial_capacity)
+        entity_pool = _EntityPool(max(UInt32(initial_capacity), UInt32(1024)))
 
         node = graph.nodes[$start_mask]
 
@@ -975,8 +969,7 @@ end
         }($storage_tuple)
 
         world_state = _WorldState{$M,$K}(
-            index,
-            targets,
+            entity_pool.entities,
             $relations_vec,
             [_Archetype(UInt32(1), node, UInt32(1))],
             [_ArchetypeHot(node, UInt32(1))],
@@ -985,7 +978,7 @@ end
             _LastTable{$M}(_Mask{$M}(), UInt32(1)),
             _ComponentIndex{$(M)}($(length(types))),
             registry,
-            _EntityPool(max(UInt32(initial_capacity), UInt32(1024))),
+            entity_pool,
             _Lock(),
             graph,
             Dict{DataType,Any}(),
@@ -1206,7 +1199,7 @@ function _recycle_table!(
         entity = comp.second
         _activate_table_relation_for_comp!(state, comp.first % Int, table_id % Int, entity)
         table.relations[i] = comp
-        state._targets[entity._id] = true
+        _set_target_flag!(state._entities, entity._id)
     end
 
     _add_table!(state._relations, arch, table)
@@ -1240,7 +1233,7 @@ function _create_table!(
     for (i, comp) in enumerate(relations)
         entity = comp.second
         _activate_table_relation_for_comp!(state, comp.first % Int, new_table_id, entity)
-        state._targets[entity._id] = true
+        _set_target_flag!(state._entities, entity._id)
     end
 
     _add_table!(state._relations, arch, table)
@@ -1578,7 +1571,6 @@ function _new_entity_expr(
         ),
     )
     if Preallocated
-        push!(exprs, :(_activate_entity!(world_state._entity_pool, entity)))
         push!(exprs, :(_place_entity!(world_state, entity, table)))
     else
         push!(exprs, :(tmp = _create_entity!(world_state, table)))
@@ -1639,103 +1631,69 @@ end
     return _get_pending_entity(state._entity_pool)
 end
 
-@inline @generated function _reserve_entity_index!(state::_WorldState{M,K}, entity::Entity)::Nothing where {M,K}
-    world_has_rel = K > 0
-    quote
-        id = Int(entity._id)
-        if id > length(state._entities)
-            push!(state._entities, _EntityIndex(UInt32(0), UInt32(0)))
-            $(world_has_rel ? :(push!(state._targets, false)) : (:(nothing)))
-        else
-            $(world_has_rel ? :(@inbounds state._targets[id] = false) : (:(nothing)))
-        end
-        return nothing
-    end
-end
-
 @inline function _create_entity!(state::_WorldState, table_index::UInt32)::Tuple{Entity,Int}
     entity = _reserve_entity!(state)
     index = _place_entity!(state, entity, table_index)
     return entity, index
 end
 
-@inline @generated function _place_entity!(
-    state::_WorldState{M,K},
+@inline function _place_entity!(
+    state::_WorldState,
     entity::Entity,
     table_index::UInt32,
-)::Int where {M,K}
-    world_has_rel = K > 0
-    quote
-        @inbounds table = state._tables[table_index]
-        index = _add_entity!(table, entity)
-        id = Int(entity._id)
-        if id > length(state._entities)
-            push!(state._entities, _EntityIndex(table_index, UInt32(index)))
-            $(world_has_rel ? :(push!(state._targets, false)) : (:(nothing)))
-        else
-            @inbounds state._entities[id] = _EntityIndex(table_index, UInt32(index))
-            $(world_has_rel ? :(@inbounds state._targets[id] = false) : (:(nothing)))
-        end
-        return index
-    end
+)::Int
+    @inbounds table = state._tables[table_index]
+    index = _add_entity!(table, entity)
+    # The pool guarantees a record for the entity's id; write it completely.
+    @inbounds state._entities[entity._id] = _EntityIndex(table_index, UInt32(index), entity._gen, UInt32(0))
+    return index
 end
 
-@generated function _create_entities!(
-    state::_WorldState{M,K},
+function _create_entities!(
+    state::_WorldState,
     stores::_WorldStorage,
     table_index::UInt32,
     n::Int,
-)::Tuple{Int,Int} where {M,K}
-    world_has_rel = K > 0
-    quote
-        table = state._tables[Int(table_index)]
-        archetype = state._archetypes[table.archetype]
-        old_length = length(table.entities)
-        new_length = old_length + n
+)::Tuple{Int,Int}
+    table = state._tables[Int(table_index)]
+    archetype = state._archetypes[table.archetype]
+    old_length = length(table.entities)
+    new_length = old_length + n
 
-        resize!(table, new_length)
+    resize!(table, new_length)
 
-        pool = state._entity_pool
-        entities = table.entities._data
+    pool = state._entity_pool
+    entities = table.entities._data
 
-        i = old_length + 1
-        # Pop from free list
-        @inbounds while i <= new_length && pool.next != 0
-            entity = _get_entity(pool)
+    i = old_length + 1
+    # Pop from free list
+    @inbounds while i <= new_length && pool.next != 0
+        entity = _get_entity(pool)
+        entities[i] = entity
+        state._entities[entity._id] = _EntityIndex(table_index, UInt32(i), entity._gen, UInt32(0))
+        i += 1
+    end
+
+    # Bulk-allocate the rest
+    if i <= new_length
+        rem = new_length - i + 1
+        old_pool_len = length(pool.entities)
+        _grow_entities!(pool, rem)
+
+        @inbounds @simd for j in 1:rem
+            id = old_pool_len + j
+            entity = _new_entity(id % UInt32, UInt32(0))
             entities[i] = entity
-            id = Int(entity._id)
-            state._entities[id] = _EntityIndex(table_index, UInt32(i))
-            $(world_has_rel ? :(state._targets[id] = false) : (:(nothing)))
+            state._entities[id] = _EntityIndex(table_index, UInt32(i), UInt32(0), UInt32(0))
             i += 1
         end
-
-        # Bulk-allocate the rest
-        if i <= new_length
-            rem = new_length - i + 1
-            old_pool_len = length(pool.entities)
-            @check old_pool_len == length(state._entities)
-            _get_new_entities!(pool, rem)
-
-            new_pool_len = length(pool.entities)
-            resize!(state._entities, new_pool_len)
-            $(world_has_rel ? :(resize!(state._targets, new_pool_len)) : nothing)
-            $(world_has_rel ? :(view(state._targets, (old_pool_len+1):new_pool_len) .= false) : nothing)
-
-            @inbounds @simd for j in 1:rem
-                id = old_pool_len + j
-                entity = pool.entities[id]
-                entities[i] = entity
-                state._entities[id] = _EntityIndex(table_index, UInt32(i))
-                i += 1
-            end
-        end
-
-        for comp in archetype.components
-            _ensure_column_size_for_comp!(stores, comp, table_index, new_length)
-        end
-
-        return old_length + 1, new_length
     end
+
+    for comp in archetype.components
+        _ensure_column_size_for_comp!(stores, comp, table_index, new_length)
+    end
+
+    return old_length + 1, new_length
 end
 
 @generated function _move_all_component_data!(
@@ -1813,10 +1771,10 @@ end
 
         if swapped
             @inbounds swap_entity = old_table.entities[index.row]
-            @inbounds state._entities[swap_entity._id] = index
+            _set_location!(state._entities, swap_entity._id, index.table, index.row)
         end
 
-        @inbounds state._entities[entity._id] = _EntityIndex(table_index, UInt32(new_row))
+        @inbounds state._entities[entity._id] = _EntityIndex(table_index, UInt32(new_row), index.gen, index.flags)
 
         # Move component data only for components present in old_archetype that are also present in new_archetype
         $move_block
@@ -1859,7 +1817,7 @@ function _move_entities!(
         to = old_entities + from
         entity = old_table.entities[from]
         new_table.entities._data[to] = entity
-        state._entities[entity._id] = _EntityIndex(new_table.id, to)
+        _set_location!(state._entities, entity._id, new_table.id, UInt32(to))
     end
     for comp in old_archetype.components
         if _get_bit(new_archetype.node.mask, comp)
@@ -1966,9 +1924,8 @@ end
         archetype = world_state._archetypes[table.archetype]
 
         # Only operate on storages for components present in this archetype
+        # (the new entity's record was already written by _create_entity!)
         $copy_block
-
-        world_state._entities[new_entity._id] = _EntityIndex(index.table, UInt32(new_row))
 
         if _has_observers(world_state._event_manager, OnCreateEntity)
             _fire_create_entity(world_state._event_manager, new_entity, archetype.node.mask)
@@ -2754,8 +2711,8 @@ end
         table.entities._data[i] = entity_j
         table.entities._data[j] = entity_i
 
-        state._entities[entity_i._id] = _EntityIndex(table.id, j)
-        state._entities[entity_j._id] = _EntityIndex(table.id, i)
+        _set_location!(state._entities, entity_i._id, table.id, UInt32(j))
+        _set_location!(state._entities, entity_j._id, table.id, UInt32(i))
 
         for comp in archetype.components
             _swap_components!(stores, comp, table.id, i, j)

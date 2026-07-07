@@ -42,9 +42,34 @@ function Base.show(io::IO, entity::Entity)
     print(io, "Entity($(Int(entity._id)), $(Int(entity._gen)))")
 end
 
+# One record per entity id, combining location (table, row), liveness
+# generation and flags in a single cache line. `_WorldState._entities` and
+# `_EntityPool.entities` alias the same vector of these records.
+# For dead (recycled) entities, `row` holds the id of the next entity in the
+# pool's free list.
 struct _EntityIndex
     table::UInt32
     row::UInt32
+    gen::UInt32
+    flags::UInt32
+end
+
+# The entity is the target of at least one relationship.
+const _TARGET_FLAG = UInt32(1)
+
+_is_target(index::_EntityIndex)::Bool = index.flags & _TARGET_FLAG != UInt32(0)
+
+# Update location only, preserving generation and flags.
+@inline function _set_location!(entities::Vector{_EntityIndex}, id::UInt32, table::UInt32, row::UInt32)
+    @inbounds index = entities[id]
+    @inbounds entities[id] = _EntityIndex(table, row, index.gen, index.flags)
+    return nothing
+end
+
+@inline function _set_target_flag!(entities::Vector{_EntityIndex}, id::UInt32)
+    @inbounds index = entities[id]
+    @inbounds entities[id] = _EntityIndex(index.table, index.row, index.gen, index.flags | _TARGET_FLAG)
+    return nothing
 end
 
 """

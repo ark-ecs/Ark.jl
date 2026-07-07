@@ -364,7 +364,7 @@ end
             index = entity_index[entity._id]
             next_row = Int(index.row)
 
-            entity_index[entity._id] = _EntityIndex(UInt32(0), index.row)
+            entity_index[entity._id] = _EntityIndex(UInt32(0), index.row, index.gen, index.flags)
 
             if next_row == start
                 $(final_exprs...)

@@ -1,11 +1,15 @@
 
+# Manages entity liveness and id recycling on the shared entity records
+# vector (aliased by `_WorldState._entities`). The pool owns the `gen` field
+# and the free list threaded through the `row` field of dead records;
+# locations are written by `_place_entity!` and friends.
 mutable struct _EntityPool
-    const entities::Vector{Entity}
+    const entities::Vector{_EntityIndex}
     next::Int
 end
 
 function _EntityPool(cap::UInt32)
-    v = [_new_entity(UInt32(0), typemax(UInt32))]
+    v = [_EntityIndex(typemax(UInt32), UInt32(0), typemax(UInt32), UInt32(0))]
     sizehint!(v, cap)
 
     return _EntityPool(v, 0)
@@ -16,19 +20,17 @@ function _get_entity(p::_EntityPool)::Entity
         return _get_new_entity(p)
     end
     curr = p.next
-    temp = p.entities[curr]
+    index = p.entities[curr]
 
-    p.next = temp._id
-    entity = _Entity(curr % UInt32, temp._gen)
-    p.entities[curr] = entity
+    p.next = index.row % Int
 
-    return entity
+    return _Entity(curr % UInt32, index.gen)
 end
 
 function _get_new_entity(p::_EntityPool)::Entity
-    e = _new_entity(length(p.entities) + 1, 0)
-    push!(p.entities, e)
-    return e
+    id = length(p.entities) + 1
+    push!(p.entities, _EntityIndex(UInt32(0), UInt32(0), UInt32(0), UInt32(0)))
+    return _new_entity(id, 0)
 end
 
 function _get_pending_entity(p::_EntityPool)::Entity
@@ -36,18 +38,9 @@ function _get_pending_entity(p::_EntityPool)::Entity
     return _new_entity(entity._id, entity._gen + UInt32(1))
 end
 
-function _activate_entity!(p::_EntityPool, e::Entity)
-    @inbounds p.entities[e._id] = e
-    return nothing
-end
-
-function _get_new_entities!(p::_EntityPool, n::Integer)
-    old_len = length(p.entities)
-    new_len = old_len + n
-    resize!(p.entities, new_len)
-    for i in (old_len+1):new_len
-        @inbounds p.entities[i] = _new_entity(i % UInt32, UInt32(0))
-    end
+# Appends `n` uninitialized records; the caller must fully initialize them.
+function _grow_entities!(p::_EntityPool, n::Integer)
+    resize!(p.entities, length(p.entities) + n)
     return
 end
 
@@ -57,12 +50,12 @@ function _recycle(p::_EntityPool, e::Entity)
     end
     temp = p.next
     p.next = e._id
-    p.entities[e._id] = _new_entity(temp % UInt32, e._gen + UInt32(1))
+    p.entities[e._id] = _EntityIndex(UInt32(0), temp % UInt32, e._gen + UInt32(1), UInt32(0))
     return nothing
 end
 
 function _is_alive(p::_EntityPool, e::Entity)::Bool
-    @inbounds return e._gen == p.entities[e._id]._gen
+    @inbounds return e._gen == p.entities[e._id].gen
 end
 
 function _reset!(p::_EntityPool)

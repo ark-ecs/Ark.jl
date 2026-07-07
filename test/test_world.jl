@@ -391,7 +391,10 @@ end
     push!(_get_storage(_storage(world), Velocity).data[table_index[1]], Velocity(0, 0))
     @test entity == _new_entity(2, 0)
     @test index == 1
-    @test _state(world)._entities == [_EntityIndex(typemax(UInt32), 0), _EntityIndex(table_index[1], UInt32(1))]
+    @test _state(world)._entities == [
+        _EntityIndex(typemax(UInt32), UInt32(0), typemax(UInt32), UInt32(0)),
+        _EntityIndex(table_index[1], UInt32(1), UInt32(0), UInt32(0)),
+    ]
 
     remove_entity!(world, entity)
     entity, index = _create_entity!(_state(world), table_index[1])
@@ -512,13 +515,13 @@ end
     dead_parent = new_entity!(world, ())
     remove_entity!(world, dead_parent)
 
-    @test _state(world)._targets[parent1._id] == false
+    @test _is_target(_state(world)._entities[parent1._id]) == false
 
     e1 = new_entity!(world, (Position(0, 0), ChildOf() => parent1))
     e2 = new_entity!(world, (Position(0, 0), ChildOf() => parent2))
     e3 = new_entity!(world, (Position(0, 0), ChildOf() => parent2))
 
-    @test _state(world)._targets[parent1._id] == true
+    @test _is_target(_state(world)._entities[parent1._id]) == true
 
     @test length(_state(world)._archetypes) == 2
     @test length(_state(world)._tables) == 3
@@ -715,7 +718,7 @@ end
         @test get_relations(world, e, (ChildOf,)) == (parent4,)
         @test get_components(world, e, (Position,)) == (Position(i, i),)
     end
-    @test _state(world)._targets[parent4._id] == true
+    @test _is_target(_state(world)._entities[parent4._id]) == true
 
     @test_throws(
         "ArgumentError: can't use a dead entity as relation target, except for the zero entity",
