@@ -77,6 +77,21 @@ function _get_zero_index_loop(d, h)
     return idx
 end
 
+@inline function _prehashed_index(d::_Linear_Map, key, h::UInt)::Int
+    mask = d.mask
+    idx = (h & mask) % Int + 1
+    h2 = (h >> _RSHIFT) % UInt8 | 0x01
+    @inbounds h2_idx = d.occupied[idx]
+    @inbounds while h2_idx != 0x00
+        if h2 == h2_idx && isequal(d.keys[idx], key)
+            return idx
+        end
+        idx = (idx & mask) + 1
+        h2_idx = d.occupied[idx]
+    end
+    return 0
+end
+
 macro _get_value_loop(return_val)
     return esc(quote
         mask = d.mask
