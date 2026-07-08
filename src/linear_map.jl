@@ -77,25 +77,25 @@ function _get_zero_index_loop(d, h)
     return idx
 end
 
-@inline function _prehashed_index(d::_Linear_Map, key, h::UInt)::Int
-    mask = d.mask
-    idx = (h & mask) % Int + 1
-    h2 = (h >> _RSHIFT) % UInt8 | 0x01
-    @inbounds h2_idx = d.occupied[idx]
-    @inbounds while h2_idx != 0x00
-        if h2 == h2_idx && isequal(d.keys[idx], key)
-            return idx
-        end
-        idx = (idx & mask) + 1
-        h2_idx = d.occupied[idx]
+@inline @generated function _prehashed_index(d::_Linear_Map, key, h::UInt)::Int
+    expr = _get_value_loop_after_hash_expr(:(idx))
+    quote
+        $expr
+        return 0
     end
-    return 0
 end
 
 macro _get_value_loop(return_val)
+    expr = _get_value_loop_after_hash_expr(return_val)
     return esc(quote
-        mask = d.mask
         h = hash(key)
+        $expr
+    end)
+end
+
+function _get_value_loop_after_hash_expr(return_val)
+    quote
+        mask = d.mask
         idx = (h & mask) % Int + 1
         h2 = (h >> _RSHIFT) % UInt8 | 0x01
         @inbounds h2_idx = d.occupied[idx]
@@ -106,7 +106,7 @@ macro _get_value_loop(return_val)
             idx = (idx & mask) + 1
             h2_idx = d.occupied[idx]
         end
-    end)
+    end
 end
 
 macro _set_new_key()
