@@ -1021,11 +1021,15 @@ end
 end
 
 @inline function _archetype_start_node(state::_WorldState, old_table::_Table)
-    @inbounds return state._archetypes[old_table.archetype].node
+    return @inbounds state._archetypes[old_table.archetype].node
 end
 
-@inline function _table_had_relations(state::_WorldState, old_table::_Table)
-    @inbounds return _has_relations(state._archetypes[old_table.archetype])
+@inline function _table_had_relations(state::_WorldState, old_table::_Table, start::_GraphNode)
+    return @inbounds _has_relations(state._archetypes[old_table.archetype])
+end
+
+@inline function _table_had_relations(state::_WorldState, old_table::_Table, start::_NoGraphNode)
+    return false
 end
 
 @inline function _find_or_create_archetype!(
@@ -1071,9 +1075,9 @@ end
     if !new_arch_hot.has_relations && isempty(relations)
         if is_new
             @inbounds new_arch = state._archetypes[new_arch_index]
-            return _create_table!(state, stores, new_arch, _empty_relations), _table_had_relations(state, old_table)
+            return _create_table!(state, stores, new_arch, _empty_relations), _table_had_relations(state, old_table, start)
         end
-        return new_arch_hot.table, _table_had_relations(state, old_table)
+        return new_arch_hot.table, _table_had_relations(state, old_table, start)
     end
 
     @inbounds new_arch = state._archetypes[new_arch_index]
@@ -1625,7 +1629,6 @@ function _new_entity_expr(
                 world_state,
                 stores,
                 _NoGraphNode{$M}(),
-                false,
                 world_state._tables[1],
                 $ids,
                 (),
