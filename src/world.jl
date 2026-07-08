@@ -1075,7 +1075,8 @@ end
     if !new_arch_hot.has_relations && isempty(relations)
         if is_new
             @inbounds new_arch = state._archetypes[new_arch_index]
-            return _create_table!(state, stores, new_arch, _empty_relations), _table_had_relations(state, old_table, start)
+            return _create_table!(state, stores, new_arch, _empty_relations),
+            _table_had_relations(state, old_table, start)
         end
         return new_arch_hot.table, _table_had_relations(state, old_table, start)
     end
