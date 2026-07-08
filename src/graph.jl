@@ -15,14 +15,13 @@ end
 mutable struct _Graph{M}
     const mask::_MutableMask{M}
     const nodes::_Linear_Map{_Mask{M},_GraphNode{M},true,true,NoZero,NoZero}
-    const root_node::_GraphNode{M}
     last_node::_GraphNode{M}
 end
 
 function _Graph{M}() where M
     m = _Mask{M}()
     node = _GraphNode(m, UInt32(1))
-    g = _Graph{M}(_MutableMask{M}(), _Linear_Map{_Mask{M},_GraphNode{M}}(), node, node)
+    g = _Graph{M}(_MutableMask{M}(), _Linear_Map{_Mask{M},_GraphNode{M}}(), node)
     get!(() -> node, g.nodes, m)
     return g
 end
@@ -30,14 +29,6 @@ end
 function _find_or_create(g::_Graph, mask::_MutableMask)
     immut_mask = _Mask(mask)
     get!(() -> _GraphNode(immut_mask, typemax(UInt32)), g.nodes, immut_mask)
-end
-
-@inline function _find_node(g::_Graph, add::Tuple{Vararg{Int}}, add_mask::_Mask, add_hash::UInt)
-    idx = _prehashed_index(g.nodes, add_mask, add_hash)
-    if idx != 0
-        @inbounds return g.nodes.vals[idx]
-    end
-    return _find_or_create_path(g, g.root_node, add, ())
 end
 
 function _find_node(g::_Graph, start::_GraphNode, add::Tuple{Vararg{Int}}, remove::Tuple{Vararg{Int}},
@@ -48,6 +39,31 @@ function _find_node(g::_Graph, start::_GraphNode, add::Tuple{Vararg{Int}}, remov
         throw(ArgumentError("entity already has component to add"))
     end
     _search_node(g, start, add, remove, add_mask, rem_mask, use_map)
+end
+
+@inline function _find_node(g::_Graph, start::_GraphNode, add::Tuple{Vararg{Int}},
+    final_mask::_Mask, use_map::Union{_NoUseMap,_UseMap})
+    _search_node(g, start, add, final_mask, use_map)
+end
+
+@inline function _search_node(g::_Graph, start::_GraphNode, add::Tuple{Vararg{Int}},
+    final_mask::_Mask, use_map::_UseMap)
+    if final_mask.bits == g.last_node.mask.bits
+        return g.last_node
+    end
+    node = get(() -> _find_or_create_path(g, start, add, ()), g.nodes, final_mask)
+    g.last_node = node
+    return node
+end
+
+@inline function _search_node(g::_Graph, start::_GraphNode, add::Tuple{Vararg{Int}},
+    final_mask::_Mask, use_map::_NoUseMap)
+    if final_mask.bits == g.last_node.mask.bits
+        return g.last_node
+    end
+    node = _find_or_create_path(g, start, add, ())
+    g.last_node = node
+    return node
 end
 
 @inline function _search_node(g::_Graph, start::_GraphNode, add::Tuple{Vararg{Int}}, remove::Tuple{Vararg{Int}},
