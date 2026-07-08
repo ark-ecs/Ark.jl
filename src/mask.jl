@@ -3,6 +3,8 @@ struct _Not end
 
 abstract type _AbstractMask{M} end
 
+struct _NoMask{M} <: _AbstractMask{M} end
+
 struct _Mask{M} <: _AbstractMask{M}
     bits::NTuple{M,UInt64}
 end

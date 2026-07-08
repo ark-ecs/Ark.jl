@@ -2,6 +2,12 @@
 struct _UseMap end
 struct _NoUseMap end
 
+struct _NoGraphNode{M}
+    mask::_NoMask{M}
+end
+
+_NoGraphNode{M}() where M = _NoGraphNode(_NoMask{M}())
+
 struct _GraphNode{M}
     mask::_Mask{M}
     neighbors::_VecMap{_GraphNode{M},M}
@@ -31,19 +37,57 @@ function _find_or_create(g::_Graph, mask::_MutableMask)
     get!(() -> _GraphNode(immut_mask, typemax(UInt32)), g.nodes, immut_mask)
 end
 
-function _find_node(g::_Graph, start::_GraphNode, add::Tuple{Vararg{Int}}, remove::Tuple{Vararg{Int}},
-    add_mask::_Mask, rem_mask::_Mask, use_map::Union{_NoUseMap,_UseMap})
+@inline function _check_find_node(start::_GraphNode, add_mask::_Mask, rem_mask::_Mask)
     if !_contains_all(start.mask, rem_mask)
         throw(ArgumentError("entity does not have component to remove"))
     elseif _contains_any(start.mask, add_mask)
         throw(ArgumentError("entity already has component to add"))
     end
+end
+
+@inline function _check_find_node(start::_GraphNode, add_mask::_Mask, rem_mask::_NoMask)
+    if _contains_any(start.mask, add_mask)
+        throw(ArgumentError("entity already has component to add"))
+    end
+end
+
+@inline function _check_find_node(start::_GraphNode, add_mask::_NoMask, rem_mask::_Mask)
+    if !_contains_all(start.mask, rem_mask)
+        throw(ArgumentError("entity does not have component to remove"))
+    end
+end
+
+@inline _check_find_node(start::_NoGraphNode, add_mask::_Mask, rem_mask::_NoMask) = nothing
+@inline _check_find_node(start::_NoGraphNode, add_mask::_NoMask, rem_mask::_NoMask) = nothing
+
+@inline _new_mask(start::_GraphNode, add_mask::_Mask, rem_mask::_Mask) =
+    _clear_bits(_or(add_mask, start.mask), rem_mask)
+@inline _new_mask(start::_GraphNode, add_mask::_Mask, rem_mask::_NoMask) = _or(add_mask, start.mask)
+@inline _new_mask(start::_GraphNode, add_mask::_NoMask, rem_mask::_Mask) = _clear_bits(start.mask, rem_mask)
+@inline _new_mask(start::_NoGraphNode, add_mask::_Mask, rem_mask::_NoMask) = add_mask
+@inline function _new_mask(start::_NoGraphNode{M}, add_mask::_NoMask{M}, rem_mask::_NoMask{M}) where M
+    return _Mask{M}()
+end
+
+@inline _start_mask(start::_GraphNode) = start.mask
+@inline _start_mask(start::_NoGraphNode{M}) where M = _Mask{M}()
+
+@inline _path_start(g::_Graph, start::_GraphNode) = start
+@inline function _path_start(g::_Graph{M}, start::_NoGraphNode{M}) where M
+    return g.nodes[_Mask{M}()]
+end
+
+function _find_node(g::_Graph{M}, start::Union{_GraphNode{M},_NoGraphNode{M}}, add::Tuple{Vararg{Int}},
+    remove::Tuple{Vararg{Int}}, add_mask::Union{_Mask{M},_NoMask{M}}, rem_mask::Union{_Mask{M},_NoMask{M}},
+    use_map::Union{_NoUseMap,_UseMap}) where M
+    _check_find_node(start, add_mask, rem_mask)
     _search_node(g, start, add, remove, add_mask, rem_mask, use_map)
 end
 
-@inline function _search_node(g::_Graph, start::_GraphNode, add::Tuple{Vararg{Int}}, remove::Tuple{Vararg{Int}},
-    add_mask::_Mask, rem_mask::_Mask, use_map::_UseMap)
-    new_mask = _clear_bits(_or(add_mask, start.mask), rem_mask)
+@inline function _search_node(g::_Graph{M}, start::Union{_GraphNode{M},_NoGraphNode{M}},
+    add::Tuple{Vararg{Int}}, remove::Tuple{Vararg{Int}}, add_mask::Union{_Mask{M},_NoMask{M}},
+    rem_mask::Union{_Mask{M},_NoMask{M}}, use_map::_UseMap) where M
+    new_mask = _new_mask(start, add_mask, rem_mask)
     if new_mask.bits == g.last_node.mask.bits
         return g.last_node
     end
@@ -52,9 +96,10 @@ end
     return node
 end
 
-@inline function _search_node(g::_Graph, start::_GraphNode, add::Tuple{Vararg{Int}}, remove::Tuple{Vararg{Int}},
-    add_mask::_Mask, rem_mask::_Mask, use_map::_NoUseMap)
-    new_mask = _clear_bits(_or(add_mask, start.mask), rem_mask)
+@inline function _search_node(g::_Graph{M}, start::Union{_GraphNode{M},_NoGraphNode{M}},
+    add::Tuple{Vararg{Int}}, remove::Tuple{Vararg{Int}}, add_mask::Union{_Mask{M},_NoMask{M}},
+    rem_mask::Union{_Mask{M},_NoMask{M}}, use_map::_NoUseMap) where M
+    new_mask = _new_mask(start, add_mask, rem_mask)
     if new_mask.bits == g.last_node.mask.bits
         return g.last_node
     end
@@ -64,8 +109,8 @@ end
 end
 
 function _find_or_create_path(g, start, add, remove)
-    curr = start
-    _set_mask!(g.mask, start.mask)
+    curr = _path_start(g, start)
+    _set_mask!(g.mask, _start_mask(start))
     for b in remove
         _clear_bit!(g.mask, b)
 
