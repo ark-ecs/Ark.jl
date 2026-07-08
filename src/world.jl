@@ -1856,7 +1856,7 @@ end
     rem_ids::Val{RemIds},
 )::Nothing where {CS<:Tuple,AddIds,RemIds}
     unrolled_call = :(@inline _move_all_component_data!(state, stores, old_table, table_index, index, add_ids, rem_ids))
-    if fieldcount(CS) <= 16
+    if fieldcount(CS) <= 32
         move_block = unrolled_call
     else
         if isempty(RemIds)
