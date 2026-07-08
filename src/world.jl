@@ -2556,10 +2556,15 @@ end
         )
     end
 
-    push!(exprs, :(row = _move_entity!(
-        world_state, stores, entity, index, old_table, new_table, new_table_index,
-        $(Val(add_ids)), $(Val(rem_ids)),
-    )))
+    push!(
+        exprs,
+        :(
+            row = _move_entity!(
+                world_state, stores, entity, index, old_table, new_table, new_table_index,
+                $(Val(add_ids)), $(Val(rem_ids)),
+            )
+        ),
+    )
     for i in 1:length(add_types)
         T = add_types[i]
         stor_sym = Symbol("stor", i)
