@@ -1809,32 +1809,24 @@ end
     old_table::_Table,
     table_index::UInt32,
     index::_EntityIndex,
-    ::Val{AddIds},
-    ::Val{RemIds},
-)::Nothing where {CS<:Tuple,AddIds,RemIds}
+    ::Val{SkipIds},
+)::Nothing where {CS<:Tuple,SkipIds}
     inline_jtable = fieldcount(CS) <= 10
 
     move_exprs = Expr[]
     for i in 1:fieldcount(CS)
+        if i in SkipIds
+            continue
+        end
         move_call =
             inline_jtable ?
             :(@inline _move_component_data!(stores._storages.$i, index.table, table_index, index.row)) :
             :(_move_component_data!(stores._storages.$i, index.table, table_index, index.row))
-        remove_call =
-            inline_jtable ?
-            :(@inline _remove_component_data!(stores._storages.$i, index.table, index.row)) :
-            :(_remove_component_data!(stores._storages.$i, index.table, index.row))
-        if i in RemIds
-            push!(move_exprs, remove_call)
-        elseif i in AddIds
-            continue
-        else
-            push!(move_exprs, :(
-                if _get_bit(old_mask, $i)
-                    $move_call
-                end
-            ))
-        end
+        push!(move_exprs, :(
+            if _get_bit(old_mask, $i)
+                $move_call
+            end
+        ))
     end
 
     quote
@@ -1852,10 +1844,15 @@ end
     old_table::_Table,
     new_table::_Table,
     table_index::UInt32,
-    add_ids::Val{AddIds},
-    rem_ids::Val{RemIds},
+    ::Val{AddIds},
+    ::Val{RemIds},
 )::Nothing where {CS<:Tuple,AddIds,RemIds}
-    unrolled_call = :(@inline _move_all_component_data!(state, stores, old_table, table_index, index, add_ids, rem_ids))
+    remove_exprs = Expr[
+        :(@inline _remove_component_data!(stores._storages.$i, index.table, index.row)) for i in RemIds
+    ]
+
+    skip_ids = Val((AddIds..., RemIds...))
+    unrolled_call = :(@inline _move_all_component_data!(state, stores, old_table, table_index, index, $skip_ids))
     if fieldcount(CS) <= 32
         move_block = unrolled_call
     else
@@ -1865,9 +1862,7 @@ end
             M = max(1, cld(fieldcount(CS), 64))
             rem_mask = _Mask{M}(RemIds...)
             loop_body = quote
-                if _get_bit($rem_mask, comp)
-                    _swap_remove_in_column_for_comp!(stores, comp, index.table, index.row)
-                else
+                if !_get_bit($rem_mask, comp)
                     _move_component_data!(stores, comp, index.table, table_index, index.row)
                 end
             end
@@ -1895,6 +1890,8 @@ end
         end
 
         @inbounds state._entities[entity._id] = _EntityIndex(table_index, UInt32(new_row))
+
+        $(Expr(:block, remove_exprs...))
 
         # Move component data only for components present in old_archetype that are also present in new_archetype
         $move_block
