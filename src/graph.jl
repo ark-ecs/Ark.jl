@@ -60,7 +60,8 @@ end
 @inline _check_find_node(start::_NoGraphNode, add_mask::_Mask, rem_mask::_NoMask) = nothing
 @inline _check_find_node(start::_NoGraphNode, add_mask::_NoMask, rem_mask::_NoMask) = nothing
 
-@inline _new_mask(start::_GraphNode, add_mask::_Mask, rem_mask::_Mask) = _clear_bits(_or(add_mask, start.mask), rem_mask)
+@inline _new_mask(start::_GraphNode, add_mask::_Mask, rem_mask::_Mask) =
+    _clear_bits(_or(add_mask, start.mask), rem_mask)
 @inline _new_mask(start::_GraphNode, add_mask::_Mask, rem_mask::_NoMask) = _or(add_mask, start.mask)
 @inline _new_mask(start::_GraphNode, add_mask::_NoMask, rem_mask::_Mask) = _clear_bits(start.mask, rem_mask)
 @inline _new_mask(start::_NoGraphNode, add_mask::_Mask, rem_mask::_NoMask) = add_mask
