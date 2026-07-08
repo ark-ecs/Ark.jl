@@ -1574,12 +1574,12 @@ end
     @test count_entities(world, Filter(world, ())) == 2
 end
 
-@testset "component exchange with more than 16 component types" begin
+@testset "component exchange with more than 32 component types" begin
     world = World(
         Position,
         Velocity => Storage{StructArray},
         Health,
-        [CompN{i} for i in 1:15]...,
+        [CompN{i} for i in 1:31]...,
     )
 
     e1 = new_entity!(world, (Position(1, 1), Velocity(1, 1)))
@@ -1600,13 +1600,13 @@ end
     @test get_components(world, e2, (Velocity, Health)) == (Velocity(2, 2), Health(20))
     @test get_components(world, e3, (Position, Velocity)) == (Position(3, 3), Velocity(3, 3))
 
-    dense_values = (Position(4, 4), Velocity(4, 4), Health(4), ntuple(j -> CompN{j}(), 15)...)
+    dense_values = (Position(4, 4), Velocity(4, 4), Health(4), ntuple(j -> CompN{j}(), 31)...)
     e4 = new_entity!(world, dense_values)
     remove_components!(world, e4, (CompN{8},))
     @test has_components(world, e4, (CompN{8},)) == false
     @test get_components(world, e4, (Position, Velocity, Health)) ==
           (Position(4, 4), Velocity(4, 4), Health(4))
-    @test has_components(world, e4, (CompN{1}, CompN{15})) == true
+    @test has_components(world, e4, (CompN{1}, CompN{31})) == true
 
     add_components!(world, e4, (CompN{8}(),))
     @test has_components(world, e4, (CompN{8},)) == true
