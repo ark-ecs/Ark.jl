@@ -1807,36 +1807,30 @@ end
     state::_WorldState,
     stores::_WorldStorage{CS},
     old_table::_Table,
-    new_table::_Table,
     table_index::UInt32,
     index::_EntityIndex,
-)::Nothing where {CS<:Tuple}
+    ::Val{SkipIds},
+)::Nothing where {CS<:Tuple,SkipIds}
     inline_jtable = fieldcount(CS) <= 10
 
     move_exprs = Expr[]
     for i in 1:fieldcount(CS)
+        if i in SkipIds
+            continue
+        end
         move_call =
             inline_jtable ?
             :(@inline _move_component_data!(stores._storages.$i, index.table, table_index, index.row)) :
             :(_move_component_data!(stores._storages.$i, index.table, table_index, index.row))
-        remove_call =
-            inline_jtable ?
-            :(@inline _remove_component_data!(stores._storages.$i, index.table, index.row)) :
-            :(_remove_component_data!(stores._storages.$i, index.table, index.row))
         push!(move_exprs, :(
             if _get_bit(old_mask, $i)
-                if _get_bit(new_mask, $i)
-                    $move_call
-                else
-                    $remove_call
-                end
+                $move_call
             end
         ))
     end
 
     quote
         @inbounds old_mask = state._archetypes_hot[old_table.archetype].mask
-        @inbounds new_mask = state._archetypes_hot[new_table.archetype].mask
         $(Expr(:block, move_exprs...))
         return nothing
     end
@@ -1850,23 +1844,37 @@ end
     old_table::_Table,
     new_table::_Table,
     table_index::UInt32,
-)::Nothing where {CS<:Tuple}
-    if fieldcount(CS) <= 16
-        move_block = :(@inline _move_all_component_data!(state, stores, old_table, new_table, table_index, index))
+    ::Val{AddIds},
+    ::Val{RemIds},
+)::Nothing where {CS<:Tuple,AddIds,RemIds}
+    remove_exprs = Expr[
+        :(@inline _remove_component_data!(stores._storages.$i, index.table, index.row)) for i in RemIds
+    ]
+
+    skip_ids = Val((AddIds..., RemIds...))
+    unrolled_call = :(@inline _move_all_component_data!(state, stores, old_table, table_index, index, $skip_ids))
+    if fieldcount(CS) <= 32
+        move_block = unrolled_call
     else
+        if isempty(RemIds)
+            loop_body = :(_move_component_data!(stores, comp, index.table, table_index, index.row))
+        else
+            M = max(1, cld(fieldcount(CS), 64))
+            rem_mask = _Mask{M}(RemIds...)
+            loop_body = quote
+                if !_get_bit($rem_mask, comp)
+                    _move_component_data!(stores, comp, index.table, table_index, index.row)
+                end
+            end
+        end
         move_block = quote
             @inbounds old_mask = state._archetypes_hot[old_table.archetype].mask
             if _count_bits(old_mask) << 3 >= $(fieldcount(CS))
-                _move_all_component_data!(state, stores, old_table, new_table, table_index, index)
+                $unrolled_call
             else
                 @inbounds old_archetype = state._archetypes[old_table.archetype]
-                @inbounds new_mask = state._archetypes_hot[new_table.archetype].mask
                 for comp in old_archetype.components
-                    if _get_bit(new_mask, comp)
-                        _move_component_data!(stores, comp, index.table, table_index, index.row)
-                    else
-                        _swap_remove_in_column_for_comp!(stores, comp, index.table, index.row)
-                    end
+                    $loop_body
                 end
             end
         end
@@ -1882,6 +1890,8 @@ end
         end
 
         @inbounds state._entities[entity._id] = _EntityIndex(table_index, UInt32(new_row))
+
+        $(Expr(:block, remove_exprs...))
 
         # Move component data only for components present in old_archetype that are also present in new_archetype
         $move_block
@@ -2425,7 +2435,7 @@ end
     end
 
     empty!(new_relations)
-    _move_entity!(state, stores, entity, index, old_table, new_table, new_table.id)
+    _move_entity!(state, stores, entity, index, old_table, new_table, new_table.id, Val(()), Val(()))
 
     if _has_observers(state._event_manager, OnAddRelations)
         _fire_set_relations(
@@ -2543,7 +2553,15 @@ end
         )
     end
 
-    push!(exprs, :(row = _move_entity!(world_state, stores, entity, index, old_table, new_table, new_table_index)))
+    push!(
+        exprs,
+        :(
+            row = _move_entity!(
+                world_state, stores, entity, index, old_table, new_table, new_table_index,
+                $(Val(add_ids)), $(Val(rem_ids)),
+            )
+        ),
+    )
     for i in 1:length(add_types)
         T = add_types[i]
         stor_sym = Symbol("stor", i)
