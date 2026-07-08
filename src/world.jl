@@ -1807,10 +1807,11 @@ end
     state::_WorldState,
     stores::_WorldStorage{CS},
     old_table::_Table,
-    new_table::_Table,
     table_index::UInt32,
     index::_EntityIndex,
-)::Nothing where {CS<:Tuple}
+    ::Val{AddIds},
+    ::Val{RemIds},
+)::Nothing where {CS<:Tuple,AddIds,RemIds}
     inline_jtable = fieldcount(CS) <= 10
 
     move_exprs = Expr[]
@@ -1823,20 +1824,21 @@ end
             inline_jtable ?
             :(@inline _remove_component_data!(stores._storages.$i, index.table, index.row)) :
             :(_remove_component_data!(stores._storages.$i, index.table, index.row))
-        push!(move_exprs, :(
-            if _get_bit(old_mask, $i)
-                if _get_bit(new_mask, $i)
+        if i in RemIds
+            push!(move_exprs, remove_call)
+        elseif i in AddIds
+            continue
+        else
+            push!(move_exprs, :(
+                if _get_bit(old_mask, $i)
                     $move_call
-                else
-                    $remove_call
                 end
-            end
-        ))
+            ))
+        end
     end
 
     quote
         @inbounds old_mask = state._archetypes_hot[old_table.archetype].mask
-        @inbounds new_mask = state._archetypes_hot[new_table.archetype].mask
         $(Expr(:block, move_exprs...))
         return nothing
     end
@@ -1850,23 +1852,34 @@ end
     old_table::_Table,
     new_table::_Table,
     table_index::UInt32,
-)::Nothing where {CS<:Tuple}
+    add_ids::Val{AddIds},
+    rem_ids::Val{RemIds},
+)::Nothing where {CS<:Tuple,AddIds,RemIds}
+    unrolled_call = :(@inline _move_all_component_data!(state, stores, old_table, table_index, index, add_ids, rem_ids))
     if fieldcount(CS) <= 16
-        move_block = :(@inline _move_all_component_data!(state, stores, old_table, new_table, table_index, index))
+        move_block = unrolled_call
     else
+        if isempty(RemIds)
+            loop_body = :(_move_component_data!(stores, comp, index.table, table_index, index.row))
+        else
+            M = max(1, cld(fieldcount(CS), 64))
+            rem_mask = _Mask{M}(RemIds...)
+            loop_body = quote
+                if _get_bit($rem_mask, comp)
+                    _swap_remove_in_column_for_comp!(stores, comp, index.table, index.row)
+                else
+                    _move_component_data!(stores, comp, index.table, table_index, index.row)
+                end
+            end
+        end
         move_block = quote
             @inbounds old_mask = state._archetypes_hot[old_table.archetype].mask
             if _count_bits(old_mask) << 3 >= $(fieldcount(CS))
-                _move_all_component_data!(state, stores, old_table, new_table, table_index, index)
+                $unrolled_call
             else
                 @inbounds old_archetype = state._archetypes[old_table.archetype]
-                @inbounds new_mask = state._archetypes_hot[new_table.archetype].mask
                 for comp in old_archetype.components
-                    if _get_bit(new_mask, comp)
-                        _move_component_data!(stores, comp, index.table, table_index, index.row)
-                    else
-                        _swap_remove_in_column_for_comp!(stores, comp, index.table, index.row)
-                    end
+                    $loop_body
                 end
             end
         end
@@ -2425,7 +2438,7 @@ end
     end
 
     empty!(new_relations)
-    _move_entity!(state, stores, entity, index, old_table, new_table, new_table.id)
+    _move_entity!(state, stores, entity, index, old_table, new_table, new_table.id, Val(()), Val(()))
 
     if _has_observers(state._event_manager, OnAddRelations)
         _fire_set_relations(
@@ -2543,7 +2556,10 @@ end
         )
     end
 
-    push!(exprs, :(row = _move_entity!(world_state, stores, entity, index, old_table, new_table, new_table_index)))
+    push!(exprs, :(row = _move_entity!(
+        world_state, stores, entity, index, old_table, new_table, new_table_index,
+        $(Val(add_ids)), $(Val(rem_ids)),
+    )))
     for i in 1:length(add_types)
         T = add_types[i]
         stor_sym = Symbol("stor", i)
