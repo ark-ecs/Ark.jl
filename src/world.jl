@@ -1053,7 +1053,6 @@ end
     state::_WorldState{M,K},
     stores::Storage,
     start::Union{_GraphNode{M},_NoGraphNode{M}},
-    had_relations::Bool,
     old_table::_Table,
     add::Tuple{Vararg{Int}},
     remove::Tuple{Vararg{Int}},
@@ -1072,9 +1071,9 @@ end
     if !new_arch_hot.has_relations && isempty(relations)
         if is_new
             @inbounds new_arch = state._archetypes[new_arch_index]
-            return _create_table!(state, stores, new_arch, _empty_relations), had_relations
+            return _create_table!(state, stores, new_arch, _empty_relations), _table_had_relations(state, old_table)
         end
-        return new_arch_hot.table, had_relations
+        return new_arch_hot.table, _table_had_relations(state, old_table)
     end
 
     @inbounds new_arch = state._archetypes[new_arch_index]
@@ -1086,7 +1085,7 @@ end
         new_arch,
         relations,
         targets,
-        !isa(rem_mask, _NoMask),
+        !isa(rem_mask, _NoMask{M}),
     )
 end
 
@@ -1094,7 +1093,6 @@ end
     state::_WorldState{M,K},
     stores::Storage,
     start::Union{_GraphNode{M},_NoGraphNode{M}},
-    had_relations::Bool,
     old_table::_Table,
     add::Tuple{Vararg{Int}},
     remove::Tuple{Vararg{Int}},
@@ -1143,7 +1141,6 @@ end
         state,
         stores,
         _archetype_start_node(state, old_table),
-        _table_had_relations(state, old_table),
         old_table,
         add,
         remove,
@@ -1173,7 +1170,6 @@ end
         state,
         stores,
         _archetype_start_node(state, old_table),
-        _table_had_relations(state, old_table),
         old_table,
         add,
         remove,
