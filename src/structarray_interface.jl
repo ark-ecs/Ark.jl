@@ -86,23 +86,23 @@ function Base.firstindex(sa::_AbstractStructArray)
     return 1
 end
 
-struct _StructArrayView{C,CS<:NamedTuple} <: AbstractArray{C,1}
+struct StructArrayView{C,CS<:NamedTuple} <: AbstractArray{C,1}
     _components::CS
 end
 
-Base.@propagate_inbounds @generated function Base.getindex(sa::_StructArrayView{C}, i::Int) where {C}
+Base.@propagate_inbounds @generated function Base.getindex(sa::StructArrayView{C}, i::Int) where {C}
     names = fieldnames(C)
     field_exprs = Expr[:($(name) = getfield(sa, :_components).$name[i]) for name in names]
     return Expr(:block, Expr(:new, C, field_exprs...))
 end
 
-Base.@propagate_inbounds @generated function Base.setindex!(sa::_StructArrayView{C}, c::C, i::Int) where {C}
+Base.@propagate_inbounds @generated function Base.setindex!(sa::StructArrayView{C}, c::C, i::Int) where {C}
     names = fieldnames(C)
     set_exprs = Expr[:(getfield(sa, :_components).$name[i] = getfield(c, $(QuoteNode(name)))) for name in names]
     return Expr(:block, set_exprs..., :(c))
 end
 
-@generated function Base.getproperty(sa::_StructArrayView{C}, name::Symbol) where {C}
+@generated function Base.getproperty(sa::StructArrayView{C}, name::Symbol) where {C}
     names = fieldnames(C)
     cases = Expr[
         :(name === $(QuoteNode(n)) && return getfield(sa, :_components).$n) for n in names
@@ -110,35 +110,35 @@ end
     return Expr(:block, cases..., :(throw(ErrorException(lazy"type $C has no field $name"))))
 end
 
-@generated function Base.fill!(sa::_StructArrayView{C}, value::C) where {C}
+@generated function Base.fill!(sa::StructArrayView{C}, value::C) where {C}
     names = fieldnames(C)
     fill_exprs = Expr[:(fill!(getfield(sa, :_components).$name, getfield(value, $(QuoteNode(name))))) for name in names]
     return Expr(:block, fill_exprs..., :(sa))
 end
 
-Base.@propagate_inbounds function Base.iterate(sa::_StructArrayView{C}) where {C}
+Base.@propagate_inbounds function Base.iterate(sa::StructArrayView{C}) where {C}
     length(sa) == 0 && return nothing
     return sa[1], 2
 end
 
-Base.@propagate_inbounds function Base.iterate(sa::_StructArrayView{C}, i::Int) where {C}
+Base.@propagate_inbounds function Base.iterate(sa::StructArrayView{C}, i::Int) where {C}
     i > length(sa) && return nothing
     return sa[i], i + 1
 end
 
-Base.size(sa::_StructArrayView) = (length(sa),)
-Base.length(sa::_StructArrayView) = length(first(getfield(sa, :_components)))
-Base.eltype(::Type{<:_StructArrayView{C}}) where {C} = C
-Base.IndexStyle(::Type{<:_StructArrayView}) = IndexLinear()
-Base.eachindex(sa::_StructArrayView) = 1:length(sa)
-function Base.firstindex(sa::_StructArrayView)
+Base.size(sa::StructArrayView) = (length(sa),)
+Base.length(sa::StructArrayView) = length(first(getfield(sa, :_components)))
+Base.eltype(::Type{<:StructArrayView{C}}) where {C} = C
+Base.IndexStyle(::Type{<:StructArrayView}) = IndexLinear()
+Base.eachindex(sa::StructArrayView) = 1:length(sa)
+function Base.firstindex(sa::StructArrayView)
     # Do not simplify to this, as it is then not covered by the tests for some reason:
     # Base.firstindex(sa::StructArray) = 1
     return 1
 end
-Base.lastindex(sa::_StructArrayView) = length(sa)
+Base.lastindex(sa::StructArrayView) = length(sa)
 
-function Base.show(io::IO, a::_StructArrayView{C,CS}) where {C,CS<:NamedTuple}
+function Base.show(io::IO, a::StructArrayView{C,CS}) where {C,CS<:NamedTuple}
     names = fieldnames(CS)
     types = fieldtypes(CS)
     fields = map(((n, t),) -> "$(n)::SubArray{$(_format_type(eltype(t)))}", zip(names, types))
@@ -162,12 +162,12 @@ function Base.show(io::IO, a::_StructArrayView{C,CS}) where {C,CS<:NamedTuple}
 end
 
 """
-    unpack(a::_StructArrayView)
+    unpack(a::StructArrayView)
 
 Unpacks the components (i.e. field vectors) of a `StructArray` column returned from a [Query](@ref).
 See also [@unpack](@ref).
 """
-unpack(a::_StructArrayView) = getfield(a, :_components)
+unpack(a::StructArrayView) = getfield(a, :_components)
 
 """
     @unpack ...
@@ -179,7 +179,7 @@ equally efficient in broadcasted operations.
 
 Columns for components without fields, like primitives or label components, fall through `@unpack` unaltered.
 
-See also [unpack(::_StructArrayView)](@ref) and [unpack(::FieldViewable)](@ref).
+See also [unpack(::StructArrayView)](@ref) and [unpack(::FieldViewable)](@ref).
 
 # Example
 

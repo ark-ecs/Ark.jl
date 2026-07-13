@@ -63,7 +63,7 @@ end
     end
 end
 
-@generated function _GPUStructArrayView_type(
+@generated function _GPU_StructArrayView_type(
     ::Type{SA},
     ::Type{I},
 ) where {SA<:GPUStructArray,I<:AbstractUnitRange{T}} where {T<:Integer}
@@ -72,7 +72,7 @@ end
     vec_types = Expr[:(_gpuvectorview_type($vt)) for vt in fieldtypes(CS)]
     nt_type = :(NamedTuple{$names,Tuple{$(vec_types...)}})
     return quote
-        _StructArrayView{$C,$nt_type}
+        StructArrayView{$C,$nt_type}
     end
 end
 
@@ -85,6 +85,6 @@ end
     view_exprs = Expr[:($name = _gpuvector_view(getfield(sa, :_components).$name, idx)) for name in names]
     nt_type = :(NamedTuple{$names,Tuple{$(vec_types...)}})
     return quote
-        _StructArrayView{C,$nt_type}((; $(view_exprs...)))
+        StructArrayView{C,$nt_type}((; $(view_exprs...)))
     end
 end

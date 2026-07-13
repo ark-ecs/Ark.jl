@@ -434,7 +434,7 @@ end
     end
 
     for (entities, vec) in Query(world, (Velocity,))
-        @test isa(vec, _StructArrayView)
+        @test isa(vec, StructArrayView)
         for i in eachindex(vec)
             pos = vec[i]
             vec[i] = Velocity(pos.dx + 1, pos.dy + 1)
@@ -520,7 +520,7 @@ end
     @inferred Tuple{
         Entities,
         FieldViews.FieldViewable{Position,1,_storage_from_component(world, Position)},
-        _StructArrayView{
+        StructArrayView{
             Velocity,
             @NamedTuple{
                 dx::SubArray{Float64,1,Vector{Float64},Tuple{UnitRange{Int64}},true},
