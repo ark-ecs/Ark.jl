@@ -7,13 +7,6 @@ The implementation is compatible with CUDA.jl, Metal.jl, oneAPI.jl and OpenCL.jl
 When passed as a storage the back-end must be specified (either :CUDA, :Metal,
 :oneAPI or :OpenCL).
 
-On back-ends that support it (currently CUDA), CPU-side accesses go through a
-zero-copy host `Vector` aliasing the same unified memory, which is much faster
-than scalar indexing of the back-end array. GPU kernels keep operating on the
-back-end array. This bypasses the back-end's implicit synchronization: after
-launching kernels that touch a component, synchronize the device before
-accessing that component on the CPU (including through structural operations).
-
 # Examples
 
 ```
@@ -164,16 +157,6 @@ end
 
 Base.IndexStyle(::Type{<:GPUVector}) = IndexLinear()
 
-"""
-    GPUVectorView
-
-Query view over a [`GPUVector`](@ref) column on back-ends that support
-zero-copy host wrapping (currently CUDA). Scalar accesses on the CPU go
-through the host wrapper at plain-`Vector` speed, while `Adapt` converts it
-to a view of the back-end array, so it can be passed directly to GPU kernels.
-The device view is only materialized on kernel launch; CPU-side use never
-touches the back-end array.
-"""
 struct GPUVectorView{B,T,GV<:GPUVector,HV<:AbstractVector{T}} <: AbstractVector{T}
     gv::GV
     rng::UnitRange{Int}
