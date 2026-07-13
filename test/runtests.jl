@@ -12,7 +12,6 @@ const RUN_JET = "CI" in keys(ENV) && VERSION >= v"1.12.0" && isempty(VERSION.pre
 
 include("include_internals.jl")
 
-include("setup.jl")
 if "--large-world" in ARGS
     include("setup_large.jl")
 else

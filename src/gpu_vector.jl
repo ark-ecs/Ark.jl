@@ -5,7 +5,11 @@
 A vector implementation that uses unified memory for mixed CPU/GPU operations.
 The implementation is compatible with CUDA.jl, Metal.jl, oneAPI.jl and OpenCL.jl.
 When passed as a storage the back-end must be specified (either :CUDA, :Metal,
-:oneAPI or :OpenCL).
+:oneAPI, :OpenCL or :CPU).
+
+The `:CPU` back-end is always available and stores the elements in a plain
+`Vector`. It requires no GPU package and is useful for testing and for running
+GPU-shaped code on machines without a device.
 
 # Examples
 
@@ -17,6 +21,13 @@ world = World(
     Velocity => Storage{GPUVector{:CUDA}},
 )
 ```
+
+```
+world = World(
+    Position => Storage{GPUVector{:CPU}},
+    Velocity => Storage{GPUVector{:CPU}},
+)
+```
 """
 mutable struct GPUVector{B,T,M} <: AbstractVector{T}
     mem::M
@@ -25,6 +36,8 @@ mutable struct GPUVector{B,T,M} <: AbstractVector{T}
 end
 
 function _gpuvector_type end
+
+_gpuvector_type(::Type{T}, ::Val{:CPU}) where {T} = Vector{T}
 
 function _gpu_backend(::Type{<:GPUVector{B}}) where {B}
     return B
@@ -37,6 +50,8 @@ end
 function _gpuvector_hostwrap(mem::AbstractVector)
     throw(ArgumentError(lazy"$(typeof(mem)) does not support host wrapping"))
 end
+
+_gpuvector_hostwrap(mem::Vector) = mem
 
 function GPUVector{B,T,M}(mem::M, len::Integer) where {B,T,M}
     host = _gpuvector_hostwrap(mem)

@@ -4,7 +4,10 @@
 
 A GPU-backed StructArray that stores each component field in a GPUVector.
 When passed as a storage the back-end must be specified (either :CUDA, :Metal,
-:oneAPI or :OpenCL).
+:oneAPI, :OpenCL or :CPU).
+
+As for [`GPUVector`](@ref), the `:CPU` back-end is always available and stores
+each field in a plain `Vector`.
 
 # Examples
 
@@ -14,6 +17,13 @@ using CUDA
 world = World(
     Position => Storage{GPUStructArray{:CUDA}},
     Velocity => Storage{GPUStructArray{:CUDA}},
+)
+```
+
+```julia
+world = World(
+    Position => Storage{GPUStructArray{:CPU}},
+    Velocity => Storage{GPUStructArray{:CPU}},
 )
 ```
 """

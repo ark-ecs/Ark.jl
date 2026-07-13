@@ -216,6 +216,58 @@ end
     @test length(a) == 1
 end
 
+@testset "GPUStructArray view" begin
+    a = GPUStructArray{:CPU}(Position)
+    for i in 1:4
+        push!(a, Position(i, 10i))
+    end
+
+    v = view(a, 2:3)
+    # The declared column types must match the ones actually constructed, or the
+    # StructArrayView constructor cannot convert them.
+    @test typeof(v) == _GPUStructArrayView_type(typeof(a), UnitRange{Int})
+    @test v isa StructArrayView
+    @test length(v) == 2
+    @test v[1] == Position(2, 20)
+
+    x, y = unpack(v)
+    @test x isa GPUVectorView{:CPU,Float64}
+    @test x == [2, 3]
+    @test y == [20, 30]
+
+    v[1] = Position(5, 50)
+    # The view aliases the array it was taken from.
+    @test a[2] == Position(5, 50)
+
+    x .+= 1
+    @test a[2] == Position(6, 50)
+
+    full = view(a, :)
+    @test length(full) == length(a)
+    @test full[1] == a[1]
+
+    fill!(v, Position(0, 0))
+    @test a[2] == Position(0, 0) && a[3] == Position(0, 0)
+    @test a[1] == Position(1, 10)
+end
+
+@testset "GPUStructArray query columns" begin
+    w = World(A => Storage{GPUStructArray{:CPU}})
+    for i in 1:3
+        new_entity!(w, (A(i),))
+    end
+
+    for (entities, as) in Query(w, (A,))
+        @test as isa StructArrayView
+        xs, = unpack(as)
+        @test xs isa GPUVectorView{:CPU,Float64}
+        xs .*= 2
+    end
+
+    @test sort([a.x for (_, as) in Query(w, (A,)) for a in as]) == [2.0, 4.0, 6.0]
+    reset!(w)
+end
+
 @testset "GPUStructArray components" begin
     w = World(
         A => Storage{GPUStructArray{:CPU}},

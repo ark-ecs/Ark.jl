@@ -84,7 +84,7 @@ end
     @test_throws ArgumentError Const(MutableComponent)
     @test string(Const(Position)) == "Const(Position)"
 
-    if !(typeof(positions) <: ReadOnly{<:Any,<:TestVectorView})
+    if !(typeof(positions) <: ReadOnly{<:Any,<:GPUVectorView})
         xs = positions.x
         @test xs isa ReadOnly
         @test eltype(xs) == Float64
@@ -444,9 +444,9 @@ end
     for arch in Query(world, (Position, Velocity))
         @unpack e, pos, (dx, dy) = arch
         @test isa(e, Entities)
-        T = _storage_from_component(world, Velocity) <: StructArray ? SubArray : TestVectorView
-        @test isa(dx, T{Float64})
-        @test isa(dy, T{Float64})
+        T = _storage_from_component(world, Velocity) <: StructArray ? SubArray : GPUVectorView
+        @test isa(dx, T) && eltype(dx) == Float64
+        @test isa(dy, T) && eltype(dy) == Float64
     end
 end
 
