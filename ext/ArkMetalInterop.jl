@@ -8,4 +8,13 @@ function Ark._gpuvector_type(::Type{T}, ::Val{:Metal}) where T
     return MtlVector{T,Metal.SharedStorage}
 end
 
+function Ark._gpuvector_has_hostwrap(::Val{:Metal})
+    return Metal.functional()
+end
+
+function Ark._gpuvector_hostwrap(mem::MtlVector{T,Metal.SharedStorage}) where {T}
+    length(mem) == 0 && return T[]
+    return unsafe_wrap(Array, mem)
+end
+
 end

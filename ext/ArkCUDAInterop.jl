@@ -8,7 +8,6 @@ function Ark._gpuvector_type(::Type{T}, ::Val{:CUDA}) where T
 end
 
 function Ark._gpuvector_has_hostwrap(::Val{:CUDA})
-    ccall(:jl_generating_output, Cint, ()) == 1 && return false
     CUDA.functional() || return false
     return all(CUDA.devices()) do dev
         CUDA.attribute(dev, CUDA.DEVICE_ATTRIBUTE_CONCURRENT_MANAGED_ACCESS) == 1
