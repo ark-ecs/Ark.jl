@@ -147,12 +147,8 @@ function _gpuvector_view(gv::GPUVector{B,T,M}, rng::AbstractUnitRange) where {B,
     GPUVectorView{B,T,typeof(gv),typeof(hv)}(gv, r, hv)
 end
 
-function _gpuvector_devview(v::GPUVectorView)
-    return view(v.gv.mem, v.rng)
-end
-
 function Adapt.adapt_structure(to, v::GPUVectorView)
-    return Adapt.adapt(to, _gpuvector_devview(v))
+    return Adapt.adapt(to, view(v.gv.mem, v.rng))
 end
 
 Base.size(v::GPUVectorView) = size(v.host)
