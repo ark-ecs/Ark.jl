@@ -406,7 +406,7 @@ Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
         elseif storage_type <: StructArray
             :(_StructArrayView_type($T, UnitRange{Int}))
         elseif storage_type <: GPUStructArray
-            :(_GPU_StructArrayView_type($storage_type, UnitRange{Int}))
+            :(_GPUStructArrayView_type($storage_type, UnitRange{Int}))
         else
             :(_FieldsViewable_type($storage_type))
         end

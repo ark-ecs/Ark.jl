@@ -63,7 +63,7 @@ end
     end
 end
 
-@generated function _GPU_StructArrayView_type(
+@generated function _GPUStructArrayView_type(
     ::Type{SA},
     ::Type{I},
 ) where {SA<:GPUStructArray,I<:AbstractUnitRange{T}} where {T<:Integer}
