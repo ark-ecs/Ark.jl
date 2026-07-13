@@ -51,7 +51,9 @@ end
 
 _gpuvector_has_hostwrap(::Val) = false
 
-function _gpuvector_hostwrap end
+function _gpuvector_hostwrap(mem::AbstractVector{T})::Vector{T} where {T}
+    throw(ArgumentError("$(typeof(mem)) does not support host wrapping"))
+end
 
 function GPUVector{B,T,M,H}(mem::M, len::Integer) where {B,T,M,H}
     host = H ? _gpuvector_hostwrap(mem) : T[]
