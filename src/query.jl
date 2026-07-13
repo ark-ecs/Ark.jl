@@ -352,7 +352,7 @@ end
         push!(exprs, :(@inbounds $col_sym = $stor_sym.data[table.id]))
 
         view_expr = if storage_array_types[i] <: GPUVector
-            :(view(($col_sym).mem, 1:($col_sym).len))
+            :(_gpuvector_view($col_sym, 1:($col_sym).len))
         elseif storage_array_types[i] <: StructArray ||
                storage_array_types[i] <: GPUStructArray ||
                fieldcount(comp_types[i]) == 0
@@ -400,15 +400,13 @@ Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
 
         storage_type = storage_array_types[i]
         base_view = if storage_type <: GPUVector
-            B = Val{_gpu_backend(storage_type)}()
-            :(_gpuvectorview_type($T, $B))
+            :(_gpuvectorview_type($storage_type))
         elseif fieldcount(comp_types[i]) == 0
             :(SubArray{$T,1,$storage_type,Tuple{Base.Slice{Base.OneTo{Int}}},IndexStyle($storage_type) == IndexLinear()})
         elseif storage_type <: StructArray
             :(_StructArrayView_type($T, UnitRange{Int}))
         elseif storage_type <: GPUStructArray
-            B = Val{_gpu_backend(storage_type)}()
-            :(_GPUStructArrayView_type($T, UnitRange{Int}, $B))
+            :(_GPUStructArrayView_type($storage_type, UnitRange{Int}))
         else
             :(_FieldsViewable_type($storage_type))
         end

@@ -17,9 +17,11 @@ using Ark: _Linear_Map, _LOAD_FACTOR
 using Ark: _Graph, _GraphNode, _find_node, _find_or_create, _UseMap, _NoUseMap
 using Ark: _BatchTable
 using Ark: _has_observers
-using Ark: StructArray, _StructArray_type, _StructArrayView, _new_storage, _storage_type
+using Ark: StructArray, _StructArray_type, StructArrayView, _new_storage, _storage_type
 using Ark: GPUStructArray, _GPUStructArray_type, _AbstractStructArray
 using Ark: _GPUStructArrayView_type, _gpuvectorview_type
+using Ark: GPUVectorView, _gpuvector_type, _gpuvector_hostwrap, _gpuvector_view
+using Ark: Adapt
 using Ark: _format_type, _state, _storage
 using Ark: _IdCollection, _add_id!, _remove_id!, _get_table, _new_table, _no_entity
 using Ark: _EVENT_MANAGER_INITIAL_CAPACITY, _DEBUG

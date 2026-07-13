@@ -14,4 +14,10 @@ function Ark._gpuvector_type(::Type{T}, ::Val{:OpenCL}) where T
     end
 end
 
+function Ark._gpuvector_hostwrap(
+    mem::CLArray{T,1,<:Union{cl.UnifiedSharedMemory,cl.SharedVirtualMemory}},
+) where {T}
+    return unsafe_wrap(Vector{T}, mem)
+end
+
 end

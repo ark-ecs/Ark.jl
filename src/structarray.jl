@@ -53,7 +53,7 @@ end
         Tuple{$(subarray_types...)},
     })
     return quote
-        _StructArrayView{C,$nt_type}
+        StructArrayView{C,$nt_type}
     end
 end
 
@@ -67,6 +67,6 @@ end
     subarray_types = Expr[:(SubArray{$(eltype(vt)),1,$vt,Tuple{I},true}) for vt in vec_types]
     nt_type = :(NamedTuple{$names,Tuple{$(subarray_types...)}})
     return quote
-        _StructArrayView{C,$nt_type}((; $(view_exprs...)))
+        StructArrayView{C,$nt_type}((; $(view_exprs...)))
     end
 end

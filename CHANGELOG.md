@@ -6,6 +6,8 @@
 
 - Adds command buffers support for deferred structural operations (#670).
 - Adds the possibility to specify that a query column is read-only (#677).
+- Adds GPUVector{:CPU} and GPUStructArray{:CPU} to use a GPU storage on devices
+  which do not have a GPU (#701).
 
 ### Breaking changes
 
@@ -16,6 +18,8 @@
 ### Performance
 
 - Structural operations are now up to 2x faster (#662, #690).
+- Operations executed on the CPU with a GPU storage are almost overhead-less in respect to
+  CPU only storage (#701).
 - Compile time performance is improved through a better internal specialization mechanism (#662).
 - Getting components performance improved by 10% (#664).
 

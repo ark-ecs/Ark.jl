@@ -1,5 +1,6 @@
 module Ark
 
+using Adapt
 using FieldViews
 using Preferences
 using StaticArrays
