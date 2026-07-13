@@ -1,14 +1,12 @@
 
 using KernelAbstractions
 
-# Fields of a GPUStructArray column, unpacked into a NamedTuple of field vectors.
 @kernel function move_kernel(positions, velocities, dt)
     i = @index(Global)
     positions.x[i] += velocities.dx[i] * dt
     positions.y[i] += velocities.dy[i] * dt
 end
 
-# A GPUVector column, passed as a whole (AoS).
 @kernel function heal_kernel(healths, amount)
     i = @index(Global)
     healths[i] = Health(healths[i].health + amount)
@@ -56,7 +54,6 @@ end
     resize!(gv, 8)
     fill!(gv.host, Health(0))
 
-    # The kernel receives the device view, which must alias the host memory.
     heal_kernel(backend)(_gpuvector_view(gv, 3:5), 1.0; ndrange=3)
     KernelAbstractions.synchronize(backend)
 

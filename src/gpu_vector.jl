@@ -147,9 +147,13 @@ function _gpuvector_view(gv::GPUVector{B,T,M}, rng::AbstractUnitRange) where {B,
     GPUVectorView{B,T,typeof(gv),typeof(hv)}(gv, r, hv)
 end
 
-_gpuvector_devview(v::GPUVectorView) = view(v.gv.mem, v.rng)
+function _gpuvector_devview(v::GPUVectorView)
+    return view(v.gv.mem, v.rng)
+end
 
-Adapt.adapt_structure(to, v::GPUVectorView) = Adapt.adapt(to, _gpuvector_devview(v))
+function Adapt.adapt_structure(to, v::GPUVectorView)
+    return Adapt.adapt(to, _gpuvector_devview(v))
+end
 
 Base.size(v::GPUVectorView) = size(v.host)
 Base.IndexStyle(::Type{<:GPUVectorView}) = IndexLinear()

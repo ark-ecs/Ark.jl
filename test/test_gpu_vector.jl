@@ -81,7 +81,6 @@ end
     resize!(gv, 3)
     copyto!(gv, 1, [1, 2, 3], 1, 3)
 
-    # The host view of the CPU back-end is the memory itself.
     @test _gpuvector_hostwrap(gv.mem) === gv.mem
     @test_throws ArgumentError _gpuvector_hostwrap(1:3)
 
@@ -96,8 +95,6 @@ end
     copyto!(gv, 1, [1, 2, 3, 4, 5], 1, 5)
 
     v = _gpuvector_view(gv, 2:4)
-    # The declared view type must match the one actually constructed, otherwise
-    # building a StructArrayView over these columns fails to convert.
     @test typeof(v) == _gpuvectorview_type(typeof(gv))
     @test v isa GPUVectorView{:CPU,Int}
     @test eltype(v) == Int
@@ -109,7 +106,6 @@ end
 
     v[1] = 20
     @test v[1] == 20
-    # The view aliases the vector it was taken from.
     @test gv[2] == 20
 
     @test_throws MethodError _gpuvectorview_type(Position, Val{:V}())

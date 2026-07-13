@@ -140,10 +140,10 @@ For these columns, Ark offers storage types for both CPU anf GPU computing by de
 
 ### GPU Storages
 
-- **[GPUVector](@ref) storage** stores components using unified memory for mixed CPU/GPU operations. [GPUVector](@ref) is compatible with CUDA.jl, Metal.jl, oneAPI.jl or OpenCL.jl, and with a device-less `:CPU` backend. Mutable components are not allowed.
+- **[GPUVector](@ref) storage** stores components using unified memory for mixed CPU/GPU operations. [GPUVector](@ref) is compatible with CUDA.jl, Metal.jl, oneAPI.jl or OpenCL.jl, and with a device-less CPU backend. Mutable components are not allowed.
 
 - **[GPUStructArray](@ref) storage** stores components in an SoA data structure similar to  
-  [StructArrays](https://github.com/JuliaArrays/StructArrays.jl) using unified memory for mixed CPU/GPU operations. [GPUVector](@ref) is compatible with CUDA.jl, Metal.jl, oneAPI.jl or OpenCL.jl, and with a device-less `:CPU` backend. The same limitations of [StructArray](@ref) storage apply.
+  [StructArrays](https://github.com/JuliaArrays/StructArrays.jl) using unified memory for mixed CPU/GPU operations. [GPUVector](@ref) is compatible with CUDA.jl, Metal.jl, oneAPI.jl or OpenCL.jl, and with a device-less CPU backend. The same limitations of [StructArray](@ref) storage apply.
 
 ## Storage Selection
 
