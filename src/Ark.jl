@@ -85,6 +85,6 @@ export SetComponentsCommand, SetRelationsCommand
 
 export Relation
 
-export Storage, StructArray, GPUStructArray, GPUVector, GPUVectorView
+export Storage, StructArray, GPUStructArray, GPUVector
 
 end
