@@ -28,11 +28,11 @@ function _storage_type(::Type{Storage{StructArray}}, ::Type{C}) where {C}
 end
 
 function _storage_type(::Type{Storage{GPUStructArray{B}}}, ::Type{C}) where {B,C}
-    _GPUStructArray_type(C, Val{B}())
+    _GPUStructArray_type(C, Val{B}(), Val{_gpuvector_has_hostwrap(Val{B}())}())
 end
 
 function _storage_type(::Type{Storage{GPUVector{B}}}, ::Type{C}) where {B,C}
-    GPUVector{B,C,_gpuvector_type(C, Val{B}())}
+    GPUVector{B,C,_gpuvector_type(C, Val{B}()),_gpuvector_has_hostwrap(Val{B}())}
 end
 
 function _new_component_storage(::Type{S}, ::Type{C}) where {S<:Storage,C}

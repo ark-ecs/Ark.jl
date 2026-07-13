@@ -1163,7 +1163,7 @@ end
         push!(exprs, :(@inbounds $col_sym = $stor_sym.data[Int(table.id)]))
 
         if storage_types[i] <: GPUVector
-            push!(exprs, :($vec_sym = view(($col_sym).mem, Int(start_idx):Int(end_idx))))
+            push!(exprs, :($vec_sym = _gpuvector_view($col_sym, Int(start_idx):Int(end_idx))))
         elseif storage_types[i] <: StructArray || storage_types[i] <: GPUStructArray ||
                fieldcount(comp_types[i]) == 0
             push!(exprs, :($vec_sym = view($col_sym, Int(start_idx):Int(end_idx))))

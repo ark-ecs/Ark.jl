@@ -79,8 +79,8 @@ end
 
     copyto!(gv, 1, fill(1, 100), 1, 100)
     @test length(unique(gv)) == 1 && unique(gv)[1] == 1
-    @test typeof(similar(gv)) == GPUVector{:CPU,Int,Vector{Int}}
-    @test typeof(similar(gv, Int, (1,))) == GPUVector{:CPU,Int,Vector{Int}}
+    @test typeof(similar(gv)) == GPUVector{:CPU,Int,Vector{Int},false}
+    @test typeof(similar(gv, Int, (1,))) == GPUVector{:CPU,Int,Vector{Int},false}
 
     gv[1] = 2
     @test gv[1] == 2

@@ -1,5 +1,6 @@
 module Ark
 
+import Adapt
 using FieldViews
 using Preferences
 using StaticArrays
@@ -84,6 +85,6 @@ export SetComponentsCommand, SetRelationsCommand
 
 export Relation
 
-export Storage, StructArray, GPUStructArray, GPUVector
+export Storage, StructArray, GPUStructArray, GPUVector, GPUVectorView
 
 end
