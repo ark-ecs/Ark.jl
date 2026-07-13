@@ -26,21 +26,21 @@ function _gpu_backend(::Type{<:GPUStructArray{B}}) where {B}
 end
 
 function GPUStructArray{B}(tp::Type{C}) where {B,C}
-    _GPUStructArray_from_type(tp, Val{B}(), Val{_gpuvector_has_hostwrap(Val{B}())}())
+    _GPUStructArray_from_type(tp, Val{B}())
 end
 
-@generated function _GPUStructArray_from_type(::Type{C}, ::Val{B}, ::Val{H}) where {C,B,H}
+@generated function _GPUStructArray_from_type(::Type{C}, ::Val{B}) where {C,B}
     names = fieldnames(C)
     types = fieldtypes(C)
     num_fields = length(types)
     num_fields == 0 && error("GPUStructArray storage not allowed for components without fields")
 
     QB = QuoteNode(B)
-    vec_types = Expr[:(GPUVector{$QB,$t,_gpuvector_type($t, Val{$QB}()),$H}) for t in types]
+    vec_types = Expr[:(GPUVector{$QB,$t,_gpuvector_type($t, Val{$QB}())}) for t in types]
     quoted_names = QuoteNode[QuoteNode(name) for name in names]
     nt_type = :(NamedTuple{($(quoted_names...),),Tuple{$(vec_types...)}})
     kv_exprs = Expr[
-        :($name = GPUVector{$QB,$t,_gpuvector_type($t, Val{$QB}()),$H}()) for (name, t) in zip(names, types)
+        :($name = GPUVector{$QB,$t,_gpuvector_type($t, Val{$QB}())}()) for (name, t) in zip(names, types)
     ]
 
     return quote
@@ -48,14 +48,14 @@ end
     end
 end
 
-@generated function _GPUStructArray_type(::Type{C}, ::Val{B}, ::Val{H}) where {C,B,H}
+@generated function _GPUStructArray_type(::Type{C}, ::Val{B}) where {C,B}
     names = fieldnames(C)
     types = fieldtypes(C)
     num_fields = length(types)
     num_fields == 0 && error("GPUStructArray storage not allowed for components without fields")
 
     QB = QuoteNode(B)
-    vec_types = Expr[:(GPUVector{$QB,$t,_gpuvector_type($t, Val{$QB}()),$H}) for t in types]
+    vec_types = Expr[:(GPUVector{$QB,$t,_gpuvector_type($t, Val{$QB}())}) for t in types]
     nt_type = :(NamedTuple{$names,Tuple{$(vec_types...)}})
 
     return quote

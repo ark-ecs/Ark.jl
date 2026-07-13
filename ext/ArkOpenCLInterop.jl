@@ -14,15 +14,6 @@ function Ark._gpuvector_type(::Type{T}, ::Val{:OpenCL}) where T
     end
 end
 
-function Ark._gpuvector_has_hostwrap(::Val{:OpenCL})
-    backend = try
-        cl.unified_memory_backend()
-    catch
-        return false
-    end
-    return backend === cl.USMBackend() || backend === cl.SVMBackend()
-end
-
 function Ark._gpuvector_hostwrap(
     mem::CLArray{T,1,<:Union{cl.UnifiedSharedMemory,cl.SharedVirtualMemory}},
 ) where {T}

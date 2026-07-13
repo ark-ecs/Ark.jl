@@ -18,79 +18,54 @@ world = World(
 )
 ```
 """
-mutable struct GPUVector{B,T,M,H} <: AbstractVector{T}
+mutable struct GPUVector{B,T,M} <: AbstractVector{T}
     mem::M
     host::Vector{T}
     len::Int
 end
 
+function _gpuvector_type end
+
 function _gpu_backend(::Type{<:GPUVector{B}}) where {B}
     return B
 end
 
-function _gpuvector_type end
-
-function _gpuvectorview_type(t::Type, k::Val)
-    _gpuvector_type(t, k)
+function _gpuvectorview_type(::Type{GPUVector{B,T,M}}) where {B,T,M}
+    return GPUVectorView{B,T,GPUVector{B,T,M},SubArray{T,1,Vector{T},Tuple{UnitRange{Int}}}}
 end
 
-@generated function _gpuvectorview_type(::Type{GPUVector{B,T,M,H}}) where {B,T,M,H}
-    if H
-        return :(GPUVectorView{B,T,GPUVector{B,T,M,H},SubArray{T,1,Vector{T},Tuple{UnitRange{Int}},true}})
-    else
-        return :(_gpuvectorview_type(T, $(Val{B}())))
-    end
-end
-
-_gpuvector_has_hostwrap(::Val) = false
-
-function _gpuvector_hostwrap(mem::AbstractVector{T})::Vector{T} where {T}
+function _gpuvector_hostwrap(mem::AbstractVector)
     throw(ArgumentError(lazy"$(typeof(mem)) does not support host wrapping"))
 end
 
-function GPUVector{B,T,M,H}(mem::M, len::Integer) where {B,T,M,H}
-    host = H ? _gpuvector_hostwrap(mem) : T[]
-    return GPUVector{B,T,M,H}(mem, host, len)
+function GPUVector{B,T,M}(mem::M, len::Integer) where {B,T,M}
+    host = _gpuvector_hostwrap(mem)
+    return GPUVector{B,T,M}(mem, host, len)
 end
 
-function GPUVector{B,T,M,H}() where {B,T,M,H}
-    return GPUVector{B,T,M,H}(M(), 0)
-end
-
-function GPUVector{B,T,M}(args...) where {B,T,M}
-    H = _gpuvector_has_hostwrap(Val{B}())
-    return GPUVector{B,T,M,H}(args...)
+function GPUVector{B,T,M}() where {B,T,M}
+    return GPUVector{B,T,M}(M(), 0)
 end
 
 Base.size(gv::GPUVector) = (length(gv),)
 Base.length(gv::GPUVector) = gv.len
 
-Base.@propagate_inbounds function Base.getindex(gv::GPUVector{B,T,M,H}, i::Int) where {B,T,M,H}
-    if H
-        return gv.host[i]
-    else
-        return gv.mem[i]
-    end
+Base.@propagate_inbounds function Base.getindex(gv::GPUVector, i::Int)
+    return gv.host[i]
 end
 
-Base.@propagate_inbounds function Base.setindex!(gv::GPUVector{B,T,M,H}, v, i::Int) where {B,T,M,H}
-    if H
-        gv.host[i] = v
-    else
-        gv.mem[i] = v
-    end
+Base.@propagate_inbounds function Base.setindex!(gv::GPUVector, v, i::Int)
+    gv.host[i] = v
     return v
 end
 
-function _resize_mem!(gv::GPUVector{B,T,M,H}, new_len::Integer) where {B,T,M,H}
+function _resize_mem!(gv::GPUVector, new_len::Integer)
     if length(gv.mem) < new_len
         new_cap = max(new_len, 2 * length(gv.mem))
         new_mem = typeof(gv.mem)(undef, new_cap)
         copyto!(new_mem, 1, gv.mem, 1, length(gv))
         gv.mem = new_mem
-        if H
-            gv.host = _gpuvector_hostwrap(new_mem)
-        end
+        gv.host = _gpuvector_hostwrap(new_mem)
     end
     return
 end
@@ -124,35 +99,23 @@ function Base.sizehint!(gv::GPUVector, new_len::Integer)
     return gv
 end
 
-function Base.copyto!(gv::GPUVector{B,T,M,H}, doffs::Integer, src::AbstractVector, soffs::Integer, n::Integer) where {B,T,M,H}
-    if H
-        copyto!(gv.host, doffs, src, soffs, n)
-    else
-        copyto!(gv.mem, doffs, src, soffs, n)
-    end
+function Base.copyto!(gv::GPUVector, doffs::Integer, src::AbstractVector, soffs::Integer, n::Integer)
+    copyto!(gv.host, doffs, src, soffs, n)
     return gv
 end
 
-function Base.copyto!(gv::GPUVector{B,T,M,H}, doffs::Integer, src::GPUVector{B2,T2,M2,H2}, soffs::Integer, n::Integer) where {B,T,M,H,B2,T2,M2,H2}
-    if H && H2
-        copyto!(gv.host, doffs, src.host, soffs, n)
-    else
-        copyto!(gv.mem, doffs, src.mem, soffs, n)
-    end
+function Base.copyto!(gv::GPUVector, doffs::Integer, src::GPUVector, soffs::Integer, n::Integer)
+    copyto!(gv.host, doffs, src.host, soffs, n)
     return gv
 end
 
-function Base.unsafe_copyto!(gv::GPUVector{B,T,M,H}, doffs::Integer, src::GPUVector{B2,T2,M2,H2}, soffs::Integer, n::Integer) where {B,T,M,H,B2,T2,M2,H2}
-    if H && H2
-        unsafe_copyto!(gv.host, doffs, src.host, soffs, n)
-    else
-        unsafe_copyto!(gv.mem, doffs, src.mem, soffs, n)
-    end
+function Base.unsafe_copyto!(gv::GPUVector, doffs::Integer, src::GPUVector, soffs::Integer, n::Integer)
+    unsafe_copyto!(gv.host, doffs, src.host, soffs, n)
     return gv
 end
 
-function Base.similar(gv::GPUVector{B,T,M,H}, ::Type{T}, size::Dims{1}) where {B,T,M,H}
-    return GPUVector{B,T,M,H}(M(undef, size), size[1])
+function Base.similar(gv::GPUVector{B,T,M}, ::Type{T}, size::Dims{1}) where {B,T,M}
+    return GPUVector{B,T,M}(M(undef, size), size[1])
 end
 
 Base.IndexStyle(::Type{<:GPUVector}) = IndexLinear()
@@ -163,18 +126,10 @@ struct GPUVectorView{B,T,GV<:GPUVector,HV<:AbstractVector{T}} <: AbstractVector{
     host::HV
 end
 
-@generated function _gpuvector_view(gv::GPUVector{B,T,M,H}, rng::AbstractUnitRange) where {B,T,M,H}
-    if H
-        quote
-            r = UnitRange{Int}(rng)
-            hv = view(gv.host, r)
-            GPUVectorView{B,T,typeof(gv),typeof(hv)}(gv, r, hv)
-        end
-    else
-        quote
-            view(gv.mem, rng)
-        end
-    end
+function _gpuvector_view(gv::GPUVector{B,T,M}, rng::AbstractUnitRange) where {B,T,M}
+    r = UnitRange{Int}(rng)
+    hv = view(gv.host, r)
+    GPUVectorView{B,T,typeof(gv),typeof(hv)}(gv, r, hv)
 end
 
 _gpuvector_devview(v::GPUVectorView) = view(v.gv.mem, v.rng)
