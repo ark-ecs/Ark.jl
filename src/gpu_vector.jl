@@ -31,7 +31,7 @@ function _gpu_backend(::Type{<:GPUVector{B}}) where {B}
 end
 
 function _gpuvectorview_type(::Type{GPUVector{B,T,M}}) where {B,T,M}
-    return GPUVectorView{B,T,GPUVector{B,T,M},SubArray{T,1,Vector{T},Tuple{UnitRange{Int}}}}
+    return GPUVectorView{B,T,GPUVector{B,T,M},SubArray{T,1,Vector{T},Tuple{UnitRange{Int}},true}}
 end
 
 function _gpuvector_hostwrap(mem::AbstractVector)
