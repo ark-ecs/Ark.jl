@@ -8,7 +8,7 @@ function Ark._gpuvector_type(::Type{T}, ::Val{:CUDA}) where T
 end
 
 function Ark._gpuvector_hostwrap(mem::CuVector{T,CUDA.UnifiedMemory}) where {T}
-    return unsafe_wrap(Array, mem)
+    return unsafe_wrap(Vector{T}, mem)
 end
 
 end

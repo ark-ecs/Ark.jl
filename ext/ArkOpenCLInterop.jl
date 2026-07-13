@@ -17,7 +17,7 @@ end
 function Ark._gpuvector_hostwrap(
     mem::CLArray{T,1,<:Union{cl.UnifiedSharedMemory,cl.SharedVirtualMemory}},
 ) where {T}
-    return unsafe_wrap(Array, mem)
+    return unsafe_wrap(Vector{T}, mem)
 end
 
 end
