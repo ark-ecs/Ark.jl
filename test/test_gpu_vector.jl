@@ -108,7 +108,30 @@ end
     @test v[1] == 20
     @test gv[2] == 20
 
+    @test IndexStyle(typeof(v)) == IndexLinear()
+    @test IndexStyle(typeof(gv)) == IndexLinear()
+
     @test_throws MethodError _gpuvectorview_type(Position, Val{:V}())
+end
+
+@testset "GPUVectorView adapts to the device view" begin
+    gv = GPUVector{:CPU,Int,Vector{Int}}()
+    resize!(gv, 5)
+    copyto!(gv, 1, [1, 2, 3, 4, 5], 1, 5)
+
+    v = _gpuvector_view(gv, 2:4)
+
+    # This is what a kernel receives: a view of the device memory, not of the
+    # host wrapper. On the :CPU back-end the two share the same underlying array.
+    dv = Adapt.adapt(nothing, v)
+    @test dv isa SubArray
+    @test parent(dv) === gv.mem
+    @test dv == [2, 3, 4]
+
+    # Writes from the kernel side land in the memory the vector owns.
+    dv[1] = 20
+    @test gv[2] == 20
+    @test v[1] == 20
 end
 
 @testset "GPUVector interface" begin
@@ -146,4 +169,22 @@ end
     resize!(gv2, length(gv))
     unsafe_copyto!(gv2, 1, gv, 1, length(gv))
     @test gv2[1:length(gv)] == gv[1:length(gv)]
+end
+
+@testset "GPUVector copyto!" begin
+    src = GPUVector{:CPU,Int,Vector{Int}}()
+    resize!(src, 3)
+    copyto!(src, 1, [1, 2, 3], 1, 3)
+    @test src == [1, 2, 3]
+
+    dest = GPUVector{:CPU,Int,Vector{Int}}()
+    resize!(dest, 5)
+    fill!(dest.host, 0)
+
+    # Copying from another GPUVector goes through the host wrappers of both.
+    copyto!(dest, 2, src, 1, 3)
+    @test dest == [0, 1, 2, 3, 0]
+
+    copyto!(dest, 1, src, 2, 2)
+    @test dest == [2, 3, 2, 3, 0]
 end
