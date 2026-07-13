@@ -49,15 +49,8 @@ end
     end
 end
 
-# Whether the back-end supports zero-copy host Vectors wrapping its memory on
-# the current system. Extensions specialize this (and `_gpuvector_hostwrap`);
-# it is checked once when a storage is created and the result is stored in the
-# `H` type parameter of `GPUVector`, so all downstream code branches on it
-# statically.
 _gpuvector_has_hostwrap(::Val) = false
 
-# Zero-copy host Vector aliasing `mem`'s memory; only called when `H` is true,
-# so only extensions that enable `_gpuvector_has_hostwrap` need a method.
 function _gpuvector_hostwrap end
 
 function GPUVector{B,T,M,H}(mem::M, len::Integer) where {B,T,M,H}
@@ -69,7 +62,6 @@ function GPUVector{B,T,M,H}() where {B,T,M,H}
     return GPUVector{B,T,M,H}(M(), 0)
 end
 
-# convenience constructor; checks the host-wrap capability at construction
 function GPUVector{B,T,M}(args...) where {B,T,M}
     H = _gpuvector_has_hostwrap(Val{B}())
     return GPUVector{B,T,M,H}(args...)
@@ -200,7 +192,6 @@ end
     end
 end
 
-# device-side view, materialized on kernel launch via Adapt
 _gpuvector_devview(v::GPUVectorView) = view(v.gv.mem, v.rng)
 
 Adapt.adapt_structure(to, v::GPUVectorView) = Adapt.adapt(to, _gpuvector_devview(v))
