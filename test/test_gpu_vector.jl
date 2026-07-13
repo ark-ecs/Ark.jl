@@ -121,14 +121,11 @@ end
 
     v = _gpuvector_view(gv, 2:4)
 
-    # This is what a kernel receives: a view of the device memory, not of the
-    # host wrapper. On the :CPU back-end the two share the same underlying array.
     dv = Adapt.adapt(nothing, v)
     @test dv isa SubArray
     @test parent(dv) === gv.mem
     @test dv == [2, 3, 4]
 
-    # Writes from the kernel side land in the memory the vector owns.
     dv[1] = 20
     @test gv[2] == 20
     @test v[1] == 20
@@ -181,7 +178,6 @@ end
     resize!(dest, 5)
     fill!(dest.host, 0)
 
-    # Copying from another GPUVector goes through the host wrappers of both.
     copyto!(dest, 2, src, 1, 3)
     @test dest == [0, 1, 2, 3, 0]
 
