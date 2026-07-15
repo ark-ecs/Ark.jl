@@ -29,7 +29,7 @@ function setup_query_create_filter(n)
 
     filter = Filter(world, (Position, Velocity))
     for i in 1:n
-        query = Query(filter)
+        query = Query(world, filter)
         close!(query)
     end
 
@@ -41,7 +41,7 @@ function benchmark_query_create_filter(args, n)
 
     filter = Filter(world, (Position, Velocity))
     for i in 1:n
-        query = Query(filter)
+        query = Query(world, filter)
         close!(query)
     end
 

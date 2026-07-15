@@ -13,6 +13,39 @@ mutable struct SimulationSpeed
     speed::Int
 end
 
+struct GrazerMortalityCommands{B<:CommandBuffer}
+    commands::B
+end
+
+GrazerMortalityCommands(world::World) =
+    GrazerMortalityCommands(CommandBuffer(world, (RemoveEntityCommand(),)))
+
+struct GrazerDecisionCommands{B<:CommandBuffer}
+    commands::B
+end
+
+GrazerDecisionCommands(world::World) = GrazerDecisionCommands(
+    CommandBuffer(
+        world,
+        (
+            ExchangeComponentsCommand(add=(Grazing,), remove=(Moving,)),
+            ExchangeComponentsCommand(add=(Moving,), remove=(Grazing,)),
+        ),
+    ),
+)
+
+new_grazer_world() = World(Position, Rotation, Energy, Genes, Moving, Grazing)
+
+const GRAZER_COMMAND_TYPES = let world = new_grazer_world()
+    (
+        mortality=typeof(GrazerMortalityCommands(world)),
+        decision=typeof(GrazerDecisionCommands(world)),
+    )
+end
+
+const GrazerMortalityCommandsType = GRAZER_COMMAND_TYPES.mortality
+const GrazerDecisionCommandsType = GRAZER_COMMAND_TYPES.decision
+
 struct Window
     scene::GLMakie.Scene
     screen::GLMakie.Screen

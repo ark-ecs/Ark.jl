@@ -1,0 +1,46 @@
+name: Tests (juliac)
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  juliac:
+    name: Tests (juliac)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: 'pre'
+      - uses: julia-actions/cache@v3
+      - name: Instantiate demos project
+        run: |
+          julia --project=demos -e '
+            using Pkg
+            Pkg.develop(path=".")
+            Pkg.instantiate()
+          '
+      - name: Compile with JuliaC
+        run: |
+          # TODO: use --trim=safe when TypedCallable is available
+          julia --project=/tmp/juliac_env -e '
+            using Pkg
+            Pkg.add("JuliaC")
+            using JuliaC
+            JuliaC.main(ARGS)
+          ' -- \
+            --output-exe test_juliac \
+            --project=demos \
+            --trim=unsafe \
+            --experimental \
+            test/test_juliac.jl
+      - name: Print executable size
+        run: ls -lh test_juliac
+      - name: Run compiled executable
+        run: ./test_juliac

@@ -4,8 +4,8 @@ using Random
 using Parameters
 
 include("../_common/resources.jl")
-include("resources.jl")
 include("components.jl")
+include("resources.jl")
 include("utils.jl")
 
 new_world(N) = World(S, I, R; initial_capacity=10^6)
@@ -16,10 +16,10 @@ function initialize_world!(world::World, N::Int, I0::Int, beta::Float64, c::Floa
     add_resource!(world, Terminate(false))
 
     if isnothing(buffer)
-        add_resource!(world, Buffer(Entity[], Entity[], Float64[], Entity[]))
-    else
-        add_resource!(world, buffer)
+        buffer = Buffer(world)
     end
+
+    add_resource!(world, buffer)
     add_resource!(world, Params(N, I0, beta, c, r, dt))
 
     new_entities!(world, N - I0, (S(),))
@@ -41,8 +41,8 @@ function step_world!(world::World)
     prob_infection = rate_to_probability(foi, dt)
     prob_recovery = rate_to_probability(r, dt)
 
-    buffer = get_resource(world, Buffer)
-    Parameters.@unpack s_to_i, i_to_r, rands, ents = buffer
+    buffer = get_resource(world, BufferType)
+    Parameters.@unpack transitions, rands = buffer
 
     # S -> I Transition
     for (entities,) in Query(world, (), with=(S,))
@@ -50,7 +50,7 @@ function step_world!(world::World)
         rand!(rands)
         @inbounds for k in eachindex(entities)
             if rands[k] <= prob_infection
-                push!(s_to_i, entities[k])
+                exchange_components!(transitions, entities[k]; add=(I(),), remove=(S,))
             end
         end
     end
@@ -61,22 +61,12 @@ function step_world!(world::World)
         rand!(rands)
         @inbounds for k in eachindex(entities)
             if rands[k] <= prob_recovery
-                push!(i_to_r, entities[k])
+                exchange_components!(transitions, entities[k]; add=(R(),), remove=(I,))
             end
         end
     end
 
-    # Apply Transitions
-    for entity in s_to_i
-        exchange_components!(world, entity, add=(I(),), remove=(S,))
-    end
-    for entity in i_to_r
-        exchange_components!(world, entity, add=(R(),), remove=(I,))
-    end
-
-    # Cleanup buffers
-    resize!(i_to_r, 0)
-    resize!(s_to_i, 0)
+    apply!(transitions)
 
     return world
 end

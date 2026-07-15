@@ -148,10 +148,10 @@ For these columns, Ark offers storage types for both CPU anf GPU computing by de
 
 ### GPU Storages
 
-- **[GPUVector](@ref) storage** stores components using unified memory for mixed CPU/GPU operations. [GPUVector](@ref) is compatible with CUDA.jl, Metal.jl, oneAPI.jl or OpenCL.jl. Mutable components are not allowed.
+- **[GPUVector](@ref) storage** stores components using unified memory for mixed CPU/GPU operations. [GPUVector](@ref) is compatible with CUDA.jl, Metal.jl, oneAPI.jl or OpenCL.jl, and with a device-less CPU backend. Mutable components are not allowed.
 
 - **[GPUStructArray](@ref) storage** stores components in an SoA data structure similar to  
-  [StructArrays](https://github.com/JuliaArrays/StructArrays.jl) using unified memory for mixed CPU/GPU operations. [GPUVector](@ref) is compatible with CUDA.jl, Metal.jl, oneAPI.jl or OpenCL.jl. The same limitations of [StructArray](@ref) storage apply.
+  [StructArrays](https://github.com/JuliaArrays/StructArrays.jl) using unified memory for mixed CPU/GPU operations. [GPUVector](@ref) is compatible with CUDA.jl, Metal.jl, oneAPI.jl or OpenCL.jl, and with a device-less CPU backend. The same limitations of [StructArray](@ref) storage apply.
 
 ## Storage Selection
 
@@ -161,11 +161,12 @@ The storage mode can be selected per component type by using the [Storage](@ref)
 world = World(
     Position => Storage{Vector},
     Velocity => Storage{StructArray},
+    Health => Storage{DiskVector},
 )
 
 # output
 
-World(entities=0, comp_types=(Position, Velocity))
+World(entities=0, comp_types=(Position, Velocity, Health))
 ```
 
 The default is `Storage{Vector}` if no storage mode is specified:
@@ -192,13 +193,18 @@ world = World(
 )
 ```
 
-To use [DiskVector](@ref) storage, simply pass it as the storage mode:
+The additional `:CPU` backend stores the components in plain `Vector`s and requires no GPU package.
+It is useful to run and test GPU-shaped code on machines without a device:
 
-```julia
+```jldoctest; output = false
 world = World(
-    Position => Storage{DiskVector},
-    Velocity => Storage{DiskVector},
+    Position => Storage{GPUVector{:CPU}},
+    Velocity => Storage{GPUStructArray{:CPU}},
 )
+
+# output
+
+World(entities=0, comp_types=(Position, Velocity))
 ```
 
 ## [User-defined component storages](@id new-component-storages)

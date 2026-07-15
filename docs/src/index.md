@@ -33,6 +33,7 @@ It is a port of the Go ECS [Ark](https://github.com/mlange-42/ark).
   with support for user-defined storages.
 - Extensible [event system](@ref "Event system") with filtering and custom event types.
 - Fast [batch operations](@ref "Batch operations") for mass manipulation.
+- Deferred structural operations through [command buffers](@ref "Command buffer").
 - Built-in [GPU integration](@ref GPU-Storages) for [maximal performance](@ref CPU-vs.-GPU-Storage).
 - No [systems](@ref Systems). Just [queries](@ref Queries). Use your own structure.
 - Minimal [dependencies](https://github.com/ark-ecs/Ark.jl/blob/main/Project.toml), 100% [test coverage](https://app.codecov.io/github/ark-ecs/ark.jl).

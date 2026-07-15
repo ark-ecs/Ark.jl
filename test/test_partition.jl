@@ -4,7 +4,7 @@
         for register in (true, false)
             world = World(Position, Velocity)
             new_entity!(world, (Position(0.0, 0.0),))
-            partition_entities!(Filter(world, (Position,); register); pred=e -> true)
+            partition_entities!(world, Filter(world, (Position,); register); pred=e -> true)
 
             world = World(Position, Velocity)
 
@@ -18,10 +18,10 @@
             # Predicate to select which entities go first
             less_than_3 = e -> world[e][Position].x < 3.0
 
-            @test filter === partition_entities!(filter; pred=less_than_3)
+            @test filter === partition_entities!(world, filter; pred=less_than_3)
 
             entities_in_order = Entity[]
-            for (es, positions, _) in Query(filter)
+            for (es, positions, _) in Query(world, filter)
                 append!(entities_in_order, es)
             end
 
@@ -44,10 +44,10 @@
 
         filter = Filter(world, (Position, Velocity))
 
-        partition_entities!(filter; pred=e -> world[e][Position].x < 5.0)
+        partition_entities!(world, filter; pred=e -> world[e][Position].x < 5.0)
 
         all_xs = Float64[]
-        for (entities, positions, _) in Query(filter)
+        for (entities, positions, _) in Query(world, filter)
             for p in positions
                 push!(all_xs, p.x)
             end
@@ -68,16 +68,16 @@
 
         filter = Filter(world, (Position, Velocity))
 
-        partition_entities!(filter; pred=e -> world[e][Position].x > 13.0)
+        partition_entities!(world, filter; pred=e -> world[e][Position].x > 13.0)
 
         # Verify entities with only Position are unchanged
         pos_only_filter = Filter(world, (Position,); without=(Velocity,))
-        for (entities, positions) in Query(pos_only_filter)
+        for (entities, positions) in Query(world, pos_only_filter)
             @test [p.x for p in positions] == [11.0, 12.0, 13.0, 14.0]
         end
 
         # Verify entities with Position and Velocity are partitioned
-        for (entities, positions, _) in Query(filter)
+        for (entities, positions, _) in Query(world, filter)
             @test length(entities) == 5
             partitioned_xs = [p.x for p in positions]
             @test all(partitioned_xs[1:2] .> 13.0)

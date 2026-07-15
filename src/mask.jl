@@ -3,6 +3,8 @@ struct _Not end
 
 abstract type _AbstractMask{M} end
 
+struct _NoMask{M} <: _AbstractMask{M} end
+
 struct _Mask{M} <: _AbstractMask{M}
     bits::NTuple{M,UInt64}
 end
@@ -118,6 +120,20 @@ function _active_bit_indices(mask::_Mask{M})::Vector{Int} where M
     return indices
 end
 
+function _active_bit_indices!(buf::Vector{Int}, mask::_Mask{M})::Vector{Int} where M
+    empty!(buf)
+    for chunk_index in 1:M
+        chunk = mask.bits[chunk_index]
+        base = (chunk_index - 1) * 64
+        while chunk != 0
+            tz = trailing_zeros(chunk)
+            push!(buf, base + tz + 1)
+            chunk &= chunk - UInt64(1)
+        end
+    end
+    return buf
+end
+
 # TODO: simplify this when Julia 1.13 is released
 # from new hashing methodology in Base on Julia nightly
 const tuplehash_seed = UInt === UInt64 ? 0x77cfa1eef01bca90 : 0xf01bca90
@@ -211,8 +227,17 @@ end
     offset = (i - 1) % UInt64 # which bit within that UInt64
     return ((mask.bits[1] >> offset) & UInt64(1)) % Bool
 end
+
 @inline function _get_bit(mask::Union{_Mask,_MutableMask}, i::Int)::Bool
     chunk = (i - 1) >>> 6 # which UInt64 (0-based)
     offset = ((i - 1) % UInt64) & UInt64(0x3F) # which bit within that UInt64
     return ((mask.bits[chunk+1] >> offset) & UInt64(1)) % Bool
+end
+
+@inline @generated function _count_bits(mask::Union{_Mask{M},_MutableMask{M}})::Int where {M}
+    exprs = Expr[]
+    for i in 1:M
+        push!(exprs, :(count_ones(mask.bits[$i])))
+    end
+    return Expr(:call, :+, exprs...)
 end

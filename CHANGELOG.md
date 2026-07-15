@@ -2,6 +2,27 @@
 
 ## [[unpublished]](https://github.com/ark-ecs/Ark.jl/compare/v0.5.0...main)
 
+### Features
+
+- Adds command buffers support for deferred structural operations (#670).
+- Adds the possibility to specify that a query column is read-only (#677).
+- Adds GPUVector{:CPU} and GPUStructArray{:CPU} to use a GPU storage on devices
+  which do not have a GPU (#701).
+
+### Breaking changes
+
+- `unregister!` and `register!` now require the world as an argument (#660).
+- API functions for `Query` and `Filter` now require the world as an argument (#662).
+- `length` for a filter has been renamed to `count_tables` (#662).
+
+### Performance
+
+- Structural operations are now up to 2x faster (#662, #690).
+- Operations executed on the CPU with a GPU storage are almost overhead-less in respect to
+  CPU only storage (#701).
+- Compile time performance is improved through a better internal specialization mechanism (#662).
+- Getting components performance improved by 10% (#664).
+
 ## [[v0.5.1]](https://github.com/ark-ecs/Ark.jl/compare/v0.5.0...v0.5.1)
 
 ### Bugfixes

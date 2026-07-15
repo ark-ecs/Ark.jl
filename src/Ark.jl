@@ -1,5 +1,6 @@
 module Ark
 
+using Adapt
 using FieldViews
 using Mmap
 using Preferences
@@ -14,6 +15,7 @@ isdefined(@__MODULE__, :Memory) || const Memory = Vector # Compat for Julia < 1.
 
 include("abstract.jl")
 include("util.jl")
+include("readonly.jl")
 include("linear_map.jl")
 include("collections.jl")
 include("structarray.jl")
@@ -45,6 +47,7 @@ include("partition.jl")
 include("batch_ops.jl")
 include("handle.jl")
 include("unchecked.jl")
+include("command_buffer.jl")
 !_is_testing() && include("precompile.jl")
 
 #include("docs.jl") # doctest setup
@@ -62,8 +65,9 @@ export Entity, EntityHandle
 export is_zero
 
 export Query, Filter
+export Const
 export close!, unregister!
-export count_entities, shuffle_entities!, sort_entities!, partition_entities!
+export count_tables, count_entities, shuffle_entities!, sort_entities!, partition_entities!
 
 export Entities
 
@@ -76,6 +80,11 @@ export Observer, observe!, register!, emit_event!
 export unpack, @unpack
 
 export @unchecked
+
+export CommandBuffer, apply!, record!
+export NewEntityCommand, RemoveEntityCommand
+export AddComponentsCommand, RemoveComponentsCommand, ExchangeComponentsCommand
+export SetComponentsCommand, SetRelationsCommand
 
 export Relation
 

@@ -31,6 +31,16 @@ function _get_new_entity(p::_EntityPool)::Entity
     return e
 end
 
+function _get_pending_entity(p::_EntityPool)::Entity
+    entity = _get_entity(p)
+    return _new_entity(entity._id, entity._gen + UInt32(1))
+end
+
+function _activate_entity!(p::_EntityPool, e::Entity)
+    @inbounds p.entities[e._id] = e
+    return nothing
+end
+
 function _get_new_entities!(p::_EntityPool, n::Integer)
     old_len = length(p.entities)
     new_len = old_len + n

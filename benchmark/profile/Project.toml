@@ -1,0 +1,5 @@
+version = "0.1.0-dev"
+
+[deps]
+Ark = "56664e29-41e4-4ea5-ab0e-825499acc647"
+StatProfilerHTML = "a8a75453-ed82-57c9-9e16-4cd1196ecbf5"

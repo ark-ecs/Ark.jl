@@ -1,19 +1,19 @@
 
 struct _IdCollection
     ids::Vector{UInt32}
-    indices::_Linear_Map{UInt32,Int,true,true,NoZero,NoZero}
+    indices::_Linear_Map{UInt32,UInt32,true,true,NoZero,NoZero}
 end
 
 function _IdCollection()
-    return _IdCollection(Vector{UInt32}(), _Linear_Map{UInt32,Int}())
+    return _IdCollection(Vector{UInt32}(), _Linear_Map{UInt32,UInt32}())
 end
 
 function _IdCollection(ids::UInt32...)
     vec = collect(UInt32, ids)
-    indices = _Linear_Map{UInt32,Int}()
+    indices = _Linear_Map{UInt32,UInt32}()
 
     for (i, id) in enumerate(ids)
-        indices[id] = i
+        indices[id] = i % UInt32
     end
 
     return _IdCollection(vec, indices)
@@ -23,19 +23,20 @@ const _empty_id_collection = _IdCollection()
 
 function _add_id!(ids::_IdCollection, id::UInt32)
     push!(ids.ids, id)
-    ids.indices[id] = length(ids.ids)
+    ids.indices[id] = length(ids.ids) % UInt32
     return nothing
 end
 
 function _remove_id!(ids::_IdCollection, id::UInt32)
-    idx = get(ids.indices, id, -1)
-    if idx == -1
+    idx = get(ids.indices, id, UInt32(0))
+    if idx == UInt32(0)
         return false
     end
     last = length(ids.ids)
-    if idx != last
-        ids.ids[idx], ids.ids[last] = ids.ids[last], ids.ids[idx]
-        ids.indices[ids.ids[idx]] = idx
+    idx_int = idx % Int
+    if idx_int != last
+        ids.ids[idx_int], ids.ids[last] = ids.ids[last], ids.ids[idx_int]
+        ids.indices[ids.ids[idx_int]] = idx
     end
     pop!(ids.ids)
     delete!(ids.indices, id)

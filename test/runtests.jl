@@ -12,7 +12,6 @@ const RUN_JET = "CI" in keys(ENV) && VERSION >= v"1.12.0" && isempty(VERSION.pre
 
 include("include_internals.jl")
 
-include("setup.jl")
 if "--large-world" in ARGS
     include("setup_large.jl")
 else
@@ -46,4 +45,6 @@ include("test_partition.jl")
 include("test_unchecked.jl")
 include("test_indexing_api.jl")
 include("test_gpu_vector.jl")
+include("test_kernels.jl")
 include("test_quality.jl")
+include("test_command_buffer.jl")

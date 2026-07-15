@@ -78,16 +78,17 @@ certain set of [Components](@ref components-api).
 ```@docs
 Query
 Query(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)
-Query(::Filter)
+Query(::World, ::Filter)
 close!(::Query)
 Filter
 Filter(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)
-unregister!(::Filter)
+Const
+unregister!(::World, ::Filter)
+count_tables
 count_entities
 shuffle_entities!
 sort_entities!
 partition_entities!
-length
 Entities
 @unpack
 unpack
@@ -106,6 +107,23 @@ set_resource!
 remove_resource!
 ```
 
+## [Command buffer](@id command-buffer-api)
+
+A [CommandBuffer](@ref) defers structural changes and applies them in batch.
+
+```@docs
+CommandBuffer(::World, ::Tuple)
+apply!
+record!
+NewEntityCommand
+RemoveEntityCommand
+AddComponentsCommand
+RemoveComponentsCommand
+ExchangeComponentsCommand
+SetComponentsCommand
+SetRelationsCommand
+```
+
 ## [Event system](@id events-api)
 
 The [event system](@ref "Event system") allows user code to react on structural changes
@@ -119,8 +137,8 @@ EventRegistry()
 new_event_type!
 Observer
 observe!
-register!(::Observer)
-unregister!(::Observer)
+register!(::World, ::Observer)
+unregister!(::World, ::Observer)
 emit_event!
 ```
 

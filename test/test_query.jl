@@ -12,8 +12,8 @@
         query = Query(world, (Position, Velocity))
         @test Base.IteratorSize(typeof(query)) == Base.HasLength()
         @test query._filter.has_excluded == false
-        @test length(query) == 1
-        @test count_entities(query) == 10
+        @test count_tables(world, query) == 1
+        @test count_entities(world, query) == 10
         count = 0
         for (entities, vec_pos, vec_vel) in query
             @test isa(vec_pos, FieldViewable{Position}) == true
@@ -43,6 +43,96 @@
     end
 end
 
+@testset "Query preserves requested column order" begin
+    world = World(Position, Velocity)
+
+    new_entity!(world, (Position(1, 2), Velocity(3, 4)))
+
+    _, velocities, positions = only(Query(world, (Velocity, Position)))
+
+    @test eltype(velocities) == Velocity
+    @test eltype(positions) == Position
+    @test velocities[1] == Velocity(3, 4)
+    @test positions[1] == Position(1, 2)
+
+    query = Query(world, (Velocity, Position))
+    @test string(query) == "Query((Velocity, Position))"
+    close!(query)
+
+    _, velocities, positions = only(Query(world, (Velocity,); optional=(Position,)))
+    @test eltype(velocities) == Velocity
+    @test eltype(positions) == Position
+    @test velocities[1] == Velocity(3, 4)
+    @test positions[1] == Position(1, 2)
+end
+
+@testset "Query Const components return read-only columns" begin
+    world = World(Position, Velocity, Altitude)
+
+    new_entity!(world, (Position(1, 2), Velocity(3, 4), Altitude(5)))
+
+    _, positions, velocities = only(Query(world, (Const(Position), Velocity)))
+
+    @test size(positions) == (1,)
+    @test axes(positions) == (Base.OneTo(1),)
+    @test positions isa ReadOnly
+    @test !(velocities isa ReadOnly)
+    @test eltype(positions) == Position
+    @test positions[1] == Position(1, 2)
+    @test velocities[1] == Velocity(3, 4)
+    @test_throws Exception setindex!(positions, Position(10, 20), 1)
+    @test_throws ArgumentError Const(MutableComponent)
+    @test string(Const(Position)) == "Const(Position)"
+
+    if !(typeof(positions) <: ReadOnly{<:Any,<:GPUVectorView})
+        xs = positions.x
+        @test xs isa ReadOnly
+        @test eltype(xs) == Float64
+        @test xs[1] == 1
+        @test_throws Exception setindex!(xs, 10.0, 1)
+    end
+
+    velocities[1] = Velocity(5, 6)
+    _, updated_positions, updated_velocities = only(Query(world, (Position, Velocity)))
+    @test updated_positions[1] == Position(1, 2)
+    @test updated_velocities[1] == Velocity(5, 6)
+
+    _, _, altitudes = only(Query(world, (Position,); optional=(Const(Altitude),)))
+    @test altitudes isa ReadOnly
+    @test altitudes[1] == Altitude(5)
+    @test_throws Exception setindex!(altitudes, Altitude(10), 1)
+
+    filter = Filter(world, (Const(Position), Velocity); optional=(Const(Altitude),))
+    @test string(filter) == "Filter((Const(Position), Velocity); optional=(Const(Altitude)))"
+    _, filter_positions, filter_velocities, filter_altitudes = only(Query(world, filter))
+    @test filter_positions isa ReadOnly
+    @test !(filter_velocities isa ReadOnly)
+    @test filter_altitudes isa ReadOnly
+
+    registered_filter = Filter(world, (Const(Position),); register=true)
+    _, registered_positions = only(Query(world, registered_filter))
+    @test registered_positions isa ReadOnly
+    unregister!(world, registered_filter)
+end
+
+@testset "Query from filter preserves requested column order" begin
+    world = World(Position, Velocity)
+
+    new_entity!(world, (Position(1, 2), Velocity(3, 4)))
+
+    filter = Filter(world, (Velocity, Position))
+    _, velocities, positions = only(Query(world, filter))
+
+    @test eltype(velocities) == Velocity
+    @test eltype(positions) == Position
+    @test velocities[1] == Velocity(3, 4)
+    @test positions[1] == Position(1, 2)
+
+    query = Query(world, filter)
+    @test string(query) == "Query((Velocity, Position))"
+    close!(query)
+end
+
 @testset "Query from filter" begin
     world = World(Dummy, Position, Velocity, Altitude, Health)
 
@@ -53,12 +143,12 @@ end
     end
 
     filter = Filter(world, (Position, Velocity))
-    query = Query(filter)
-    @test length(query) == 1
-    @test count_entities(query) == 10
+    query = Query(world, filter)
+    @test count_tables(world, query) == 1
+    @test count_entities(world, query) == 10
     close!(query)
     count = 0
-    for (entities, vec_pos, vec_vel) in Query(filter)
+    for (entities, vec_pos, vec_vel) in Query(world, filter)
         count += length(entities)
     end
     @test count == 10
@@ -74,13 +164,13 @@ end
     end
 
     filter = Filter(world, (Position, Velocity); register=true)
-    query = Query(filter)
-    @test length(query) == 1
-    @test count_entities(query) == 10
+    query = Query(world, filter)
+    @test count_tables(world, query) == 1
+    @test count_entities(world, query) == 10
     close!(query)
 
     count = 0
-    for (entities, vec_pos, vec_vel) in Query(filter)
+    for (entities, vec_pos, vec_vel) in Query(world, filter)
         count += length(entities)
     end
     @test count == 10
@@ -95,8 +185,8 @@ end
     end
 
     query = Query(world, (Position, Velocity); with=(Altitude,))
-    @test length(query) == 1
-    @test count_entities(query) == 10
+    @test count_tables(world, query) == 1
+    @test count_entities(world, query) == 10
 
     count = 0
     for (ent, vec_pos, vec_vel) in query
@@ -118,8 +208,8 @@ end
     end
 
     query = Query(world, (Position, Velocity); without=(Altitude,))
-    @test length(query) == 1
-    @test count_entities(query) == 10
+    @test count_tables(world, query) == 1
+    @test count_entities(world, query) == 10
 
     count = 0
     for (ent, vec_pos, vec_vel) in query
@@ -141,8 +231,8 @@ end
     end
 
     query = Query(world, (Position, Velocity); optional=(Altitude,))
-    @test length(query) == 2
-    @test count_entities(query) == 20
+    @test count_tables(world, query) == 2
+    @test count_entities(world, query) == 20
 
     count = 0
     indices = Vector{Int}()
@@ -178,8 +268,8 @@ end
 
     query = Query(world, (Position, Velocity); with=(Altitude,), exclusive=true)
     @test query._filter.has_excluded == true
-    @test length(query) == 1
-    @test count_entities(query) == 10
+    @test count_tables(world, query) == 1
+    @test count_entities(world, query) == 10
 
     count = 0
     for (ent, vec_pos, vec_vel) in query
@@ -210,8 +300,8 @@ end
     remove_entity!(world, parent4)
 
     query = Query(world, (Position,))
-    @test length(query) == 3
-    @test count_entities(query) == 30
+    @test count_tables(world, query) == 3
+    @test count_entities(world, query) == 30
     cnt = 0
     for (entities, positions) in query
         cnt += length(entities)
@@ -219,8 +309,8 @@ end
     @test cnt == 30
 
     query = Query(world, (Position, ChildOf => parent2))
-    @test length(query) == 1
-    @test count_entities(query) == 10
+    @test count_tables(world, query) == 1
+    @test count_entities(world, query) == 10
     cnt = 0
     for (entities, positions, _) in query
         cnt += length(entities)
@@ -240,8 +330,8 @@ end
     new_entities!(world, 12, (Position(0, 0), ChildOf() => parent1, ChildOf2() => parent3))
 
     query = Query(world, (ChildOf => parent1,))
-    @test length(query) == 3
-    @test count_entities(query) == 33
+    @test count_tables(world, query) == 3
+    @test count_entities(world, query) == 33
     count = 0
     for (entities, _) in query
         count += length(entities)
@@ -249,8 +339,8 @@ end
     @test count == 33
 
     query = Query(world, (ChildOf2 => parent2,))
-    @test length(query) == 1
-    @test count_entities(query) == 11
+    @test count_tables(world, query) == 1
+    @test count_entities(world, query) == 11
     count = 0
     for (entities, _) in query
         count += length(entities)
@@ -258,8 +348,8 @@ end
     @test count == 11
 
     query = Query(world, (ChildOf => parent1, ChildOf2 => parent2))
-    @test length(query) == 1
-    @test count_entities(query) == 11
+    @test count_tables(world, query) == 1
+    @test count_entities(world, query) == 11
     count = 0
     for (entities, _, _) in query
         count += length(entities)
@@ -267,8 +357,8 @@ end
     @test count == 11
 
     query = Query(world, (ChildOf => parent4,))
-    @test length(query) == 0
-    @test count_entities(query) == 0
+    @test count_tables(world, query) == 0
+    @test count_entities(world, query) == 0
     count = 0
     for (entities, _) in query
         count += length(entities)
@@ -290,8 +380,8 @@ end
     @test first(query) === only(query)
 
     query = Query(world, (Position, Velocity))
-    @test length(query) == 0
-    @test count_entities(query) == 0
+    @test count_tables(world, query) == 0
+    @test count_entities(world, query) == 0
 
     count = 0
     arches = 0
@@ -317,8 +407,8 @@ end
     @test_throws("ArgumentError: query must contain exactly one matching table", only(query))
 
     query = Query(world, ())
-    @test length(query) == 2
-    @test count_entities(query) == 20
+    @test count_tables(world, query) == 2
+    @test count_entities(world, query) == 20
 
     count = 0
     arches = 0
@@ -344,7 +434,7 @@ end
     end
 
     for (entities, vec) in Query(world, (Velocity,))
-        @test isa(vec, _StructArrayView)
+        @test isa(vec, StructArrayView)
         for i in eachindex(vec)
             pos = vec[i]
             vec[i] = Velocity(pos.dx + 1, pos.dy + 1)
@@ -354,9 +444,9 @@ end
     for arch in Query(world, (Position, Velocity))
         @unpack e, pos, (dx, dy) = arch
         @test isa(e, Entities)
-        T = _storage_from_component(world, Velocity) <: StructArray ? SubArray : TestVectorView
-        @test isa(dx, T{Float64})
-        @test isa(dy, T{Float64})
+        T = _storage_from_component(world, Velocity) <: StructArray ? SubArray : GPUVectorView
+        @test isa(dx, T) && eltype(dx) == Float64
+        @test isa(dy, T) && eltype(dy) == Float64
     end
 end
 
@@ -430,7 +520,7 @@ end
     @inferred Tuple{
         Entities,
         FieldViews.FieldViewable{Position,1,_storage_from_component(world, Position)},
-        _StructArrayView{
+        StructArrayView{
             Velocity,
             @NamedTuple{
                 dx::SubArray{Float64,1,Vector{Float64},Tuple{UnitRange{Int64}},true},
@@ -444,6 +534,24 @@ end
             Nothing,
             SubArray{Float64,1,_storage_from_component(world, Float64),Tuple{Base.Slice{Base.OneTo{Int64}}},true},
         },
+    } Base.eltype(typeof(query))
+
+    expected_type = Base.eltype(typeof(query))
+    @inferred Union{Nothing,Tuple{expected_type,Any}} Base.iterate(query)
+end
+
+@testset "Query Const eltype" begin
+    world = World(Position, Velocity, Altitude)
+
+    new_entity!(world, (Position(1, 2), Velocity(3, 4), Altitude(5)))
+
+    query = Query(world, (Const(Position), Velocity); optional=(Const(Altitude),))
+
+    @inferred Tuple{
+        Entities,
+        ReadOnly{Position,FieldViews.FieldViewable{Position,1,_storage_from_component(world, Position)}},
+        FieldViews.FieldViewable{Velocity,1,_storage_from_component(world, Velocity)},
+        Union{Nothing,ReadOnly{Altitude,FieldViews.FieldViewable{Altitude,1,_storage_from_component(world, Altitude)}}},
     } Base.eltype(typeof(query))
 
     expected_type = Base.eltype(typeof(query))
@@ -533,4 +641,47 @@ end
 
     query = Query(world, (Position, Velocity); optional=(Altitude,), without=(Health,))
     @test string(query) == "Query((Position, Velocity); optional=(Altitude), without=(Health))"
+end
+
+@testset "Query cold compilation does not allocate in user functions" begin
+    struct FreshA
+        x::Float64
+    end
+
+    struct FreshB
+        dx::Float64
+    end
+
+    world = World(FreshA, FreshB)
+    for i in 1:500
+        new_entity!(world, (FreshA(0.0), FreshB(0.0)))
+    end
+
+    function query_user_work!(world::World)
+        s = 0.0
+        for (ents, positions, velocities) in Query(world, (FreshA, FreshB))
+            for i in eachindex(ents)
+                pos = positions[i]
+                vel = velocities[i]
+                positions[i] = FreshA(pos.x + vel.dx)
+                p, = get_components(world, ents[i], (FreshA,))
+                s += p.x
+            end
+        end
+        return s
+    end
+
+    query_user_work!(world)
+
+    world2 = World(FreshA, FreshB)
+    for i in 1:500
+        new_entity!(world2, (FreshA(0.0), FreshB(0.0)))
+    end
+
+    allocs = @allocated query_user_work!(world2)
+    if VERSION >= v"1.12"
+        @test allocs == 0
+    else
+        @test allocs <= 16
+    end
 end

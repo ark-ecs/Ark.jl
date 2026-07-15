@@ -165,11 +165,14 @@ This example shows how to use registered [filters](@ref Filter):
 filter = Filter(world, (Position, Velocity); register=true)
 
 # The actual query iteration.
-for (entities, positions, velocities) in Query(filter)
+for (entities, positions, velocities) in Query(world, filter)
     @inbounds for i in eachindex(entities)
         # ...
     end
 end
+
+# The filter can be also unregistered like so:
+unregister!(world, filter)
 
 # output
 
@@ -181,15 +184,6 @@ end
     (e.g. in a System) and re-used for query creation.
 
 Filters support all keyword arguments of queries (see above).
-
-A registered filter can be un-registered like this:
-
-```jldoctest filter-cache; output = false
-unregister!(filter)
-
-# output
-
-```
 
 ## Component field views
 
@@ -275,3 +269,25 @@ to avoid repeated memory allocations.
 The world is automatically unlocked when query iteration finishes.
 When breaking out of a query loop, however, it must be unlocked by calling
 [close!](@ref close!(::Query)) on the query.
+
+## `Const` components
+
+Components wrapped in [`Const`](@ref) are read-only during query iteration.
+The query still matches entities by the component type, but the returned column
+rejects mutations:
+
+```jldoctest; output = false
+for (entities, positions, velocities) in Query(world, (Const(Position), Velocity))
+    @inbounds for i in eachindex(entities)
+        pos = positions[i]                 # allowed
+        velocities[i] = Velocity(3, 4)     # allowed
+        # positions[i] = pos               # would error
+    end
+end
+
+# output
+
+```
+
+This annotation can be added to required and optional components in both [`Query`](@ref) 
+and [`Filter`](@ref).

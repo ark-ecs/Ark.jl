@@ -28,16 +28,12 @@ function _pair_first_type(::Type{<:Pair{T}}) where {T}
     return T
 end
 
-function _storage_vector_type(::Type{<:Storage{T}}) where {T}
-    return T
-end
-
 @inline function _to_types(::Type{TS})::Vector{DataType} where {TS<:Tuple}
-    return DataType[_val_parameter(x) for x in fieldtypes(TS)]
+    return DataType[_unwrap_const_type(_val_parameter(x)) for x in fieldtypes(TS)]
 end
 
 @inline function _to_types(::Type{Val{TS}})::Vector{DataType} where {TS<:Tuple}
-    return DataType[x <: Val ? _val_parameter(x) : x for x in fieldtypes(TS)]
+    return DataType[_unwrap_const_type(x <: Val ? _val_parameter(x) : x) for x in fieldtypes(TS)]
 end
 
 @inline function _to_types(::Type{Val{V}})::Vector{DataType} where {V<:Val}
@@ -45,7 +41,7 @@ end
 end
 
 @inline function _to_types(types::Tuple)::Vector{DataType}
-    return DataType[types...]
+    return DataType[_unwrap_const_type(x) for x in types]
 end
 
 function _unwrap_relation_type(::Type{Relation{T}}) where {T}
@@ -103,6 +99,13 @@ end
     end
 end
 
+@inline function _check_copy_mode(::Type{CP}) where {CP<:Val}
+    if !(CP in (Val{:ref}, Val{:copy}, Val{:deepcopy}))
+        mode = _val_parameter(CP)
+        throw(ArgumentError(":$mode is not a valid copy mode, must be :ref, :copy or :deepcopy"))
+    end
+end
+
 # TODO: improve the heuristic with something more robust, as of 1.12 though Julia doesn't
 # expose anything to set the flag more correctly
 function _is_testing()
@@ -121,11 +124,22 @@ function _format_type(::Type{Type{T}}) where {T}
 end
 
 function _format_type(T::Type)
-    return sprint(show, T; context=:module => parentmodule(T))
+    params = T.parameters
+    name = string(nameof(T))
+    isempty(params) && return name
+    return string(name, "{", join(map(_format_type_parameter, params), ", "), "}")
 end
 
 function _format_type(T)
     return string(T)
+end
+
+function _format_type_parameter(T::Type)
+    return _format_type(T)
+end
+
+function _format_type_parameter(x)
+    return sprint(show, x)
 end
 
 @generated function _shallow_copy(x::T) where T
@@ -149,7 +163,12 @@ function _generate_component_switch(comp_idx_sym::Symbol, call_exprs::Vector{Exp
     return Expr(:block, exprs...)
 end
 
+@inline function _to_requested_types(::Type{TS})::Vector{DataType} where {TS<:Tuple}
+    return DataType[x <: Val ? _val_parameter(x) : x for x in fieldtypes(TS)]
+end
+
 function _component_index(CS::Type{<:Tuple}, TargetType::Type)::Union{Int,Nothing}
+    TargetType = _unwrap_const_type(TargetType)
     _storage_types = fieldtypes(CS)
     for (i, S) in enumerate(_storage_types)
         if S <: _ComponentStorage && _component_type(S) === TargetType

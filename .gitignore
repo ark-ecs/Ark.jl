@@ -20,3 +20,5 @@
 src/tmp_ark/
 statprof/
 .vscode
+
+test_juliac

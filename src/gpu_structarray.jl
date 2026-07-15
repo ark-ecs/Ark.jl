@@ -4,7 +4,10 @@
 
 A GPU-backed StructArray that stores each component field in a GPUVector.
 When passed as a storage the back-end must be specified (either :CUDA, :Metal,
-:oneAPI or :OpenCL).
+:oneAPI, :OpenCL or :CPU).
+
+As for [`GPUVector`](@ref), the `:CPU` back-end is always available and stores
+each field in a plain `Vector`.
 
 # Examples
 
@@ -14,6 +17,13 @@ using CUDA
 world = World(
     Position => Storage{GPUStructArray{:CUDA}},
     Velocity => Storage{GPUStructArray{:CUDA}},
+)
+```
+
+```julia
+world = World(
+    Position => Storage{GPUStructArray{:CPU}},
+    Velocity => Storage{GPUStructArray{:CPU}},
 )
 ```
 """
@@ -64,17 +74,15 @@ end
 end
 
 @generated function _GPUStructArrayView_type(
-    ::Type{C},
+    ::Type{SA},
     ::Type{I},
-    ::Val{B},
-) where {C,I<:AbstractUnitRange{T},B} where {T<:Integer}
+) where {SA<:GPUStructArray,I<:AbstractUnitRange{T}} where {T<:Integer}
+    B, C, CS, N = SA.parameters
     names = fieldnames(C)
-    types = fieldtypes(C)
-    QB = Val{B}()
-    vec_types = Expr[:(_gpuvectorview_type($t, $QB)) for t in types]
+    vec_types = Expr[:(_gpuvectorview_type($vt)) for vt in fieldtypes(CS)]
     nt_type = :(NamedTuple{$names,Tuple{$(vec_types...)}})
     return quote
-        _StructArrayView{C,$nt_type}
+        StructArrayView{$C,$nt_type}
     end
 end
 
@@ -83,12 +91,10 @@ end
     idx::I,
 ) where {I<:AbstractUnitRange{<:Integer},B,C,CS<:NamedTuple}
     names = fieldnames(C)
-    types = fieldtypes(C)
-    QB = Val{B}()
-    vec_types = Expr[:(_gpuvectorview_type($t, $QB)) for t in types]
-    view_exprs = Expr[:($name = view(getfield(sa, :_components).$name.mem, idx)) for name in names]
+    vec_types = Expr[:(_gpuvectorview_type($vt)) for vt in fieldtypes(CS)]
+    view_exprs = Expr[:($name = _gpuvector_view(getfield(sa, :_components).$name, idx)) for name in names]
     nt_type = :(NamedTuple{$names,Tuple{$(vec_types...)}})
     return quote
-        _StructArrayView{C,$nt_type}((; $(view_exprs...)))
+        StructArrayView{C,$nt_type}((; $(view_exprs...)))
     end
 end

@@ -5,7 +5,7 @@ end
 
 function get_count(world, ::Type{T}) where {T<:HealthState}
     q = Query(world, (), with=(T,))
-    count = count_entities(q)
+    count = count_entities(world, q)
     close!(q)
     return count
 end

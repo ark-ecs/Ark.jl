@@ -22,7 +22,7 @@ using Random
         end
 
         Random.seed!(1234)
-        shuffle_entities!(f)
+        shuffle_entities!(world, f)
         pos_after = Vector{Position}(undef, length(ids))
         for (i, id) in enumerate(ids)
             p, = get_components(world, id, (Position,))
@@ -31,7 +31,7 @@ using Random
         @test pos_before == pos_after
 
         values_in_order = []
-        for (entities, positions, velocities) in Query(f)
+        for (entities, positions, velocities) in Query(world, f)
             isempty(positions) && continue
             for (p, v) in zip(positions, velocities)
                 push!(values_in_order, (p, v))
@@ -55,7 +55,7 @@ end
         remove_entity!(world, child)
 
         f_parents = Filter(world, (Position,); without=(ChildOf,), register=register)
-        shuffle_entities!(f_parents)
+        shuffle_entities!(world, f_parents)
 
         for i in 1:100
             child = children[i]
@@ -64,7 +64,7 @@ end
         end
 
         f_children = Filter(world, (ChildOf,); register=register)
-        shuffle_entities!(f_children)
+        shuffle_entities!(world, f_children)
 
         for i in 1:100
             child = children[i]
@@ -76,7 +76,7 @@ end
         end
 
         reset!(world)
-        shuffle_entities!(f_parents)
-        shuffle_entities!(f_children)
+        shuffle_entities!(world, f_parents)
+        shuffle_entities!(world, f_children)
     end
 end
