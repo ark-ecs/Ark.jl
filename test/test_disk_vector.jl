@@ -81,7 +81,7 @@ end
         A => Storage{DiskVector},
         B => Storage{DiskVector},
         Relation{DiskRelation} => Storage{DiskVector};
-        capacity=1024,
+        initial_capacity=1024,
     )
 
     e1 = new_entity!(world, (A(2.0), B(2.0)))
@@ -121,7 +121,7 @@ end
         Velocity => Storage{DiskVector},
         Health => Storage{DiskVector},
         Int64 => Storage{DiskVector};
-        capacity=1024,
+        initial_capacity=1024,
     )
 
     new_entities!(world, 10, (Position, Velocity, Health, Int64)) do (entities, positions, velocities, healths, ints)
@@ -160,12 +160,12 @@ end
 
     before = _disk_snapshot(world)
     filter = Filter(world, (Position, Health))
-    shuffle_entities!(filter)
+    shuffle_entities!(world, filter)
     @test _disk_snapshot(world) == before
 
-    sort_entities!(filter)
+    sort_entities!(world, filter)
     @test _disk_snapshot(world) == before
 
-    partition_entities!(filter; pred=e -> isodd(e._id))
+    partition_entities!(world, filter; pred=e -> isodd(e._id))
     @test _disk_snapshot(world) == before
 end

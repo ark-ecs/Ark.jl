@@ -4,7 +4,9 @@
 A disk-backed vector implementation for isbits component storage.
 
 `DiskVector` uses a temporary memory-mapped file as backing storage. Files are
-managed by Ark and deleted automatically when the vector is garbage-collected.
+managed by Ark and deleted automatically when the vector is garbage-collected,
+and at process exit. Files left behind by a process that crashed are removed by
+the next Julia session that loads Ark.
 """
 mutable struct DiskVector{T} <: AbstractVector{T}
     path::String
@@ -14,6 +16,43 @@ mutable struct DiskVector{T} <: AbstractVector{T}
 end
 
 const DISKVECTOR_MEMORY_LENGTH = 128
+
+const _ARK_SESSION_DIR = Ref{String}()
+const _ARK_SESSION_DIR_LOCK = ReentrantLock()
+const _ARK_SESSION_REGEX = r"^ark_session_(\d+)_"
+
+function _ark_session_dir()
+    lock(_ARK_SESSION_DIR_LOCK) do
+        if !isassigned(_ARK_SESSION_DIR)
+            mkpath(TMP_ARK_DIR)
+            _ARK_SESSION_DIR[] = mktempdir(TMP_ARK_DIR; prefix="ark_session_$(getpid())_", cleanup=true)
+        end
+        return _ARK_SESSION_DIR[]
+    end
+end
+
+function isvalidpid(hostname::AbstractString, pid::Integer)
+    (pid <= 0 || pid > typemax(Cuint)) && return false
+    pid == getpid() && return true
+    return FileWatching.Pidfile.isvalidpid(hostname, Cuint(pid))
+end
+
+function _sweep_stale_ark_sessions!()
+    isdir(TMP_ARK_DIR) || return nothing
+    host = gethostname()
+    for entry in readdir(TMP_ARK_DIR)
+        m = match(_ARK_SESSION_REGEX, entry)
+        if m !== nothing
+            pid = tryparse(Int, m.captures[1])
+            pid !== nothing && isvalidpid(host, pid) && continue
+        end
+        try
+            rm(joinpath(TMP_ARK_DIR, entry); recursive=true, force=true)
+        catch
+        end
+    end
+    return nothing
+end
 
 function _check_diskvector_eltype(::Type{T}) where {T}
     if !isbitstype(T)
@@ -63,8 +102,7 @@ end
 
 function _ensure_diskvector_file!(dv::DiskVector)
     if isempty(dv.path)
-        mkpath(TMP_ARK_DIR)
-        path, io = mktemp(TMP_ARK_DIR)
+        path, io = mktemp(_ark_session_dir())
         try
             close(io)
         catch
@@ -191,11 +229,13 @@ Base.eltype(::Type{<:DiskVector{T}}) where {T} = T
 Base.IndexStyle(::Type{<:DiskVector}) = IndexLinear()
 
 Base.@propagate_inbounds function Base.getindex(dv::DiskVector, i::Int)
-    return dv.mem[i]
+    @boundscheck checkbounds(dv, i)
+    return @inbounds dv.mem[i]
 end
 
 Base.@propagate_inbounds function Base.setindex!(dv::DiskVector, value, i::Int)
-    dv.mem[i] = value
+    @boundscheck checkbounds(dv, i)
+    @inbounds dv.mem[i] = value
     return value
 end
 
@@ -207,8 +247,8 @@ function Base.resize!(dv::DiskVector, new_len::Int)
 end
 
 function Base.sizehint!(dv::DiskVector, capacity::Int)
-    if capacity > 0 && isempty(dv.path)
-        _ensure_diskvector_memory_capacity!(dv, min(capacity, DISKVECTOR_MEMORY_LENGTH))
+    if capacity > 0
+        _ensure_diskvector_capacity!(dv, capacity)
     end
     return dv
 end

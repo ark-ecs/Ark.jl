@@ -2,6 +2,7 @@ module Ark
 
 using Adapt
 using FieldViews
+using FileWatching
 using Mmap
 using Preferences
 using StaticArrays
@@ -49,6 +50,14 @@ include("handle.jl")
 include("unchecked.jl")
 include("command_buffer.jl")
 !_is_testing() && include("precompile.jl")
+
+function __init__()
+    try
+        _sweep_stale_ark_sessions!()
+    catch
+    end
+    return nothing
+end
 
 #include("docs.jl") # doctest setup
 
