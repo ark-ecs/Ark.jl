@@ -126,6 +126,8 @@ For these columns, Ark offers storage types for both CPU anf GPU computing by de
 
 ### CPU Storages
 
+#### In-Memory Storages
+
 - **Vector storage** stores components in a simple vector per column. This is the default.
 
 - **[StructArray](@ref) storage** stores components in an SoA data structure similar to  
@@ -137,6 +139,8 @@ For these columns, Ark offers storage types for both CPU anf GPU computing by de
   - Not allowed for components without fields, like labels and primitives.
   - ≈10-20% runtime overhead for component operations and entity creation.
   - Slower component access with [get_components](@ref) and [set_components!](@ref).
+
+#### Disk-Backed Storages
 
 - **[DiskVector](@ref) storage** stores components in temporary memory-mapped files on disk.
   It can be useful for large component columns that cannot be backed by ordinary
@@ -154,6 +158,8 @@ For these columns, Ark offers storage types for both CPU anf GPU computing by de
   with the isbits and nonzero-size requirements holding for each field of the component.
 
 ### GPU Storages
+
+#### Unified Memory Storages
 
 - **[GPUVector](@ref) storage** stores components using unified memory for mixed CPU/GPU operations. [GPUVector](@ref) is compatible with CUDA.jl, Metal.jl, oneAPI.jl or OpenCL.jl, and with a device-less CPU backend. Mutable components are not allowed.
 
