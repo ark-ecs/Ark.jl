@@ -4,7 +4,7 @@
 A disk-backed StructArray that stores each component field in a [`DiskVector`](@ref).
 
 As for `DiskVector`, backing files are managed by Ark and deleted automatically
-when the storage is garbage-collected, and at process exit. All component fields
+when the storage is garbage-collected or at process exit. All component fields
 must be isbits types with nonzero size.
 
 # Examples

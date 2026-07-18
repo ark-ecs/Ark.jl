@@ -3,10 +3,11 @@
 
 A disk-backed vector implementation for isbits component storage.
 
-`DiskVector` uses a temporary memory-mapped file as backing storage. Files are
-managed by Ark and deleted automatically when the vector is garbage-collected,
-and at process exit. Files left behind by a process that crashed are removed by
-the next Julia session that loads Ark.
+`DiskVector` uses a temporary memory-mapped file as backing storage.
+
+Files are managed by Ark and deleted automatically when the vector is
+garbage-collected or at process exit. Files left behind by a process
+that crashed are removed by the next Julia session that loads Ark.
 """
 mutable struct DiskVector{T} <: AbstractVector{T}
     path::String
