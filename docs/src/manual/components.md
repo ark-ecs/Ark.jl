@@ -146,6 +146,13 @@ For these columns, Ark offers storage types for both CPU anf GPU computing by de
   - Only allowed for isbits component types.
   - Not allowed for zero-size component types, like label components.
 
+- **[DiskStructArray](@ref) storage** stores components in an SoA data structure like
+  [StructArray](@ref), with each field vector backed by a [DiskVector](@ref).
+  It combines the field-vector access of [StructArray](@ref) storage in [queries](@ref Queries)
+  with the out-of-core storage of [DiskVector](@ref).
+  The limitations of both [StructArray](@ref) and [DiskVector](@ref) storage apply,
+  with the isbits and nonzero-size requirements holding for each field of the component.
+
 ### GPU Storages
 
 - **[GPUVector](@ref) storage** stores components using unified memory for mixed CPU/GPU operations. [GPUVector](@ref) is compatible with CUDA.jl, Metal.jl, oneAPI.jl or OpenCL.jl, and with a device-less CPU backend. Mutable components are not allowed.
