@@ -108,3 +108,44 @@ Exploits GPU computing for performance.
 <img alt="NBody demo" src="https://raw.githubusercontent.com/ark-ecs/Ark.jl/refs/heads/gh-images/screenshots/nbody.png" />
 </div>
 ```
+
+## Forest
+
+A continental-scale, individual-based forest — every tree is one entity, backed
+by out-of-core `DiskVector` storage. It is a grid-structured demographic (gap)
+model: trees compete for light via a per-cell canopy profile
+(Beer–Lambert / Perfect-Plasticity-Approximation), draw on a per-cell soil-water
+bucket (random annual rainfall, transpiration scaled by leaf area), grow with
+saturating allometry, die from shading, drought, age or crowding, and regenerate
+into gaps by reviving dead slots — so the archetype stays frozen and the dataset
+is written once. Watch the canopy-height map develop while the side panels show
+self-thinning, canopy maturation, mortality/recruitment and annual rainfall:
+species composition shifts from pioneers to shade-tolerant climax trees (classic
+succession), and dry years drive drought dieback followed by recruitment pulses.
+Component layout keeps every hot system reading only small columns while a fat,
+cold per-tree ring record stays on disk, so the world can far exceed RAM.
+[Source code](https://github.com/ark-ecs/Ark.jl/tree/main/demos/forest).
+
+The interactive demo runs at an in-RAM scale by default; set `FOREST_TARGET_GB`
+(or `FOREST_TREES`) to grow it. A separate headless benchmark demonstrates the
+out-of-core behaviour and the amortised use of `partition_entities!`:
+
+```shell
+julia --project=demos demos/forest/benchmark.jl                 # ~2 GB
+FOREST_TARGET_GB=100 julia --project=demos demos/forest/benchmark.jl
+```
+
+To measure the genuine out-of-core path on a machine with less RAM than the
+dataset, cap memory so the page cache cannot hold it:
+
+```shell
+systemd-run --user --scope -p MemoryMax=2G -p MemorySwapMax=0 \
+  env FOREST_TARGET_GB=8 FOREST_PASSES=12 \
+  julia --project=demos demos/forest/benchmark.jl
+```
+
+```@raw html
+<div style="text-align: center;">
+<img alt="Forest demo" src="https://raw.githubusercontent.com/ark-ecs/Ark.jl/refs/heads/gh-images/screenshots/forest.png" />
+</div>
+```

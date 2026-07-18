@@ -42,9 +42,11 @@ function _sweep_stale_ark_sessions!()
     host = gethostname()
     for entry in readdir(TMP_ARK_DIR)
         m = match(_ARK_SESSION_REGEX, entry)
-        if m !== nothing
+        if m !== nothing && m.captures !== nothing
             pid = tryparse(Int, m.captures[1])
-            pid !== nothing && isvalidpid(host, pid) && continue
+            if pid !== nothing && isvalidpid(host, pid)
+                continue
+            end
         end
         try
             rm(joinpath(TMP_ARK_DIR, entry); recursive=true, force=true)
@@ -122,7 +124,11 @@ end
 
 function _unmap_diskvector_mem!(mem::Vector, capacity::Int)
     capacity == 0 && return nothing
-    finalize(mem.ref.mem)
+    @static if VERSION >= v"1.11"
+        finalize(mem.ref.mem)
+    else
+        finalize(mem)
+    end
     return nothing
 end
 

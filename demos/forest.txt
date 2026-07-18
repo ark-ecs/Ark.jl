@@ -1,0 +1,722 @@
+forest/benchmark.jl
+---
+
+# Headless out-of-core benchmark for the forest schema (no window). Shows that
+#   * the yearly step touches only the small hot columns, so its cost is
+#     independent of the 100 GB total; and
+#   * `partition_entities!` amortises: packing one species to the front of the
+#     table pays off over repeated scans of the fat Ring column, but only past a
+#     crossover (~7 passes here) — a single pass is cheaper scattered.
+#
+# Run (see README for the memory-capped, genuinely out-of-core invocation):
+#   julia --project=demos demos/forest/benchmark.jl
+#   FOREST_TARGET_GB=100 julia --project=demos demos/forest/benchmark.jl
+#
+# Env: FOREST_TARGET_GB (default 2.0), FOREST_TREES, FOREST_YEARS (8),
+#      FOREST_PASSES (12; partition wins past ~7).
+
+using Ark
+using StaticArrays
+using Random
+using Printf
+
+include("components.jl")
+include("util.jl")
+
+human(bytes) = @sprintf("%.2f GB", bytes / 2^30)
+
+function total_ram()
+    for line in eachline("/proc/meminfo")
+        startswith(line, "MemTotal:") && return parse(Int, split(line)[2]) * 1024
+    end
+    return typemax(Int)
+end
+
+# Smaller of machine RAM and any cgroup-v2 memory.max in effect.
+function effective_ram()
+    cap = total_ram()
+    try
+        rel = split(readchomp("/proc/self/cgroup"), ':')[end]
+        mx = readchomp(joinpath("/sys/fs/cgroup", lstrip(rel, '/'), "memory.max"))
+        mx != "max" && (cap = min(cap, parse(Int, mx)))
+    catch
+    end
+    return cap
+end
+
+function plant!(world, n)
+    @info "Planting $(n) trees ($(human(n * BYTES_PER_TREE)) on disk)…"
+    rng = Random.Xoshiro(FOREST_SEED)
+    t = @elapsed new_entities!(world, n, (Loc, Taxon, Growth, Ring)) do (ents, locs, taxa, growths, rings)
+        empty_ring = zero(SVector{RING_YEARS,Float32})
+        @inbounds for i in eachindex(ents)
+            id         = ents[i]._id
+            s          = species_of(id)
+            D          = SEEDLING_DBH + 4.0f0 * rand(rng, Float32)
+            locs[i]    = Loc(rand(rng, Float32), rand(rng, Float32))
+            taxa[i]    = Taxon(s, Int16(0))
+            growths[i] = Growth(D, height_allom(s, D), crown_allom(s, D))
+            rings[i]   = Ring(empty_ring)
+        end
+    end
+    @printf("  planted in %.1f s (%.2f GB/s)\n", t, n * BYTES_PER_TREE / 2^30 / t)
+end
+
+# A representative hot-column yearly pass (saturating growth). The benchmark
+# measures I/O, so it skips the light field / mortality of the full model.
+function step_year!(world, year)
+    nlive = 0
+    t = @elapsed for (ents, locs, taxa, growths) in Query(world, (Loc, Taxon, Growth))
+        @inbounds for i in eachindex(ents)
+            g = growths[i]
+            g.dbh <= 0.0f0 && continue
+            nlive += 1
+            s = taxa[i].species
+            nd = g.dbh + SP_GMAX[s] * (1.0f0 - g.dbh / SP_DMAX[s])
+            growths[i] = Growth(nd, height_allom(s, nd), crown_allom(s, nd))
+        end
+    end
+    return nlive, t
+end
+
+function inventory_benchmark!(world, passes)
+    matches(e) = species_of(e._id) == UInt16(1)
+    k = 0
+    for (ents,) in Query(world, (Taxon,))
+        @inbounds for i in eachindex(ents)
+            matches(ents[i]) && (k += 1)
+        end
+    end
+    accS = 0.0
+    tS = @elapsed for _ in 1:passes
+        for (ents, rings) in Query(world, (Ring,))
+            @inbounds for i in eachindex(ents)
+                matches(ents[i]) && (accS += rings[i].incr[RING_YEARS])
+            end
+        end
+    end
+    filter = Filter(world, (Ring,))
+    tP = @elapsed partition_entities!(world, filter; pred=matches)
+    accD = 0.0
+    tD = @elapsed for _ in 1:passes
+        for (_, rings) in Query(world, (Ring,))
+            @inbounds for i in 1:k
+                accD += rings[i].incr[RING_YEARS]
+            end
+        end
+    end
+    @assert accS ≈ accD
+    return (; k, passes, tS, tP, tD)
+end
+
+function main()
+    target_gb = parse(Float64, get(ENV, "FOREST_TARGET_GB", "2.0"))
+    years = parse(Int, get(ENV, "FOREST_YEARS", "8"))
+    passes = parse(Int, get(ENV, "FOREST_PASSES", "12"))
+    ntrees =
+        haskey(ENV, "FOREST_TREES") ? parse(Int, ENV["FOREST_TREES"]) :
+        round(Int, target_gb * 2^30 / BYTES_PER_TREE)
+
+    println("="^72)
+    @printf("Ark forest — out-of-core benchmark  (%d trees, %d B/tree, target %s)\n",
+        ntrees, BYTES_PER_TREE, human(ntrees * BYTES_PER_TREE))
+    @printf("Ring fat column = %d B/tree (%.0f%%); RAM ceiling %s; storage %s\n",
+        sizeof(Ring), 100 * sizeof(Ring) / BYTES_PER_TREE,
+        human(effective_ram()), Ark.TMP_ARK_DIR)
+    println("="^72)
+
+    world = World(Loc => Storage{DiskVector}, Taxon => Storage{DiskVector},
+        Growth => Storage{DiskVector}, Ring => Storage{DiskVector};
+        initial_capacity=ntrees)
+
+    plant!(world, ntrees)
+    GC.gc()
+    println("-"^72)
+    println("Yearly step (touches only hot columns, ~24 B/tree):")
+    for year in 1:years
+        nlive, t = step_year!(world, year)
+        hot = nlive * (sizeof(Loc) + sizeof(Taxon) + sizeof(Growth)) / 2^30
+        @printf("  year %2d | %5.2fs | %.2f GB hot @ %.2f GB/s | live %d\n",
+            year, t, hot, hot / t, nlive)
+    end
+    println("-"^72)
+
+    inv = inventory_benchmark!(world, passes)
+    @printf("Inventory of species 1 (%d trees, %.0f%%), %d passes over the FAT column:\n",
+        inv.k, 100 * inv.k / ntrees, inv.passes)
+    @printf("  scattered      : %.2fs\n", inv.tS)
+    @printf("  partition once : %.2fs + dense %.2fs = %.2fs\n", inv.tP, inv.tD, inv.tP + inv.tD)
+    sp = inv.tS / (inv.tP + inv.tD)
+    if sp >= 1
+        @printf("  → %.1fx faster (reorder amortised over %d passes)\n", sp, inv.passes)
+    else
+        @printf("  → %.1fx (not amortised at %d passes; raise FOREST_PASSES)\n", sp, inv.passes)
+    end
+    println("-"^72)
+
+    disk = storage_bytes()
+    rss = Int(Sys.maxrss())
+    cap = effective_ram()
+    @printf("On disk %s | peak RSS %s | RAM ceiling %s\n", human(disk), human(rss), human(cap))
+    if disk > cap
+        @printf("→ out-of-core: %.0f%% of the dataset was only paged in on demand.\n", 100 * (1 - cap / disk))
+    else
+        @printf("→ fits under the RAM ceiling; cap RAM below %s to force out-of-core (see README).\n", human(disk))
+    end
+    println("="^72)
+end
+
+main()
+
+
+---
+forest/components.jl
+---
+
+# Continental-scale forest as an individual-based, grid-structured demographic
+# model (in the lineage of gap models — JABOWA/SORTIE — and the Perfect
+# Plasticity Approximation used by demographic land models like LM3-PPA).
+#
+# Every tree is one entity, all components isbits and disk-backed. The layout
+# keeps the yearly demography reading only small hot columns (Loc/Taxon/Growth,
+# ~24 B/tree) while the fat Ring column (a per-tree annual-increment record,
+# ~90% of the bytes) stays cold on disk.
+#
+# Key processes (see forest_light.jl, forest_demography.jl):
+#   * light competition — taller trees shade shorter ones, computed per grid
+#     cell from a height-resolved crown-area profile (Beer–Lambert / PPA);
+#   * saturating growth and allometry — diameter increment declines to zero at a
+#     species maximum size; height and crown follow saturating/allometric curves;
+#   * mortality — background (size/species) + growth-stress (suppressed trees);
+#   * recruitment — seedlings establish in gaps (dead slots) where light reaches
+#     the ground, so the archetype stays frozen and the dataset never grows.
+
+const RING_YEARS = 72
+
+struct Loc                                 #  8 B  — hot (position, light)
+    x::Float32
+    y::Float32
+end
+
+struct Taxon                               #  4 B  — hot (species traits, age)
+    species::UInt16
+    planted::Int16                         # year of establishment (for age)
+end
+
+struct Growth                              # 12 B  — hot (updated every year)
+    dbh::Float32                           # cm; dbh <= 0 marks a dead/empty slot
+    height::Float32                        # m
+    crown::Float32                         # crown radius, m
+end
+
+struct Ring                                # RING_YEARS*4 B — FAT, cold on disk
+    incr::SVector{RING_YEARS,Float32}      # rolling annual diameter-increment record
+end
+
+const BYTES_PER_TREE = sizeof(Loc) + sizeof(Taxon) + sizeof(Growth) + sizeof(Ring)
+
+# --- species traits: a pioneer → climax gradient ----------------------------
+# Fast, light-demanding, short-lived, small (1) … slow, shade-tolerant,
+# long-lived, large (6). This is the growth–survival / wood-density tradeoff
+# that drives succession.
+const NSPECIES = 6
+const SP_GMAX = SVector{NSPECIES,Float32}(1.2, 1.0, 0.85, 0.7, 0.55, 0.45)  # max diam incr, cm/yr
+const SP_DMAX = SVector{NSPECIES,Float32}(40, 55, 70, 85, 100, 120)         # max dbh, cm
+const SP_HMAX = SVector{NSPECIES,Float32}(22, 28, 33, 38, 42, 45)           # max height, m
+# Growth light response L^p: pioneers (p>1) nearly stall in shade; climax (p<1)
+# grow efficiently under low light — the shade-tolerance axis that drives thinning.
+const SP_SHADE = SVector{NSPECIES,Float32}(1.7, 1.35, 1.0, 0.75, 0.55, 0.4)
+# Regeneration niche: light level at which each species best establishes
+# (pioneers in bright gaps, climax under closed canopy).
+const SP_LOPT = SVector{NSPECIES,Float32}(0.9, 0.72, 0.55, 0.4, 0.28, 0.18)
+const SP_MORT = SVector{NSPECIES,Float32}(0.035, 0.028, 0.02, 0.014, 0.01, 0.008) # background mort, /yr
+
+# --- allometry & light ------------------------------------------------------
+const HMAX_GLOBAL = 45.0f0
+const NBANDS = 24                          # canopy height strata for the light profile
+const K_EXT = 1.4f0                        # canopy light-extinction coefficient
+const INIT_DENSITY = 0.45f0                # planted stems per m² (ground area per cell is
+#                                            derived from this so the ecology is independent
+#                                            of the dataset size / raster resolution)
+
+@inline height_allom(s, D) = 1.3f0 + (SP_HMAX[s] - 1.3f0) * (1.0f0 - exp(-0.035f0 * D))
+@inline crown_allom(s, D) = 0.04f0 * D + 0.5f0             # crown radius, m
+@inline crown_area(r) = Float32(pi) * r * r
+@inline lightresp(L, s) = L^SP_SHADE[s]                     # species growth response to light
+@inline regen_weight(L0, s) = exp(-((L0 - SP_LOPT[s])^2) * (1.0f0 / (2.0f0 * 0.15f0^2)))
+@inline height_band(H) = clamp(unsafe_trunc(Int, H / HMAX_GLOBAL * NBANDS) + 1, 1, NBANDS)
+
+# --- demography rates -------------------------------------------------------
+const STRESS_FRAC = 0.10f0                 # growth below this × Gmax ⇒ stressed
+const STRESS_MORT = 0.22f0                 # extra yearly mortality when stressed
+const RECRUIT_P = 0.55f0                   # max establishment prob in a fully lit gap
+const SEEDLING_DBH = 1.5f0                 # cm
+
+species_of(id) = UInt16(1 + (id % NSPECIES))   # used by the benchmark's per-species analytics
+
+# Seed for the position/demography RNG (reproducible; shared with the benchmark).
+const FOREST_SEED = 0x2024_07_18
+
+
+---
+forest/main.jl
+---
+
+using Ark
+using GLMakie
+using StaticArrays
+using Random
+using Printf
+
+include("../_common/scheduler.jl")
+include("../_common/resources.jl")
+include("../_common/terminate.jl")
+include("components.jl")
+include("resources.jl")
+include("util.jl")
+include("sys/forest_init.jl")
+include("sys/forest_light.jl")
+include("sys/forest_demography.jl")
+include("sys/forest_draw.jl")
+
+const IS_CI = "CI" in keys(ENV)
+
+function main()
+    world = new_forest_world()
+    size = ForestSize(240, 150, 4)
+    ntrees = 1000#forest_tree_count()
+
+    add_resource!(world, size)
+    add_resource!(world, CanopyField(size))
+    add_resource!(world, Demography(Random.Xoshiro(FOREST_SEED)))
+    add_resource!(world, ForestStats(ntrees))
+
+    setup_makie(world, size)
+
+    scheduler = Scheduler(
+        world,
+        (
+            ForestInit(),
+            CanopyLight(),
+            ForestDemography(),
+            ForestDraw(),
+            TerminationSystem(IS_CI ? 30 : -1),
+        ),
+    )
+
+    run!(world, scheduler)
+end
+
+# Canopy height: bare gap (dark) → tall closed canopy (deep green).
+const CANOPY_CMAP = cgrad([
+    RGBf(0.10, 0.07, 0.04), RGBf(0.55, 0.42, 0.18),
+    RGBf(0.45, 0.62, 0.24), RGBf(0.06, 0.42, 0.12),
+])
+
+function setup_makie(world::World, size::ForestSize)
+    GLMakie.activate!(framerate=30.0, focus_on_show=(!IS_CI))
+
+    field = get_resource(world, CanopyField)
+    st = get_resource(world, ForestStats)
+
+    W, H = size.cols * size.scale, size.rows * size.scale
+    fig = Figure(size=(W + 470, H + 40), backgroundcolor=RGBf(0.09, 0.09, 0.11))
+
+    # --- main map: canopy height model ----------------------------------------
+    ax = Axis(fig[1:4, 1], title="Canopy height (m)", titlecolor=:white,
+        aspect=DataAspect(), backgroundcolor=:black,
+        xticksvisible=false, yticksvisible=false,
+        xticklabelsvisible=false, yticklabelsvisible=false)
+    heatmap!(ax, 0 .. 1, 0 .. 1, field.obs, colormap=CANOPY_CMAP, colorrange=(0, HMAX_GLOBAL),
+        interpolate=false)
+    limits!(ax, 0, 1, 0, 1)
+
+    Colorbar(fig[1:4, 2], colormap=CANOPY_CMAP, colorrange=(0, HMAX_GLOBAL), label="height (m)",
+        labelcolor=:white, ticklabelcolor=:white, height=Relative(0.7))
+
+    # --- side panels: forest development --------------------------------------
+    axkw = (; backgroundcolor=RGBf(0.14, 0.14, 0.17), titlecolor=:white,
+        xlabelcolor=:white, ylabelcolor=:white,
+        xticklabelcolor=:white, yticklabelcolor=:white, xgridvisible=false, ygridvisible=false)
+
+    ax1 = Axis(fig[1, 3]; title="Living stems (self-thinning)", xlabel="year", axkw...)
+    lines!(ax1, st.year, st.stems, color=RGBf(0.3, 0.7, 0.4), linewidth=2)
+
+    ax2 = Axis(fig[2, 3]; title="Mean canopy height (m)", xlabel="year", axkw...)
+    lines!(ax2, st.year, st.canopy_h, color=RGBf(0.4, 0.6, 0.9), linewidth=2)
+
+    ax3 = Axis(fig[3, 3]; title="Deaths / year", xlabel="year", axkw...)
+    lines!(ax3, st.year, st.deaths, color=:orangered, linewidth=2)
+
+    ax4 = Axis(fig[4, 3]; title="Recruits / year", xlabel="year", axkw...)
+    lines!(ax4, st.year, st.recruits, color=RGBf(0.6, 0.8, 0.3), linewidth=2)
+
+    Label(fig[0, 1:3], st.banner, color=:white, fontsize=17, halign=:left,
+        padding=(8, 8, 4, 4), tellwidth=false)
+
+    colsize!(fig.layout, 1, W)
+    colsize!(fig.layout, 3, 320)
+
+    screen = display(fig)
+    IS_CI || GLMakie.GLFW.SetWindowTitle(screen.glscreen, "Ark forest demo")
+    add_resource!(world, Window(fig, screen))
+    return
+end
+
+function run!(world::World, scheduler::Scheduler)
+    initialize!(scheduler)
+    window = get_resource(world, Window)
+    on(window.screen.render_tick) do _
+        update!(scheduler) || close(window.screen)
+    end
+    GLMakie.start_renderloop!(window.screen)
+    wait(window.screen)
+end
+
+
+---
+forest/resources.jl
+---
+
+# Resources for the forest demo. The canopy/light field and stat series live in
+# plain arrays so the reduction logic can be exercised headless; the draw
+# systems wrap them in Makie Observables and notify.
+
+struct ForestSize
+    cols::Int          # raster columns
+    rows::Int          # raster rows
+    scale::Int         # on-screen pixels per raster cell
+end
+
+# Height-resolved canopy state, rebuilt each year:
+#   ca      crown area per (col, row, height-band)
+#   light   light fraction reaching each (col, row, band)  (Beer–Lambert / PPA)
+#   ground  light reaching the forest floor per cell        (drives recruitment)
+#   height  canopy height per cell                          (the displayed raster)
+struct CanopyField
+    ca::Array{Float32,3}
+    light::Array{Float32,3}
+    ground::Matrix{Float32}
+    height::Matrix{Float32}
+    obs::Observable{Matrix{Float32}}
+    cell_area::Float32   # ground m² per cell — derived from N so density is scale-free
+end
+
+function CanopyField(sz::ForestSize)
+    h = zeros(Float32, sz.cols, sz.rows)
+    cell_area = (forest_tree_count() / (sz.cols * sz.rows)) / INIT_DENSITY
+    CanopyField(
+        zeros(Float32, sz.cols, sz.rows, NBANDS),
+        zeros(Float32, sz.cols, sz.rows, NBANDS),
+        zeros(Float32, sz.cols, sz.rows),
+        h,
+        Observable(h),
+        Float32(cell_area),
+    )
+end
+
+# RNG state for mortality/recruitment draws (advanced across years).
+mutable struct Demography
+    rng::Random.Xoshiro
+end
+
+# Time series for the side panels.
+struct ForestStats
+    year::Observable{Vector{Float32}}
+    stems::Observable{Vector{Float32}}       # living stems (self-thinning curve)
+    canopy_h::Observable{Vector{Float32}}    # mean canopy height
+    deaths::Observable{Vector{Float32}}
+    recruits::Observable{Vector{Float32}}
+    banner::Observable{String}
+    ntrees::Int
+end
+
+ForestStats(ntrees) = ForestStats(
+    Observable(Float32[]), Observable(Float32[]), Observable(Float32[]),
+    Observable(Float32[]), Observable(Float32[]), Observable(""), ntrees,
+)
+
+struct Window
+    figure::Figure
+    screen::GLMakie.Screen
+end
+
+new_forest_world() = World(
+    Loc => Storage{DiskVector},
+    Taxon => Storage{DiskVector},
+    Growth => Storage{DiskVector},
+    Ring => Storage{DiskVector};
+    initial_capacity=forest_tree_count(),   # write once, no DiskVector regrow
+)
+
+# Scale from the environment: FOREST_TREES overrides FOREST_TARGET_GB.
+function forest_tree_count()
+    haskey(ENV, "FOREST_TREES") && return parse(Int, ENV["FOREST_TREES"])
+    gb = parse(Float64, get(ENV, "FOREST_TARGET_GB", "0.5"))
+    return round(Int, gb * 2^30 / BYTES_PER_TREE)
+end
+
+
+---
+forest/run.jl
+---
+
+include("main.jl")
+
+main()
+
+
+---
+forest/util.jl
+---
+
+# Bytes this process has written under its own Ark session directory.
+function storage_bytes()
+    dir = Ark._ark_session_dir()
+    total = 0
+    for (root, _, files) in walkdir(dir), f in files
+        total += filesize(joinpath(root, f))
+    end
+    return total
+end
+
+gb(bytes) = bytes / 2^30
+
+
+---
+forest/sys/forest_demography.jl
+---
+
+# Growth, mortality and recruitment — the demographic core, in a single pass
+# over the hot columns (Loc/Taxon/Growth, ~24 B/tree). The fat Ring column is
+# never touched here, so a year's cost is independent of the dataset size.
+#
+#   growth      saturating diameter increment × light response (shade tolerance)
+#   mortality   background (species) + growth-stress (suppressed trees)
+#   recruitment dead slots are gaps; a seedling establishes where light reaches
+#               the floor, reusing the slot so the archetype/dataset never grow
+
+struct ForestDemography <: System end
+
+@inline function choose_species(L0::Float32, rng)
+    total = 0.0f0
+    @inbounds for s in 1:NSPECIES
+        total += regen_weight(L0, s)
+    end
+    r = rand(rng, Float32) * total
+    @inbounds for s in 1:NSPECIES
+        r -= regen_weight(L0, s)
+        r <= 0.0f0 && return UInt16(s)
+    end
+    return UInt16(NSPECIES)
+end
+
+function step_demography!(world::World, field::CanopyField, rng, year::Int)
+    fill!(field.height, 0.0f0)
+    cols, rows = size(field.ground)
+
+    alive = 0
+    deaths = 0
+    recruits = 0
+    sum_dbh = 0.0
+
+    for (ents, locs, taxa, growths) in Query(world, (Loc, Taxon, Growth))
+        @inbounds for i in eachindex(ents)
+            g = growths[i]
+            x = locs[i].x
+            y = locs[i].y
+
+            if g.dbh > 0.0f0                       # ---- living tree ----
+                s = taxa[i].species
+                L = light_at(field, x, y, g.height)
+                pot = SP_GMAX[s] * (1.0f0 - g.dbh / SP_DMAX[s])
+                pot < 0.0f0 && (pot = 0.0f0)
+                dD = pot * lightresp(L, s)
+
+                pm = SP_MORT[s]
+                dD < STRESS_FRAC * SP_GMAX[s] && (pm += STRESS_MORT)   # suppressed
+
+                if rand(rng, Float32) < pm
+                    growths[i] = Growth(-1.0f0, 0.0f0, 0.0f0)          # dies → gap
+                    deaths += 1
+                else
+                    newD = g.dbh + dD
+                    newH = height_allom(s, newD)
+                    growths[i] = Growth(newD, newH, crown_allom(s, newD))
+                    alive += 1
+                    sum_dbh += newD
+                    cx = clamp(unsafe_trunc(Int, x * cols) + 1, 1, cols)
+                    cy = clamp(unsafe_trunc(Int, y * rows) + 1, 1, rows)
+                    newH > field.height[cx, cy] && (field.height[cx, cy] = newH)
+                end
+            else                                    # ---- empty slot / gap ----
+                L0 = ground_at(field, x, y)
+                if rand(rng, Float32) < RECRUIT_P * L0
+                    s = choose_species(L0, rng)
+                    D = SEEDLING_DBH
+                    growths[i] = Growth(D, height_allom(s, D), crown_allom(s, D))
+                    taxa[i] = Taxon(s, Int16(mod(year, 32767)))
+                    recruits += 1
+                    alive += 1
+                    sum_dbh += D
+                end
+            end
+        end
+    end
+
+    field.obs[] = field.height                      # trigger canopy-height redraw
+    mean_dbh = alive > 0 ? Float32(sum_dbh / alive) : 0.0f0
+    canopy_h = _mean_positive(field.height)
+    return (; alive, deaths, recruits, mean_dbh, canopy_h)
+end
+
+function _mean_positive(m::AbstractMatrix{Float32})
+    s = 0.0
+    n = 0
+    @inbounds for v in m
+        if v > 0.0f0
+            s += v
+            n += 1
+        end
+    end
+    return n > 0 ? Float32(s / n) : 0.0f0
+end
+
+function update!(::ForestDemography, world::World)
+    year = get_resource(world, Tick).tick
+    field = get_resource(world, CanopyField)
+    demo = get_resource(world, Demography)
+
+    s = step_demography!(world, field, demo.rng, year)
+
+    st = get_resource(world, ForestStats)
+    push!(st.year[], Float32(year))
+    push!(st.stems[], Float32(s.alive))
+    push!(st.canopy_h[], s.canopy_h)
+    push!(st.deaths[], Float32(s.deaths))
+    push!(st.recruits[], Float32(s.recruits))
+    return
+end
+
+
+---
+forest/sys/forest_draw.jl
+---
+
+# Pushes each year's data into the Makie Observables built in `setup_makie`: the
+# four time-series panels and the memory banner. The canopy-height heatmap is
+# refreshed by ForestDemography setting CanopyField.obs.
+
+struct ForestDraw <: System end
+
+function update!(::ForestDraw, world::World)
+    st = get_resource(world, ForestStats)
+    notify(st.year)
+    notify(st.stems)
+    notify(st.canopy_h)
+    notify(st.deaths)
+    notify(st.recruits)
+
+    year = get_resource(world, Tick).tick
+    disk = storage_bytes()
+    rss = Int(Sys.maxrss())
+    stems = isempty(st.stems[]) ? 0.0f0 : st.stems[][end]
+    ch = isempty(st.canopy_h[]) ? 0.0f0 : st.canopy_h[][end]
+    st.banner[] = @sprintf(
+        "year %d   |   %d living stems   |   canopy %.1f m   |   on disk %.2f GB   |   peak RSS %.2f GB",
+        year, round(Int, stems), ch, gb(disk), gb(rss))
+    return
+end
+
+
+---
+forest/sys/forest_init.jl
+---
+
+struct ForestInit <: System end
+
+function initialize!(::ForestInit, world::World)
+    n = forest_tree_count()
+    @info "Planting $(n) saplings ($(round(n * BYTES_PER_TREE / 2^30, digits=2)) GB on disk)…"
+    rng = Random.Xoshiro(FOREST_SEED)
+    t = @elapsed new_entities!(world, n, (Loc, Taxon, Growth, Ring)) do (ents, locs, taxa, growths, rings)
+        empty_ring = zero(SVector{RING_YEARS,Float32})
+        @inbounds for i in eachindex(ents)
+            id = ents[i]._id
+            s = UInt16(rand(rng, 1:NSPECIES))
+            D = SEEDLING_DBH + 4.0f0 * rand(rng, Float32)        # 1.5–5.5 cm sapling
+            locs[i] = Loc(rand(rng, Float32), rand(rng, Float32))
+            taxa[i] = Taxon(s, Int16(0))
+            growths[i] = Growth(D, height_allom(s, D), crown_allom(s, D))
+            rings[i] = Ring(empty_ring)
+        end
+    end
+    @info "Planted in $(round(t, digits=2)) s"
+    return
+end
+
+
+---
+forest/sys/forest_light.jl
+---
+
+# Light competition, grid-structured (Perfect-Plasticity-Approximation style).
+# For each cell we build a height-resolved profile of crown area, then integrate
+# it from the top down (Beer–Lambert) to get the light fraction reaching each
+# height band and the forest floor. A tree's light is then a cell+height lookup —
+# competition without any per-tree neighbour search, so it stays out-of-core
+# friendly (two hot-column passes over Loc/Growth, small columns only).
+
+struct CanopyLight <: System end
+
+# Makie-free core: fill `field` from the living trees. Testable headless.
+function compute_light!(field::CanopyField, world::World)
+    ca = field.ca
+    fill!(ca, 0.0f0)
+    cols, rows = size(field.ground)
+
+    # profile: crown area into (cell, height-band)
+    for (ents, locs, growths) in Query(world, (Loc, Growth))
+        @inbounds for i in eachindex(ents)
+            g = growths[i]
+            g.dbh <= 0.0f0 && continue
+            cx = clamp(unsafe_trunc(Int, locs[i].x * cols) + 1, 1, cols)
+            cy = clamp(unsafe_trunc(Int, locs[i].y * rows) + 1, 1, rows)
+            ca[cx, cy, height_band(g.height)] += crown_area(g.crown)
+        end
+    end
+
+    # integrate top-down: light at a band = exp(-K * crown area above it / cell)
+    invcell = 1.0f0 / field.cell_area
+    @inbounds for cy in 1:rows, cx in 1:cols
+        above = 0.0f0
+        for b in NBANDS:-1:1
+            field.light[cx, cy, b] = exp(-K_EXT * above * invcell)
+            above += ca[cx, cy, b]
+        end
+        field.ground[cx, cy] = exp(-K_EXT * above * invcell)
+    end
+    return field
+end
+
+@inline function light_at(field::CanopyField, x::Float32, y::Float32, H::Float32)
+    cols, rows = size(field.ground)
+    cx = clamp(unsafe_trunc(Int, x * cols) + 1, 1, cols)
+    cy = clamp(unsafe_trunc(Int, y * rows) + 1, 1, rows)
+    return @inbounds field.light[cx, cy, height_band(H)]
+end
+
+@inline function ground_at(field::CanopyField, x::Float32, y::Float32)
+    cols, rows = size(field.ground)
+    cx = clamp(unsafe_trunc(Int, x * cols) + 1, 1, cols)
+    cy = clamp(unsafe_trunc(Int, y * rows) + 1, 1, rows)
+    return @inbounds field.ground[cx, cy]
+end
+
+function update!(::CanopyLight, world::World)
+    compute_light!(get_resource(world, CanopyField), world)
+    return
+end
+
+
+---

@@ -29,7 +29,7 @@ struct Relation{T} end
 
 Marks component types for using `T` as a [storage](@ref component-storages) in the
 world constructor. Built-in storages include `Vector`, `StructArray`, `DiskVector`,
-`GPUVector` and `GPUStructArray`.
+`DiskStructArray`, `GPUVector` and `GPUStructArray`.
 
 If, during world construction, the storage mode is not specified, it defaults to `Storage{Vector}`.
 

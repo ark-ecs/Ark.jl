@@ -19,6 +19,10 @@ function _new_storage(::Type{Storage{GPUStructArray{B}}}, ::Type{C}) where {B,C}
     GPUStructArray{B}(C)
 end
 
+function _new_storage(::Type{Storage{DiskStructArray}}, ::Type{C}) where {C}
+    DiskStructArray(C)
+end
+
 function _storage_type(::Type{<:Storage{T}}, ::Type{C}) where {T,C}
     T{C}
 end
@@ -29,6 +33,10 @@ end
 
 function _storage_type(::Type{Storage{GPUStructArray{B}}}, ::Type{C}) where {B,C}
     _GPUStructArray_type(C, Val{B}())
+end
+
+function _storage_type(::Type{Storage{DiskStructArray}}, ::Type{C}) where {C}
+    _DiskStructArray_type(C)
 end
 
 function _storage_type(::Type{Storage{GPUVector{B}}}, ::Type{C}) where {B,C}
@@ -92,6 +100,8 @@ end
         return :(GPUStructArray{$QB}(C))
     elseif A <: StructArray
         return :(StructArray(C))
+    elseif A <: DiskStructArray
+        return :(DiskStructArray(C))
     else
         return :(A())
     end

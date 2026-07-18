@@ -912,7 +912,8 @@ end
                 ),
             )
         end
-        if (mode <: Storage{StructArray} || mode <: Storage{<:GPUStructArray}) && fieldcount(T) == 0
+        if (mode <: Storage{StructArray} || mode <: Storage{<:GPUStructArray} || mode <: Storage{DiskStructArray}) &&
+           fieldcount(T) == 0
             throw(
                 ArgumentError("can't use $(mode) for $(nameof(T)) because it has no fields"),
             )
@@ -920,12 +921,15 @@ end
         if mode <: Storage{DiskVector}
             _check_diskvector_eltype(T)
         end
+        if mode <: Storage{DiskStructArray}
+            _check_diskstructarray_type(T)
+        end
     end
 
     # Immutability checks
     for (T, mode) in zip(types, storage_val_types)
         if ismutabletype(T)
-            if mode <: Storage{StructArray} || mode <: Storage{<:GPUStructArray}
+            if mode <: Storage{StructArray} || mode <: Storage{<:GPUStructArray} || mode <: Storage{DiskStructArray}
                 throw(
                     ArgumentError("Component type $(nameof(T)) must be immutable because it uses StructArray storage"),
                 )

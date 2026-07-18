@@ -23,6 +23,7 @@ include("structarray.jl")
 include("gpu_vector.jl")
 include("gpu_structarray.jl")
 include("disk_vector.jl")
+include("disk_structarray.jl")
 include("structarray_interface.jl")
 include("fieldsview.jl")
 include("entity.jl")
@@ -97,6 +98,6 @@ export SetComponentsCommand, SetRelationsCommand
 
 export Relation
 
-export Storage, StructArray, GPUStructArray, GPUVector, DiskVector
+export Storage, StructArray, GPUStructArray, GPUVector, DiskVector, DiskStructArray
 
 end

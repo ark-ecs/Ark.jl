@@ -298,3 +298,158 @@ end
     remove_entities!(w, Filter(w, (A, B)))
     reset!(w)
 end
+
+@testset "DiskStructArray basic functionality" begin
+    a = DiskStructArray(Position)
+
+    @test isa(a.x, DiskVector{Float64})
+    @test isa(a.y, DiskVector{Float64})
+
+    push!(a, Position(1, 2))
+
+    @test length(a) == 1
+    @test a[1] == Position(1, 2)
+
+    a[1] = Position(3, 4)
+    @test a[1] == Position(3, 4)
+
+    push!(a, Position(5, 6))
+    @test length(a) == 2
+
+    pop!(a)
+    @test length(a) == 1
+
+    fill!(a, Position(99, 99))
+    for pos in a
+        @test pos == Position(99, 99)
+    end
+end
+
+@testset "DiskStructArray type" begin
+    tp = _DiskStructArray_type(Position)
+    @test tp == DiskStructArray{Position,@NamedTuple{x::DiskVector{Float64}, y::DiskVector{Float64}},2}
+end
+
+@testset "DiskStructArray invalid types" begin
+    @test_throws(
+        "for LabelComponent because it has no fields",
+        World(LabelComponent => Storage{DiskStructArray})
+    )
+    @test_throws(
+        "DiskStructArray storage not allowed for components without fields",
+        DiskStructArray(LabelComponent)
+    )
+    @test_throws(
+        "DiskVector storage requires an isbits component type, got Array",
+        World(NoIsBits => Storage{DiskStructArray})
+    )
+    @test_throws(
+        "must be immutable because it uses StructArray storage",
+        World(MutableComponent => Storage{DiskStructArray}; allow_mutable=true)
+    )
+end
+
+@testset "DiskStructArray view" begin
+    a = DiskStructArray(Position)
+    for i in 1:4
+        push!(a, Position(i, 10i))
+    end
+
+    v = view(a, 2:3)
+    # The declared column types must match the ones actually constructed, or the
+    # StructArrayView constructor cannot convert them.
+    @test typeof(v) == _DiskStructArrayView_type(Position, UnitRange{Int})
+    @test v isa StructArrayView
+    @test length(v) == 2
+    @test v[1] == Position(2, 20)
+
+    x, y = unpack(v)
+    @test x isa SubArray{Float64,1,DiskVector{Float64}}
+    @test x == [2, 3]
+    @test y == [20, 30]
+
+    v[1] = Position(5, 50)
+    # The view aliases the array it was taken from.
+    @test a[2] == Position(5, 50)
+
+    x .+= 1
+    @test a[2] == Position(6, 50)
+
+    full = view(a, :)
+    @test length(full) == length(a)
+    @test full[1] == a[1]
+
+    fill!(v, Position(0, 0))
+    @test a[2] == Position(0, 0) && a[3] == Position(0, 0)
+    @test a[1] == Position(1, 10)
+end
+
+@testset "DiskStructArray query columns" begin
+    w = World(A => Storage{DiskStructArray})
+    for i in 1:3
+        new_entity!(w, (A(i),))
+    end
+
+    for (entities, as) in Query(w, (A,))
+        @test as isa StructArrayView
+        xs, = unpack(as)
+        @test xs isa SubArray{Float64,1,DiskVector{Float64}}
+        xs .*= 2
+    end
+
+    @test sort([a.x for (_, as) in Query(w, (A,)) for a in as]) == [2.0, 4.0, 6.0]
+    reset!(w)
+end
+
+@testset "DiskStructArray components" begin
+    w = World(
+        A => Storage{DiskStructArray},
+        B => Storage{DiskStructArray},
+    )
+    e1 = new_entity!(w, (A(0.0), B(0.0)))
+    @test get_components(w, e1, (A, B)) == (A(0.0), B(0.0))
+    e2 = new_entity!(w, (A(0.0), B(0.0)))
+    @test get_components(w, e2, (A, B)) == (A(0.0), B(0.0))
+    e3 = copy_entity!(w, e1)
+    @test e1 != e2 && e2 != e3
+
+    a, b = get_components(w, e2, (A, B))
+    set_components!(w, e2, (A(a.x + 1.0), B(b.x + 1.0)))
+    @test get_components(w, e2, (A, B)) == (A(1.0), B(1.0))
+    remove_components!(w, e2, (A,))
+    @test get_components(w, e2, (B,)) == (B(1.0),)
+    @test has_components(w, e2, (A,)) == false
+    add_components!(w, e2, (A(0.0),))
+    @test has_components(w, e2, (A,)) == true
+
+    remove_entity!(w, e2)
+    @test is_alive(w, e1) == true
+    @test is_alive(w, e2) == false
+
+    new_entities!(w, 2, (A(0.0), B(0.0)))
+    @test isempty(collect(Query(w, (A, B)))) == false
+    remove_entities!(w, Filter(w, (A, B)))
+    reset!(w)
+end
+
+@testset "DiskStructArray spills to disk" begin
+    w = World(Position => Storage{DiskStructArray})
+    n = 4 * Ark.DISKVECTOR_MEMORY_LENGTH
+    for i in 1:n
+        new_entity!(w, (Position(i, 2i),))
+    end
+
+    for (entities, positions) in Query(w, (Position,))
+        x, y = unpack(positions)
+        x .+= y
+    end
+
+    total = 0.0
+    for (entities, positions) in Query(w, (Position,))
+        for p in positions
+            total += p.x
+        end
+    end
+    @test total == sum(3i for i in 1:n)
+    reset!(w)
+end
