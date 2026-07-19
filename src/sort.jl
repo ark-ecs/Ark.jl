@@ -68,6 +68,10 @@ function _sort_table_entities!(
         return
     end
 
+    if issorted(table.entities._data; kwargs...)
+        return
+    end
+
     @inbounds begin
         sort!(table.entities._data; alg, kwargs...)
 
