@@ -262,12 +262,12 @@ function _do_remove_observer!(m::_EventManager{M}, o::Observer{M}) where {M}
 
     with_mask = _Mask{M}()
     any_no_with = false
-    for other in m.observers[e]
-        if !other._has_with
+    for o in m.observers[e]
+        if !o._has_with
             any_no_with = true
             break # skip, as the unions mask is irrelevant
         end
-        with_mask = _or(with_mask, other._with)
+        with_mask = _or(with_mask, o._with)
     end
     m.with[e] = (with_mask, any_no_with)
 
@@ -277,12 +277,12 @@ function _do_remove_observer!(m::_EventManager{M}, o::Observer{M}) where {M}
 
     comps_mask = _Mask{M}()
     any_no_comps = false
-    for other in m.observers[e]
-        if !other._has_comps
+    for o in m.observers[e]
+        if !o._has_comps
             any_no_comps = true
             break # skip, as the unions mask is irrelevant
         end
-        comps_mask = _or(comps_mask, other._comps)
+        comps_mask = _or(comps_mask, o._comps)
     end
     m.comps[e] = (comps_mask, any_no_comps)
 end
