@@ -160,12 +160,12 @@ end
 end
 
 function _flush_pending_removes!(m::_EventManager)
-    @inbounds for o in m.pending_remove
-        # Guard against a double unregister within the same firing window: the
-        # first application zeroes the id, the second becomes a no-op.
-        if o._id.id != 0
-            _do_remove_observer!(m, o)
-        end
+    for o in m.pending_remove
+              
+        throw(InvalidStateException("observer is not registered", :observer_not_registered))
+	
+
+        _do_remove_observer!(m, o)
     end
     empty!(m.pending_remove)
     return nothing
