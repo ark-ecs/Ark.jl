@@ -98,6 +98,7 @@ end
 
 mutable struct _ObserverID
     id::UInt32
+    pending::Bool
 end
 
 """
@@ -208,6 +209,7 @@ function _add_observer!(m::_EventManager, o::Observer)
     _ensure_capacity!(m, e)
     push!(m.observers[e], o)
     o._id.id = UInt32(length(m.observers[e]))
+    o._id.pending = false
 
     if e > m.max_event_type
         m.max_event_type = e
@@ -239,6 +241,7 @@ function _remove_observer!(m::_EventManager{M}, o::Observer{M}) where {M}
         throw(InvalidStateException("observer is not registered", :observer_not_registered))
     end
     if m.firing > 0
+        o._id.pending = true
         push!(m.pending_remove, o)
         return nothing
     end
@@ -343,6 +346,7 @@ function _fire_create_entities(m::_EventManager{M}, table::_BatchTable{M}) where
     nobs = length(observers)
     for oi in 1:nobs
         o = @inbounds observers[oi]
+        o._id.pending && continue
         if o._has_with && !_contains_all(mask, o._with)
             continue
         end
@@ -378,6 +382,7 @@ function _fire_remove_entities(
     nobs = length(observers)
     for oi in 1:nobs
         o = @inbounds observers[oi]
+        o._id.pending && continue
         if o._has_with && !_contains_all(mask, o._with)
             continue
         end
@@ -412,6 +417,7 @@ function _fire_remove_entities_relations(
     nobs = length(observers)
     for oi in 1:nobs
         o = @inbounds observers[oi]
+        o._id.pending && continue
         if o._has_comps && !_contains_all(mask, o._comps)
             continue
         end
@@ -454,6 +460,7 @@ function _fire_add(
     nobs = length(observers)
     for oi in 1:nobs
         o = @inbounds observers[oi]
+        o._id.pending && continue
         if o._has_comps && (!_contains_all(new_mask, o._comps) || _contains_any(old_mask, o._comps))
             continue
         end
@@ -494,6 +501,7 @@ function _fire_add(
     nobs = length(observers)
     for oi in 1:nobs
         o = @inbounds observers[oi]
+        o._id.pending && continue
         if o._has_comps && (!_contains_all(new_mask, o._comps) || _contains_any(old_mask, o._comps))
             continue
         end
@@ -538,6 +546,7 @@ function _fire_remove(
     nobs = length(observers)
     for oi in 1:nobs
         o = @inbounds observers[oi]
+        o._id.pending && continue
         if o._has_comps && (!_contains_all(old_mask, o._comps) || _contains_any(new_mask, o._comps))
             continue
         end
@@ -578,6 +587,7 @@ function _fire_remove(
     nobs = length(observers)
     for oi in 1:nobs
         o = @inbounds observers[oi]
+        o._id.pending && continue
         if o._has_comps && (!_contains_all(old_mask, o._comps) || _contains_any(new_mask, o._comps))
             continue
         end
@@ -651,6 +661,7 @@ end
     nobs = length(observers)
     for oi in 1:nobs
         o = @inbounds observers[oi]
+        o._id.pending && continue
         if o._has_comps && !_contains_all(mask, o._comps)
             continue
         end
@@ -690,6 +701,7 @@ end
     nobs = length(observers)
     for oi in 1:nobs
         o = @inbounds observers[oi]
+        o._id.pending && continue
         if o._has_comps && !_contains_all(mask, o._comps)
             continue
         end
@@ -727,6 +739,7 @@ end
     nobs = length(observers)
     for oi in 1:nobs
         o = @inbounds observers[oi]
+        o._id.pending && continue
         if o._has_with && !_contains_all(mask, o._with)
             continue
         end
