@@ -66,10 +66,12 @@ Base.size(gv::GPUVector) = (length(gv),)
 Base.length(gv::GPUVector) = gv.len
 
 Base.@propagate_inbounds function Base.getindex(gv::GPUVector, i::Int)
+    @boundscheck checkbounds(gv, i)
     return gv.host[i]
 end
 
 Base.@propagate_inbounds function Base.setindex!(gv::GPUVector, v, i::Int)
+    @boundscheck checkbounds(gv, i)
     gv.host[i] = v
     return v
 end
