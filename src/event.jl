@@ -162,9 +162,6 @@ end
 
 function _flush_pending_removes!(m::_EventManager)
     for o in m.pending_remove
-        if o._id.id == 0
-        	throw(InvalidStateException("observer is not registered", :observer_not_registered))
-		end
         _do_remove_observer!(m, o)
     end
     empty!(m.pending_remove)
@@ -241,6 +238,9 @@ function _remove_observer!(m::_EventManager{M}, o::Observer{M}) where {M}
         throw(InvalidStateException("observer is not registered", :observer_not_registered))
     end
     if m.firing > 0
+        if o._id.pending
+            throw(InvalidStateException("observer is not registered", :observer_not_registered))
+        end
         o._id.pending = true
         push!(m.pending_remove, o)
         return nothing
