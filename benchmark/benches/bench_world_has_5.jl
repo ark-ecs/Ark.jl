@@ -1,5 +1,5 @@
 function setup_world_has_5(n_entities::Int)
-    world = World(Position, Velocity, CompA, CompB, CompC)
+    world = World(Position, Velocity, CompA, CompB, CompC; erased=true,)
 
     entities = Vector{Entity}()
     for i in 1:n_entities

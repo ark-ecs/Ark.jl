@@ -1,6 +1,6 @@
 
 function setup_world_add_remove_1_buffer(n_entities::Int)
-    world = World(Position, Velocity)
+    world = World(Position, Velocity; erased=true,)
     buf = CommandBuffer(world, (
         AddComponentsCommand((Velocity,)),
         RemoveComponentsCommand((Velocity,)),

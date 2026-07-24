@@ -9,7 +9,7 @@ function setup_world_add_remove_8_soa(n_entities::Int)
         CompN{5} => Storage{StructArray},
         CompN{6} => Storage{StructArray},
         CompN{7} => Storage{StructArray},
-        CompN{8} => Storage{StructArray},
+        CompN{8} => Storage{StructArray}; erased=true,
     )
 
     entities = Vector{Entity}()

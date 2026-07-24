@@ -1,6 +1,6 @@
 
 function setup_resource()
-    world = World(Position, Velocity)
+    world = World(Position, Velocity; erased=true,)
     add_resource!(world, Tick(0))
     return world
 end

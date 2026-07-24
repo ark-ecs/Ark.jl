@@ -13,7 +13,7 @@ function setup_world_add_remove_8_large(n_entities::Int)
         CompN{46}, CompN{47}, CompN{48}, CompN{49}, CompN{50},
         CompN{51}, CompN{52}, CompN{53}, CompN{54}, CompN{55},
         CompN{56}, CompN{57}, CompN{58}, CompN{59}, CompN{60},
-        CompN{61}, CompN{62}, CompN{63}, CompN{64}, CompN{65},
+        CompN{61}, CompN{62}, CompN{63}, CompN{64}, CompN{65}; erased=true,
     )
 
     entities = Vector{Entity}()
