@@ -4,7 +4,12 @@ function _storage_from_component(world, comp)
     return typeof(first(_storage(world)._storages[i].data))
 end
 
-function Ark.World(comp_types::Union{Type,Pair{<:Type,<:Type}}...; initial_capacity::Int=128, allow_mutable=false)
+function Ark.World(
+    comp_types::Union{Type,Pair{<:Type,<:Type}}...;
+    initial_capacity::Int=128,
+    allow_mutable=false,
+    erased=true,
+)
     raw_types = map(arg -> arg isa Type ? arg : arg.first, comp_types)
     types = map(Ark._unwrap_relation_type, raw_types)
     storages = map(arg -> arg isa Type ? Storage{WrappedVector} : arg.second, comp_types)
@@ -27,6 +32,7 @@ function Ark.World(comp_types::Union{Type,Pair{<:Type,<:Type}}...; initial_capac
         Val{Tuple{fake_storage[1:255]...,storages...,fake_storage[256:300]...}}(),
         Val{Tuple{relation_types...}}(),
         Val(allow_mutable),
+        Val(erased),
         initial_capacity,
     )
 end

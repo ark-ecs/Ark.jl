@@ -22,6 +22,7 @@ include("TestTypes.jl")
 
 include("test_util.jl")
 include("test_world.jl")
+N_fake == 0 && include("test_erased.jl")
 include("test_cache.jl")
 include("test_filter.jl")
 include("test_query.jl")

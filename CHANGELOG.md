@@ -8,6 +8,10 @@
 - Adds the possibility to specify that a query column is read-only (#677).
 - Adds GPUVector{:CPU} and GPUStructArray{:CPU} to use a GPU storage on devices
   which do not have a GPU (#701).
+- Adds the `erased` keyword argument to the world constructor, which dispatches
+  per-component operations through type-erased calls instead of generating one branch per
+  component type. It lowers the compilation cost per component type by about 3x, at the
+  price of roughly 2x slower structural operations on individual entities.
 
 ### Breaking changes
 

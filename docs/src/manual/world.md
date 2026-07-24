@@ -47,6 +47,36 @@ world = World(Position, Velocity; initial_capacity=1024)
 World(entities=0, comp_types=(Position, Velocity))
 ```
 
+## Type-erased dispatch
+
+Ark resolves the component of a structural operation at compile time, by generating one
+branch per component type. This is what makes structural operations fast, but the size of
+the generated code grows with the number of component types a world declares, and so does
+the time spent compiling it.
+
+For worlds with many component types, the keyword argument `erased` routes those operations
+through type-erased calls instead. The generated code then no longer depends on the number
+of component types, and each per-component call is compiled only when it is first used.
+
+```jldoctest world; output = false
+world = World(Position, Velocity; erased=true)
+
+# output
+
+World(entities=0, comp_types=(Position, Velocity))
+```
+
+This is a trade-off, not a free improvement:
+
+  - Compilation cost per component type drops by roughly 3x, so the mode pays off for worlds
+    with a few dozen component types and above.
+  - Structural operations on individual entities (adding and removing components, creating
+    and removing entities, copying entities, shuffling) become roughly 2x slower.
+  - Queries, batch operations and sorting are unaffected, as they operate per archetype
+    column rather than per entity.
+
+Leave the mode off unless compile time is a problem, and measure both before committing to it.
+
 ## World reset
 
 Ark's primary goal is to empower high-performance simulation models.
