@@ -40,13 +40,6 @@ function _new_component_storage(::Type{S}, ::Type{C}) where {S<:Storage,C}
     return _ComponentStorage{C,typeof(empty_column)}(typeof(empty_column)[], empty_column)
 end
 
-"""
-    _column_or_empty(s, table)
-
-Column of `s` for `table`, or the shared `empty_column` when the table has no
-column for this component. Safe for table ids past the end of `s.data`, which is
-what an untouched component storage looks like.
-"""
 @inline function _column_or_empty(s::_ComponentStorage{C,A}, table::Integer) where {C,A<:AbstractArray}
     return table <= length(s.data) ? (@inbounds s.data[table]) : s.empty_column
 end
