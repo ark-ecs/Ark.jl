@@ -1,10 +1,4 @@
 
-# Column bookkeeping is lazy: `data` is only grown when a column is actually
-# instantiated for a table, so it can be shorter than the number of tables --
-# possibly empty for a component that no archetype ever touched. Any index past
-# `length(data)`, as well as any slot still holding `empty_column`, means "this
-# table has no column for this component". Use `_column_or_empty` on paths that
-# may look at a component the archetype does not have.
 struct _ComponentStorage{C,A<:AbstractArray{C,1}}
     data::Vector{A}
     empty_column::A
@@ -57,9 +51,6 @@ what an untouched component storage looks like.
     return table <= length(s.data) ? (@inbounds s.data[table]) : s.empty_column
 end
 
-# Both accessors assume the table has a column for this component: callers either
-# established that with a single mask test over the whole component tuple, or are
-# on an explicitly unchecked path. Nothing here re-tests it per column.
 @inline function _get_component(
     s::_ComponentStorage{C,A},
     arch::UInt32,
@@ -88,9 +79,6 @@ end
     end
 end
 
-# Grows `data` up to `table` (padding with the shared sentinel) and puts a fresh
-# column at that slot. Kept out of line: it runs at most once per (component,
-# table) pair, while its callers are on the hot structural-change paths.
 @noinline function _instantiate_column!(storage::_ComponentStorage{C,A}, table::Int) where {C,A<:AbstractArray}
     data = storage.data
     old_len = length(data)
@@ -105,8 +93,6 @@ end
     return col
 end
 
-# Column of `storage` for `table`, instantiating it if this is the first touch.
-# Never returns `empty_column`, so the caller can mutate the result freely.
 @inline function _column_for_write!(storage::_ComponentStorage{C,A}, table::Integer) where {C,A<:AbstractArray}
     data = storage.data
     if table > length(data)
