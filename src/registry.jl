@@ -20,7 +20,12 @@ end
     return registry.is_relation[comp_id]
 end
 
-function _register_component!(registry::_ComponentRegistry, ::Type{C}, is_relation::Bool)::Int where C
+# `@nospecialize` on the component type is deliberate: this is called once per component
+# type during world construction, and its body only uses `C` as a value (a `Dict` key and
+# `push!` argument). Specializing it per type would compile one method instance per
+# component for no runtime benefit, which dominates world-construction compile time for
+# worlds with many component types.
+function _register_component!(registry::_ComponentRegistry, @nospecialize(C::DataType), is_relation::Bool)::Int
     if haskey(registry.components, C)
         throw(ArgumentError(lazy"duplicate component type $C during world creation"))
     end

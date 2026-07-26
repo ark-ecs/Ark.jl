@@ -66,10 +66,23 @@ world = World(Position, Velocity; erased=true)
 World(entities=0, comp_types=(Position, Velocity))
 ```
 
+The effect grows with the number of component types: the default dispatch compiles
+super-linearly, while the erased dispatch stays close to linear.
+
+```@raw html
+<img src="../assets/images/bench_erased_compile_light.svg" class="only-light" alt="Compile time: default vs erased dispatch" />
+<img src="../assets/images/bench_erased_compile_dark.svg" class="only-dark" alt="Compile time: default vs erased dispatch" />
+```
+*First-call compile time of the structural operations as the number of component types grows
+(world construction is excluded, since it is identical in both modes). Below a few dozen
+component types the erased dispatch is slightly slower to compile; above that its advantage
+widens quickly.*
+
 This is a trade-off, not a free improvement:
 
-  - Compilation cost per component type drops by roughly 3x, so the mode pays off for worlds
-    with a few dozen component types and above.
+  - Compilation cost of structural operations grows super-linearly with the number of
+    component types in the default dispatch, but stays close to linear when erased. The mode
+    pays off for worlds with a few dozen component types and above.
   - Structural operations on individual entities (adding and removing components, creating
     and removing entities, copying entities, shuffling) become roughly 2x slower.
   - Queries, batch operations and sorting are unaffected, as they operate per archetype

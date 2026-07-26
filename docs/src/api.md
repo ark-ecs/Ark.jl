@@ -58,8 +58,8 @@ set_relations!
 ## [Storages](@id storage-api)
 
 [Storages](@ref component-storages) define the data structures for the containers of
-[Components](@ref). The default ones are Vector, [StructArray](@ref), [GPUVector](@ref)
-and [GPUStructArray](@ref). New ones can be defined implementing the [Storage Interface](@ref new-component-storages).
+[Components](@ref). The default ones are Vector, [StructArray](@ref), [GPUVector](@ref),
+[GPUStructArray](@ref). New ones can be defined implementing the [Storage Interface](@ref new-component-storages).
 
 ```@docs
 Storage
