@@ -2179,38 +2179,35 @@ end
 function _mask_presence_check_expr(::Type{Storage}, types::Vector{DataType}) where {Storage<:_WorldStorage}
     query_mask, ids = _query_mask(Storage, types)
     return :(_check_has_components(
-        world_state, idx, $query_mask, $(Val(ids)), $(Val(Tuple{types...})),
+        world_state, idx, $query_mask, $(ids), $(types),
     ))
 end
 
 @inline function _check_has_components(
-    world_state::_WorldState{M},
+    world_state::_WorldState,
     idx::_EntityIndex,
-    query_mask::_Mask{M},
-    ::Val{IDS},
-    ::Val{TS},
-) where {M,IDS,TS<:Tuple}
+    query_mask::_Mask,
+    ids::Tuple{Vararg{Int}},
+    types::Vector{DataType},
+) 
     @inbounds entity_mask = world_state._table_masks[idx.table]
     if !_contains_all(entity_mask, query_mask)
-        _throw_missing_component(entity_mask, Val(IDS), Val(TS))
+        _throw_missing_component(entity_mask, ids, types)
     end
     return nothing
 end
 
-@noinline @generated function _throw_missing_component(
+@noinline function _throw_missing_component(
     entity_mask::_Mask,
-    ::Val{IDS},
-    ::Val{TS},
-) where {IDS,TS<:Tuple}
-    msgs = tuple(("entity has no $T component" for T in fieldtypes(TS))...)
-    return quote
-        for i in eachindex($IDS)
-            if !_get_bit(entity_mask, $IDS[i])
-                throw(ArgumentError($msgs[i]))
-            end
+    ids::Tuple{Vararg{Int}},
+    types::Vector{DataType},
+) 
+    for i in eachindex(ids)
+        if !_get_bit(entity_mask, ids[i])
+            throw(ArgumentError(lazy"entity has no $(types[i]) component"))
         end
-        throw(ArgumentError("entity has no required component"))
     end
+    throw(ArgumentError(lazy"entity has no required component"))
 end
 
 @generated function _get_components(
