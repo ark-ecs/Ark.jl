@@ -28,15 +28,15 @@ end
         _get_storage(_storage(world), Position),
         _ComponentStorage{Position,_storage_from_component(world, Position)},
     )
-    @test isa(_get_storage(_storage(world), Position).data[1], _storage_from_component(world, Position))
+    @test isa(_get_storage(_storage(world), Position).empty_column, _storage_from_component(world, Position))
     velocity_storage_type = _storage_from_component(world, Velocity)
     @test isa(_get_storage(_storage(world), Velocity), _ComponentStorage{Velocity,velocity_storage_type})
-    @test isa(_get_storage(_storage(world), Velocity).data[1], velocity_storage_type)
+    @test isa(_get_storage(_storage(world), Velocity).empty_column, velocity_storage_type)
     @test isa(
         _get_storage(_storage(world), Altitude),
         _ComponentStorage{Altitude,_storage_from_component(world, Altitude)},
     )
-    @test isa(_get_storage(_storage(world), Altitude).data[1], _storage_from_component(world, Altitude))
+    @test isa(_get_storage(_storage(world), Altitude).empty_column, _storage_from_component(world, Altitude))
 
     world_state = _state(world)
     stores = _storage(world)
@@ -190,9 +190,13 @@ end
     vel_storage = _get_storage(_storage(world), Velocity)
     child_storage = _get_storage(_storage(world), ChildOf)
 
-    @test pos_storage.data[1] === pos_storage.empty_column
-    @test vel_storage.data[1] === vel_storage.empty_column
-    @test child_storage.data[1] === child_storage.empty_column
+    # Nothing is instantiated up front: untouched storages hold no columns at all.
+    @test isempty(pos_storage.data)
+    @test isempty(vel_storage.data)
+    @test isempty(child_storage.data)
+    @test _column_or_empty(pos_storage, 1) === pos_storage.empty_column
+    @test _column_or_empty(vel_storage, 1) === vel_storage.empty_column
+    @test _column_or_empty(child_storage, 1) === child_storage.empty_column
 
     parent1 = new_entity!(world, ())
     parent2 = new_entity!(world, ())
@@ -203,11 +207,14 @@ end
 
     @test child_table1 != child_table2
     for table in (child_table1, child_table2)
-        @test pos_storage.data[table] === pos_storage.empty_column
-        @test vel_storage.data[table] === vel_storage.empty_column
-        @test child_storage.data[table] !== child_storage.empty_column
+        @test _column_or_empty(pos_storage, table) === pos_storage.empty_column
+        @test _column_or_empty(vel_storage, table) === vel_storage.empty_column
+        @test _column_or_empty(child_storage, table) !== child_storage.empty_column
     end
-    @test child_storage.data[child_table1] !== child_storage.data[child_table2]
+    @test _column_or_empty(child_storage, child_table1) !== _column_or_empty(child_storage, child_table2)
+    # Position and Velocity are still untouched, so they instantiated nothing.
+    @test isempty(pos_storage.data)
+    @test isempty(vel_storage.data)
 
     entity1 = new_entity!(world, (Position(1, 1), Velocity(1, 1), ChildOf() => parent1))
     entity2 = new_entity!(world, (Position(2, 2), Velocity(2, 2), ChildOf() => parent2))
@@ -216,21 +223,71 @@ end
 
     @test table1 != table2
     for storage in (pos_storage, vel_storage, child_storage)
-        @test storage.data[table1] !== storage.empty_column
-        @test storage.data[table2] !== storage.empty_column
-        @test storage.data[table1] !== storage.data[table2]
+        @test _column_or_empty(storage, table1) !== storage.empty_column
+        @test _column_or_empty(storage, table2) !== storage.empty_column
+        @test _column_or_empty(storage, table1) !== _column_or_empty(storage, table2)
     end
 
-    pos_column = pos_storage.data[table1]
-    vel_column = vel_storage.data[table1]
+    pos_column = _column_or_empty(pos_storage, table1)
+    vel_column = _column_or_empty(vel_storage, table1)
     reset!(world)
 
-    @test pos_storage.data[table1] === pos_column
-    @test vel_storage.data[table1] === vel_column
+    @test _column_or_empty(pos_storage, table1) === pos_column
+    @test _column_or_empty(vel_storage, table1) === vel_column
     @test isempty(pos_column)
     @test isempty(vel_column)
     @test isempty(pos_storage.empty_column)
     @test isempty(vel_storage.empty_column)
+end
+
+@testset "World grows storage columns lazily" begin
+    world = World(Position, Velocity, Altitude => Storage{StructArray})
+    pos_storage = _get_storage(_storage(world), Position)
+    vel_storage = _get_storage(_storage(world), Velocity)
+    alt_storage = _get_storage(_storage(world), Altitude)
+
+    # Several tables, none of which uses Velocity or Altitude.
+    entity = new_entity!(world, (Position(1, 1),))
+    new_entity!(world, ())
+    for _ in 1:3
+        remove_components!(world[entity], (Position,))
+        add_components!(world[entity], (Position(2, 2),))
+    end
+    @test length(_state(world)._tables) > 1
+
+    # Table count grew, bookkeeping for the untouched components did not.
+    @test isempty(vel_storage.data)
+    @test isempty(alt_storage.data)
+    @test length(pos_storage.data) <= length(_state(world)._tables)
+
+    # Reads and writes for an absent component still report it as absent rather
+    # than indexing past the end of the (short) bookkeeping vector.
+    @test !has_components(world, entity, (Velocity,))
+    @test !has_components(world, entity, (Velocity, Altitude))
+    @test_throws "entity has no Velocity component" world[entity][Velocity]
+    @test_throws "entity has no Altitude component" world[entity][Altitude]
+    @test_throws "entity has no Velocity component" world[entity][Velocity] = Velocity(1, 1)
+    @test isempty(vel_storage.data)
+    @test isempty(alt_storage.data)
+
+    # Same for an optional query column that no table has.
+    matched = 0
+    for (entities, _, velocities) in Query(world, (Position,); optional=(Velocity,))
+        matched += 1
+        @test length(entities) == 1
+        @test velocities === nothing
+    end
+    @test matched == 1
+    @test isempty(vel_storage.data)
+
+    # First actual touch instantiates the column, and only then.
+    add_components!(world[entity], (Velocity(3, 3),))
+    @test !isempty(vel_storage.data)
+    @test world[entity][Velocity] == Velocity(3, 3)
+    table = _state(world)._entities[entity._id].table
+    @test _column_or_empty(vel_storage, table) !== vel_storage.empty_column
+    @test length(_column_or_empty(vel_storage, table)) == 1
+    @test isempty(alt_storage.data)
 end
 
 @testset "World Component Registration" begin
@@ -243,7 +300,7 @@ end
     @test _state(world)._registry.types[id_int] == Int
     @test length(_storage(world)._storages) == N_fake + 2
     @test _storage(world)._storages[id_int] isa _ComponentStorage{Int,_storage_from_component(world, Int)}
-    @test length(_storage(world)._storages[id_int].data) == 1
+    @test isempty(_storage(world)._storages[id_int].data)
 
     # Register Position component
     id_pos = _component_index(params, Position)
@@ -251,7 +308,7 @@ end
     @test _state(world)._registry.types[id_pos] == Position
     @test length(_storage(world)._storages) == N_fake + 2
     @test _storage(world)._storages[id_pos] isa _ComponentStorage{Position,_storage_from_component(world, Position)}
-    @test length(_storage(world)._storages[id_pos].data) == 1
+    @test isempty(_storage(world)._storages[id_pos].data)
 
     # Re-register Int component (should not add new storage)
     id_int2 = _component_index(params, Int)
@@ -464,8 +521,8 @@ end
     entity = new_entity!(world, (Position(1, 2), Velocity(3, 4)))
     @test entity == _new_entity(3, 0)
     @test is_alive(world, entity) == true
-    @test length(_storage(world)._storages[offset_ID+2].data[2]) == 1
-    @test length(_storage(world)._storages[offset_ID+3].data[2]) == 1
+    @test length(_column_or_empty(_storage(world)._storages[offset_ID+2], 2)) == 1
+    @test length(_column_or_empty(_storage(world)._storages[offset_ID+3], 2)) == 1
 
     pos, vel = get_components(world, entity, (Position, Velocity))
     @test pos == Position(1, 2)
@@ -756,8 +813,8 @@ end
     @test entity2._id == entity._id + 1
     @test entity2._id == 4
     @test _state(world)._tables[2].entities == [entity, entity2]
-    @test length(_storage(world)._storages[offset_ID+2].data[2]) == 2
-    @test length(_storage(world)._storages[offset_ID+3].data[2]) == 2
+    @test length(_column_or_empty(_storage(world)._storages[offset_ID+2], 2)) == 2
+    @test length(_column_or_empty(_storage(world)._storages[offset_ID+3], 2)) == 2
 
     pos, vel = get_components(world, entity2, (Position, Velocity))
     @test pos == Position(1, 2)
@@ -952,8 +1009,8 @@ end
     @test cnt == 100
     @test is_locked(world) == false
     @test length(_state(world)._tables[2].entities) == 101
-    @test length(_storage(world)._storages[offset_ID+2].data[2]) == 101
-    @test length(_storage(world)._storages[offset_ID+3].data[2]) == 101
+    @test length(_column_or_empty(_storage(world)._storages[offset_ID+2], 2)) == 101
+    @test length(_column_or_empty(_storage(world)._storages[offset_ID+3], 2)) == 101
 
     cnt = 0
     for (ent, pos_col, vel_col) in Query(world, (Position, Velocity))
@@ -1010,8 +1067,8 @@ end
     @test count == 100
     @test is_locked(world) == false
     @test length(_state(world)._tables[2].entities) == 101
-    @test length(_storage(world)._storages[offset_ID+2].data[2]) == 101
-    @test length(_storage(world)._storages[offset_ID+3].data[2]) == 101
+    @test length(_column_or_empty(_storage(world)._storages[offset_ID+2], 2)) == 101
+    @test length(_column_or_empty(_storage(world)._storages[offset_ID+3], 2)) == 101
 
     count = 0
     for (ent, pos_col, vel_col) in Query(world, (Position, Velocity))
@@ -1770,7 +1827,7 @@ end
 
     for s in 2:4
         for t in 2:6
-            @test length(_storage(world)._storages[offset_ID+s].data[t]) == 0
+            @test length(_column_or_empty(_storage(world)._storages[offset_ID+s], t)) == 0
         end
     end
 

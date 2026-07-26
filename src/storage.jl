@@ -1,4 +1,10 @@
 
+# Column bookkeeping is lazy: `data` is only grown when a column is actually
+# instantiated for a table, so it can be shorter than the number of tables --
+# possibly empty for a component that no archetype ever touched. Any index past
+# `length(data)`, as well as any slot still holding `empty_column`, means "this
+# table has no column for this component". Use `_column_or_empty` on paths that
+# may look at a component the archetype does not have.
 struct _ComponentStorage{C,A<:AbstractArray{C,1}}
     data::Vector{A}
     empty_column::A
@@ -37,7 +43,18 @@ end
 
 function _new_component_storage(::Type{S}, ::Type{C}) where {S<:Storage,C}
     empty_column = _new_storage(S, C)
-    return _ComponentStorage{C,typeof(empty_column)}([empty_column], empty_column)
+    return _ComponentStorage{C,typeof(empty_column)}(typeof(empty_column)[], empty_column)
+end
+
+"""
+    _column_or_empty(s, table)
+
+Column of `s` for `table`, or the shared `empty_column` when the table has no
+column for this component. Safe for table ids past the end of `s.data`, which is
+what an untouched component storage looks like.
+"""
+@inline function _column_or_empty(s::_ComponentStorage{C,A}, table::Integer) where {C,A<:AbstractArray}
+    return table <= length(s.data) ? (@inbounds s.data[table]) : s.empty_column
 end
 
 @inline function _get_component(
@@ -46,7 +63,7 @@ end
     row::UInt32,
     ::Val{false},
 ) where {C,A<:AbstractArray}
-    @inbounds col = s.data[arch]
+    col = _column_or_empty(s, arch)
     if col === s.empty_column
         throw(ArgumentError(lazy"entity has no $C component"))
     end
@@ -69,7 +86,7 @@ end
     value::C,
     ::Val{false},
 ) where {C,A<:AbstractArray}
-    @inbounds col = s.data[arch]
+    col = _column_or_empty(s, arch)
     if length(col) == 0
         throw(ArgumentError(lazy"entity has no $C component"))
     end
@@ -97,25 +114,54 @@ end
     end
 end
 
-function _add_column!(storage::_ComponentStorage)
-    push!(storage.data, storage.empty_column)
+# Grows `data` up to `table` (padding with the shared sentinel) and puts a fresh
+# column at that slot. Kept out of line: it runs at most once per (component,
+# table) pair, while its callers are on the hot structural-change paths.
+@noinline function _instantiate_column!(storage::_ComponentStorage{C,A}, table::Int) where {C,A<:AbstractArray}
+    data = storage.data
+    old_len = length(data)
+    if table > old_len
+        resize!(data, table)
+        @inbounds for i in (old_len+1):table
+            data[i] = storage.empty_column
+        end
+    end
+    col = _new_storage_column(C, A)
+    @inbounds data[table] = col
+    return col
+end
+
+# Column of `storage` for `table`, instantiating it if this is the first touch.
+# Never returns `empty_column`, so the caller can mutate the result freely.
+@inline function _column_for_write!(storage::_ComponentStorage{C,A}, table::Integer) where {C,A<:AbstractArray}
+    data = storage.data
+    if table > length(data)
+        return _instantiate_column!(storage, Int(table))
+    end
+    @inbounds col = data[table]
+    if col === storage.empty_column
+        return _instantiate_column!(storage, Int(table))
+    end
+    return col
 end
 
 function _activate_column!(storage::_ComponentStorage{C,A}, arch::Int, cap::Int) where {C,A<:AbstractArray}
-    @inbounds if storage.data[arch] === storage.empty_column
-        storage.data[arch] = _new_storage_column(C, A)
-    end
-    @inbounds sizehint!(storage.data[arch], cap)
+    sizehint!(_column_for_write!(storage, arch), cap)
+    return
 end
 
 function _clear_column!(storage::_ComponentStorage{C,A}, arch::UInt32) where {C,A<:AbstractArray}
-    @inbounds if storage.data[arch] !== storage.empty_column
-        empty!(storage.data[arch])
+    if arch <= length(storage.data)
+        @inbounds col = storage.data[arch]
+        if col !== storage.empty_column
+            empty!(col)
+        end
     end
+    return
 end
 
 function _ensure_column_size!(storage::_ComponentStorage{C,A}, arch::UInt32, needed::Int) where {C,A<:AbstractArray}
-    @inbounds col = storage.data[arch]
+    col = _column_for_write!(storage, arch)
     if length(col) < needed
         resize!(col, needed)
     end

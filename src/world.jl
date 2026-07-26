@@ -1294,7 +1294,9 @@ function _create_table!(
     table = _new_table(UInt32(new_table_id), arch.id, state._initial_capacity, relations)
     push!(state._tables, table)
 
-    _push_empty_to_all_storages!(stores)
+    # Only the archetype's own components get a column here. Storages of the
+    # other components are left untouched entirely -- their `data` vectors are
+    # grown on first touch instead of once per table.
     for comp in arch.components
         _activate_new_column_for_comp!(stores, comp, new_table_id, state._initial_capacity)
     end
@@ -2254,7 +2256,7 @@ end
             col_sym = Symbol("col", i)
 
             push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-            push!(exprs, :(@inbounds $col_sym = $stor_sym.data[index.table]))
+            push!(exprs, :($col_sym = _column_or_empty($stor_sym, index.table)))
             push!(exprs, :(
                 if length($col_sym) == 0
                     return false
@@ -2654,15 +2656,6 @@ function _do_emit_event!(world_state::_WorldState, event::Event, mask::_Mask, ha
         throw(ArgumentError("entity does not have all components of the event emitted for it"))
     end
     return _fire_custom_event(world_state._event_manager, event, entity, mask, entity_mask)
-end
-
-@generated function _push_empty_to_all_storages!(stores::_WorldStorage{CS}) where {CS<:Tuple}
-    n = fieldcount(CS)
-    exprs = Expr[]
-    for i in 1:n
-        push!(exprs, :(_add_column!(stores._storages.$i)))
-    end
-    return Expr(:block, exprs...)
 end
 
 @generated function _activate_new_column_for_comp!(
