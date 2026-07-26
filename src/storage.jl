@@ -63,7 +63,7 @@ end
     row::UInt32,
     ::Val{false},
 ) where {C,A<:AbstractArray}
-    col = _column_or_empty(s, arch)
+    col = s.data[arch]
     if col === s.empty_column
         throw(ArgumentError(lazy"entity has no $C component"))
     end
@@ -86,7 +86,7 @@ end
     value::C,
     ::Val{false},
 ) where {C,A<:AbstractArray}
-    col = _column_or_empty(s, arch)
+    col = s.data[arch]
     if length(col) == 0
         throw(ArgumentError(lazy"entity has no $C component"))
     end
