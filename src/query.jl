@@ -350,7 +350,6 @@ end
         vec_sym = Symbol("vec", i)
         push!(exprs, :(@inbounds $stor_sym = q._storages[$i]))
         if _get_bit(OF, i)
-            # Optional: the table may have no column for this component at all.
             push!(exprs, :($col_sym = _column_or_empty($stor_sym, table.id)))
         else
             push!(exprs, :(@inbounds $col_sym = $stor_sym.data[table.id]))
