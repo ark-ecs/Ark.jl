@@ -2202,18 +2202,15 @@ end
     ::Val{IDS},
     ::Val{TS},
 ) where {IDS,TS<:Tuple}
-    types = fieldtypes(TS)
-    exprs = Expr[]
-    for (i, id) in enumerate(IDS)
-        msg = "entity has no $(types[i]) component"
-        push!(exprs, :(
-            if !_get_bit(entity_mask, $id)
-                throw(ArgumentError($msg))
+    msgs = tuple(("entity has no $T component" for T in fieldtypes(TS))...)
+    return quote
+        for i in eachindex($IDS)
+            if !_get_bit(entity_mask, $IDS[i])
+                throw(ArgumentError($msgs[i]))
             end
-        ))
+        end
+        throw(ArgumentError("entity has no required component"))
     end
-    push!(exprs, :(throw(ArgumentError("entity has no required component"))))
-    return Expr(:block, exprs...)
 end
 
 @generated function _get_components(
