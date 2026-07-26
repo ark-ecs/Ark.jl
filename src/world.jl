@@ -2171,7 +2171,7 @@ end
 
 function _query_mask(::Type{Storage}, types::Vector{DataType}) where {Storage<:_WorldStorage}
     CS = _schema_storage_types(Storage)
-    ids = tuple(Int[_component_index(CS, T) for T in types]...)
+    ids = Int[_component_index(CS, T) for T in types]
     M = max(1, cld(fieldcount(CS), 64))
     return _Mask{M}(ids...), ids
 end
@@ -2187,9 +2187,9 @@ end
     world_state::_WorldState,
     idx::_EntityIndex,
     query_mask::_Mask,
-    ids::Tuple{Vararg{Int}},
+    ids::Vector{Int},
     types::Vector{DataType},
-) 
+)
     @inbounds entity_mask = world_state._table_masks[idx.table]
     if !_contains_all(entity_mask, query_mask)
         _throw_missing_component(entity_mask, ids, types)
@@ -2199,9 +2199,9 @@ end
 
 @noinline function _throw_missing_component(
     entity_mask::_Mask,
-    ids::Tuple{Vararg{Int}},
+    ids::Vector{Int},
     types::Vector{DataType},
-) 
+)
     for i in eachindex(ids)
         if !_get_bit(entity_mask, ids[i])
             throw(ArgumentError(lazy"entity has no $(types[i]) component"))
