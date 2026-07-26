@@ -80,11 +80,6 @@ mutable struct _WorldState{M,K}
     const _archetypes_hot::Vector{_ArchetypeHot{M}}
     const _relation_archetypes::Vector{UInt32}
     const _tables::Vector{_Table}
-    # Component mask of each table's archetype, kept parallel to `_tables`. A
-    # table's archetype never changes (recycled tables keep theirs), so this
-    # never needs invalidating. It exists to answer "does this entity have these
-    # components" in a single dense load, instead of chasing `_tables` for the
-    # archetype id and then `_archetypes_hot` for its mask.
     const _table_masks::Vector{_Mask{M}}
     const _last_table::_LastTable{M}
     const _index::_ComponentIndex{M}
@@ -1302,9 +1297,6 @@ function _create_table!(
     push!(state._tables, table)
     push!(state._table_masks, arch.node.mask)
 
-    # Only the archetype's own components get a column here. Storages of the
-    # other components are left untouched entirely -- their `data` vectors are
-    # grown on first touch instead of once per table.
     for comp in arch.components
         _activate_new_column_for_comp!(stores, comp, new_table_id, state._initial_capacity)
     end
@@ -2177,9 +2169,6 @@ end
     end
 end
 
-# Component mask of the queried types, as a compile-time constant. Chunks the
-# query does not touch fold away at the call site, so the cost does not grow with
-# the number of components registered in the world.
 function _query_mask(::Type{Storage}, types::Vector{DataType}) where {Storage<:_WorldStorage}
     CS = _schema_storage_types(Storage)
     ids = tuple(Int[_component_index(CS, T) for T in types]...)
@@ -2187,11 +2176,6 @@ function _query_mask(::Type{Storage}, types::Vector{DataType}) where {Storage<:_
     return _Mask{M}(ids...), ids
 end
 
-# Presence test for a whole component tuple, in place of one test per component
-# column. Column bookkeeping is lazy, so a per-column test would need both a
-# bookkeeping-length check and an `empty_column` sentinel compare; the table's
-# mask answers for every component at once in a single dense load and leaves the
-# column accesses unchecked.
 function _mask_presence_check_expr(::Type{Storage}, types::Vector{DataType}) where {Storage<:_WorldStorage}
     query_mask, ids = _query_mask(Storage, types)
     return :(_check_has_components(
@@ -2213,8 +2197,6 @@ end
     return nothing
 end
 
-# Names the first component the entity is missing, matching the message the
-# per-column checks produce. Only ever reached on the error path.
 @noinline @generated function _throw_missing_component(
     entity_mask::_Mask,
     ::Val{IDS},
