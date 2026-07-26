@@ -57,24 +57,13 @@ what an untouched component storage looks like.
     return table <= length(s.data) ? (@inbounds s.data[table]) : s.empty_column
 end
 
+# Both accessors assume the table has a column for this component: callers either
+# established that with a single mask test over the whole component tuple, or are
+# on an explicitly unchecked path. Nothing here re-tests it per column.
 @inline function _get_component(
     s::_ComponentStorage{C,A},
     arch::UInt32,
     row::UInt32,
-    ::Val{false},
-) where {C,A<:AbstractArray}
-    col = s.data[arch]
-    if col === s.empty_column
-        throw(ArgumentError(lazy"entity has no $C component"))
-    end
-    return @inbounds col[row]
-end
-
-@inline function _get_component(
-    s::_ComponentStorage{C,A},
-    arch::UInt32,
-    row::UInt32,
-    ::Val{true},
 ) where {C,A<:AbstractArray}
     return @inbounds s.data[arch][row]
 end
@@ -84,21 +73,6 @@ end
     arch::UInt32,
     row::UInt32,
     value::C,
-    ::Val{false},
-) where {C,A<:AbstractArray}
-    col = s.data[arch]
-    if length(col) == 0
-        throw(ArgumentError(lazy"entity has no $C component"))
-    end
-    return @inbounds col[row] = value
-end
-
-@inline function _set_component!(
-    s::_ComponentStorage{C,A},
-    arch::UInt32,
-    row::UInt32,
-    value::C,
-    ::Val{true},
 ) where {C,A<:AbstractArray}
     return @inbounds s.data[arch][row] = value
 end
