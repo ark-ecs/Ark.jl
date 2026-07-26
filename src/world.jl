@@ -80,6 +80,12 @@ mutable struct _WorldState{M,K}
     const _archetypes_hot::Vector{_ArchetypeHot{M}}
     const _relation_archetypes::Vector{UInt32}
     const _tables::Vector{_Table}
+    # Component mask of each table's archetype, kept parallel to `_tables`. A
+    # table's archetype never changes (recycled tables keep theirs), so this
+    # never needs invalidating. It exists to answer "does this entity have these
+    # components" in a single dense load, instead of chasing `_tables` for the
+    # archetype id and then `_archetypes_hot` for its mask.
+    const _table_masks::Vector{_Mask{M}}
     const _last_table::_LastTable{M}
     const _index::_ComponentIndex{M}
     const _registry::_ComponentRegistry
@@ -982,6 +988,7 @@ end
             [_ArchetypeHot(node, UInt32(1))],
             Vector{UInt32}(),
             [_new_table(UInt32(1), UInt32(1), 0, _empty_relations)],
+            _Mask{$M}[$start_mask],
             _LastTable{$M}(_Mask{$M}(), UInt32(1)),
             _ComponentIndex{$(M)}($(length(types))),
             registry,
@@ -1293,6 +1300,7 @@ function _create_table!(
     new_table_id = length(state._tables) + 1
     table = _new_table(UInt32(new_table_id), arch.id, state._initial_capacity, relations)
     push!(state._tables, table)
+    push!(state._table_masks, arch.node.mask)
 
     # Only the archetype's own components get a column here. Storages of the
     # other components are left untouched entirely -- their `data` vectors are
@@ -2169,13 +2177,70 @@ end
     end
 end
 
+# Component mask of the queried types, as a compile-time constant. Chunks the
+# query does not touch fold away at the call site, so the cost does not grow with
+# the number of components registered in the world.
+function _query_mask(::Type{Storage}, types::Vector{DataType}) where {Storage<:_WorldStorage}
+    CS = _schema_storage_types(Storage)
+    ids = tuple(Int[_component_index(CS, T) for T in types]...)
+    M = max(1, cld(fieldcount(CS), 64))
+    return _Mask{M}(ids...), ids
+end
+
+# Presence test for a whole component tuple, in place of one test per component
+# column. Column bookkeeping is lazy, so a per-column test would need both a
+# bookkeeping-length check and an `empty_column` sentinel compare; the table's
+# mask answers for every component at once in a single dense load and leaves the
+# column accesses unchecked.
+function _mask_presence_check_expr(::Type{Storage}, types::Vector{DataType}) where {Storage<:_WorldStorage}
+    query_mask, ids = _query_mask(Storage, types)
+    return :(_check_has_components(
+        world_state, idx, $query_mask, $(Val(ids)), $(Val(Tuple{types...})),
+    ))
+end
+
+@inline function _check_has_components(
+    world_state::_WorldState{M},
+    idx::_EntityIndex,
+    query_mask::_Mask{M},
+    ::Val{IDS},
+    ::Val{TS},
+) where {M,IDS,TS<:Tuple}
+    @inbounds entity_mask = world_state._table_masks[idx.table]
+    if !_contains_all(entity_mask, query_mask)
+        _throw_missing_component(entity_mask, Val(IDS), Val(TS))
+    end
+    return nothing
+end
+
+# Names the first component the entity is missing, matching the message the
+# per-column checks produce. Only ever reached on the error path.
+@noinline @generated function _throw_missing_component(
+    entity_mask::_Mask,
+    ::Val{IDS},
+    ::Val{TS},
+) where {IDS,TS<:Tuple}
+    types = fieldtypes(TS)
+    exprs = Expr[]
+    for (i, id) in enumerate(IDS)
+        msg = "entity has no $(types[i]) component"
+        push!(exprs, :(
+            if !_get_bit(entity_mask, $id)
+                throw(ArgumentError($msg))
+            end
+        ))
+    end
+    push!(exprs, :(throw(ArgumentError("entity has no required component"))))
+    return Expr(:block, exprs...)
+end
+
 @generated function _get_components(
     world_state::_WorldState,
-    stores::_WorldStorage,
+    stores::Storage,
     entity::Entity,
     ::TS,
     ::Val{Unchecked},
-) where {TS<:Tuple,Unchecked}
+) where {Storage<:_WorldStorage,TS<:Tuple,Unchecked}
     types = _to_types(TS)
     _check_no_duplicates(types)
 
@@ -2195,13 +2260,17 @@ end
 
     push!(exprs, :(@inbounds idx = world_state._entities[entity._id]))
 
+    if !Unchecked
+        push!(exprs, _mask_presence_check_expr(Storage, types))
+    end
+
     for i in 1:length(types)
         T = types[i]
         stor_sym = Symbol("stor", i)
         val_sym = Symbol("v", i)
 
         push!(exprs, :($(stor_sym) = _get_storage(stores, $T)))
-        push!(exprs, :($(val_sym) = _get_component($(stor_sym), idx.table, idx.row, $(Val(Unchecked)))))
+        push!(exprs, :($(val_sym) = _get_component($(stor_sym), idx.table, idx.row)))
     end
 
     vals = Symbol[Symbol("v", i) for i in 1:length(types)]
@@ -2234,37 +2303,13 @@ end
         ))
     end
 
-    if length(types) >= 3
-        CS = _schema_storage_types(Storage)
-        ids = tuple(Int[_component_index(CS, T) for T in types]...)
-        M = max(1, cld(fieldcount(CS), 64))
-        query_mask = _Mask{M}(ids...)
-
-        push!(exprs, :(
-            @inbounds begin
+    query_mask, _ = _query_mask(Storage, types)
+    push!(exprs, :(
+        @inbounds begin
             index = world_state._entities[entity._id]
-            table = world_state._tables[index.table]
-            arch_hot = world_state._archetypes_hot[table.archetype]
+            return _contains_all(world_state._table_masks[index.table], $query_mask)
         end
-        ))
-        push!(exprs, :(return _contains_all(arch_hot.mask, $query_mask)))
-    else
-        push!(exprs, :(@inbounds index = world_state._entities[entity._id]))
-        for i in 1:length(types)
-            T = types[i]
-            stor_sym = Symbol("stor", i)
-            col_sym = Symbol("col", i)
-
-            push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-            push!(exprs, :($col_sym = _column_or_empty($stor_sym, index.table)))
-            push!(exprs, :(
-                if length($col_sym) == 0
-                    return false
-                end
-            ))
-        end
-        push!(exprs, :(return true))
-    end
+    ))
 
     return quote
         $(exprs...)
@@ -2273,12 +2318,12 @@ end
 
 @generated function _set_components!(
     world_state::_WorldState,
-    stores::_WorldStorage,
+    stores::Storage,
     entity::Entity,
     ::Val{TS},
     values::Tuple,
     ::Val{Unchecked},
-) where {TS<:Tuple,Unchecked}
+) where {Storage<:_WorldStorage,TS<:Tuple,Unchecked}
     types = _to_types(fieldtypes(TS))
     _check_no_duplicates(types)
 
@@ -2292,13 +2337,17 @@ end
     end
     push!(exprs, :(@inbounds idx = world_state._entities[entity._id]))
 
+    if !Unchecked && !isempty(types)
+        push!(exprs, _mask_presence_check_expr(Storage, types))
+    end
+
     for i in 1:length(types)
         T = types[i]
         stor_sym = Symbol("stor", i)
         val_expr = :(values.$i)
 
         push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-        push!(exprs, :(_set_component!($stor_sym, idx.table, idx.row, $val_expr, $(Val(Unchecked)))))
+        push!(exprs, :(_set_component!($stor_sym, idx.table, idx.row, $val_expr)))
     end
 
     push!(exprs, Expr(:return, :values))
