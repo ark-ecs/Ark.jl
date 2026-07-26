@@ -2,6 +2,7 @@
 const N = parse(Int, ARGS[1])
 const K_SITES = parse(Int, ARGS[2])
 const erased = parse(Bool, ARGS[3])
+const boxed = parse(Bool, ARGS[4])
 
 using Ark
 
@@ -31,7 +32,7 @@ end
 
 function measure()
     types = [CompN{i} for i in 1:N]
-    ctor = @timed World(types...; erased=erased)
+    ctor = @timed World(types...; erased=erased, boxed=boxed)
     ops = @timed work(ctor.value)
     return (ctor.compile_time, ops.compile_time)
 end
@@ -44,4 +45,4 @@ sc, so = measure()
 # and structural work above - a proxy for the memory footprint of the two dispatch modes.
 mem = Sys.maxrss()
 
-println("$N,$(erased ? "erased" : "default"),$sc,$so,$mem")
+println("$N,$(erased ? "erased" : "default"),$(boxed ? "boxed" : "unboxed"),$sc,$so,$mem")

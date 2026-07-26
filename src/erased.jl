@@ -115,6 +115,17 @@ end
 # The single point where a component id selects a storage. Returning a boxed storage keeps
 # this the only piece of generated code that grows with the number of component types, and
 # its branches are trivial compared to a full operation per branch.
+#
+# A boxed world needs no generated code here at all: its storages are already boxed, so the
+# id is just an index. This is the one place where the two modes compose - `erased` on a
+# boxed world leaves no per-component generated code anywhere.
+@inline function _storage_at(storages::Vector{Any}, comp::Int)
+    if comp < 1 || comp > length(storages)
+        throw(ArgumentError(lazy"no component with id $comp in the World"))
+    end
+    return @inbounds storages[comp]
+end
+
 @generated function _storage_at(storages::CS, comp::Int) where {CS<:Tuple}
     call_exprs = Expr[:(storages[$i]) for i in 1:fieldcount(CS)]
     switch = _generate_component_switch(:comp, call_exprs)

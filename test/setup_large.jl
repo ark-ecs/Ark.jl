@@ -4,11 +4,16 @@ function _storage_from_component(world, comp)
     return typeof(first(_storage(world)._storages[i].data))
 end
 
+# Set by the `--boxed-world` flag: runs the whole suite against a large world that keeps its
+# storages in a `Vector{Any}` instead of a tuple.
+const BOXED_WORLD = "--boxed-world" in ARGS
+
 function Ark.World(
     comp_types::Union{Type,Pair{<:Type,<:Type}}...;
     initial_capacity::Int=128,
     allow_mutable=false,
-    erased=true,
+    erased=!BOXED_WORLD,
+    boxed=BOXED_WORLD,
 )
     raw_types = map(arg -> arg isa Type ? arg : arg.first, comp_types)
     types = map(Ark._unwrap_relation_type, raw_types)
@@ -33,6 +38,7 @@ function Ark.World(
         Val{Tuple{relation_types...}}(),
         Val(allow_mutable),
         Val(erased),
+        Val(boxed),
         initial_capacity,
     )
 end

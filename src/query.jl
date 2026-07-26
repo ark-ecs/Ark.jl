@@ -137,7 +137,7 @@ function _Query_from_filter_expr(::Type{W}, ::Type{F}) where {W<:World,F<:Filter
     QS = Tuple{query_storage_types...}
     output_optional_ids = Int[i for i in eachindex(output_ids) if _get_bit(query_optional_mask, output_ids[i])]
     output_optional_mask = _Mask{M}(output_optional_ids...)
-    query_storages = Expr(:tuple, (:(world_storage._storages[$id]) for id in output_ids)...)
+    query_storages = Expr(:tuple, (_storage_ref(:world_storage, Storage, id) for id in output_ids)...)
 
     return quote
         _check_filter_world(world, filter)

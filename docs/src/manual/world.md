@@ -73,10 +73,10 @@ super-linearly, while the erased dispatch stays close to linear.
 <img src="../assets/images/bench_erased_compile_light.svg" class="only-light" alt="Compile time: default vs erased dispatch" />
 <img src="../assets/images/bench_erased_compile_dark.svg" class="only-dark" alt="Compile time: default vs erased dispatch" />
 ```
-*First-call compile time of the structural operations as the number of component types grows
-(world construction is excluded, since it is identical in both modes). Below a few dozen
-component types the erased dispatch is slightly slower to compile; above that its advantage
-widens quickly.*
+*First-call compile time of the structural operations as the number of component types grows.
+Below a few dozen component types the erased dispatch is slightly slower to compile; above
+that its advantage widens quickly. World construction is measured separately, in the
+[boxed storage](@ref Boxed-storage) section, since it is what the other mode addresses.*
 
 This is a trade-off, not a free improvement:
 
@@ -89,6 +89,66 @@ This is a trade-off, not a free improvement:
     column rather than per entity.
 
 Leave the mode off unless compile time is a problem, and measure both before committing to it.
+
+## Boxed storage
+
+The `erased` mode addresses the code that *operates* on the component storages. The storages
+themselves are still held in a tuple, and a tuple can only be built by code that names every
+element, so world construction keeps one specialized call per component type in a single
+method. That method is the most expensive thing Ark compiles for a large schema.
+
+The keyword argument `boxed` keeps the storages in a `Vector{Any}` instead. The types are then
+carried as values rather than as static arguments, so the world creates and registers its
+storages in a runtime loop, and the size of the world constructor no longer depends on the
+number of component types.
+
+```jldoctest world; output = false
+world = World(Position, Velocity; boxed=true)
+
+# output
+
+World(entities=0, comp_types=(Position, Velocity))
+```
+
+The two modes are independent and can be combined. `boxed` additionally removes the last
+piece of generated code that grows with the schema in an erased world, which is the switch
+that maps a component id to its storage.
+
+```jldoctest world; output = false
+world = World(Position, Velocity; erased=true, boxed=true)
+
+# output
+
+World(entities=0, comp_types=(Position, Velocity))
+```
+
+The effect is on world construction, which the erased dispatch leaves untouched: it grows
+super-linearly with the number of component types when the storages are held in a tuple, and
+close to linearly when they are boxed.
+
+```@raw html
+<img src="../assets/images/bench_boxed_ctor_light.svg" class="only-light" alt="Compile time of world construction" />
+<img src="../assets/images/bench_boxed_ctor_dark.svg" class="only-dark" alt="Compile time of world construction" />
+```
+*First-call compile time of world construction as the number of component types grows.*
+
+It also keeps the peak memory of the compiling process nearly flat, since the world
+constructor is by far the largest method Ark compiles for a big schema.
+
+This is a trade-off, not a free improvement:
+
+  - Compiling the world constructor gets much cheaper, but the per-component storage
+    constructors do not disappear, they are merely compiled separately. The saving is in the
+    super-linear term, so it grows with the number of component types and is small below a
+    few hundred of them.
+  - Reading a storage costs a type check, since its type has to be restored from the
+    `Vector{Any}`. This is a tag comparison and a load, and it does not allocate: a storage is
+    boxed once at world creation and never replaced. Queries are unaffected, as they resolve
+    their storages once when the query is created.
+  - Structural operations compile slightly more code per call site than in a tuple world.
+
+Leave the mode off unless world-construction compile time is a problem, and measure before
+committing to it.
 
 ## World reset
 

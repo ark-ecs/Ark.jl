@@ -40,6 +40,55 @@ function _new_component_storage(::Type{S}, ::Type{C}) where {S<:Storage,C}
     return _ComponentStorage{C,typeof(empty_column)}([empty_column], empty_column)
 end
 
+"""
+    _type_vector(::Type{T})::Vector{Any} where {T<:Tuple}
+
+Unpacks a schema type parameter into a vector of its field types.
+
+Used by boxed worlds to move a list of types from the type domain into the value domain
+without emitting one expression per type.
+"""
+@noinline function _type_vector(::Type{T})::Vector{Any} where {T<:Tuple}
+    n = fieldcount(T)
+    types = Vector{Any}(undef, n)
+    for i in 1:n
+        @inbounds types[i] = fieldtype(T, i)
+    end
+    return types
+end
+
+"""
+    _new_component_relations_vector(n::Int, relation_indices::Vector{Int})
+
+Builds the per-component relation storages of a boxed world in one runtime loop.
+"""
+@noinline function _new_component_relations_vector(n::Int, relation_indices::Vector{Int})
+    relations = Vector{_ComponentRelations}(undef, n)
+    for i in 1:n
+        @inbounds relations[i] = _new_component_relations(i in relation_indices)
+    end
+    return relations
+end
+
+"""
+    _new_storages(modes::Vector{Any}, types::Vector{Any})::Vector{Any}
+
+Builds the component storages of a boxed world.
+
+The types arrive as values rather than as static arguments, so each storage is created by a
+dynamic call. That is the point: the caller does not grow a method body with one specialized
+call per component type, which is what makes world construction expensive for large schemas.
+"""
+@noinline function _new_storages(modes::Vector{Any}, types::Vector{Any})
+    length(modes) == length(types) ||
+        throw(ArgumentError("storage modes and component types must have the same length"))
+    storages = Vector{Any}(undef, length(types))
+    for i in eachindex(types)
+        @inbounds storages[i] = _new_component_storage(modes[i], types[i])
+    end
+    return storages
+end
+
 @inline function _get_component(
     s::_ComponentStorage{C,A},
     arch::UInt32,

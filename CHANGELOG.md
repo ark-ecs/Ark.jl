@@ -12,6 +12,12 @@
   per-component operations through type-erased calls instead of generating one branch per
   component type. It lowers the compilation cost per component type by about 3x, at the
   price of roughly 2x slower structural operations on individual entities.
+- Adds the `boxed` keyword argument to the world constructor, which keeps the component
+  storages in a `Vector{Any}` instead of a tuple, so that the world builds and registers
+  them in a runtime loop rather than with one specialized call per component type. It cuts
+  the compilation cost of world construction, at the price of a type check on each storage
+  access. It composes with `erased`, and like it, only pays off for worlds with many
+  component types.
 
 ### Breaking changes
 
@@ -25,6 +31,9 @@
 - Operations executed on the CPU with a GPU storage are almost overhead-less in respect to
   CPU only storage (#701).
 - Compile time performance is improved through a better internal specialization mechanism (#662).
+- Component registration no longer compiles one `Dict` insertion per component type during
+  world construction. The `@nospecialize` that was meant to prevent it was being undone by
+  inlining. Saves about 2.5 seconds of compile time for a world with 300 component types.
 - Getting components performance improved by 10% (#664).
 
 ## [[v0.5.1]](https://github.com/ark-ecs/Ark.jl/compare/v0.5.0...v0.5.1)
