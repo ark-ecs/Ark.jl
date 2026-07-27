@@ -2196,6 +2196,7 @@ end
             throw(ArgumentError(lazy"entity has no $(types[i]) component"))
         end
     end
+    throw(ArgumentError(lazy"entity has no required component"))
 end
 
 @generated function _get_components(
@@ -2270,9 +2271,9 @@ end
     query_mask, _ = _query_mask(Storage, types)
     push!(exprs, :(
         @inbounds begin
-            index = world_state._entities[entity._id]
-            return _contains_all(world_state._table_masks[index.table], $query_mask)
-        end
+        index = world_state._entities[entity._id]
+        return _contains_all(world_state._table_masks[index.table], $query_mask)
+    end
     ))
 
     return quote
