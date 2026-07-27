@@ -37,7 +37,11 @@ end
 
 function _new_component_storage(::Type{S}, ::Type{C}) where {S<:Storage,C}
     empty_column = _new_storage(S, C)
-    return _ComponentStorage{C,typeof(empty_column)}([empty_column], empty_column)
+    return _ComponentStorage{C,typeof(empty_column)}(typeof(empty_column)[], empty_column)
+end
+
+@inline function _column_or_empty(s::_ComponentStorage{C,A}, table::Integer) where {C,A<:AbstractArray}
+    return table <= length(s.data) ? (@inbounds s.data[table]) : s.empty_column
 end
 
 """
@@ -93,20 +97,6 @@ end
     s::_ComponentStorage{C,A},
     arch::UInt32,
     row::UInt32,
-    ::Val{false},
-) where {C,A<:AbstractArray}
-    @inbounds col = s.data[arch]
-    if col === s.empty_column
-        throw(ArgumentError(lazy"entity has no $C component"))
-    end
-    return @inbounds col[row]
-end
-
-@inline function _get_component(
-    s::_ComponentStorage{C,A},
-    arch::UInt32,
-    row::UInt32,
-    ::Val{true},
 ) where {C,A<:AbstractArray}
     return @inbounds s.data[arch][row]
 end
@@ -116,21 +106,6 @@ end
     arch::UInt32,
     row::UInt32,
     value::C,
-    ::Val{false},
-) where {C,A<:AbstractArray}
-    @inbounds col = s.data[arch]
-    if length(col) == 0
-        throw(ArgumentError(lazy"entity has no $C component"))
-    end
-    return @inbounds col[row] = value
-end
-
-@inline function _set_component!(
-    s::_ComponentStorage{C,A},
-    arch::UInt32,
-    row::UInt32,
-    value::C,
-    ::Val{true},
 ) where {C,A<:AbstractArray}
     return @inbounds s.data[arch][row] = value
 end
@@ -146,25 +121,46 @@ end
     end
 end
 
-function _add_column!(storage::_ComponentStorage)
-    push!(storage.data, storage.empty_column)
+@noinline function _instantiate_column!(storage::_ComponentStorage{C,A}, table::Int) where {C,A<:AbstractArray}
+    data = storage.data
+    old_len = length(data)
+    if table > old_len
+        resize!(data, table)
+        @inbounds for i in (old_len+1):table
+            data[i] = storage.empty_column
+        end
+    end
+    col = _new_storage_column(C, A)
+    @inbounds data[table] = col
+    return col
+end
+
+@inline function _column_for_write!(storage::_ComponentStorage{C,A}, table::Integer) where {C,A<:AbstractArray}
+    data = storage.data
+    if table > length(data)
+        return _instantiate_column!(storage, Int(table))
+    end
+    @inbounds col = data[table]
+    return col
 end
 
 function _activate_column!(storage::_ComponentStorage{C,A}, arch::Int, cap::Int) where {C,A<:AbstractArray}
-    @inbounds if storage.data[arch] === storage.empty_column
-        storage.data[arch] = _new_storage_column(C, A)
-    end
-    @inbounds sizehint!(storage.data[arch], cap)
+    sizehint!(_column_for_write!(storage, arch), cap)
+    return
 end
 
 function _clear_column!(storage::_ComponentStorage{C,A}, arch::UInt32) where {C,A<:AbstractArray}
-    @inbounds if storage.data[arch] !== storage.empty_column
-        empty!(storage.data[arch])
+    if arch <= length(storage.data)
+        @inbounds col = storage.data[arch]
+        if col !== storage.empty_column
+            empty!(col)
+        end
     end
+    return
 end
 
 function _ensure_column_size!(storage::_ComponentStorage{C,A}, arch::UInt32, needed::Int) where {C,A<:AbstractArray}
-    @inbounds col = storage.data[arch]
+    col = _column_for_write!(storage, arch)
     if length(col) < needed
         resize!(col, needed)
     end
