@@ -2191,11 +2191,8 @@ end
     ids::Vector{Int},
     types::Vector{DataType},
 )
-    for i in eachindex(ids)
-        if !_get_bit(entity_mask, ids[i])
-            throw(ArgumentError(lazy"entity has no $(types[i]) component"))
-        end
-    end
+    i = findfirst(id -> !_get_bit(entity_mask, id), ids)::Int
+    throw(ArgumentError(lazy"entity has no $(types[i]) component"))
 end
 
 @generated function _get_components(
