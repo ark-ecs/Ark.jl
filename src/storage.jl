@@ -92,9 +92,6 @@ end
         return _instantiate_column!(storage, Int(table))
     end
     @inbounds col = data[table]
-    if col === storage.empty_column
-        return _instantiate_column!(storage, Int(table))
-    end
     return col
 end
 
