@@ -80,6 +80,7 @@ mutable struct _WorldState{M,K}
     const _archetypes_hot::Vector{_ArchetypeHot{M}}
     const _relation_archetypes::Vector{UInt32}
     const _tables::Vector{_Table}
+    const _table_masks::Vector{_Mask{M}}
     const _last_table::_LastTable{M}
     const _index::_ComponentIndex{M}
     const _registry::_ComponentRegistry
@@ -982,6 +983,7 @@ end
             [_ArchetypeHot(node, UInt32(1))],
             Vector{UInt32}(),
             [_new_table(UInt32(1), UInt32(1), 0, _empty_relations)],
+            _Mask{$M}[$start_mask],
             _LastTable{$M}(_Mask{$M}(), UInt32(1)),
             _ComponentIndex{$(M)}($(length(types))),
             registry,
@@ -1293,8 +1295,8 @@ function _create_table!(
     new_table_id = length(state._tables) + 1
     table = _new_table(UInt32(new_table_id), arch.id, state._initial_capacity, relations)
     push!(state._tables, table)
+    push!(state._table_masks, arch.node.mask)
 
-    _push_empty_to_all_storages!(stores)
     for comp in arch.components
         _activate_new_column_for_comp!(stores, comp, new_table_id, state._initial_capacity)
     end
@@ -2167,13 +2169,39 @@ end
     end
 end
 
+function _query_mask(::Type{Storage}, types::Vector{DataType}) where {Storage<:_WorldStorage}
+    CS = _schema_storage_types(Storage)
+    ids = Int[_component_index(CS, T) for T in types]
+    M = max(1, cld(fieldcount(CS), 64))
+    return _Mask{M}(ids...), ids
+end
+
+function _mask_presence_check_expr(::Type{Storage}, types::Vector{DataType}) where {Storage<:_WorldStorage}
+    query_mask, ids = _query_mask(Storage, types)
+    return quote
+        @inbounds entity_mask = world_state._table_masks[idx.table]
+        if !_contains_all(entity_mask, $query_mask)
+            _throw_missing_component(entity_mask, $ids, $types)
+        end
+    end
+end
+
+@noinline function _throw_missing_component(
+    entity_mask::_Mask,
+    ids::Vector{Int},
+    types::Vector{DataType},
+)
+    i = findfirst(id -> !_get_bit(entity_mask, id), ids)::Int
+    throw(ArgumentError(lazy"entity has no $(types[i]) component"))
+end
+
 @generated function _get_components(
     world_state::_WorldState,
-    stores::_WorldStorage,
+    stores::Storage,
     entity::Entity,
     ::TS,
     ::Val{Unchecked},
-) where {TS<:Tuple,Unchecked}
+) where {Storage<:_WorldStorage,TS<:Tuple,Unchecked}
     types = _to_types(TS)
     _check_no_duplicates(types)
 
@@ -2193,13 +2221,17 @@ end
 
     push!(exprs, :(@inbounds idx = world_state._entities[entity._id]))
 
+    if !Unchecked
+        push!(exprs, _mask_presence_check_expr(Storage, types))
+    end
+
     for i in 1:length(types)
         T = types[i]
         stor_sym = Symbol("stor", i)
         val_sym = Symbol("v", i)
 
         push!(exprs, :($(stor_sym) = _get_storage(stores, $T)))
-        push!(exprs, :($(val_sym) = _get_component($(stor_sym), idx.table, idx.row, $(Val(Unchecked)))))
+        push!(exprs, :($(val_sym) = _get_component($(stor_sym), idx.table, idx.row)))
     end
 
     vals = Symbol[Symbol("v", i) for i in 1:length(types)]
@@ -2232,37 +2264,13 @@ end
         ))
     end
 
-    if length(types) >= 3
-        CS = _schema_storage_types(Storage)
-        ids = tuple(Int[_component_index(CS, T) for T in types]...)
-        M = max(1, cld(fieldcount(CS), 64))
-        query_mask = _Mask{M}(ids...)
-
-        push!(exprs, :(
-            @inbounds begin
-            index = world_state._entities[entity._id]
-            table = world_state._tables[index.table]
-            arch_hot = world_state._archetypes_hot[table.archetype]
-        end
-        ))
-        push!(exprs, :(return _contains_all(arch_hot.mask, $query_mask)))
-    else
-        push!(exprs, :(@inbounds index = world_state._entities[entity._id]))
-        for i in 1:length(types)
-            T = types[i]
-            stor_sym = Symbol("stor", i)
-            col_sym = Symbol("col", i)
-
-            push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-            push!(exprs, :(@inbounds $col_sym = $stor_sym.data[index.table]))
-            push!(exprs, :(
-                if length($col_sym) == 0
-                    return false
-                end
-            ))
-        end
-        push!(exprs, :(return true))
+    query_mask, _ = _query_mask(Storage, types)
+    push!(exprs, :(
+        @inbounds begin
+        index = world_state._entities[entity._id]
+        return _contains_all(world_state._table_masks[index.table], $query_mask)
     end
+    ))
 
     return quote
         $(exprs...)
@@ -2271,12 +2279,12 @@ end
 
 @generated function _set_components!(
     world_state::_WorldState,
-    stores::_WorldStorage,
+    stores::Storage,
     entity::Entity,
     ::Val{TS},
     values::Tuple,
     ::Val{Unchecked},
-) where {TS<:Tuple,Unchecked}
+) where {Storage<:_WorldStorage,TS<:Tuple,Unchecked}
     types = _to_types(fieldtypes(TS))
     _check_no_duplicates(types)
 
@@ -2290,13 +2298,17 @@ end
     end
     push!(exprs, :(@inbounds idx = world_state._entities[entity._id]))
 
+    if !Unchecked
+        push!(exprs, _mask_presence_check_expr(Storage, types))
+    end
+
     for i in 1:length(types)
         T = types[i]
         stor_sym = Symbol("stor", i)
         val_expr = :(values.$i)
 
         push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-        push!(exprs, :(_set_component!($stor_sym, idx.table, idx.row, $val_expr, $(Val(Unchecked)))))
+        push!(exprs, :(_set_component!($stor_sym, idx.table, idx.row, $val_expr)))
     end
 
     push!(exprs, Expr(:return, :values))
@@ -2654,15 +2666,6 @@ function _do_emit_event!(world_state::_WorldState, event::Event, mask::_Mask, ha
         throw(ArgumentError("entity does not have all components of the event emitted for it"))
     end
     return _fire_custom_event(world_state._event_manager, event, entity, mask, entity_mask)
-end
-
-@generated function _push_empty_to_all_storages!(stores::_WorldStorage{CS}) where {CS<:Tuple}
-    n = fieldcount(CS)
-    exprs = Expr[]
-    for i in 1:n
-        push!(exprs, :(_add_column!(stores._storages.$i)))
-    end
-    return Expr(:block, exprs...)
 end
 
 @generated function _activate_new_column_for_comp!(

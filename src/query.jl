@@ -349,7 +349,11 @@ end
         col_sym = Symbol("col", i)
         vec_sym = Symbol("vec", i)
         push!(exprs, :(@inbounds $stor_sym = q._storages[$i]))
-        push!(exprs, :(@inbounds $col_sym = $stor_sym.data[table.id]))
+        if _get_bit(OF, i)
+            push!(exprs, :($col_sym = _column_or_empty($stor_sym, table.id)))
+        else
+            push!(exprs, :(@inbounds $col_sym = $stor_sym.data[table.id]))
+        end
 
         view_expr = if storage_array_types[i] <: GPUVector
             :(_gpuvector_view($col_sym, 1:($col_sym).len))

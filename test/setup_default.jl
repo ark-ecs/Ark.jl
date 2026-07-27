@@ -1,7 +1,7 @@
 
 function _storage_from_component(world, comp)
-    i = findfirst(x -> first(x.data) isa AbstractArray{comp}, _storage(world)._storages)
-    return typeof(first(_storage(world)._storages[i].data))
+    i = findfirst(x -> x.empty_column isa AbstractArray{comp}, _storage(world)._storages)
+    return typeof(_storage(world)._storages[i].empty_column)
 end
 
 const N_fake = 0
