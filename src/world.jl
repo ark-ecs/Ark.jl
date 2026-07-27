@@ -2183,7 +2183,6 @@ function _mask_presence_check_expr(::Type{Storage}, types::Vector{DataType}) whe
         if !_contains_all(entity_mask, $query_mask)
             _throw_missing_component(entity_mask, $ids, $types)
         end
-        return nothing
     end
 end
 
