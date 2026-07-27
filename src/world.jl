@@ -2196,7 +2196,6 @@ end
             throw(ArgumentError(lazy"entity has no $(types[i]) component"))
         end
     end
-    throw(ArgumentError(lazy"entity has no required component"))
 end
 
 @generated function _get_components(
