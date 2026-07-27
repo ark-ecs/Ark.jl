@@ -2178,23 +2178,13 @@ end
 
 function _mask_presence_check_expr(::Type{Storage}, types::Vector{DataType}) where {Storage<:_WorldStorage}
     query_mask, ids = _query_mask(Storage, types)
-    return :(_check_has_components(
-        world_state, idx, $query_mask, $(ids), $(types),
-    ))
-end
-
-@inline function _check_has_components(
-    world_state::_WorldState,
-    idx::_EntityIndex,
-    query_mask::_Mask,
-    ids::Vector{Int},
-    types::Vector{DataType},
-)
-    @inbounds entity_mask = world_state._table_masks[idx.table]
-    if !_contains_all(entity_mask, query_mask)
-        _throw_missing_component(entity_mask, ids, types)
+    return quote
+        @inbounds entity_mask = world_state._table_masks[idx.table]
+        if !_contains_all(entity_mask, $query_mask)
+            _throw_missing_component(entity_mask, $ids, $types)
+        end
+        return nothing
     end
-    return nothing
 end
 
 @noinline function _throw_missing_component(
@@ -2313,7 +2303,7 @@ end
     end
     push!(exprs, :(@inbounds idx = world_state._entities[entity._id]))
 
-    if !Unchecked && !isempty(types)
+    if !Unchecked
         push!(exprs, _mask_presence_check_expr(Storage, types))
     end
 
