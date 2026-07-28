@@ -65,7 +65,7 @@ end
     for i in 1:M
         push!(exprs, :(((mask1.bits[$i] & mask2.bits[$i]) == mask2.bits[$i])))
     end
-    return Expr(:call, :&, exprs...)
+    return foldl((x, y) -> Expr(:call, :&, x, y), exprs)
 end
 
 @generated function _contains_any(mask1::_Mask{M}, mask2::_Mask{M})::Bool where {M}
@@ -73,7 +73,7 @@ end
     for i in 1:M
         push!(exprs, :(((mask1.bits[$i] & mask2.bits[$i]) != UInt64(0))))
     end
-    return Expr(:call, :|, exprs...)
+    return foldl((x, y) -> Expr(:call, :|, x, y), exprs)
 end
 
 @generated function _and(a::_Mask{M}, b::_Mask{M})::_Mask{M} where M
@@ -166,7 +166,7 @@ end
     for i in 1:M
         push!(exprs, :(((mask1.bits[$i] & mask2.bits[$i]) == mask2.bits[$i])))
     end
-    return Expr(:call, :&, exprs...)
+    return foldl((x, y) -> Expr(:call, :&, x, y), exprs)
 end
 
 @generated function _contains_any(mask1::_Mask{M}, mask2::_MutableMask{M})::Bool where {M}
@@ -174,7 +174,7 @@ end
     for i in 1:M
         push!(exprs, :(((mask1.bits[$i] & mask2.bits[$i]) != UInt64(0))))
     end
-    return Expr(:call, :|, exprs...)
+    return foldl((x, y) -> Expr(:call, :|, x, y), exprs)
 end
 
 function _set_mask!(mask::_MutableMask, other::_Mask)
@@ -192,7 +192,7 @@ end
     for i in 1:M
         push!(exprs, :((mask1.bits[$i] == mask2.bits[$i])))
     end
-    return Expr(:call, :&, exprs...)
+    return foldl((x, y) -> Expr(:call, :&, x, y), exprs)
 end
 
 function _Mask(mask::_MutableMask)
@@ -239,5 +239,5 @@ end
     for i in 1:M
         push!(exprs, :(count_ones(mask.bits[$i])))
     end
-    return Expr(:call, :+, exprs...)
+    return foldl((x, y) -> Expr(:call, :+, x, y), exprs)
 end
