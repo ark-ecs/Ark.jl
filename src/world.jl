@@ -68,8 +68,8 @@ function _WorldPool{M}() where {M}
     )
 end
 
-struct _WorldStorage{CS<:Tuple,RT}
-    _storages::CS
+mutable struct _WorldStorage{CS<:Tuple,RT}
+    const _storages::CS
 end
 
 mutable struct _WorldState{M,K}
