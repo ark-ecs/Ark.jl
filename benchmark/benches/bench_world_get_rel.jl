@@ -1,6 +1,6 @@
 
 function setup_world_get_rel(n_entities::Int)
-    world = World(Position, Relation{ChildOf}; mode=:erased,)
+    world = World(Position, Relation{ChildOf})
     parent = new_entity!(world, ())
 
     entities = Vector{Entity}()

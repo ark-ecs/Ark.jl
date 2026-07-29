@@ -49,72 +49,30 @@ World(entities=0, comp_types=(Position, Velocity))
 
 ## World modes
 
-The keyword argument `mode` selects how much code Ark generates per component type. The three
-modes form a ladder, each erasing strictly more than the one before it:
+The keyword argument `mode` selects how much code Ark generates per component type.
 
 | `mode` | generated per component type |
 |:--|:--|
-| `:monomorphic` (default) | a specialized copy of every structural operation |
-| `:erased` | the selection of a storage only, as a single trivial branch |
+| `:specialized` (default) | a specialized copy of every structural operation |
 | `:boxed` | nothing at all |
 
-Queries and iteration are statically typed in every mode.
-
-### Erased dispatch
-
-By default Ark resolves the component of a structural operation by generating one branch per
-component type, each holding a copy of the operation specialized for that component. This is
-what makes structural operations fast, but the size of the generated code grows with the
-number of component types a world declares, and so does the time spent compiling it.
-
-For worlds with many component types, `mode=:erased` routes those operations through
-type-erased calls instead. The generated code then no longer depends on the number of
-component types, and each per-component call is compiled only when it is first used.
-
-```jldoctest world; output = false
-world = World(Position, Velocity; mode=:erased)
-
-# output
-
-World(entities=0, comp_types=(Position, Velocity))
-```
-
-The effect grows with the number of component types: `:monomorphic` compiles
-super-linearly, while the erased dispatch stays close to linear.
-
-```@raw html
-<img src="../assets/images/bench_erased_compile_light.svg" class="only-light" alt="Compile time: default vs erased dispatch" />
-<img src="../assets/images/bench_erased_compile_dark.svg" class="only-dark" alt="Compile time: default vs erased dispatch" />
-```
-*First-call compile time of the structural operations as the number of component types grows.
-Below a few dozen component types the erased dispatch is slightly slower to compile; above
-that its advantage widens quickly. World construction is measured separately, in the
-[boxed storage](@ref Boxed-storage) section, since it is what the next step addresses.*
-
-This is a trade-off, not a free improvement:
-
-  - Compilation cost of structural operations grows super-linearly with the number of
-    component types under `:monomorphic`, but stays close to linear when erased. The mode
-    pays off for worlds with a few dozen component types and above.
-  - Structural operations on individual entities (adding and removing components, creating
-    and removing entities, copying entities, shuffling) become roughly 2x slower.
-  - Queries, batch operations and sorting are unaffected, as they operate per archetype
-    column rather than per entity.
-
-Stay on `:monomorphic` unless compile time is a problem, and measure both before committing
-to another mode.
+Queries and iteration are statically typed in both modes.
 
 ### Boxed storage
 
-`:erased` addresses the code that *operates* on the component storages. The storages
-themselves are still held in a tuple, and a tuple can only be built by code that names every
-element, so world construction keeps one specialized call per component type in a single
-method. That method is the most expensive thing Ark compiles for a large schema.
+By default Ark resolves the component of a structural operation by generating one branch per
+component type, each holding a copy of the operation specialized for that component, and
+holds the component storages in a tuple. That is what makes structural operations fast, but
+both grow with the number of component types a world declares, and so does the time spent
+compiling them. A tuple can only be built by code that names every element, so world
+construction also keeps one specialized call per component type in a single method - the
+most expensive thing Ark compiles for a large schema.
 
-`mode=:boxed` keeps the storages in a `Vector{Any}` instead. The types are then carried as
-values rather than as static arguments, so the world creates and registers its storages in a
-runtime loop, and the size of the world constructor no longer depends on the number of
-component types.
+`mode=:boxed` removes both. Structural operations are routed through type-erased calls, each
+compiled only when it is first used, and the storages are kept in a `Memory{Any}` whose types
+are carried as values rather than as static arguments, so the world creates and registers its
+storages in a runtime loop. No generated code is left that depends on the number of component
+types, in the operations or in the constructor.
 
 ```jldoctest world; output = false
 world = World(Position, Velocity; mode=:boxed)
@@ -124,14 +82,17 @@ world = World(Position, Velocity; mode=:boxed)
 World(entities=0, comp_types=(Position, Velocity))
 ```
 
-`:boxed` builds on `:erased` rather than being an independent knob: it keeps the erased
-dispatch and additionally removes the last piece of generated code that grows with the
-schema, which is the switch that maps a component id to its storage. That leaves no
-per-component generated code anywhere.
+The effect grows with the number of component types: `:specialized` compiles super-linearly,
+both in the structural operations and in world construction, while `:boxed` stays close to
+linear in each.
 
-The effect is on world construction, which the erased dispatch leaves untouched: it grows
-super-linearly with the number of component types when the storages are held in a tuple, and
-close to linearly when they are boxed.
+```@raw html
+<img src="../assets/images/bench_erased_compile_light.svg" class="only-light" alt="Compile time of the structural operations" />
+<img src="../assets/images/bench_erased_compile_dark.svg" class="only-dark" alt="Compile time of the structural operations" />
+```
+*First-call compile time of the structural operations as the number of component types grows.
+Below a few dozen component types `:boxed` is slightly slower to compile; above that its
+advantage widens quickly.*
 
 ```@raw html
 <img src="../assets/images/bench_boxed_ctor_light.svg" class="only-light" alt="Compile time of world construction" />
@@ -144,18 +105,22 @@ constructor is by far the largest method Ark compiles for a big schema.
 
 This is a trade-off, not a free improvement:
 
-  - Compiling the world constructor gets much cheaper, but the per-component storage
-    constructors do not disappear, they are merely compiled separately. The saving is in the
-    super-linear term, so it grows with the number of component types and is small below a
-    few hundred of them.
+  - Compilation of both the structural operations and the world constructor gets much
+    cheaper, but the per-component work does not disappear, it is merely compiled separately
+    and on demand. The saving is in the super-linear term, so it grows with the number of
+    component types and is small below a few dozen of them.
+  - Structural operations on individual entities (adding and removing components, creating
+    and removing entities, copying entities, shuffling) become roughly 2x slower, because each
+    one dispatches through a wrapper per component instead of an inlined branch.
   - Reading a storage costs a type check, since its type has to be restored from the
-    `Vector{Any}`. This is a tag comparison and a load, and it does not allocate: a storage is
-    boxed once at world creation and never replaced. Queries are unaffected, as they resolve
-    their storages once when the query is created.
-  - Structural operations compile slightly more code per call site than in a tuple world.
+    `Memory{Any}`. This is a tag comparison and a load, and it does not allocate: a storage is
+    boxed once at world creation and never replaced. Reading several components of one entity
+    at a time - `world[entity][(Position, Velocity)]` - is where this is most visible.
+  - Queries, batch operations and sorting are unaffected, as they resolve their storages once
+    per table and then operate per archetype column rather than per entity.
 
-Stay on `:erased` or `:monomorphic` unless world-construction compile time is a problem, and
-measure before committing to `:boxed`.
+Stay on `:specialized` unless compile time is a problem, and measure before committing to
+`:boxed`.
 
 ## World reset
 

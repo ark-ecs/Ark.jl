@@ -2,7 +2,7 @@
 function setup_world_new_entity_1_soa(n::Int)
     world = World(
         Position => Storage{StructArray},
-        Velocity => Storage{StructArray}; mode=:erased,
+        Velocity => Storage{StructArray},
     )
 
     # Run once to allocate memory

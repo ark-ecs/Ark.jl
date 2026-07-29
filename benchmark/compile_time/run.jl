@@ -2,11 +2,10 @@
 # world modes at each point (one fresh worker process per point, so every measurement is a
 # cold compile), writes a CSV, and renders the light/dark figures used in the docs.
 #
-# The world modes form a ladder of how much code Ark generates per component type:
-# `:monomorphic` emits a specialized copy of every structural operation, `:erased` keeps only
-# a generated storage selection, `:boxed` keeps none at all. The steps show up in different
-# columns - erasing the operations in their compile time, boxing the storages in the cost of
-# world construction and in memory - which is why all three are plotted.
+# The world modes trade generated code for compile time: `:specialized` emits a specialized
+# copy of every structural operation per component type, `:boxed` emits none at all. The two
+# effects show up in different columns - the operations in their compile time, world
+# construction and memory in theirs - which is why both are plotted.
 #
 # Not meant for CI - it is a one-off used to (re)generate the docs figures.
 #
@@ -29,12 +28,10 @@ const K_SITES = 1
 # plot labels cannot drift from what was actually measured.
 const N_ENTITIES = 10_000
 
-# The three world modes. Colour separates monomorphic from erased dispatch, line style marks
-# the boxed storages on top of it, so each step of the ladder stays readable.
+# The two world modes.
 const MODES = (
-    (mode="monomorphic", label="monomorphic", color=:monomorphic, style=:solid, marker=:circle),
-    (mode="erased", label="erased", color=:erased, style=:solid, marker=:circle),
-    (mode="boxed", label="boxed", color=:erased, style=:dash, marker=:diamond),
+    (mode="specialized", label="specialized", color=:specialized, style=:solid, marker=:circle),
+    (mode="boxed", label="boxed", color=:boxed, style=:solid, marker=:diamond),
 )
 
 const OUT_DIR = joinpath(REPO, "docs", "src", "assets", "images")
@@ -46,12 +43,12 @@ const PARTIAL_CSV_PATH = joinpath(HERE, "compile_time.partial.csv")
 # A worker that overflows the compiler's stack does not always die: Julia prints its
 # "detected a stack overflow" warning and the process can wedge instead of exiting, at which
 # point reading its output blocks forever and the sweep stalls. Generous enough that a real
-# measurement is never cut short - the slowest legitimate point so far is `:monomorphic` at
+# measurement is never cut short - the slowest legitimate point so far is `:specialized` at
 # N=3000, about eight minutes of compilation - and short enough that a wedge does not cost an
 # afternoon.
 const WORKER_TIMEOUT = 30 * 60
 
-# Compiling the `:monomorphic` switches costs C stack roughly linearly in the number of
+# Compiling the `:specialized` switches costs C stack roughly linearly in the number of
 # component types - measured peak stack is 1.2MB at N=500, 8.5MB at N=2500, 11.7MB at N=3000,
 # about 7kB per component. That crosses the usual 8MB soft limit somewhere around N=2400,
 # which makes the sweep unreliable long before it is genuinely out of road: N=2000 and N=2500
@@ -95,10 +92,10 @@ function collect_data()
         Tuple{Int,String,Float64,Float64,Float64,Float64,Float64},
     }[]
     # A mode that has already taken a worker down is dropped from the rest of the sweep. Past
-    # a few thousand component types `:monomorphic` emits one branch per component in every
+    # a few thousand component types `:specialized` emits one branch per component in every
     # structural operation, and compiling that overflows the compiler's own stack - the worker
     # either dies with "detected a stack overflow" or wedges and is killed by the watchdog.
-    # That is the wall the erased modes exist to remove, so it is a result rather than a
+    # That is the wall the boxed mode exists to remove, so it is a result rather than a
     # failure; the point is just missing from the plot. Retrying the same mode at a larger N
     # would only burn half an hour to die again.
     failed = Set{String}()
@@ -150,8 +147,8 @@ function _style!(dark::Bool)
     default(guidefont=font(family, 11, color=fg))
     default(titlefont=font(family, 12, color=fg))
     return (
-        monomorphic=dark ? "#e74c3c" : "#c0392b",
-        erased=dark ? "#1abc9c" : "#2e63b8",
+        specialized=dark ? "#e74c3c" : "#c0392b",
+        boxed=dark ? "#1abc9c" : "#2e63b8",
     )
 end
 

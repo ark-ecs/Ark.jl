@@ -1,6 +1,6 @@
 
 @testset "Erased dispatch flag" begin
-    world = World(Position, Velocity; mode=:erased)
+    world = World(Position, Velocity; mode=:boxed)
     @test Ark._is_erased(typeof(_storage(world)))
     @test !Ark._is_erased(typeof(_storage(World(Position, Velocity))))
 end
@@ -45,12 +45,12 @@ end
         return log
     end
 
-    @test run_ops!(World(Position, Velocity, Health; mode=:erased)) ==
+    @test run_ops!(World(Position, Velocity, Health; mode=:boxed)) ==
           run_ops!(World(Position, Velocity, Health))
 end
 
 @testset "Erased dispatch with relations" begin
-    world = World(Position, Relation{ChildOf}; mode=:erased)
+    world = World(Position, Relation{ChildOf}; mode=:boxed)
     parent = new_entity!(world, (Position(0, 0),))
     child = new_entity!(world, (Position(1, 1), ChildOf() => parent))
 

@@ -1,6 +1,6 @@
 
 function setup_world_new_entity_5(n::Int)
-    world = World(Position, Velocity, CompA, CompB, CompC; mode=:erased,)
+    world = World(Position, Velocity, CompA, CompB, CompC)
 
     # Run once to allocate memory
     entities = Vector{Entity}()

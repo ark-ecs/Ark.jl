@@ -1,6 +1,6 @@
 
 function setup_query_create(n)
-    world = World(Position, Velocity; mode=:erased)
+    world = World(Position, Velocity)
 
     for i in 1:n
         query = Query(world, (Position, Velocity))

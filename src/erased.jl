@@ -6,7 +6,7 @@
 # resulting code is optimal, but its size grows with the number of component types, and
 # compiling it dominates latency for worlds that declare many components.
 #
-# A world created with `mode=:erased` routes those operations through vectors of
+# A world created with `mode=:boxed` routes those operations through vectors of
 # `FunctionWrapper`s instead - one wrapper per component storage - so the size of the
 # generated code no longer depends on the number of component types. Wrappers are built
 # lazily, per operation and per component, so a world only ever compiles the combinations
@@ -72,22 +72,12 @@ end
 (op::_PermuteCycleOp)(table::UInt32, entities::Entities, entity_index::Vector{_EntityIndex}, start::Int) =
     _permute_component_cycle!(op.storage, table, entities, entity_index, start)
 
-# Uniform construction from both halves, so `_build_erased!` does not need to know which
-# operations use which.
 _MoveDataOp(cols, _empty) = _MoveDataOp(cols)
 _CopyDataToEndOp(cols, _empty) = _CopyDataToEndOp(cols)
 _RemoveDataOp(cols, _empty) = _RemoveDataOp(cols)
 _SwapDataOp(cols, _empty) = _SwapDataOp(cols)
 _PermuteCycleOp(cols, _empty) = _PermuteCycleOp(cols)
 
-"""
-    _ErasedDispatch
-
-Per-operation tables of type-erased calls into the component storages of a world.
-
-Each vector has one slot per component, indexed by component id. Slots start out undefined
-and are filled on first use.
-"""
 struct _ErasedDispatch
     activate_column::Vector{_FW_ActivateColumn}
     ensure_column_size::Vector{_FW_EnsureColumnSize}
@@ -118,14 +108,6 @@ function _ErasedDispatch(n::Int)
     )
 end
 
-# The single point where a component id selects one component's entry out of a container -
-# used for both halves of the storages, columns and empty columns. Returning a boxed entry keeps
-# this the only piece of generated code that grows with the number of component types, and
-# its branches are trivial compared to a full operation per branch.
-#
-# A boxed world needs no generated code here at all: its storages are already boxed, so the
-# id is just an index. This is the one place where the two modes compose - `erased` on a
-# boxed world leaves no per-component generated code anywhere.
 @inline function _storage_at(storages::Memory{Any}, comp::Int)
     if comp < 1 || comp > length(storages)
         throw(ArgumentError(lazy"no component with id $comp in the World"))
@@ -142,9 +124,6 @@ end
     end
 end
 
-# Compiles one wrapper, for one operation on one component storage. This is the whole
-# point of the mode: it is reached at most once per (operation, component) pair, and what
-# it compiles does not depend on the number of component types.
 @noinline function _build_erased!(v::Vector{FW}, comp::Int, stores, op::F) where {FW<:FunctionWrapper,F}
     @inbounds v[comp] = FW(op(_storage_at(stores._storages, comp), _storage_at(stores._empty_storages, comp)))
     return nothing

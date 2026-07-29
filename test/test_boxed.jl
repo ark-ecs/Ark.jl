@@ -2,28 +2,22 @@
 @testset "Boxed storage flag" begin
     world = World(Position, Velocity; mode=:boxed)
     @test Ark._is_boxed(typeof(_storage(world)))
-    # `Ark.Memory` is aliased to `Vector` for Julia < 1.11, so this holds on either.
+
     @test _storage(world)._storages isa Ark.Memory{Any}
     @test _storage(world)._empty_storages isa Ark.Memory{Any}
     @test !Ark._is_boxed(typeof(_storage(World(Position, Velocity))))
     @test _storage(World(Position, Velocity))._storages isa Tuple
 
-    # The modes are a ladder: each one erases strictly more than the one before it, so
-    # `:boxed` implies erased dispatch and the two flags are never set independently.
-    mono = _storage(World(Position, Velocity; mode=:monomorphic))
+    mono = _storage(World(Position, Velocity; mode=:specialized))
     @test !Ark._is_erased(typeof(mono)) && !Ark._is_boxed(typeof(mono))
-
-    erased = _storage(World(Position, Velocity; mode=:erased))
-    @test Ark._is_erased(typeof(erased)) && !Ark._is_boxed(typeof(erased))
 
     boxed = _storage(World(Position, Velocity; mode=:boxed))
     @test Ark._is_erased(typeof(boxed)) && Ark._is_boxed(typeof(boxed))
 
-    # `:monomorphic` is the default.
     @test typeof(_storage(World(Position, Velocity))) === typeof(mono)
 
     @test_throws(
-        "invalid world mode :unboxed, must be one of :monomorphic, :erased or :boxed",
+        "invalid world mode :unboxed, must be one of :specialized or :boxed",
         World(Position, Velocity; mode=:unboxed))
 end
 
@@ -74,7 +68,6 @@ end
     end
 
     reference = run_ops!(World(Position, Velocity, Health))
-    @test run_ops!(World(Position, Velocity, Health; mode=:erased)) == reference
     @test run_ops!(World(Position, Velocity, Health; mode=:boxed)) == reference
 end
 
@@ -106,12 +99,6 @@ end
     end
 end
 
-# A boxed world reads its storages back out of a `Vector{Any}` with a type assertion. If one
-# of those assertions were ever dropped the code would still be correct, but it would fall
-# back to dynamic dispatch and start allocating - which is what these tests guard.
-# The component types have to be literals inside the callee: the public API takes them as a
-# tuple of types, so `@inferred` on a direct call would only see `Tuple{DataType}` and report
-# `Any` for every world, boxed or not.
 _boxed_get_position(world, entity) = get_components(world, entity, (Position,))
 _boxed_has_velocity(world, entity) = has_components(world, entity, (Velocity,))
 _boxed_add_velocity!(world, entity) = add_components!(world, entity, (Velocity(1, 2),))
@@ -132,7 +119,6 @@ _boxed_add_velocity!(world, entity) = add_components!(world, entity, (Velocity(1
         return nothing
     end
 
-    check_inference(World(Position, Velocity, Health; mode=:erased))
     check_inference(World(Position, Velocity, Health; mode=:boxed))
     check_inference(World(Position, Velocity, Health))
 end
@@ -168,7 +154,7 @@ end
         return total
     end
 
-    for kwargs in ((;), (; mode=:erased), (; mode=:boxed))
+    for kwargs in ((;), (; mode=:boxed))
         world = World(Position, Velocity, Health; kwargs...)
         for _ in 1:50
             new_entity!(world, (Position(1, 1),))

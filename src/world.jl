@@ -135,7 +135,7 @@ _schema_relation_types(::Type{<:_WorldStorage{CS,RT}}) where {CS,RT} =
     _is_erased(::Type{<:_WorldStorage})::Bool
 
 Whether the world dispatches per-component operations through type-erased calls instead of
-generating one branch per component type, as requested by the `erased` world argument.
+generating one branch per component type, which is what the `:boxed` mode asks for.
 """
 _is_erased(::Type{<:_WorldStorage{CS,RT,D}}) where {CS,RT,D} = D !== Nothing
 
@@ -199,21 +199,19 @@ end
 _storage(world::World) = getfield(world, :_stores)
 
 """
-    _mode_flags(mode::Symbol)::Tuple{Bool,Bool}
+    _mode_boxed(mode::Symbol)::Bool
 
-Resolves a world `mode` into the `(erased, boxed)` pair the internals are parameterized on.
+Resolves a world `mode` into the single flag the internals are parameterized on.
 
-The modes form a ladder rather than two independent knobs: boxed storages are only ever
-combined with erased dispatch, because generating one branch per component type only to
-recover the storage type from a `Vector{Any}` in each of them would pay both costs at once.
-Going through `mode` makes that combination unrepresentable instead of merely invalid.
+Boxed storages and type-erased dispatch are one step, not two knobs: generating one branch
+per component type only to recover the storage type from a `Memory{Any}` in each of them
+would pay both costs at once, so a world either generates per-component code or it does not.
 """
-function _mode_flags(mode::Symbol)
-    mode === :monomorphic && return (false, false)
-    mode === :erased && return (true, false)
-    mode === :boxed && return (true, true)
+function _mode_boxed(mode::Symbol)
+    mode === :specialized && return false
+    mode === :boxed && return true
     throw(ArgumentError(
-        lazy"invalid world mode $(repr(mode)), must be one of :monomorphic, :erased or :boxed",
+        lazy"invalid world mode $(repr(mode)), must be one of :specialized or :boxed",
     ))
 end
 
@@ -224,7 +222,7 @@ _state(world::World) = getfield(world, :_state)
         comp_types::Type...;
         initial_capacity::Int=16,
         allow_mutable::Bool=false,
-        mode::Symbol=:monomorphic,
+        mode::Symbol=:specialized,
     )
 
 Creates a new, empty [World](@ref) for the given component types.
@@ -247,15 +245,14 @@ and an initial capacity for entities in [archetypes](@ref Architecture).
     of structural operations for a lower compilation cost, and only pays off for worlds that
     declare many component types. Queries and iteration are statically typed in every mode.
 
-      + `:monomorphic` (default): emits one specialized copy of each structural operation per
+      + `:specialized` (default): emits one specialized copy of each structural operation per
         component type, selected by a runtime branch on the component id. Fastest structural
         operations, but the generated code — and the time to compile it — grows with the number
         of component types.
-      + `:erased`: routes structural operations through type-erased calls, so only the selection
-        of a storage is still generated per component type, as a single trivial branch.
-      + `:boxed`: as `:erased`, and additionally keeps the component storages in a `Vector{Any}`
-        instead of a tuple. That removes the last generated branch, leaving no per-component
-        generated code anywhere, at the price of a type check on each storage access.
+      + `:boxed`: routes structural operations through type-erased calls and keeps the component
+        storages in a `Memory{Any}` instead of a tuple. No per-component code is generated
+        anywhere, so compilation stops depending on how many component types a world declares,
+        at the price of a type check on each storage access.
 
 # Examples
 
@@ -290,21 +287,18 @@ function World(
     comp_types::Union{Type,Pair{<:Type,<:Type}}...;
     initial_capacity::Int=16,
     allow_mutable=false,
-    mode::Symbol=:monomorphic,
+    mode::Symbol=:specialized,
 )
     raw_types = map(arg -> arg isa Type ? arg : arg.first, comp_types)
     types = map(_unwrap_relation_type, raw_types)
     storages = map(arg -> arg isa Type ? Storage{Vector} : arg.second, comp_types)
     relation_types = map(_unwrap_relation_type, filter(_declares_relation, raw_types))
-    erased, boxed = _mode_flags(mode)
-
     _World_from_types(
         Val{Tuple{types...}}(),
         Val{Tuple{storages...}}(),
         Val{Tuple{relation_types...}}(),
         Val(allow_mutable),
-        Val(erased),
-        Val(boxed),
+        Val(_mode_boxed(mode)),
         initial_capacity,
     )
 end
@@ -1008,10 +1002,9 @@ end
     ::Val{StorageModes},
     ::Val{RelationTypes},
     ::Val{MUT},
-    ::Val{ERASED},
     ::Val{BOXED},
     initial_capacity::Int,
-) where {CS<:Tuple,StorageModes<:Tuple,RelationTypes<:Tuple,MUT,ERASED,BOXED}
+) where {CS<:Tuple,StorageModes<:Tuple,RelationTypes<:Tuple,MUT,BOXED}
     types = fieldtypes(CS)
     storage_val_types = fieldtypes(StorageModes)
     allow_mutable = MUT::Bool
@@ -1051,14 +1044,6 @@ end
         end
     end
 
-    # Storage type logic (based on resolved Val{...} types).
-    #
-    # These are resolved to types here, in the generator, rather than emitted as
-    # `_storage_type(mode, T)` expressions. Both spellings describe the same type, but the
-    # expression form leaves one `_storage_type` call per component type in the method body
-    # for inference to constant-fold, and the schema type appears twice, so it pays for that
-    # twice. Splicing the finished type instead makes it a single interned object no matter
-    # how many components the world declares.
     _storage_types = Vector{Any}(undef, length(types))
     storage_exprs = Vector{Expr}(undef, length(types))
 
@@ -1072,19 +1057,8 @@ end
         empty_exprs[i] = :(_new_component_empty($mode, $T))
     end
 
-    # Final type and value tuples
     storage_tuple_type = Tuple{_storage_types...}
-    boxed = BOXED::Bool
-    if boxed
-        # The whole point of the boxed mode: the storages are built by a runtime loop over a
-        # vector of types instead of by one inlined call per component type. A `Memory{Any}`
-        # is what makes that possible - a heterogeneous tuple can only be built by code that
-        # names every element, which is what makes this method grow with the schema. The
-        # container never changes length after construction, which is exactly what `Memory`
-        # is: one object holding the slots, rather than a `Vector`'s handle pointing at them.
-        # The types are recovered from the schema type parameters at run time. Listing them
-        # as literals instead would put a call with one argument per component type back into
-        # this method, which is exactly the cost the mode exists to avoid.
+    if BOXED
         storage_container_type = Memory{Any}
         empty_container_type = Memory{Any}
         storage_values = :(_new_columns_vector(_type_vector($StorageModes), _type_vector($CS)))
@@ -1096,10 +1070,7 @@ end
         empty_values = Expr(:tuple, empty_exprs...)
     end
 
-    # Component registration
-    if boxed
-        # `relation_indices` has one entry per relation, not per component, so listing it is
-        # cheap even for a large schema.
+    if BOXED
         id_tuple = :(_register_components!(
             registry,
             _type_vector($CS),
@@ -1111,7 +1082,7 @@ end
         id_tuple = Expr(:tuple, id_exprs...)
     end
 
-    if boxed
+    if BOXED
         relations_vec = :(_new_component_relations_vector(
             $(length(types)),
             $(Expr(:ref, :Int, relation_indices...)),
@@ -1125,10 +1096,8 @@ end
     relation_bits = _Mask{M}(relation_indices...).bits
     K = length(relation_indices)
     start_mask = _Mask{M}()
-    dispatch_type = (ERASED::Bool) ? _ErasedDispatch : Nothing
-    dispatch_expr = (ERASED::Bool) ? :(_ErasedDispatch($(length(types)))) : :(nothing)
-    # Built once here for the same reason: the world storage type is named twice in the body,
-    # and applying the curly in the body would rebuild it from its parameters each time.
+    dispatch_type = BOXED ? _ErasedDispatch : Nothing
+    dispatch_expr = BOXED ? :(_ErasedDispatch($(length(types)))) : :(nothing)
     world_storage_type = _WorldStorage{
         storage_tuple_type,relation_bits,dispatch_type,storage_container_type,empty_container_type,
     }

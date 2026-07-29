@@ -1,6 +1,6 @@
 
 function setup_query_posvel_fields(n_entities::Int)
-    world = World(Position, Velocity; mode=:erased)
+    world = World(Position, Velocity)
     for i in 1:n_entities
         new_entity!(world, (Position(i, i * 2), Velocity(1, 1)))
     end
