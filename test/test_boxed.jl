@@ -8,13 +8,13 @@
     @test !Ark._is_boxed(typeof(_storage(World(Position, Velocity; mode=:specialized))))
     @test _storage(World(Position, Velocity; mode=:specialized))._storages isa Tuple
 
-    mono = _storage(World(Position, Velocity; mode=:specialized))
-    @test !Ark._is_erased(typeof(mono)) && !Ark._is_boxed(typeof(mono))
+    mono = World(Position, Velocity; mode=:specialized)
+    @test !Ark._is_erased(typeof(_state(mono))) && !Ark._is_boxed(typeof(_storage(mono)))
 
-    boxed = _storage(World(Position, Velocity; mode=:boxed))
-    @test Ark._is_erased(typeof(boxed)) && Ark._is_boxed(typeof(boxed))
+    boxed = World(Position, Velocity; mode=:boxed)
+    @test Ark._is_erased(typeof(_state(boxed))) && Ark._is_boxed(typeof(_storage(boxed)))
 
-    @test typeof(_storage(World(Position, Velocity; mode=:specialized))) === typeof(mono)
+    @test typeof(_storage(World(Position, Velocity; mode=:specialized))) === typeof(_storage(mono))
 
     @test_throws(
         "invalid world mode :unboxed, must be one of :specialized or :boxed",

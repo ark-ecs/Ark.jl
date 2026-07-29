@@ -2,7 +2,7 @@ function setup_event_no_obs(n::Int)
     reg = EventRegistry()
     evt = new_event_type!(reg, :Event)
 
-    world = World(Position)
+    world = World(Position; mode=MODE)
 
     entities = Entity[]
     for _ in 1:n

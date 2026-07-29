@@ -89,6 +89,7 @@ function _sort_table_entities!(
             if old_row != start
                 for comp in archetype.components
                     _permute_component_cycle!(
+                        state,
                         stores,
                         comp,
                         table.id,

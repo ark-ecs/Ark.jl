@@ -1,6 +1,6 @@
 
 function setup_world_copy_entity_5(n::Int)
-    world = World(Position, Velocity, CompA, CompB, CompC)
+    world = World(Position, Velocity, CompA, CompB, CompC; mode=MODE)
 
     template = new_entity!(world, (Position(0, 0), Velocity(0, 0), CompA(0, 0), CompB(0, 0), CompC(0, 0)))
 

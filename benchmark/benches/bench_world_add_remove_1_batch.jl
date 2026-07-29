@@ -1,6 +1,6 @@
 
 function setup_world_add_remove_1_batch(n_entities::Int)
-    world = World(Position, Velocity)
+    world = World(Position, Velocity; mode=MODE)
 
     filter = Filter(world, (Position,))
 

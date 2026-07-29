@@ -129,70 +129,70 @@ end
     return nothing
 end
 
-@inline function _erased_activate_column(stores, comp::Int)
-    v = stores._dispatch.activate_column
+@inline function _erased_activate_column(state, stores, comp::Int)
+    v = state._dispatch.activate_column
     isassigned(v, comp) || _build_erased!(v, comp, stores, _ActivateColumnOp)
     return @inbounds v[comp]
 end
 
-@inline function _erased_ensure_column_size(stores, comp::Int)
-    v = stores._dispatch.ensure_column_size
+@inline function _erased_ensure_column_size(state, stores, comp::Int)
+    v = state._dispatch.ensure_column_size
     isassigned(v, comp) || _build_erased!(v, comp, stores, _EnsureColumnSizeOp)
     return @inbounds v[comp]
 end
 
-@inline function _erased_move_data(stores, comp::Int)
-    v = stores._dispatch.move_data
+@inline function _erased_move_data(state, stores, comp::Int)
+    v = state._dispatch.move_data
     isassigned(v, comp) || _build_erased!(v, comp, stores, _MoveDataOp)
     return @inbounds v[comp]
 end
 
 _copy_data_op(mode::Val) = (cols, _empty) -> _CopyDataOp(cols, mode)
 
-@inline function _erased_copy_data(stores, comp::Int, mode::Val{:ref})
-    v = stores._dispatch.copy_data_ref
+@inline function _erased_copy_data(state, stores, comp::Int, mode::Val{:ref})
+    v = state._dispatch.copy_data_ref
     isassigned(v, comp) || _build_erased!(v, comp, stores, _copy_data_op(mode))
     return @inbounds v[comp]
 end
 
-@inline function _erased_copy_data(stores, comp::Int, mode::Val{:copy})
-    v = stores._dispatch.copy_data_copy
+@inline function _erased_copy_data(state, stores, comp::Int, mode::Val{:copy})
+    v = state._dispatch.copy_data_copy
     isassigned(v, comp) || _build_erased!(v, comp, stores, _copy_data_op(mode))
     return @inbounds v[comp]
 end
 
-@inline function _erased_copy_data(stores, comp::Int, mode::Val{:deepcopy})
-    v = stores._dispatch.copy_data_deepcopy
+@inline function _erased_copy_data(state, stores, comp::Int, mode::Val{:deepcopy})
+    v = state._dispatch.copy_data_deepcopy
     isassigned(v, comp) || _build_erased!(v, comp, stores, _copy_data_op(mode))
     return @inbounds v[comp]
 end
 
-@inline function _erased_copy_data_to_end(stores, comp::Int)
-    v = stores._dispatch.copy_data_to_end
+@inline function _erased_copy_data_to_end(state, stores, comp::Int)
+    v = state._dispatch.copy_data_to_end
     isassigned(v, comp) || _build_erased!(v, comp, stores, _CopyDataToEndOp)
     return @inbounds v[comp]
 end
 
-@inline function _erased_clear_column(stores, comp::Int)
-    v = stores._dispatch.clear_column
+@inline function _erased_clear_column(state, stores, comp::Int)
+    v = state._dispatch.clear_column
     isassigned(v, comp) || _build_erased!(v, comp, stores, _ClearColumnOp)
     return @inbounds v[comp]
 end
 
-@inline function _erased_remove_data(stores, comp::Int)
-    v = stores._dispatch.remove_data
+@inline function _erased_remove_data(state, stores, comp::Int)
+    v = state._dispatch.remove_data
     isassigned(v, comp) || _build_erased!(v, comp, stores, _RemoveDataOp)
     return @inbounds v[comp]
 end
 
-@inline function _erased_swap_data(stores, comp::Int)
-    v = stores._dispatch.swap_data
+@inline function _erased_swap_data(state, stores, comp::Int)
+    v = state._dispatch.swap_data
     isassigned(v, comp) || _build_erased!(v, comp, stores, _SwapDataOp)
     return @inbounds v[comp]
 end
 
-@inline function _erased_permute_cycle(stores, comp::Int)
-    v = stores._dispatch.permute_cycle
+@inline function _erased_permute_cycle(state, stores, comp::Int)
+    v = state._dispatch.permute_cycle
     isassigned(v, comp) || _build_erased!(v, comp, stores, _PermuteCycleOp)
     return @inbounds v[comp]
 end

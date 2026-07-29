@@ -979,7 +979,7 @@ end
             end
             empty!(table)
             for comp in world_state._archetypes[table.archetype].components
-                _clear_component_data!(stores, comp, table.id)
+                _clear_component_data!(world_state, stores, comp, table.id)
             end
         end
 

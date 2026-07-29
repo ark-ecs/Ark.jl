@@ -9,12 +9,12 @@ end
 A query for components. See function
 [Query](@ref Query(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)) for details.
 """
-struct Query{QS<:Tuple,CT<:Tuple,OF,RO,M,K}
+struct Query{QS<:Tuple,CT<:Tuple,OF,RO,M,K,D}
     _filter::_MaskFilter{M,K}
     _archetypes::Vector{_Archetype{M}}
     _archetypes_hot::Vector{_ArchetypeHot{M}}
     _q_lock::_QueryCursor
-    _world_state::_WorldState{M,K}
+    _world_state::_WorldState{M,K,D}
     _storages::CT
     _empty_storages::QS
 end
@@ -151,7 +151,7 @@ function _Query_from_filter_expr(::Type{W}, ::Type{F}) where {W<:World,F<:Filter
         query_empties = $query_empties
         _lock(world_state._lock)
         arches, hot = $(archetypes)
-        Query{$QS,$CT,$(QuoteNode(output_optional_mask)),$(QuoteNode(output_readonly_mask)),$M,$K}(
+        Query{$QS,$CT,$(QuoteNode(output_optional_mask)),$(QuoteNode(output_readonly_mask)),$M,$K,$(_dispatch_type(_world_state(W)))}(
             filter._filter,
             arches,
             hot,
@@ -405,7 +405,7 @@ end
 Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
 
 @generated function Base.eltype(
-    ::Type{Query{QS,CT,OF,RO,M,K}},
+    ::Type{<:Query{QS,CT,OF,RO,M,K}},
 ) where {QS<:Tuple,CT<:Tuple,OF,RO,M,K}
     component_storage_types = fieldtypes(QS)
     comp_types = map(_component_type, component_storage_types)
