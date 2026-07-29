@@ -68,9 +68,9 @@ function _WorldPool{M}() where {M}
     )
 end
 
-struct _WorldStorage{CS<:Tuple,RT,S,L}
-    _storages::S
-    _empty_storages::L
+mutable struct _WorldStorage{CS<:Tuple,RT,S,L}
+    const _storages::S
+    const _empty_storages::L
 end
 
 mutable struct _WorldState{M,K,D}
