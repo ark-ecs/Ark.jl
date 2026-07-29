@@ -87,8 +87,8 @@ both in the structural operations and in world construction, while `:boxed` stay
 linear in each.
 
 ```@raw html
-<img src="../assets/images/bench_erased_compile_light.svg" class="only-light" alt="Compile time of the structural operations" />
-<img src="../assets/images/bench_erased_compile_dark.svg" class="only-dark" alt="Compile time of the structural operations" />
+<img src="../assets/images/bench_boxed_compile_light.svg" class="only-light" alt="Compile time of the structural operations" />
+<img src="../assets/images/bench_boxed_compile_dark.svg" class="only-dark" alt="Compile time of the structural operations" />
 ```
 *First-call compile time of the structural operations as the number of component types grows.
 Below a few dozen component types `:boxed` is slightly slower to compile; above that its

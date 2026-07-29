@@ -60,12 +60,6 @@ function _Mask{M}(::_Not, bits::T...) where {M,T<:Integer}
     return _Mask(chunks)
 end
 
-# The terms are folded into nested *binary* calls rather than emitted as one M-ary
-# `Expr(:call, :&, terms...)`. Base routes an n-ary `&`/`|`/`+` through `afoldl`, whose
-# `max_args` is 34, so from M=36 up (afoldl sees M-1 arguments) the varargs tuple stops being
-# specialized and gets boxed: 320 bytes and 461ns per call at M=36, against 0 and 11ns folded.
-# The boundary is the argument count, not the mask size - `NTuple{M,UInt16}` breaks at the
-# same M=36. Folding keeps every call binary, so `afoldl` is never involved at any width.
 @generated function _contains_all(mask1::_Mask{M}, mask2::_Mask{M})::Bool where {M}
     exprs = Expr[]
     for i in 1:M

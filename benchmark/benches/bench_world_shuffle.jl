@@ -32,15 +32,10 @@ function setup_world_shuffle(n_entities::Int)
 
     rng = Xoshiro(42)
 
-    # The erased and boxed modes build their per-component dispatch wrappers lazily, on the
-    # first call of each operation on each world. The sort and partition benchmarks run with
-    # `evals = 1`, so without warming them up here every sample would be charged for building
-    # them - a fixed per-world cost that has nothing to do with what is measured.
     shuffle_entities!(rng, world, f)
     sort_entities!(world, f; by=sort_key(world))
     partition_entities!(world, f; pred)
 
-    # Leave the entities shuffled, which is the state the benchmarks expect.
     shuffle_entities!(rng, world, f)
 
     return (rng, world, f, pred)

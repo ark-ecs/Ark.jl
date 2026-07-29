@@ -9,8 +9,6 @@ end
 A query for components. See function
 [Query](@ref Query(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)) for details.
 """
-# `QS` names the column array type of each output component - the query's schema - so it is
-# also the type of the tuple of empty columns. `CT` is the matching tuple of column vectors.
 struct Query{QS<:Tuple,CT<:Tuple,OF,RO,M,K}
     _filter::_MaskFilter{M,K}
     _archetypes::Vector{_Archetype{M}}
@@ -141,8 +139,6 @@ function _Query_from_filter_expr(::Type{W}, ::Type{F}) where {W<:World,F<:Filter
     output_optional_ids = Int[i for i in eachindex(output_ids) if _get_bit(query_optional_mask, output_ids[i])]
     output_optional_mask = _Mask{M}(output_optional_ids...)
     CT = Tuple{map(A -> Vector{A}, query_storage_types)...}
-    # Resolved once per query: iteration then walks typed column vectors, and an optional
-    # component falls back to the empty column of its own storage.
     query_storages =
         Expr(:tuple, (_storage_ref(:world_storage, Storage, id) for id in output_ids)...)
     query_empties = Expr(:tuple, (_empty_ref(:world_storage, Storage, id) for id in output_ids)...)

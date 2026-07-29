@@ -1,8 +1,4 @@
 
-# A component is stored as its columns - one per table - plus the empty column that stands in
-# for the tables that do not have it. The two halves live in separate containers on the world
-# (see `_WorldStorage`), so there is no type pairing them: a schema names the column array
-# type of each component, and the component type is its element type.
 @inline _component_type(::Type{A}) where {A<:AbstractArray} = eltype(A)
 @inline _storage_array_type(::Type{A}) where {A<:AbstractArray} = A
 
@@ -34,7 +30,6 @@ function _storage_type(::Type{Storage{GPUVector{B}}}, ::Type{C}) where {B,C}
     GPUVector{B,C,_gpuvector_type(C, Val{B}())}
 end
 
-# The two halves of a component storage, built separately because a world keeps them apart.
 function _new_component_columns(::Type{S}, ::Type{C}) where {S<:Storage,C}
     return _storage_type(S, C)[]
 end
@@ -47,14 +42,6 @@ end
     return table <= length(cols) ? (@inbounds cols[table]) : empty
 end
 
-"""
-    _type_vector(::Type{T})::Vector{Any} where {T<:Tuple}
-
-Unpacks a schema type parameter into a vector of its field types.
-
-Used by boxed worlds to move a list of types from the type domain into the value domain
-without emitting one expression per type.
-"""
 @noinline function _type_vector(::Type{T})::Vector{Any} where {T<:Tuple}
     n = fieldcount(T)
     types = Vector{Any}(undef, n)
@@ -64,11 +51,6 @@ without emitting one expression per type.
     return types
 end
 
-"""
-    _new_component_relations_vector(n::Int, relation_indices::Vector{Int})
-
-Builds the per-component relation storages of a boxed world in one runtime loop.
-"""
 @noinline function _new_component_relations_vector(n::Int, relation_indices::Vector{Int})
     relations = Vector{_ComponentRelations}(undef, n)
     for i in 1:n
@@ -77,16 +59,6 @@ Builds the per-component relation storages of a boxed world in one runtime loop.
     return relations
 end
 
-"""
-    _new_columns_vector(modes::Vector{Any}, types::Vector{Any})::Vector{Any}
-    _new_empties_vector(modes::Vector{Any}, types::Vector{Any})::Vector{Any}
-
-Build the component columns, and the matching empty columns, of a boxed world.
-
-The types arrive as values rather than as static arguments, so each one is created by a
-dynamic call. That is the point: the caller does not grow a method body with one specialized
-call per component type, which is what makes world construction expensive for large schemas.
-"""
 @noinline function _new_columns_vector(modes::Vector{Any}, types::Vector{Any})
     length(modes) == length(types) ||
         throw(ArgumentError("storage modes and component types must have the same length"))

@@ -68,21 +68,7 @@ function _WorldPool{M}() where {M}
     )
 end
 
-# Mutable, with const fields: nothing is ever reassigned, so this is purely about
-# representation. An immutable would hold the storage tuple inline - 16 bytes per component
-# type - and every call taking a `_WorldStorage` would copy all of it. That is invisible for
-# a handful of components and dominates past a few hundred: measured at 2.4us per structural
-# operation and 2.0us per `get_components` at 2000 component types, against 0.2us and 0.1us
-# once the struct is a pointer. A mutable struct is heap-allocated once at world creation and
-# passed by reference from then on, so the cost of handing the storages around stops
-# depending on how many there are.
 mutable struct _WorldStorage{CS<:Tuple,RT,D,S,L}
-    # The two halves of every component storage: `_storages` holds the column vectors,
-    # indexed by table, and `_empty_storages` the empty column that stands in for the tables
-    # without the component. Only column lifecycle needs the second half, so the paths that touch
-    # component data reach a column in one load. In a boxed world that matters: a slot of a
-    # `Vector{Any}` holding a two-field immutable would hold a *box*, and reaching its
-    # columns through it costs a second, dependent load on every access.
     const _storages::S
     const _empty_storages::L
     const _dispatch::D
@@ -131,32 +117,10 @@ _schema_relation_indices(::Type{<:_WorldStorage{CS,RT}}) where {CS,RT} =
 _schema_relation_types(::Type{<:_WorldStorage{CS,RT}}) where {CS,RT} =
     Tuple{map(i -> _component_type(fieldtypes(CS)[i]), _schema_relation_indices(_WorldStorage{CS,RT}))...}
 
-"""
-    _is_erased(::Type{<:_WorldStorage})::Bool
 
-Whether the world dispatches per-component operations through type-erased calls instead of
-generating one branch per component type, which is what the `:boxed` mode asks for.
-"""
 _is_erased(::Type{<:_WorldStorage{CS,RT,D}}) where {CS,RT,D} = D !== Nothing
-
-"""
-    _is_boxed(::Type{<:_WorldStorage})::Bool
-
-Whether the world keeps its component storages in a `Vector{Any}` instead of a tuple, as
-requested by the `boxed` world argument.
-"""
 _is_boxed(::Type{<:_WorldStorage{CS,RT,D,S}}) where {CS,RT,D,S} = S === Memory{Any}
 
-"""
-    _storage_ref(sym::Symbol, Storage::Type{<:_WorldStorage}, i::Int)
-
-Expression that fetches the storage of component `i` out of the world storage bound to `sym`.
-
-A tuple world reads a field at a constant offset from the (heap-allocated) world storage. A
-boxed world reads a `Vector{Any}` slot and restores its type with an assertion, which lowers
-to a tag check and a load: a storage is an immutable value that is boxed once at world
-creation and never replaced afterwards, so nothing has to be allocated to read one back out.
-"""
 function _storage_ref(sym::Symbol, Storage::Type{<:_WorldStorage}, i::Int)
     if _is_boxed(Storage)
         A = fieldtype(_schema_storage_types(Storage), i)
@@ -165,15 +129,6 @@ function _storage_ref(sym::Symbol, Storage::Type{<:_WorldStorage}, i::Int)
     return :($sym._storages.$i)
 end
 
-"""
-    _empty_ref(sym::Symbol, Storage::Type{<:_WorldStorage}, i::Int)
-
-Expression that fetches the empty column of component `i`, the other half of `_storage_ref`.
-
-Only the column lifecycle needs it - creating a column, clearing one, growing the vector of
-columns past a table that has none - so it is fetched separately rather than carried
-alongside every column access.
-"""
 function _empty_ref(sym::Symbol, Storage::Type{<:_WorldStorage}, i::Int)
     if _is_boxed(Storage)
         A = fieldtype(_schema_storage_types(Storage), i)
@@ -181,7 +136,6 @@ function _empty_ref(sym::Symbol, Storage::Type{<:_WorldStorage}, i::Int)
     end
     return :($sym._empty_storages.$i)
 end
-
 
 _world_storage(::Type{<:World{world_storage}}) where {world_storage<:_WorldStorage} = world_storage
 
@@ -198,15 +152,6 @@ end
 
 _storage(world::World) = getfield(world, :_stores)
 
-"""
-    _mode_boxed(mode::Symbol)::Bool
-
-Resolves a world `mode` into the single flag the internals are parameterized on.
-
-Boxed storages and type-erased dispatch are one step, not two knobs: generating one branch
-per component type only to recover the storage type from a `Memory{Any}` in each of them
-would pay both costs at once, so a world either generates per-component code or it does not.
-"""
 function _mode_boxed(mode::Symbol)
     mode === :specialized && return false
     mode === :boxed && return true
