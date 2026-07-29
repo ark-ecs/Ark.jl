@@ -119,9 +119,9 @@ end
 
 function _spec_value_tuple_type(
     ::Type{T},
-    ::Type{W},
-) where {T<:Tuple,W<:World}
-    relation_types = _schema_relation_types(W)
+    ::Type{Storage},
+) where {T<:Tuple,Storage<:_WorldStorage}
+    relation_types = _schema_relation_types(Storage)
     value_types = [
         _cmd_value_type(component_type, relation_types) for component_type in _spec_component_types(T)
     ]
@@ -138,17 +138,17 @@ _spec_tuple_type(spec::Tuple) = Tuple{spec...}
 @generated function _command_type(
     ::Type{T},
     ::Type{NewEntityCommand},
-    ::Type{W},
-) where {T<:Tuple,W<:World}
-    NewEntityCommand{_spec_value_tuple_type(T, W)}
+    ::Type{Storage},
+) where {T<:Tuple,Storage<:_WorldStorage}
+    NewEntityCommand{_spec_value_tuple_type(T, Storage)}
 end
 
 @generated function _command_type(
     ::Type{T},
     ::Type{AddComponentsCommand},
-    ::Type{W},
-) where {T<:Tuple,W<:World}
-    AddComponentsCommand{_spec_value_tuple_type(T, W)}
+    ::Type{Storage},
+) where {T<:Tuple,Storage<:_WorldStorage}
+    AddComponentsCommand{_spec_value_tuple_type(T, Storage)}
 end
 
 @generated function _command_type(::Type{T}, ::Type{RemoveComponentsCommand}) where {T<:Tuple}
@@ -159,9 +159,9 @@ end
     ::Type{T},
     ::Type{ExchangeComponentsCommand},
     ::Type{U},
-    ::Type{W},
-) where {T<:Tuple,U<:Tuple,W<:World}
-    ExchangeComponentsCommand{_spec_value_tuple_type(T, W),U}
+    ::Type{Storage},
+) where {T<:Tuple,U<:Tuple,Storage<:_WorldStorage}
+    ExchangeComponentsCommand{_spec_value_tuple_type(T, Storage),U}
 end
 
 @generated function _command_type(::Type{T}, ::Type{SetComponentsCommand}) where {T<:Tuple}
@@ -173,62 +173,62 @@ end
 end
 
 function _spec_command_type(
-    ::Type{W},
+    ::Type{Storage},
     ::Type{NewEntityCommand{T}},
-) where {W<:World,T<:Tuple}
-    return _command_type(T, NewEntityCommand, W)
+) where {Storage<:_WorldStorage,T<:Tuple}
+    return _command_type(T, NewEntityCommand, Storage)
 end
 
-_spec_command_type(::Type{W}, ::Type{RemoveEntityCommand}) where {W<:World} =
+_spec_command_type(::Type{Storage}, ::Type{RemoveEntityCommand}) where {Storage<:_WorldStorage} =
     RemoveEntityCommand
 
 function _spec_command_type(
-    ::Type{W},
+    ::Type{Storage},
     ::Type{AddComponentsCommand{T}},
-) where {W<:World,T<:Tuple}
-    return _command_type(T, AddComponentsCommand, W)
+) where {Storage<:_WorldStorage,T<:Tuple}
+    return _command_type(T, AddComponentsCommand, Storage)
 end
 
 function _spec_command_type(
-    ::Type{W},
+    ::Type{Storage},
     ::Type{RemoveComponentsCommand{T}},
-) where {W<:World,T<:Tuple}
+) where {Storage<:_WorldStorage,T<:Tuple}
     return _command_type(T, RemoveComponentsCommand)
 end
 
 function _spec_command_type(
-    ::Type{W},
+    ::Type{Storage},
     ::Type{ExchangeComponentsCommand{A,R}},
-) where {W<:World,A<:Tuple,R<:Tuple}
+) where {Storage<:_WorldStorage,A<:Tuple,R<:Tuple}
     return _command_type(
         A,
         ExchangeComponentsCommand,
         R,
-        W,
+        Storage,
     )
 end
 
 function _spec_command_type(
-    ::Type{W},
+    ::Type{Storage},
     ::Type{SetComponentsCommand{T}},
-) where {W<:World,T<:Tuple}
+) where {Storage<:_WorldStorage,T<:Tuple}
     return _command_type(T, SetComponentsCommand)
 end
 
 function _spec_command_type(
-    ::Type{W},
+    ::Type{Storage},
     ::Type{SetRelationsCommand{T}},
-) where {W<:World,T<:Tuple}
+) where {Storage<:_WorldStorage,T<:Tuple}
     return _command_type(T, SetRelationsCommand)
 end
 
-_spec_command_type(::Type{W}, command_type::Type) where {W<:World} = command_type
+_spec_command_type(::Type{Storage}, command_type::Type) where {Storage<:_WorldStorage} = command_type
 
-function _spec_command_type(::Type{W}, spec) where {W<:World}
+function _spec_command_type(::Type{Storage}, spec) where {Storage<:_WorldStorage}
     throw(ArgumentError("unknown command spec $spec"))
 end
 
-@generated function _specs_to_union(world::W, ::S) where {W<:World,S}
+@generated function _specs_to_union(world::World{Storage}, ::S) where {Storage,S}
     specs = _to_types(S)
     n = length(specs)
     if n == 0
@@ -236,7 +236,7 @@ end
     end
     types = Vector{DataType}(undef, n)
     for i in 1:n
-        types[i] = _spec_command_type(W, specs[i])
+        types[i] = _spec_command_type(Storage, specs[i])
     end
     return :($(Union{types...}))
 end
@@ -278,8 +278,9 @@ end
 
 function new_entity!(buf::CommandBuffer, values::Tuple)
     world = buf._world
-    entity = _reserve_pending_entity!(world)
-    _reserve_entity_index!(world, entity)
+    state = _state(world)
+    entity = _reserve_pending_entity!(state)
+    _reserve_entity_index!(state, entity)
     push!(buf._commands, NewEntityCommand(entity, values))
     return entity
 end
@@ -347,9 +348,11 @@ end
 @inline Base.@constprop :aggressive function _apply_new_entity!(world::World, entity::Entity, values::Tuple)
     values, relations = _normalize_relations(values, Val(:value))
     rel_types, targets = _relation_types_and_targets(relations)
-    _, table_id = _new_entity!(world, entity,
+    world_state = _state(world)
+    world_storage = _storage(world)
+    _, table_id = _new_entity!(world_state, world_storage, entity,
         Val{typeof(values)}(), values, rel_types, targets, Val(false))
-    _fire_new_entity_events!(world, entity, table_id, relations)
+    _fire_new_entity_events!(world_state, entity, table_id, relations)
     return nothing
 end
 

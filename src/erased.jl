@@ -124,75 +124,75 @@ end
     end
 end
 
-@noinline function _build_erased!(v::Vector{FW}, comp::Int, world, op::F) where {FW<:FunctionWrapper,F}
-    @inbounds v[comp] = FW(op(_storage_at(world._storages, comp), _storage_at(world._empty_storages, comp)))
+@noinline function _build_erased!(v::Vector{FW}, comp::Int, stores, op::F) where {FW<:FunctionWrapper,F}
+    @inbounds v[comp] = FW(op(_storage_at(stores._storages, comp), _storage_at(stores._empty_storages, comp)))
     return nothing
 end
 
-@inline function _erased_activate_column(world, comp::Int)
-    v = world._dispatch.activate_column
-    isassigned(v, comp) || _build_erased!(v, comp, world, _ActivateColumnOp)
+@inline function _erased_activate_column(stores, comp::Int)
+    v = stores._dispatch.activate_column
+    isassigned(v, comp) || _build_erased!(v, comp, stores, _ActivateColumnOp)
     return @inbounds v[comp]
 end
 
-@inline function _erased_ensure_column_size(world, comp::Int)
-    v = world._dispatch.ensure_column_size
-    isassigned(v, comp) || _build_erased!(v, comp, world, _EnsureColumnSizeOp)
+@inline function _erased_ensure_column_size(stores, comp::Int)
+    v = stores._dispatch.ensure_column_size
+    isassigned(v, comp) || _build_erased!(v, comp, stores, _EnsureColumnSizeOp)
     return @inbounds v[comp]
 end
 
-@inline function _erased_move_data(world, comp::Int)
-    v = world._dispatch.move_data
-    isassigned(v, comp) || _build_erased!(v, comp, world, _MoveDataOp)
+@inline function _erased_move_data(stores, comp::Int)
+    v = stores._dispatch.move_data
+    isassigned(v, comp) || _build_erased!(v, comp, stores, _MoveDataOp)
     return @inbounds v[comp]
 end
 
 _copy_data_op(mode::Val) = (cols, _empty) -> _CopyDataOp(cols, mode)
 
-@inline function _erased_copy_data(world, comp::Int, mode::Val{:ref})
-    v = world._dispatch.copy_data_ref
-    isassigned(v, comp) || _build_erased!(v, comp, world, _copy_data_op(mode))
+@inline function _erased_copy_data(stores, comp::Int, mode::Val{:ref})
+    v = stores._dispatch.copy_data_ref
+    isassigned(v, comp) || _build_erased!(v, comp, stores, _copy_data_op(mode))
     return @inbounds v[comp]
 end
 
-@inline function _erased_copy_data(world, comp::Int, mode::Val{:copy})
-    v = world._dispatch.copy_data_copy
-    isassigned(v, comp) || _build_erased!(v, comp, world, _copy_data_op(mode))
+@inline function _erased_copy_data(stores, comp::Int, mode::Val{:copy})
+    v = stores._dispatch.copy_data_copy
+    isassigned(v, comp) || _build_erased!(v, comp, stores, _copy_data_op(mode))
     return @inbounds v[comp]
 end
 
-@inline function _erased_copy_data(world, comp::Int, mode::Val{:deepcopy})
-    v = world._dispatch.copy_data_deepcopy
-    isassigned(v, comp) || _build_erased!(v, comp, world, _copy_data_op(mode))
+@inline function _erased_copy_data(stores, comp::Int, mode::Val{:deepcopy})
+    v = stores._dispatch.copy_data_deepcopy
+    isassigned(v, comp) || _build_erased!(v, comp, stores, _copy_data_op(mode))
     return @inbounds v[comp]
 end
 
-@inline function _erased_copy_data_to_end(world, comp::Int)
-    v = world._dispatch.copy_data_to_end
-    isassigned(v, comp) || _build_erased!(v, comp, world, _CopyDataToEndOp)
+@inline function _erased_copy_data_to_end(stores, comp::Int)
+    v = stores._dispatch.copy_data_to_end
+    isassigned(v, comp) || _build_erased!(v, comp, stores, _CopyDataToEndOp)
     return @inbounds v[comp]
 end
 
-@inline function _erased_clear_column(world, comp::Int)
-    v = world._dispatch.clear_column
-    isassigned(v, comp) || _build_erased!(v, comp, world, _ClearColumnOp)
+@inline function _erased_clear_column(stores, comp::Int)
+    v = stores._dispatch.clear_column
+    isassigned(v, comp) || _build_erased!(v, comp, stores, _ClearColumnOp)
     return @inbounds v[comp]
 end
 
-@inline function _erased_remove_data(world, comp::Int)
-    v = world._dispatch.remove_data
-    isassigned(v, comp) || _build_erased!(v, comp, world, _RemoveDataOp)
+@inline function _erased_remove_data(stores, comp::Int)
+    v = stores._dispatch.remove_data
+    isassigned(v, comp) || _build_erased!(v, comp, stores, _RemoveDataOp)
     return @inbounds v[comp]
 end
 
-@inline function _erased_swap_data(world, comp::Int)
-    v = world._dispatch.swap_data
-    isassigned(v, comp) || _build_erased!(v, comp, world, _SwapDataOp)
+@inline function _erased_swap_data(stores, comp::Int)
+    v = stores._dispatch.swap_data
+    isassigned(v, comp) || _build_erased!(v, comp, stores, _SwapDataOp)
     return @inbounds v[comp]
 end
 
-@inline function _erased_permute_cycle(world, comp::Int)
-    v = world._dispatch.permute_cycle
-    isassigned(v, comp) || _build_erased!(v, comp, world, _PermuteCycleOp)
+@inline function _erased_permute_cycle(stores, comp::Int)
+    v = stores._dispatch.permute_cycle
+    isassigned(v, comp) || _build_erased!(v, comp, stores, _PermuteCycleOp)
     return @inbounds v[comp]
 end

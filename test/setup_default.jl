@@ -1,10 +1,12 @@
 
 function _storage_from_component(world, comp)
-    empties = world._empty_storages
+    empties = _storage(world)._empty_storages
     i = findfirst(x -> x isa AbstractArray{comp}, empties)
     return typeof(empties[i])
 end
 
+# The suite is run once per entry of `WORLD_MODES`. Worlds built without an explicit
+# `mode` pick up the mode of the current pass, so every test covers every mode.
 const WORLD_MODES = (:boxed, :specialized)
 const DEFAULT_WORLD_MODE = Ref(first(WORLD_MODES))
 

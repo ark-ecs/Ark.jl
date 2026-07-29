@@ -1,20 +1,20 @@
 
 @testset "Boxed storage flag" begin
     world = World(Position, Velocity; mode=:boxed)
-    @test Ark._is_boxed(typeof(world))
+    @test Ark._is_boxed(typeof(_storage(world)))
 
-    @test world._storages isa Ark.Memory{Any}
-    @test world._empty_storages isa Ark.Memory{Any}
-    @test !Ark._is_boxed(typeof(World(Position, Velocity; mode=:specialized)))
-    @test World(Position, Velocity; mode=:specialized)._storages isa Tuple
+    @test _storage(world)._storages isa Ark.Memory{Any}
+    @test _storage(world)._empty_storages isa Ark.Memory{Any}
+    @test !Ark._is_boxed(typeof(_storage(World(Position, Velocity; mode=:specialized))))
+    @test _storage(World(Position, Velocity; mode=:specialized))._storages isa Tuple
 
-    mono = World(Position, Velocity; mode=:specialized)
+    mono = _storage(World(Position, Velocity; mode=:specialized))
     @test !Ark._is_erased(typeof(mono)) && !Ark._is_boxed(typeof(mono))
 
-    boxed = World(Position, Velocity; mode=:boxed)
+    boxed = _storage(World(Position, Velocity; mode=:boxed))
     @test Ark._is_erased(typeof(boxed)) && Ark._is_boxed(typeof(boxed))
 
-    @test typeof(World(Position, Velocity; mode=:specialized)) === typeof(mono)
+    @test typeof(_storage(World(Position, Velocity; mode=:specialized))) === typeof(mono)
 
     @test_throws(
         "invalid world mode :unboxed, must be one of :specialized or :boxed",
@@ -105,7 +105,7 @@ _boxed_add_velocity!(world, entity) = add_components!(world, entity, (Velocity(1
 
 @testset "Boxed storage is type stable" begin
     function check_inference(world)
-        stores = world
+        stores = _storage(world)
         @test @inferred(Ark._get_component_columns(stores, Position)) isa Vector{Vector{Position}}
         @test @inferred(Ark._get_component_empty(stores, Position)) isa Vector{Position}
         @test @inferred(Ark._get_component_columns(stores, Health)) isa Vector{Vector{Health}}
