@@ -9,13 +9,16 @@ end
 A query for components. See function
 [Query](@ref Query(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)) for details.
 """
-struct Query{QS<:Tuple,OF,RO,M,K}
+# `QS` names the column array type of each output component - the query's schema - so it is
+# also the type of the tuple of empty columns. `CT` is the matching tuple of column vectors.
+struct Query{QS<:Tuple,CT<:Tuple,OF,RO,M,K}
     _filter::_MaskFilter{M,K}
     _archetypes::Vector{_Archetype{M}}
     _archetypes_hot::Vector{_ArchetypeHot{M}}
     _q_lock::_QueryCursor
     _world_state::_WorldState{M,K}
-    _storages::QS
+    _storages::CT
+    _empty_storages::QS
 end
 
 @inline function _check_query_world(world::World, query::Query)
@@ -137,33 +140,29 @@ function _Query_from_filter_expr(::Type{W}, ::Type{F}) where {W<:World,F<:Filter
     QS = Tuple{query_storage_types...}
     output_optional_ids = Int[i for i in eachindex(output_ids) if _get_bit(query_optional_mask, output_ids[i])]
     output_optional_mask = _Mask{M}(output_optional_ids...)
-    # The one place that wants both halves of a storage at once: a query resolves its columns
-    # per table, and an optional component falls back to the empty column. Paired here, once
-    # per query, rather than carried through every component access.
-    query_storages = Expr(
-        :tuple,
-        (
-            :($(query_storage_types[i])(
-                $(_storage_ref(:world_storage, Storage, output_ids[i])),
-                $(_empty_ref(:world_storage, Storage, output_ids[i])),
-            )) for i in eachindex(output_ids)
-        )...,
-    )
+    CT = Tuple{map(A -> Vector{A}, query_storage_types)...}
+    # Resolved once per query: iteration then walks typed column vectors, and an optional
+    # component falls back to the empty column of its own storage.
+    query_storages =
+        Expr(:tuple, (_storage_ref(:world_storage, Storage, id) for id in output_ids)...)
+    query_empties = Expr(:tuple, (_empty_ref(:world_storage, Storage, id) for id in output_ids)...)
 
     return quote
         _check_filter_world(world, filter)
         world_state = _state(world)
         world_storage = _storage(world)
         query_storages = $query_storages
+        query_empties = $query_empties
         _lock(world_state._lock)
         arches, hot = $(archetypes)
-        Query{$QS,$(QuoteNode(output_optional_mask)),$(QuoteNode(output_readonly_mask)),$M,$K}(
+        Query{$QS,$CT,$(QuoteNode(output_optional_mask)),$(QuoteNode(output_readonly_mask)),$M,$K}(
             filter._filter,
             arches,
             hot,
             _QueryCursor(false),
             world_state,
             query_storages,
+            query_empties,
         )
     end
 end
@@ -347,7 +346,10 @@ function close!(q::Query)
     return nothing
 end
 
-@generated function _get_columns(q::Query{QS,OF,RO,M,K}, table::_Table) where {QS<:Tuple,OF,RO,M,K}
+@generated function _get_columns(
+    q::Query{QS,CT,OF,RO,M,K},
+    table::_Table,
+) where {QS<:Tuple,CT<:Tuple,OF,RO,M,K}
     component_storage_types = fieldtypes(QS)
     comp_types = map(_component_type, component_storage_types)
     storage_array_types = map(_storage_array_type, component_storage_types)
@@ -361,9 +363,12 @@ end
         vec_sym = Symbol("vec", i)
         push!(exprs, :(@inbounds $stor_sym = q._storages[$i]))
         if _get_bit(OF, i)
-            push!(exprs, :($col_sym = _column_or_empty($stor_sym, table.id)))
+            push!(
+                exprs,
+                :($col_sym = _column_or_empty($stor_sym, (@inbounds q._empty_storages[$i]), table.id)),
+            )
         else
-            push!(exprs, :(@inbounds $col_sym = $stor_sym.data[table.id]))
+            push!(exprs, :(@inbounds $col_sym = $stor_sym[table.id]))
         end
 
         view_expr = if storage_array_types[i] <: GPUVector
@@ -389,7 +394,7 @@ end
         push!(result_exprs, Symbol("vec", i))
     end
 
-    element_type = :(Base.eltype(Query{QS,OF,RO,M,K}))
+    element_type = :(Base.eltype(Query{QS,CT,OF,RO,M,K}))
 
     tuple_expr = Expr(:tuple, result_exprs...)
     push!(exprs, Expr(:return, Expr(:(::), tuple_expr, element_type)))
@@ -403,7 +408,9 @@ end
 
 Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
 
-@generated function Base.eltype(::Type{Query{QS,OF,RO,M,K}}) where {QS<:Tuple,OF,RO,M,K}
+@generated function Base.eltype(
+    ::Type{Query{QS,CT,OF,RO,M,K}},
+) where {QS<:Tuple,CT<:Tuple,OF,RO,M,K}
     component_storage_types = fieldtypes(QS)
     comp_types = map(_component_type, component_storage_types)
     storage_array_types = map(_storage_array_type, component_storage_types)
@@ -436,7 +443,7 @@ Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
     end
 end
 
-function Base.show(io::IO, query::Query{QS,OF,RO,M,K}) where {QS<:Tuple,OF,RO,M,K}
+function Base.show(io::IO, query::Query{QS,CT,OF,RO,M,K}) where {QS<:Tuple,CT<:Tuple,OF,RO,M,K}
     component_storage_types = fieldtypes(QS)
     comp_types = tuple(DataType[_component_type(S) for S in component_storage_types]...)
     display_types =

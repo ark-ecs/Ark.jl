@@ -126,7 +126,7 @@ end
 # A boxed world needs no generated code here at all: its storages are already boxed, so the
 # id is just an index. This is the one place where the two modes compose - `erased` on a
 # boxed world leaves no per-component generated code anywhere.
-@inline function _storage_at(storages::Vector{Any}, comp::Int)
+@inline function _storage_at(storages::Memory{Any}, comp::Int)
     if comp < 1 || comp > length(storages)
         throw(ArgumentError(lazy"no component with id $comp in the World"))
     end

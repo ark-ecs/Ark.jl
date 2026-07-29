@@ -181,11 +181,14 @@ end
 end
 
 # The world keeps a component's columns and its empty column in separate containers; these
-# tests are about the pair, so they put the two halves back together.
-_component_storage(world, ::Type{T}) where {T} = _ComponentStorage(
-    _get_component_columns(_storage(world), T),
-    _get_component_empty(_storage(world), T),
+# tests are about how the two behave together, so they carry them as a pair.
+_component_storage(world, ::Type{T}) where {T} = (
+    data=_get_component_columns(_storage(world), T),
+    empty_column=_get_component_empty(_storage(world), T),
 )
+
+_column_or_empty(storage::NamedTuple, table) =
+    Ark._column_or_empty(storage.data, storage.empty_column, table)
 
 @testset "World shares inactive storage columns" begin
     world = World(Position, Velocity => Storage{StructArray}, Relation{ChildOf})
@@ -427,8 +430,8 @@ end
     pos_storage = _component_storage(world, Position)
     vel_storage = _component_storage(world, Velocity)
 
-    @test isa(pos_storage, _ComponentStorage{Position,_storage_from_component(world, Position)})
-    @test isa(vel_storage, _ComponentStorage{Velocity,_storage_from_component(world, Velocity)})
+    @test isa(pos_storage.data, Vector{_storage_from_component(world, Position)})
+    @test isa(vel_storage.data, Vector{_storage_from_component(world, Velocity)})
     @test length(pos_storage.data) == 3
     @test length(vel_storage.data) == 3
 end
@@ -1836,9 +1839,9 @@ end
     end
 
     for s in 2:4
-        storage = _ComponentStorage(
-            _storage(world)._storages[offset_ID+s],
-            _storage(world)._empty_storages[offset_ID+s],
+        storage = (
+            data=_storage(world)._storages[offset_ID+s],
+            empty_column=_storage(world)._empty_storages[offset_ID+s],
         )
         for t in 2:6
             @test length(_column_or_empty(storage, t)) == 0

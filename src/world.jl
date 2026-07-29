@@ -77,10 +77,9 @@ end
 # passed by reference from then on, so the cost of handing the storages around stops
 # depending on how many there are.
 mutable struct _WorldStorage{CS<:Tuple,RT,D,S,L}
-    # The two halves of every component storage, kept apart rather than as one
-    # `_ComponentStorage` per component: `_storages` holds the column vectors, indexed by
-    # table, and `_empty_storages` the empty column that stands in for the tables without the
-    # component. Only column lifecycle needs the second half, so the paths that touch
+    # The two halves of every component storage: `_storages` holds the column vectors,
+    # indexed by table, and `_empty_storages` the empty column that stands in for the tables
+    # without the component. Only column lifecycle needs the second half, so the paths that touch
     # component data reach a column in one load. In a boxed world that matters: a slot of a
     # `Vector{Any}` holding a two-field immutable would hold a *box*, and reaching its
     # columns through it costs a second, dependent load on every access.
@@ -146,7 +145,7 @@ _is_erased(::Type{<:_WorldStorage{CS,RT,D}}) where {CS,RT,D} = D !== Nothing
 Whether the world keeps its component storages in a `Vector{Any}` instead of a tuple, as
 requested by the `boxed` world argument.
 """
-_is_boxed(::Type{<:_WorldStorage{CS,RT,D,S}}) where {CS,RT,D,S} = S === Vector{Any}
+_is_boxed(::Type{<:_WorldStorage{CS,RT,D,S}}) where {CS,RT,D,S} = S === Memory{Any}
 
 """
     _storage_ref(sym::Symbol, Storage::Type{<:_WorldStorage}, i::Int)
@@ -160,7 +159,7 @@ creation and never replaced afterwards, so nothing has to be allocated to read o
 """
 function _storage_ref(sym::Symbol, Storage::Type{<:_WorldStorage}, i::Int)
     if _is_boxed(Storage)
-        A = _storage_array_type(fieldtype(_schema_storage_types(Storage), i))
+        A = fieldtype(_schema_storage_types(Storage), i)
         return :((@inbounds $sym._storages[$i])::Vector{$A})
     end
     return :($sym._storages.$i)
@@ -177,7 +176,7 @@ alongside every column access.
 """
 function _empty_ref(sym::Symbol, Storage::Type{<:_WorldStorage}, i::Int)
     if _is_boxed(Storage)
-        A = _storage_array_type(fieldtype(_schema_storage_types(Storage), i))
+        A = fieldtype(_schema_storage_types(Storage), i)
         return :((@inbounds $sym._empty_storages[$i])::$A)
     end
     return :($sym._empty_storages.$i)
@@ -1055,11 +1054,11 @@ end
     # Storage type logic (based on resolved Val{...} types).
     #
     # These are resolved to types here, in the generator, rather than emitted as
-    # `_ComponentStorage{T,_storage_type(mode, T)}` expressions. Both spellings describe the
-    # same type, but the expression form leaves one `_storage_type` call per component type
-    # in the method body for inference to constant-fold, and the schema type appears twice,
-    # so it pays for that twice. Splicing the finished type instead makes it a single
-    # interned object no matter how many components the world declares.
+    # `_storage_type(mode, T)` expressions. Both spellings describe the same type, but the
+    # expression form leaves one `_storage_type` call per component type in the method body
+    # for inference to constant-fold, and the schema type appears twice, so it pays for that
+    # twice. Splicing the finished type instead makes it a single interned object no matter
+    # how many components the world declares.
     _storage_types = Vector{Any}(undef, length(types))
     storage_exprs = Vector{Expr}(undef, length(types))
 
@@ -1068,7 +1067,7 @@ end
     for i in 1:length(types)
         T = types[i]
         mode = storage_val_types[i]
-        _storage_types[i] = _ComponentStorage{T,_storage_type(mode, T)}
+        _storage_types[i] = _storage_type(mode, T)
         storage_exprs[i] = :(_new_component_columns($mode, $T))
         empty_exprs[i] = :(_new_component_empty($mode, $T))
     end
@@ -1078,19 +1077,21 @@ end
     boxed = BOXED::Bool
     if boxed
         # The whole point of the boxed mode: the storages are built by a runtime loop over a
-        # vector of types instead of by one inlined call per component type. A `Vector{Any}`
+        # vector of types instead of by one inlined call per component type. A `Memory{Any}`
         # is what makes that possible - a heterogeneous tuple can only be built by code that
-        # names every element, which is what makes this method grow with the schema.
+        # names every element, which is what makes this method grow with the schema. The
+        # container never changes length after construction, which is exactly what `Memory`
+        # is: one object holding the slots, rather than a `Vector`'s handle pointing at them.
         # The types are recovered from the schema type parameters at run time. Listing them
         # as literals instead would put a call with one argument per component type back into
         # this method, which is exactly the cost the mode exists to avoid.
-        storage_container_type = Vector{Any}
-        empty_container_type = Vector{Any}
+        storage_container_type = Memory{Any}
+        empty_container_type = Memory{Any}
         storage_values = :(_new_columns_vector(_type_vector($StorageModes), _type_vector($CS)))
         empty_values = :(_new_empties_vector(_type_vector($StorageModes), _type_vector($CS)))
     else
-        storage_container_type = Tuple{map(T -> Vector{_storage_array_type(T)}, _storage_types)...}
-        empty_container_type = Tuple{map(_storage_array_type, _storage_types)...}
+        storage_container_type = Tuple{map(A -> Vector{A}, _storage_types)...}
+        empty_container_type = Tuple{_storage_types...}
         storage_values = Expr(:tuple, storage_exprs...)
         empty_values = Expr(:tuple, empty_exprs...)
     end

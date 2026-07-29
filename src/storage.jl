@@ -1,18 +1,10 @@
 
-# A component's columns - one per table - paired with the empty column that stands in for the
-# tables that do not have the component.
-#
-# A world does not store this: it keeps the two halves in separate containers, so that the
-# paths that only touch component data reach a column vector in one load instead of two (see
-# `_WorldStorage`). The pair is formed only where both halves are needed at once, which is
-# query construction, and the type itself remains the schema type parameter of a world.
-struct _ComponentStorage{C,A<:AbstractArray{C,1}}
-    data::Vector{A}
-    empty_column::A
-end
-
-@inline _component_type(::Type{<:_ComponentStorage{C}}) where {C} = C
-@inline _storage_array_type(::Type{<:_ComponentStorage{C,A}}) where {C,A} = A
+# A component is stored as its columns - one per table - plus the empty column that stands in
+# for the tables that do not have it. The two halves live in separate containers on the world
+# (see `_WorldStorage`), so there is no type pairing them: a schema names the column array
+# type of each component, and the component type is its element type.
+@inline _component_type(::Type{A}) where {A<:AbstractArray} = eltype(A)
+@inline _storage_array_type(::Type{A}) where {A<:AbstractArray} = A
 
 function _new_storage(::Type{S}, ::Type{C}) where {S<:Storage,C}
     _storage_type(S, C)()
@@ -51,8 +43,8 @@ function _new_component_empty(::Type{S}, ::Type{C}) where {S<:Storage,C}
     return _new_storage(S, C)
 end
 
-@inline function _column_or_empty(s::_ComponentStorage{C,A}, table::Integer) where {C,A<:AbstractArray}
-    return table <= length(s.data) ? (@inbounds s.data[table]) : s.empty_column
+@inline function _column_or_empty(cols::Vector{A}, empty::A, table::Integer) where {A<:AbstractArray}
+    return table <= length(cols) ? (@inbounds cols[table]) : empty
 end
 
 """
@@ -98,7 +90,7 @@ call per component type, which is what makes world construction expensive for la
 @noinline function _new_columns_vector(modes::Vector{Any}, types::Vector{Any})
     length(modes) == length(types) ||
         throw(ArgumentError("storage modes and component types must have the same length"))
-    columns = Vector{Any}(undef, length(types))
+    columns = Memory{Any}(undef, length(types))
     for i in eachindex(types)
         @inbounds columns[i] = _new_component_columns(modes[i], types[i])
     end
@@ -108,7 +100,7 @@ end
 @noinline function _new_empties_vector(modes::Vector{Any}, types::Vector{Any})
     length(modes) == length(types) ||
         throw(ArgumentError("storage modes and component types must have the same length"))
-    empties = Vector{Any}(undef, length(types))
+    empties = Memory{Any}(undef, length(types))
     for i in eachindex(types)
         @inbounds empties[i] = _new_component_empty(modes[i], types[i])
     end

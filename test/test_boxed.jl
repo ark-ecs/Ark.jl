@@ -2,7 +2,9 @@
 @testset "Boxed storage flag" begin
     world = World(Position, Velocity; mode=:boxed)
     @test Ark._is_boxed(typeof(_storage(world)))
-    @test _storage(world)._storages isa Vector{Any}
+    # `Ark.Memory` is aliased to `Vector` for Julia < 1.11, so this holds on either.
+    @test _storage(world)._storages isa Ark.Memory{Any}
+    @test _storage(world)._empty_storages isa Ark.Memory{Any}
     @test !Ark._is_boxed(typeof(_storage(World(Position, Velocity))))
     @test _storage(World(Position, Velocity))._storages isa Tuple
 
