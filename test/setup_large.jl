@@ -1,7 +1,8 @@
 
 function _storage_from_component(world, comp)
-    i = findfirst(x -> x.empty_column isa AbstractArray{comp}, _storage(world)._storages)
-    return typeof(_storage(world)._storages[i].empty_column)
+    empties = _storage(world)._empty_storages
+    i = findfirst(x -> x isa AbstractArray{comp}, empties)
+    return typeof(empties[i])
 end
 
 # Set by the `--boxed-world` flag: runs the whole suite against a large world that keeps its
@@ -12,8 +13,7 @@ function Ark.World(
     comp_types::Union{Type,Pair{<:Type,<:Type}}...;
     initial_capacity::Int=128,
     allow_mutable=false,
-    erased=!BOXED_WORLD,
-    boxed=BOXED_WORLD,
+    mode=BOXED_WORLD ? :boxed : :erased,
 )
     raw_types = map(arg -> arg isa Type ? arg : arg.first, comp_types)
     types = map(Ark._unwrap_relation_type, raw_types)
@@ -32,6 +32,7 @@ function Ark.World(
         end
     end
     storages = Tuple(storages)
+    erased, boxed = Ark._mode_flags(mode)
     Ark._World_from_types(
         Val{Tuple{fake_types[1:255]...,types...,fake_types[256:300]...}}(),
         Val{Tuple{fake_storage[1:255]...,storages...,fake_storage[256:300]...}}(),

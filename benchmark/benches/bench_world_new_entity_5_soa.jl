@@ -5,7 +5,7 @@ function setup_world_new_entity_5_soa(n::Int)
         Velocity => Storage{StructArray},
         CompA => Storage{StructArray},
         CompB => Storage{StructArray},
-        CompC => Storage{StructArray}; erased=true,
+        CompC => Storage{StructArray}; mode=:erased,
     )
 
     # Run once to allocate memory

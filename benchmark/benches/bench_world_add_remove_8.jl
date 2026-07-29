@@ -2,7 +2,7 @@
 function setup_world_add_remove_8(n_entities::Int)
     world = World(Position,
         CompN{1}, CompN{2}, CompN{3}, CompN{4}, CompN{5},
-        CompN{6}, CompN{7}, CompN{8}; erased=true,
+        CompN{6}, CompN{7}, CompN{8}; mode=:erased,
     )
 
     entities = Vector{Entity}()

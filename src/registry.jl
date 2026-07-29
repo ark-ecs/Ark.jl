@@ -1,13 +1,19 @@
 
+# `components` is an `IdDict` rather than a `Dict` for compile time, not for lookup speed.
+# `Dict`'s generic `setindex!`/`getindex` specialize on the key, so storing a component type
+# compiles one instance per component type - about 10ms each, which is the single largest
+# cost of building a world with a large schema. `IdDict` takes its key `@nospecialize`d, so
+# it compiles once for every schema. Identity is also the right equality here: types are
+# interned, so `IdDict` and `Dict` cannot disagree on a `DataType` key.
 mutable struct _ComponentRegistry
     counter::Int
-    const components::Dict{DataType,Int}
+    const components::IdDict{DataType,Int}
     const types::Vector{DataType}
     const is_relation::Vector{Bool}
 end
 
 function _ComponentRegistry()
-    _ComponentRegistry(0x01, Dict{DataType,Int}(), Vector{DataType}(), Vector{Bool}())
+    _ComponentRegistry(0x01, IdDict{DataType,Int}(), Vector{DataType}(), Vector{Bool}())
 end
 
 @inline function _get_id!(registry::_ComponentRegistry, ::Type{C})::Int where C

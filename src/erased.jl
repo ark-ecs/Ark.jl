@@ -6,13 +6,12 @@
 # resulting code is optimal, but its size grows with the number of component types, and
 # compiling it dominates latency for worlds that declare many components.
 #
-# A world created with `erased=true` routes those operations through vectors of
+# A world created with `mode=:erased` routes those operations through vectors of
 # `FunctionWrapper`s instead - one wrapper per component storage - so the size of the
 # generated code no longer depends on the number of component types. Wrappers are built
 # lazily, per operation and per component, so a world only ever compiles the combinations
 # it actually performs.
 
-const _FW_AddColumn = FunctionWrapper{Nothing,Tuple{}}
 const _FW_ActivateColumn = FunctionWrapper{Nothing,Tuple{Int,Int}}
 const _FW_EnsureColumnSize = FunctionWrapper{Nothing,Tuple{UInt32,Int}}
 const _FW_MoveData = FunctionWrapper{Nothing,Tuple{UInt32,UInt32,UInt32}}
@@ -25,14 +24,14 @@ const _FW_PermuteCycle = FunctionWrapper{Nothing,Tuple{UInt32,Entities,Vector{_E
 
 # One callable per storage operation. A `FunctionWrapper` can only wrap a callable value,
 # and a generated function may not emit closures, so the storage is captured in a struct.
-struct _AddColumnOp{S}
+# Column lifecycle needs both halves of a storage; everything else only needs the columns.
+struct _ActivateColumnOp{S,E}
     storage::S
+    empty::E
 end
-struct _ActivateColumnOp{S}
+struct _EnsureColumnSizeOp{S,E}
     storage::S
-end
-struct _EnsureColumnSizeOp{S}
-    storage::S
+    empty::E
 end
 struct _MoveDataOp{S}
     storage::S
@@ -44,8 +43,9 @@ end
 struct _CopyDataToEndOp{S}
     storage::S
 end
-struct _ClearColumnOp{S}
+struct _ClearColumnOp{S,E}
     storage::S
+    empty::E
 end
 struct _RemoveDataOp{S}
     storage::S
@@ -57,20 +57,28 @@ struct _PermuteCycleOp{S}
     storage::S
 end
 
-(op::_AddColumnOp)() = _add_column!(op.storage)
-(op::_ActivateColumnOp)(index::Int, cap::Int) = _activate_column!(op.storage, index, cap)
-(op::_EnsureColumnSizeOp)(arch::UInt32, needed::Int) = _ensure_column_size!(op.storage, arch, needed)
+(op::_ActivateColumnOp)(index::Int, cap::Int) = _activate_column!(op.storage, op.empty, index, cap)
+(op::_EnsureColumnSizeOp)(arch::UInt32, needed::Int) =
+    _ensure_column_size!(op.storage, op.empty, arch, needed)
 (op::_MoveDataOp)(old_table::UInt32, new_table::UInt32, row::UInt32) =
     _move_component_data!(op.storage, old_table, new_table, row)
 (op::_CopyDataOp)(old_table::UInt32, new_table::UInt32, old_row::UInt32) =
     _copy_component_data!(op.storage, old_table, new_table, old_row, op.mode)
 (op::_CopyDataToEndOp)(old_table::UInt32, new_table::UInt32) =
     _copy_component_data_to_end!(op.storage, old_table, new_table)
-(op::_ClearColumnOp)(table::UInt32) = _clear_column!(op.storage, table)
+(op::_ClearColumnOp)(table::UInt32) = _clear_column!(op.storage, op.empty, table)
 (op::_RemoveDataOp)(table::UInt32, row::UInt32) = _remove_component_data!(op.storage, table, row)
 (op::_SwapDataOp)(table::UInt32, i::Int, j::Int) = _swap_component_data!(op.storage, table, i, j)
 (op::_PermuteCycleOp)(table::UInt32, entities::Entities, entity_index::Vector{_EntityIndex}, start::Int) =
     _permute_component_cycle!(op.storage, table, entities, entity_index, start)
+
+# Uniform construction from both halves, so `_build_erased!` does not need to know which
+# operations use which.
+_MoveDataOp(cols, _empty) = _MoveDataOp(cols)
+_CopyDataToEndOp(cols, _empty) = _CopyDataToEndOp(cols)
+_RemoveDataOp(cols, _empty) = _RemoveDataOp(cols)
+_SwapDataOp(cols, _empty) = _SwapDataOp(cols)
+_PermuteCycleOp(cols, _empty) = _PermuteCycleOp(cols)
 
 """
     _ErasedDispatch
@@ -81,7 +89,6 @@ Each vector has one slot per component, indexed by component id. Slots start out
 and are filled on first use.
 """
 struct _ErasedDispatch
-    add_column::Vector{_FW_AddColumn}
     activate_column::Vector{_FW_ActivateColumn}
     ensure_column_size::Vector{_FW_EnsureColumnSize}
     move_data::Vector{_FW_MoveData}
@@ -97,7 +104,6 @@ end
 
 function _ErasedDispatch(n::Int)
     return _ErasedDispatch(
-        Vector{_FW_AddColumn}(undef, n),
         Vector{_FW_ActivateColumn}(undef, n),
         Vector{_FW_EnsureColumnSize}(undef, n),
         Vector{_FW_MoveData}(undef, n),
@@ -112,7 +118,8 @@ function _ErasedDispatch(n::Int)
     )
 end
 
-# The single point where a component id selects a storage. Returning a boxed storage keeps
+# The single point where a component id selects one component's entry out of a container -
+# used for both halves of the storages, columns and empty columns. Returning a boxed entry keeps
 # this the only piece of generated code that grows with the number of component types, and
 # its branches are trivial compared to a full operation per branch.
 #
@@ -139,14 +146,8 @@ end
 # point of the mode: it is reached at most once per (operation, component) pair, and what
 # it compiles does not depend on the number of component types.
 @noinline function _build_erased!(v::Vector{FW}, comp::Int, stores, op::F) where {FW<:FunctionWrapper,F}
-    @inbounds v[comp] = FW(op(_storage_at(stores._storages, comp)))
+    @inbounds v[comp] = FW(op(_storage_at(stores._storages, comp), _storage_at(stores._empty_storages, comp)))
     return nothing
-end
-
-@inline function _erased_add_column(stores, comp::Int)
-    v = stores._dispatch.add_column
-    isassigned(v, comp) || _build_erased!(v, comp, stores, _AddColumnOp)
-    return @inbounds v[comp]
 end
 
 @inline function _erased_activate_column(stores, comp::Int)
@@ -167,7 +168,7 @@ end
     return @inbounds v[comp]
 end
 
-_copy_data_op(mode::Val) = storage -> _CopyDataOp(storage, mode)
+_copy_data_op(mode::Val) = (cols, _empty) -> _CopyDataOp(cols, mode)
 
 @inline function _erased_copy_data(stores, comp::Int, mode::Val{:ref})
     v = stores._dispatch.copy_data_ref

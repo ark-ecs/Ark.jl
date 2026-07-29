@@ -2,7 +2,7 @@
 function setup_query_posvel_32_arch(n_entities::Int)
     world = World(
         Position, Velocity,
-        CompN{1}, CompN{2}, CompN{3}, CompN{4}, CompN{5}; erased=true,
+        CompN{1}, CompN{2}, CompN{3}, CompN{4}, CompN{5}; mode=:erased,
         initial_capacity=clamp(nextpow(2, div(n_entities, 32) + 1), 32, 1024),
     )
 

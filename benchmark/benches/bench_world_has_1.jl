@@ -1,5 +1,5 @@
 function setup_world_has_1(n_entities::Int)
-    world = World(Position, Velocity; erased=true,)
+    world = World(Position, Velocity; mode=:erased,)
 
     entities = Vector{Entity}()
     for i in 1:n_entities

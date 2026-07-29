@@ -47,26 +47,39 @@ world = World(Position, Velocity; initial_capacity=1024)
 World(entities=0, comp_types=(Position, Velocity))
 ```
 
-## Type-erased dispatch
+## World modes
 
-Ark resolves the component of a structural operation at compile time, by generating one
-branch per component type. This is what makes structural operations fast, but the size of
-the generated code grows with the number of component types a world declares, and so does
-the time spent compiling it.
+The keyword argument `mode` selects how much code Ark generates per component type. The three
+modes form a ladder, each erasing strictly more than the one before it:
 
-For worlds with many component types, the keyword argument `erased` routes those operations
-through type-erased calls instead. The generated code then no longer depends on the number
-of component types, and each per-component call is compiled only when it is first used.
+| `mode` | generated per component type |
+|:--|:--|
+| `:monomorphic` (default) | a specialized copy of every structural operation |
+| `:erased` | the selection of a storage only, as a single trivial branch |
+| `:boxed` | nothing at all |
+
+Queries and iteration are statically typed in every mode.
+
+### Erased dispatch
+
+By default Ark resolves the component of a structural operation by generating one branch per
+component type, each holding a copy of the operation specialized for that component. This is
+what makes structural operations fast, but the size of the generated code grows with the
+number of component types a world declares, and so does the time spent compiling it.
+
+For worlds with many component types, `mode=:erased` routes those operations through
+type-erased calls instead. The generated code then no longer depends on the number of
+component types, and each per-component call is compiled only when it is first used.
 
 ```jldoctest world; output = false
-world = World(Position, Velocity; erased=true)
+world = World(Position, Velocity; mode=:erased)
 
 # output
 
 World(entities=0, comp_types=(Position, Velocity))
 ```
 
-The effect grows with the number of component types: the default dispatch compiles
+The effect grows with the number of component types: `:monomorphic` compiles
 super-linearly, while the erased dispatch stays close to linear.
 
 ```@raw html
@@ -76,51 +89,45 @@ super-linearly, while the erased dispatch stays close to linear.
 *First-call compile time of the structural operations as the number of component types grows.
 Below a few dozen component types the erased dispatch is slightly slower to compile; above
 that its advantage widens quickly. World construction is measured separately, in the
-[boxed storage](@ref Boxed-storage) section, since it is what the other mode addresses.*
+[boxed storage](@ref Boxed-storage) section, since it is what the next step addresses.*
 
 This is a trade-off, not a free improvement:
 
   - Compilation cost of structural operations grows super-linearly with the number of
-    component types in the default dispatch, but stays close to linear when erased. The mode
+    component types under `:monomorphic`, but stays close to linear when erased. The mode
     pays off for worlds with a few dozen component types and above.
   - Structural operations on individual entities (adding and removing components, creating
     and removing entities, copying entities, shuffling) become roughly 2x slower.
   - Queries, batch operations and sorting are unaffected, as they operate per archetype
     column rather than per entity.
 
-Leave the mode off unless compile time is a problem, and measure both before committing to it.
+Stay on `:monomorphic` unless compile time is a problem, and measure both before committing
+to another mode.
 
-## Boxed storage
+### Boxed storage
 
-The `erased` mode addresses the code that *operates* on the component storages. The storages
+`:erased` addresses the code that *operates* on the component storages. The storages
 themselves are still held in a tuple, and a tuple can only be built by code that names every
 element, so world construction keeps one specialized call per component type in a single
 method. That method is the most expensive thing Ark compiles for a large schema.
 
-The keyword argument `boxed` keeps the storages in a `Vector{Any}` instead. The types are then
-carried as values rather than as static arguments, so the world creates and registers its
-storages in a runtime loop, and the size of the world constructor no longer depends on the
-number of component types.
+`mode=:boxed` keeps the storages in a `Vector{Any}` instead. The types are then carried as
+values rather than as static arguments, so the world creates and registers its storages in a
+runtime loop, and the size of the world constructor no longer depends on the number of
+component types.
 
 ```jldoctest world; output = false
-world = World(Position, Velocity; boxed=true)
+world = World(Position, Velocity; mode=:boxed)
 
 # output
 
 World(entities=0, comp_types=(Position, Velocity))
 ```
 
-The two modes are independent and can be combined. `boxed` additionally removes the last
-piece of generated code that grows with the schema in an erased world, which is the switch
-that maps a component id to its storage.
-
-```jldoctest world; output = false
-world = World(Position, Velocity; erased=true, boxed=true)
-
-# output
-
-World(entities=0, comp_types=(Position, Velocity))
-```
+`:boxed` builds on `:erased` rather than being an independent knob: it keeps the erased
+dispatch and additionally removes the last piece of generated code that grows with the
+schema, which is the switch that maps a component id to its storage. That leaves no
+per-component generated code anywhere.
 
 The effect is on world construction, which the erased dispatch leaves untouched: it grows
 super-linearly with the number of component types when the storages are held in a tuple, and
@@ -147,8 +154,8 @@ This is a trade-off, not a free improvement:
     their storages once when the query is created.
   - Structural operations compile slightly more code per call site than in a tuple world.
 
-Leave the mode off unless world-construction compile time is a problem, and measure before
-committing to it.
+Stay on `:erased` or `:monomorphic` unless world-construction compile time is a problem, and
+measure before committing to `:boxed`.
 
 ## World reset
 

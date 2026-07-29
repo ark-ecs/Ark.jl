@@ -2,7 +2,7 @@
 function setup_world_set_1_soa(n_entities::Int)
     world = World(
         Position => Storage{StructArray},
-        Velocity => Storage{StructArray}; erased=true,
+        Velocity => Storage{StructArray}; mode=:erased,
     )
 
     entities = Vector{Entity}()

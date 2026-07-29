@@ -1,15 +1,28 @@
 
 @testset "Boxed storage flag" begin
-    world = World(Position, Velocity; boxed=true)
+    world = World(Position, Velocity; mode=:boxed)
     @test Ark._is_boxed(typeof(_storage(world)))
     @test _storage(world)._storages isa Vector{Any}
     @test !Ark._is_boxed(typeof(_storage(World(Position, Velocity))))
     @test _storage(World(Position, Velocity))._storages isa Tuple
 
-    # The two modes are independent, and compose.
-    @test !Ark._is_erased(typeof(_storage(World(Position, Velocity; boxed=true))))
-    both = _storage(World(Position, Velocity; boxed=true, erased=true))
-    @test Ark._is_boxed(typeof(both)) && Ark._is_erased(typeof(both))
+    # The modes are a ladder: each one erases strictly more than the one before it, so
+    # `:boxed` implies erased dispatch and the two flags are never set independently.
+    mono = _storage(World(Position, Velocity; mode=:monomorphic))
+    @test !Ark._is_erased(typeof(mono)) && !Ark._is_boxed(typeof(mono))
+
+    erased = _storage(World(Position, Velocity; mode=:erased))
+    @test Ark._is_erased(typeof(erased)) && !Ark._is_boxed(typeof(erased))
+
+    boxed = _storage(World(Position, Velocity; mode=:boxed))
+    @test Ark._is_erased(typeof(boxed)) && Ark._is_boxed(typeof(boxed))
+
+    # `:monomorphic` is the default.
+    @test typeof(_storage(World(Position, Velocity))) === typeof(mono)
+
+    @test_throws(
+        "invalid world mode :unboxed, must be one of :monomorphic, :erased or :boxed",
+        World(Position, Velocity; mode=:unboxed))
 end
 
 @testset "Boxed storage matches tuple storage" begin
@@ -59,12 +72,12 @@ end
     end
 
     reference = run_ops!(World(Position, Velocity, Health))
-    @test run_ops!(World(Position, Velocity, Health; boxed=true)) == reference
-    @test run_ops!(World(Position, Velocity, Health; boxed=true, erased=true)) == reference
+    @test run_ops!(World(Position, Velocity, Health; mode=:erased)) == reference
+    @test run_ops!(World(Position, Velocity, Health; mode=:boxed)) == reference
 end
 
 @testset "Boxed storage with relations" begin
-    world = World(Position, Relation{ChildOf}; boxed=true)
+    world = World(Position, Relation{ChildOf}; mode=:boxed)
     parent = new_entity!(world, (Position(0, 0),))
     child = new_entity!(world, (Position(1, 1), ChildOf() => parent))
 
@@ -79,7 +92,7 @@ end
         Position => Storage{StructArray},
         Velocity => Storage{Vector},
         Health => Storage{Vector};
-        boxed=true,
+        mode=:boxed,
     )
     entity = new_entity!(world, (Position(1, 2), Velocity(3, 4), Health(5)))
     @test get_components(world, entity, (Position, Velocity, Health)) ==
@@ -104,10 +117,10 @@ _boxed_add_velocity!(world, entity) = add_components!(world, entity, (Velocity(1
 @testset "Boxed storage is type stable" begin
     function check_inference(world)
         stores = _storage(world)
-        @test @inferred(Ark._get_storage(stores, Position)) isa
-              Ark._ComponentStorage{Position,Vector{Position}}
-        @test @inferred(Ark._get_storage(stores, Health)) isa
-              Ark._ComponentStorage{Health,Vector{Health}}
+        @test @inferred(Ark._get_component_columns(stores, Position)) isa Vector{Vector{Position}}
+        @test @inferred(Ark._get_component_empty(stores, Position)) isa Vector{Position}
+        @test @inferred(Ark._get_component_columns(stores, Health)) isa Vector{Vector{Health}}
+        @test @inferred(Ark._get_component_empty(stores, Health)) isa Vector{Health}
 
         entity = new_entity!(world, (Position(1, 2),))
         @test @inferred(_boxed_get_position(world, entity)) == (Position(1, 2),)
@@ -117,8 +130,8 @@ _boxed_add_velocity!(world, entity) = add_components!(world, entity, (Velocity(1
         return nothing
     end
 
-    check_inference(World(Position, Velocity, Health; boxed=true))
-    check_inference(World(Position, Velocity, Health; boxed=true, erased=true))
+    check_inference(World(Position, Velocity, Health; mode=:erased))
+    check_inference(World(Position, Velocity, Health; mode=:boxed))
     check_inference(World(Position, Velocity, Health))
 end
 
@@ -153,7 +166,7 @@ end
         return total
     end
 
-    for kwargs in ((;), (; boxed=true), (; erased=true), (; boxed=true, erased=true))
+    for kwargs in ((;), (; mode=:erased), (; mode=:boxed))
         world = World(Position, Velocity, Health; kwargs...)
         for _ in 1:50
             new_entity!(world, (Position(1, 1),))

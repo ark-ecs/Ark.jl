@@ -137,7 +137,18 @@ function _Query_from_filter_expr(::Type{W}, ::Type{F}) where {W<:World,F<:Filter
     QS = Tuple{query_storage_types...}
     output_optional_ids = Int[i for i in eachindex(output_ids) if _get_bit(query_optional_mask, output_ids[i])]
     output_optional_mask = _Mask{M}(output_optional_ids...)
-    query_storages = Expr(:tuple, (_storage_ref(:world_storage, Storage, id) for id in output_ids)...)
+    # The one place that wants both halves of a storage at once: a query resolves its columns
+    # per table, and an optional component falls back to the empty column. Paired here, once
+    # per query, rather than carried through every component access.
+    query_storages = Expr(
+        :tuple,
+        (
+            :($(query_storage_types[i])(
+                $(_storage_ref(:world_storage, Storage, output_ids[i])),
+                $(_empty_ref(:world_storage, Storage, output_ids[i])),
+            )) for i in eachindex(output_ids)
+        )...,
+    )
 
     return quote
         _check_filter_world(world, filter)

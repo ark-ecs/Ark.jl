@@ -821,12 +821,12 @@ end
     if DEF === Val{true}
         for i in 1:length(add_types)
             T = add_types[i]
-            stor_sym = Symbol("stor", i)
+            cols_sym = Symbol("cols", i)
             col_sym = Symbol("col", i)
             val_expr = :(add.$i)
 
-            push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-            push!(exprs, :(@inbounds $col_sym = $stor_sym.data[new_table_index]))
+            push!(exprs, :($cols_sym = _get_component_columns(stores, $T)))
+            push!(exprs, :(@inbounds $col_sym = $cols_sym[new_table_index]))
             push!(exprs, :(@inbounds fill!(view($col_sym, start_idx:length($col_sym)), $val_expr)))
         end
     end
@@ -1067,12 +1067,12 @@ end
         body_exprs = Expr(:block)
         for i in 1:length(types)
             T = types[i]
-            stor_sym = Symbol("stor", i)
+            cols_sym = Symbol("cols", i)
             col_sym = Symbol("col", i)
             val_expr = :(values.$i)
 
-            push!(body_exprs.args, :($stor_sym = _get_storage(stores, $T)))
-            push!(body_exprs.args, :(@inbounds $col_sym = $stor_sym.data[table_idx]))
+            push!(body_exprs.args, :($cols_sym = _get_component_columns(stores, $T)))
+            push!(body_exprs.args, :(@inbounds $col_sym = $cols_sym[table_idx]))
             push!(body_exprs.args, :(fill!(view($col_sym, indices[1]:indices[2]), $val_expr)))
         end
         push!(exprs, :(
@@ -1156,11 +1156,11 @@ end
     exprs = Expr[]
     push!(exprs, :(entities = view(table.entities, Int(start_idx):Int(end_idx))))
     for i in 1:length(comp_types)
-        stor_sym = Symbol("stor", i)
+        cols_sym = Symbol("cols", i)
         col_sym = Symbol("col", i)
         vec_sym = Symbol("vec", i)
-        push!(exprs, :(@inbounds $stor_sym = _get_storage(stores, $(comp_types[i]))))
-        push!(exprs, :(@inbounds $col_sym = $stor_sym.data[Int(table.id)]))
+        push!(exprs, :(@inbounds $cols_sym = _get_component_columns(stores, $(comp_types[i]))))
+        push!(exprs, :(@inbounds $col_sym = $cols_sym[Int(table.id)]))
 
         if storage_types[i] <: GPUVector
             push!(exprs, :($vec_sym = _gpuvector_view($col_sym, Int(start_idx):Int(end_idx))))

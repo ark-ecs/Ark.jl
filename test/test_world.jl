@@ -24,19 +24,15 @@ end
         "ArgumentError: Component type Health not found in the World",
         _component_index(params, Health))
 
-    @test isa(
-        _get_storage(_storage(world), Position),
-        _ComponentStorage{Position,_storage_from_component(world, Position)},
-    )
-    @test isa(_get_storage(_storage(world), Position).empty_column, _storage_from_component(world, Position))
+    position_storage_type = _storage_from_component(world, Position)
+    @test isa(_get_component_columns(_storage(world), Position), Vector{position_storage_type})
+    @test isa(_get_component_empty(_storage(world), Position), position_storage_type)
     velocity_storage_type = _storage_from_component(world, Velocity)
-    @test isa(_get_storage(_storage(world), Velocity), _ComponentStorage{Velocity,velocity_storage_type})
-    @test isa(_get_storage(_storage(world), Velocity).empty_column, velocity_storage_type)
-    @test isa(
-        _get_storage(_storage(world), Altitude),
-        _ComponentStorage{Altitude,_storage_from_component(world, Altitude)},
-    )
-    @test isa(_get_storage(_storage(world), Altitude).empty_column, _storage_from_component(world, Altitude))
+    @test isa(_get_component_columns(_storage(world), Velocity), Vector{velocity_storage_type})
+    @test isa(_get_component_empty(_storage(world), Velocity), velocity_storage_type)
+    altitude_storage_type = _storage_from_component(world, Altitude)
+    @test isa(_get_component_columns(_storage(world), Altitude), Vector{altitude_storage_type})
+    @test isa(_get_component_empty(_storage(world), Altitude), altitude_storage_type)
 
     world_state = _state(world)
     stores = _storage(world)
@@ -73,12 +69,12 @@ end
     )
 
     @test isa(
-        _get_storage(_storage(world), Position),
-        _ComponentStorage{Position,_storage_from_component(world, Position)},
+        _get_component_columns(_storage(world), Position),
+        Vector{_storage_from_component(world, Position)},
     )
     @test isa(
-        _get_storage(_storage(world), Velocity),
-        _ComponentStorage{Velocity,_storage_from_component(world, Velocity)},
+        _get_component_columns(_storage(world), Velocity),
+        Vector{_storage_from_component(world, Velocity)},
     )
 end
 
@@ -184,11 +180,18 @@ end
     @test length(_state(world)._tables) == 3
 end
 
+# The world keeps a component's columns and its empty column in separate containers; these
+# tests are about the pair, so they put the two halves back together.
+_component_storage(world, ::Type{T}) where {T} = _ComponentStorage(
+    _get_component_columns(_storage(world), T),
+    _get_component_empty(_storage(world), T),
+)
+
 @testset "World shares inactive storage columns" begin
     world = World(Position, Velocity => Storage{StructArray}, Relation{ChildOf})
-    pos_storage = _get_storage(_storage(world), Position)
-    vel_storage = _get_storage(_storage(world), Velocity)
-    child_storage = _get_storage(_storage(world), ChildOf)
+    pos_storage = _component_storage(world, Position)
+    vel_storage = _component_storage(world, Velocity)
+    child_storage = _component_storage(world, ChildOf)
 
     # Nothing is instantiated up front: untouched storages hold no columns at all.
     @test isempty(pos_storage.data)
@@ -242,9 +245,9 @@ end
 
 @testset "World grows storage columns lazily" begin
     world = World(Position, Velocity, Altitude => Storage{StructArray})
-    pos_storage = _get_storage(_storage(world), Position)
-    vel_storage = _get_storage(_storage(world), Velocity)
-    alt_storage = _get_storage(_storage(world), Altitude)
+    pos_storage = _component_storage(world, Position)
+    vel_storage = _component_storage(world, Velocity)
+    alt_storage = _component_storage(world, Altitude)
 
     # Several tables, none of which uses Velocity or Altitude.
     entity = new_entity!(world, (Position(1, 1),))
@@ -299,16 +302,18 @@ end
     @test isa(id_int, Int)
     @test _state(world)._registry.types[id_int] == Int
     @test length(_storage(world)._storages) == N_fake + 2
-    @test _storage(world)._storages[id_int] isa _ComponentStorage{Int,_storage_from_component(world, Int)}
-    @test isempty(_storage(world)._storages[id_int].data)
+    @test _storage(world)._storages[id_int] isa Vector{_storage_from_component(world, Int)}
+    @test _storage(world)._empty_storages[id_int] isa _storage_from_component(world, Int)
+    @test isempty(_storage(world)._storages[id_int])
 
     # Register Position component
     id_pos = _component_index(params, Position)
     @test isa(id_pos, Int)
     @test _state(world)._registry.types[id_pos] == Position
     @test length(_storage(world)._storages) == N_fake + 2
-    @test _storage(world)._storages[id_pos] isa _ComponentStorage{Position,_storage_from_component(world, Position)}
-    @test isempty(_storage(world)._storages[id_pos].data)
+    @test _storage(world)._storages[id_pos] isa Vector{_storage_from_component(world, Position)}
+    @test _storage(world)._empty_storages[id_pos] isa _storage_from_component(world, Position)
+    @test isempty(_storage(world)._storages[id_pos])
 
     # Re-register Int component (should not add new storage)
     id_int2 = _component_index(params, Int)
@@ -327,21 +332,26 @@ end
         World(Position, MutableComponent => Storage{StructArray}))
 end
 
-@testset "_get_storage Tests" begin
+@testset "_get_component_columns Tests" begin
     world = World(Int)
     params = typeof(world).parameters[1]
 
-    storage1 = _get_storage(_storage(world), Int)
-    @test storage1 isa _ComponentStorage{Int,_storage_from_component(world, Int)}
+    columns1 = _get_component_columns(_storage(world), Int)
+    @test columns1 isa Vector{_storage_from_component(world, Int)}
+    @test _get_component_empty(_storage(world), Int) isa _storage_from_component(world, Int)
 
     id = _component_index(params, Int)
-    storage2 = _get_storage(_storage(world), Int)
-    @test storage2 isa _ComponentStorage{Int,_storage_from_component(world, Int)}
+    columns2 = _get_component_columns(_storage(world), Int)
+    @test columns2 isa Vector{_storage_from_component(world, Int)}
 
-    @test storage1 === storage2
+    @test columns1 === columns2
+    @test _get_component_empty(_storage(world), Int) === _get_component_empty(_storage(world), Int)
 
     @test_throws("ArgumentError: Component type Float64 not found in the World",
-        _get_storage(_storage(world), Float64))
+        _get_component_columns(_storage(world), Float64))
+
+    @test_throws("ArgumentError: Component type Float64 not found in the World",
+        _get_component_empty(_storage(world), Float64))
 
     @test_throws("ArgumentError: Component type Float64 not found in the World",
         _get_relations_storage(_state(world), Float64, _storage(world)))
@@ -414,8 +424,8 @@ end
     @test length(_storage(world)._storages) == N_fake + 2
     @test length(_state(world)._registry.types) == N_fake + 2
 
-    pos_storage = _get_storage(_storage(world), Position)
-    vel_storage = _get_storage(_storage(world), Velocity)
+    pos_storage = _component_storage(world, Position)
+    vel_storage = _component_storage(world, Velocity)
 
     @test isa(pos_storage, _ComponentStorage{Position,_storage_from_component(world, Position)})
     @test isa(vel_storage, _ComponentStorage{Velocity,_storage_from_component(world, Velocity)})
@@ -444,20 +454,20 @@ end
     @test table_index == (2, false)
 
     entity, index = _create_entity!(_state(world), table_index[1])
-    push!(_get_storage(_storage(world), Position).data[table_index[1]], Position(0, 0))
-    push!(_get_storage(_storage(world), Velocity).data[table_index[1]], Velocity(0, 0))
+    push!(_component_storage(world, Position).data[table_index[1]], Position(0, 0))
+    push!(_component_storage(world, Velocity).data[table_index[1]], Velocity(0, 0))
     @test entity == _new_entity(2, 0)
     @test index == 1
     @test _state(world)._entities == [_EntityIndex(typemax(UInt32), 0), _EntityIndex(table_index[1], UInt32(1))]
 
     remove_entity!(world, entity)
     entity, index = _create_entity!(_state(world), table_index[1])
-    push!(_get_storage(_storage(world), Position).data[table_index[1]], Position(0, 0))
-    push!(_get_storage(_storage(world), Velocity).data[table_index[1]], Velocity(0, 0))
+    push!(_component_storage(world, Position).data[table_index[1]], Position(0, 0))
+    push!(_component_storage(world, Velocity).data[table_index[1]], Velocity(0, 0))
     @test entity == _new_entity(2, 1)
 
-    pos_storage = _get_storage(_storage(world), Position)
-    vel_storage = _get_storage(_storage(world), Velocity)
+    pos_storage = _component_storage(world, Position)
+    vel_storage = _component_storage(world, Velocity)
 
     @test length(pos_storage.data[table_index[1]]) == 1
     @test length(vel_storage.data[table_index[1]]) == 1
@@ -521,8 +531,8 @@ end
     entity = new_entity!(world, (Position(1, 2), Velocity(3, 4)))
     @test entity == _new_entity(3, 0)
     @test is_alive(world, entity) == true
-    @test length(_column_or_empty(_storage(world)._storages[offset_ID+2], 2)) == 1
-    @test length(_column_or_empty(_storage(world)._storages[offset_ID+3], 2)) == 1
+    @test length(_storage(world)._storages[offset_ID+2][2]) == 1
+    @test length(_storage(world)._storages[offset_ID+3][2]) == 1
 
     pos, vel = get_components(world, entity, (Position, Velocity))
     @test pos == Position(1, 2)
@@ -813,8 +823,8 @@ end
     @test entity2._id == entity._id + 1
     @test entity2._id == 4
     @test _state(world)._tables[2].entities == [entity, entity2]
-    @test length(_column_or_empty(_storage(world)._storages[offset_ID+2], 2)) == 2
-    @test length(_column_or_empty(_storage(world)._storages[offset_ID+3], 2)) == 2
+    @test length(_storage(world)._storages[offset_ID+2][2]) == 2
+    @test length(_storage(world)._storages[offset_ID+3][2]) == 2
 
     pos, vel = get_components(world, entity2, (Position, Velocity))
     @test pos == Position(1, 2)
@@ -1009,8 +1019,8 @@ end
     @test cnt == 100
     @test is_locked(world) == false
     @test length(_state(world)._tables[2].entities) == 101
-    @test length(_column_or_empty(_storage(world)._storages[offset_ID+2], 2)) == 101
-    @test length(_column_or_empty(_storage(world)._storages[offset_ID+3], 2)) == 101
+    @test length(_storage(world)._storages[offset_ID+2][2]) == 101
+    @test length(_storage(world)._storages[offset_ID+3][2]) == 101
 
     cnt = 0
     for (ent, pos_col, vel_col) in Query(world, (Position, Velocity))
@@ -1067,8 +1077,8 @@ end
     @test count == 100
     @test is_locked(world) == false
     @test length(_state(world)._tables[2].entities) == 101
-    @test length(_column_or_empty(_storage(world)._storages[offset_ID+2], 2)) == 101
-    @test length(_column_or_empty(_storage(world)._storages[offset_ID+3], 2)) == 101
+    @test length(_storage(world)._storages[offset_ID+2][2]) == 101
+    @test length(_storage(world)._storages[offset_ID+3][2]) == 101
 
     count = 0
     for (ent, pos_col, vel_col) in Query(world, (Position, Velocity))
@@ -1826,8 +1836,12 @@ end
     end
 
     for s in 2:4
+        storage = _ComponentStorage(
+            _storage(world)._storages[offset_ID+s],
+            _storage(world)._empty_storages[offset_ID+s],
+        )
         for t in 2:6
-            @test length(_column_or_empty(_storage(world)._storages[offset_ID+s], t)) == 0
+            @test length(_column_or_empty(storage, t)) == 0
         end
     end
 

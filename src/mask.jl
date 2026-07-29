@@ -10,7 +10,7 @@ struct _Mask{M} <: _AbstractMask{M}
 end
 
 function _Mask{M}() where M
-    return _Mask(ntuple(Returns(UInt64(0)), M))
+    return _Mask(ntuple(Returns(UInt64(0)), Val(M)))
 end
 
 function _Mask{1}(bits::Integer...)
@@ -24,7 +24,7 @@ function _Mask{1}(bits::Integer...)
 end
 
 function _Mask{M}(bits::T...) where {M,T<:Integer}
-    chunks = ntuple(Returns(UInt64(0)), M)
+    chunks = ntuple(Returns(UInt64(0)), Val(M))
     for b in bits
         @check 1 ≤ b ≤ M * 64
         chunk = (b - 1) >>> 6
@@ -35,7 +35,7 @@ function _Mask{M}(bits::T...) where {M,T<:Integer}
 end
 
 function _Mask{M}(::_Not) where M
-    return _Mask(ntuple(Returns(typemax(UInt64)), M))
+    return _Mask(ntuple(Returns(typemax(UInt64)), Val(M)))
 end
 
 function _Mask{1}(::_Not, bits::Integer...)
@@ -49,7 +49,7 @@ function _Mask{1}(::_Not, bits::Integer...)
 end
 
 function _Mask{M}(::_Not, bits::T...) where {M,T<:Integer}
-    chunks = ntuple(Returns(typemax(UInt64)), M)  # 0xFFFFFFFFFFFFFFFF
+    chunks = ntuple(Returns(typemax(UInt64)), Val(M))  # 0xFFFFFFFFFFFFFFFF
     for b in bits
         @check 1 ≤ b ≤ M * 64
         chunk = (b - 1) >>> 6
@@ -60,12 +60,18 @@ function _Mask{M}(::_Not, bits::T...) where {M,T<:Integer}
     return _Mask(chunks)
 end
 
+# The terms are folded into nested *binary* calls rather than emitted as one M-ary
+# `Expr(:call, :&, terms...)`. Base routes an n-ary `&`/`|`/`+` through `afoldl`, whose
+# `max_args` is 34, so from M=36 up (afoldl sees M-1 arguments) the varargs tuple stops being
+# specialized and gets boxed: 320 bytes and 461ns per call at M=36, against 0 and 11ns folded.
+# The boundary is the argument count, not the mask size - `NTuple{M,UInt16}` breaks at the
+# same M=36. Folding keeps every call binary, so `afoldl` is never involved at any width.
 @generated function _contains_all(mask1::_Mask{M}, mask2::_Mask{M})::Bool where {M}
     exprs = Expr[]
     for i in 1:M
         push!(exprs, :(((mask1.bits[$i] & mask2.bits[$i]) == mask2.bits[$i])))
     end
-    return Expr(:call, :&, exprs...)
+    return foldl((x, y) -> Expr(:call, :&, x, y), exprs)
 end
 
 @generated function _contains_any(mask1::_Mask{M}, mask2::_Mask{M})::Bool where {M}
@@ -73,7 +79,7 @@ end
     for i in 1:M
         push!(exprs, :(((mask1.bits[$i] & mask2.bits[$i]) != UInt64(0))))
     end
-    return Expr(:call, :|, exprs...)
+    return foldl((x, y) -> Expr(:call, :|, x, y), exprs)
 end
 
 @generated function _and(a::_Mask{M}, b::_Mask{M})::_Mask{M} where M
@@ -166,7 +172,7 @@ end
     for i in 1:M
         push!(exprs, :(((mask1.bits[$i] & mask2.bits[$i]) == mask2.bits[$i])))
     end
-    return Expr(:call, :&, exprs...)
+    return foldl((x, y) -> Expr(:call, :&, x, y), exprs)
 end
 
 @generated function _contains_any(mask1::_Mask{M}, mask2::_MutableMask{M})::Bool where {M}
@@ -174,7 +180,7 @@ end
     for i in 1:M
         push!(exprs, :(((mask1.bits[$i] & mask2.bits[$i]) != UInt64(0))))
     end
-    return Expr(:call, :|, exprs...)
+    return foldl((x, y) -> Expr(:call, :|, x, y), exprs)
 end
 
 function _set_mask!(mask::_MutableMask, other::_Mask)
@@ -183,7 +189,7 @@ function _set_mask!(mask::_MutableMask, other::_Mask)
 end
 
 function _clear_mask!(mask::_MutableMask{M}) where M
-    mask.bits.data = ntuple(Returns(UInt64(0)), M)
+    mask.bits.data = ntuple(Returns(UInt64(0)), Val(M))
     return mask
 end
 
@@ -192,7 +198,7 @@ end
     for i in 1:M
         push!(exprs, :((mask1.bits[$i] == mask2.bits[$i])))
     end
-    return Expr(:call, :&, exprs...)
+    return foldl((x, y) -> Expr(:call, :&, x, y), exprs)
 end
 
 function _Mask(mask::_MutableMask)
@@ -239,5 +245,5 @@ end
     for i in 1:M
         push!(exprs, :(count_ones(mask.bits[$i])))
     end
-    return Expr(:call, :+, exprs...)
+    return foldl((x, y) -> Expr(:call, :+, x, y), exprs)
 end

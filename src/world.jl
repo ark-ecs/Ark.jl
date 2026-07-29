@@ -68,9 +68,25 @@ function _WorldPool{M}() where {M}
     )
 end
 
-struct _WorldStorage{CS<:Tuple,RT,D,S}
-    _storages::S
-    _dispatch::D
+# Mutable, with const fields: nothing is ever reassigned, so this is purely about
+# representation. An immutable would hold the storage tuple inline - 16 bytes per component
+# type - and every call taking a `_WorldStorage` would copy all of it. That is invisible for
+# a handful of components and dominates past a few hundred: measured at 2.4us per structural
+# operation and 2.0us per `get_components` at 2000 component types, against 0.2us and 0.1us
+# once the struct is a pointer. A mutable struct is heap-allocated once at world creation and
+# passed by reference from then on, so the cost of handing the storages around stops
+# depending on how many there are.
+mutable struct _WorldStorage{CS<:Tuple,RT,D,S,L}
+    # The two halves of every component storage, kept apart rather than as one
+    # `_ComponentStorage` per component: `_storages` holds the column vectors, indexed by
+    # table, and `_empty_storages` the empty column that stands in for the tables without the
+    # component. Only column lifecycle needs the second half, so the paths that touch
+    # component data reach a column in one load. In a boxed world that matters: a slot of a
+    # `Vector{Any}` holding a two-field immutable would hold a *box*, and reaching its
+    # columns through it costs a second, dependent load on every access.
+    const _storages::S
+    const _empty_storages::L
+    const _dispatch::D
 end
 
 mutable struct _WorldState{M,K}
@@ -137,19 +153,36 @@ _is_boxed(::Type{<:_WorldStorage{CS,RT,D,S}}) where {CS,RT,D,S} = S === Vector{A
 
 Expression that fetches the storage of component `i` out of the world storage bound to `sym`.
 
-A tuple world reads a field at a constant offset. A boxed world reads a `Vector{Any}` slot
-and restores its type with an assertion, which lowers to a tag check and a load: a storage is
-an immutable value that is boxed once at world creation and never replaced afterwards, so
-nothing has to be allocated to read one back out.
+A tuple world reads a field at a constant offset from the (heap-allocated) world storage. A
+boxed world reads a `Vector{Any}` slot and restores its type with an assertion, which lowers
+to a tag check and a load: a storage is an immutable value that is boxed once at world
+creation and never replaced afterwards, so nothing has to be allocated to read one back out.
 """
 function _storage_ref(sym::Symbol, Storage::Type{<:_WorldStorage}, i::Int)
     if _is_boxed(Storage)
-        S = fieldtype(_schema_storage_types(Storage), i)
-        slot = :(@inbounds $sym._storages[$i])
-        return :($slot::$S)
+        A = _storage_array_type(fieldtype(_schema_storage_types(Storage), i))
+        return :((@inbounds $sym._storages[$i])::Vector{$A})
     end
     return :($sym._storages.$i)
 end
+
+"""
+    _empty_ref(sym::Symbol, Storage::Type{<:_WorldStorage}, i::Int)
+
+Expression that fetches the empty column of component `i`, the other half of `_storage_ref`.
+
+Only the column lifecycle needs it - creating a column, clearing one, growing the vector of
+columns past a table that has none - so it is fetched separately rather than carried
+alongside every column access.
+"""
+function _empty_ref(sym::Symbol, Storage::Type{<:_WorldStorage}, i::Int)
+    if _is_boxed(Storage)
+        A = _storage_array_type(fieldtype(_schema_storage_types(Storage), i))
+        return :((@inbounds $sym._empty_storages[$i])::$A)
+    end
+    return :($sym._empty_storages.$i)
+end
+
 
 _world_storage(::Type{<:World{world_storage}}) where {world_storage<:_WorldStorage} = world_storage
 
@@ -165,6 +198,26 @@ function _component_index(world_storage::Type{<:_WorldStorage}, TargetType::Type
 end
 
 _storage(world::World) = getfield(world, :_stores)
+
+"""
+    _mode_flags(mode::Symbol)::Tuple{Bool,Bool}
+
+Resolves a world `mode` into the `(erased, boxed)` pair the internals are parameterized on.
+
+The modes form a ladder rather than two independent knobs: boxed storages are only ever
+combined with erased dispatch, because generating one branch per component type only to
+recover the storage type from a `Vector{Any}` in each of them would pay both costs at once.
+Going through `mode` makes that combination unrepresentable instead of merely invalid.
+"""
+function _mode_flags(mode::Symbol)
+    mode === :monomorphic && return (false, false)
+    mode === :erased && return (true, false)
+    mode === :boxed && return (true, true)
+    throw(ArgumentError(
+        lazy"invalid world mode $(repr(mode)), must be one of :monomorphic, :erased or :boxed",
+    ))
+end
+
 _state(world::World) = getfield(world, :_state)
 
 """
@@ -172,8 +225,7 @@ _state(world::World) = getfield(world, :_state)
         comp_types::Type...;
         initial_capacity::Int=16,
         allow_mutable::Bool=false,
-        erased::Bool=false,
-        boxed::Bool=false,
+        mode::Symbol=:monomorphic,
     )
 
 Creates a new, empty [World](@ref) for the given component types.
@@ -192,14 +244,19 @@ and an initial capacity for entities in [archetypes](@ref Architecture).
   - `comp_types`: The component types used by the world.
   - `initial_capacity`: Initial capacity for entities in each archetype and in the entity index.
   - `allow_mutable`: Allows mutable components. Use with care, as all mutable objects are heap-allocated in Julia.
-  - `erased`: Dispatches per-component operations through type-erased calls instead of generating
-    one branch per component type. Trades some runtime performance of structural operations for
-    a much lower compilation cost. Only worth it for worlds with many component types.
-  - `boxed`: Keeps the component storages in a `Vector{Any}` instead of a tuple, which lets the
-    world build and register them in a runtime loop rather than with one specialized call per
-    component type. Lowers the compilation cost of world construction, at the price of a type
-    check on each storage access. Only worth it for worlds with many component types, and it
-    composes with `erased`.
+  - `mode`: How much code Ark generates per component type. Each step trades runtime performance
+    of structural operations for a lower compilation cost, and only pays off for worlds that
+    declare many component types. Queries and iteration are statically typed in every mode.
+
+      + `:monomorphic` (default): emits one specialized copy of each structural operation per
+        component type, selected by a runtime branch on the component id. Fastest structural
+        operations, but the generated code — and the time to compile it — grows with the number
+        of component types.
+      + `:erased`: routes structural operations through type-erased calls, so only the selection
+        of a storage is still generated per component type, as a single trivial branch.
+      + `:boxed`: as `:erased`, and additionally keeps the component storages in a `Vector{Any}`
+        instead of a tuple. That removes the last generated branch, leaving no per-component
+        generated code anywhere, at the price of a type check on each storage access.
 
 # Examples
 
@@ -234,13 +291,13 @@ function World(
     comp_types::Union{Type,Pair{<:Type,<:Type}}...;
     initial_capacity::Int=16,
     allow_mutable=false,
-    erased=false,
-    boxed=false,
+    mode::Symbol=:monomorphic,
 )
     raw_types = map(arg -> arg isa Type ? arg : arg.first, comp_types)
     types = map(_unwrap_relation_type, raw_types)
     storages = map(arg -> arg isa Type ? Storage{Vector} : arg.second, comp_types)
     relation_types = map(_unwrap_relation_type, filter(_declares_relation, raw_types))
+    erased, boxed = _mode_flags(mode)
 
     _World_from_types(
         Val{Tuple{types...}}(),
@@ -995,19 +1052,29 @@ end
         end
     end
 
-    # Storage type logic (based on resolved Val{...} types)
-    _storage_types = Vector{Expr}(undef, length(types))
+    # Storage type logic (based on resolved Val{...} types).
+    #
+    # These are resolved to types here, in the generator, rather than emitted as
+    # `_ComponentStorage{T,_storage_type(mode, T)}` expressions. Both spellings describe the
+    # same type, but the expression form leaves one `_storage_type` call per component type
+    # in the method body for inference to constant-fold, and the schema type appears twice,
+    # so it pays for that twice. Splicing the finished type instead makes it a single
+    # interned object no matter how many components the world declares.
+    _storage_types = Vector{Any}(undef, length(types))
     storage_exprs = Vector{Expr}(undef, length(types))
+
+    empty_exprs = Vector{Expr}(undef, length(types))
 
     for i in 1:length(types)
         T = types[i]
         mode = storage_val_types[i]
-        _storage_types[i] = :(_ComponentStorage{$T,_storage_type($mode, $T)})
-        storage_exprs[i] = :(_new_component_storage($mode, $T))
+        _storage_types[i] = _ComponentStorage{T,_storage_type(mode, T)}
+        storage_exprs[i] = :(_new_component_columns($mode, $T))
+        empty_exprs[i] = :(_new_component_empty($mode, $T))
     end
 
     # Final type and value tuples
-    storage_tuple_type = :(Tuple{$(_storage_types...)})
+    storage_tuple_type = Tuple{_storage_types...}
     boxed = BOXED::Bool
     if boxed
         # The whole point of the boxed mode: the storages are built by a runtime loop over a
@@ -1018,10 +1085,14 @@ end
         # as literals instead would put a call with one argument per component type back into
         # this method, which is exactly the cost the mode exists to avoid.
         storage_container_type = Vector{Any}
-        storage_values = :(_new_storages(_type_vector($StorageModes), _type_vector($CS)))
+        empty_container_type = Vector{Any}
+        storage_values = :(_new_columns_vector(_type_vector($StorageModes), _type_vector($CS)))
+        empty_values = :(_new_empties_vector(_type_vector($StorageModes), _type_vector($CS)))
     else
-        storage_container_type = storage_tuple_type
+        storage_container_type = Tuple{map(T -> Vector{_storage_array_type(T)}, _storage_types)...}
+        empty_container_type = Tuple{map(_storage_array_type, _storage_types)...}
         storage_values = Expr(:tuple, storage_exprs...)
+        empty_values = Expr(:tuple, empty_exprs...)
     end
 
     # Component registration
@@ -1055,6 +1126,12 @@ end
     start_mask = _Mask{M}()
     dispatch_type = (ERASED::Bool) ? _ErasedDispatch : Nothing
     dispatch_expr = (ERASED::Bool) ? :(_ErasedDispatch($(length(types)))) : :(nothing)
+    # Built once here for the same reason: the world storage type is named twice in the body,
+    # and applying the curly in the body would rebuild it from its parameters each time.
+    world_storage_type = _WorldStorage{
+        storage_tuple_type,relation_bits,dispatch_type,storage_container_type,empty_container_type,
+    }
+    world_state_type = _WorldState{M,K}
     return quote
         registry = _ComponentRegistry()
         ids = $id_tuple
@@ -1066,14 +1143,9 @@ end
 
         node = graph.nodes[$start_mask]
 
-        stores = _WorldStorage{
-            $storage_tuple_type,
-            $relation_bits,
-            $dispatch_type,
-            $storage_container_type,
-        }($storage_values, $dispatch_expr)
+        stores = $world_storage_type($storage_values, $empty_values, $dispatch_expr)
 
-        world_state = _WorldState{$M,$K}(
+        world_state = $world_state_type(
             index,
             targets,
             $relations_vec,
@@ -1095,24 +1167,21 @@ end
             initial_capacity,
         )
 
-        World{
-            $(_WorldStorage){
-                $storage_tuple_type,
-                $relation_bits,
-                $dispatch_type,
-                $storage_container_type,
-            },
-            $(_WorldState){$M,$K},
-        }(
+        $(World{world_storage_type,world_state_type})(
             stores,
             world_state,
         )
     end
 end
 
-@generated function _get_storage(stores::_WorldStorage{CS}, ::Type{C}) where {CS<:Tuple,C}
+@generated function _get_component_columns(stores::_WorldStorage{CS}, ::Type{C}) where {CS<:Tuple,C}
     index = _component_index(CS, C)
     return _storage_ref(:stores, stores, index)
+end
+
+@generated function _get_component_empty(stores::_WorldStorage{CS}, ::Type{C}) where {CS<:Tuple,C}
+    index = _component_index(CS, C)
+    return _empty_ref(:stores, stores, index)
 end
 
 @generated function _get_relations_storage(
@@ -1758,12 +1827,12 @@ function _new_entity_expr(
     # Set each component
     for i in 1:length(types)
         T = types[i]
-        stor_sym = Symbol("stor", i)
+        cols_sym = Symbol("cols", i)
         col_sym = Symbol("col", i)
         val_expr = :(values.$i)
 
-        push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-        push!(exprs, :(@inbounds $col_sym = $stor_sym.data[table]))
+        push!(exprs, :($cols_sym = _get_component_columns(stores, $T)))
+        push!(exprs, :(@inbounds $col_sym = $cols_sym[table]))
         push!(exprs, :(push!($col_sym, $val_expr)))
     end
 
@@ -2269,12 +2338,12 @@ end
 
     for i in 1:length(add_types)
         T = add_types[i]
-        stor_sym = Symbol("stor", i)
+        cols_sym = Symbol("cols", i)
         col_sym = Symbol("col", i)
         val_expr = :(add.$i)
 
-        push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-        push!(exprs, :(@inbounds $col_sym = $stor_sym.data[new_table_index]))
+        push!(exprs, :($cols_sym = _get_component_columns(stores, $T)))
+        push!(exprs, :(@inbounds $col_sym = $cols_sym[new_table_index]))
         push!(exprs, :(@inbounds push!($col_sym, $val_expr)))
     end
 
@@ -2356,11 +2425,11 @@ end
 
     for i in 1:length(types)
         T = types[i]
-        stor_sym = Symbol("stor", i)
+        cols_sym = Symbol("cols", i)
         val_sym = Symbol("v", i)
 
-        push!(exprs, :($(stor_sym) = _get_storage(stores, $T)))
-        push!(exprs, :($(val_sym) = _get_component($(stor_sym), idx.table, idx.row)))
+        push!(exprs, :($(cols_sym) = _get_component_columns(stores, $T)))
+        push!(exprs, :($(val_sym) = _get_component($(cols_sym), idx.table, idx.row)))
     end
 
     vals = Symbol[Symbol("v", i) for i in 1:length(types)]
@@ -2433,11 +2502,11 @@ end
 
     for i in 1:length(types)
         T = types[i]
-        stor_sym = Symbol("stor", i)
+        cols_sym = Symbol("cols", i)
         val_expr = :(values.$i)
 
-        push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-        push!(exprs, :(_set_component!($stor_sym, idx.table, idx.row, $val_expr)))
+        push!(exprs, :($cols_sym = _get_component_columns(stores, $T)))
+        push!(exprs, :(_set_component!($cols_sym, idx.table, idx.row, $val_expr)))
     end
 
     push!(exprs, Expr(:return, :values))
@@ -2705,12 +2774,12 @@ end
     )
     for i in 1:length(add_types)
         T = add_types[i]
-        stor_sym = Symbol("stor", i)
+        cols_sym = Symbol("cols", i)
         col_sym = Symbol("col", i)
         val_expr = :(add.$i)
 
-        push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-        push!(exprs, :(@inbounds $col_sym = $stor_sym.data[new_table_index]))
+        push!(exprs, :($cols_sym = _get_component_columns(stores, $T)))
+        push!(exprs, :(@inbounds $col_sym = $cols_sym[new_table_index]))
         push!(exprs, :(push!($col_sym, $val_expr)))
     end
 
@@ -2807,7 +2876,11 @@ end
         return :(@inbounds _erased_activate_column(stores, comp)(index, initial_capacity))
     end
     call_exprs =
-        Expr[:(_activate_column!($(_storage_ref(:stores, stores, i)), index, initial_capacity)) for i in 1:fieldcount(CS)]
+        Expr[
+            :(_activate_column!(
+                $(_storage_ref(:stores, stores, i)), $(_empty_ref(:stores, stores, i)), index, initial_capacity,
+            )) for i in 1:fieldcount(CS)
+        ]
     _generate_component_switch(:comp, call_exprs)
 end
 
@@ -2820,7 +2893,11 @@ end
     if _is_erased(stores)
         return :(@inbounds _erased_ensure_column_size(stores, comp)(arch, needed))
     end
-    call_exprs = Expr[:(_ensure_column_size!($(_storage_ref(:stores, stores, i)), arch, needed)) for i in 1:fieldcount(CS)]
+    call_exprs = Expr[
+        :(_ensure_column_size!(
+            $(_storage_ref(:stores, stores, i)), $(_empty_ref(:stores, stores, i)), arch, needed,
+        )) for i in 1:fieldcount(CS)
+    ]
     _generate_component_switch(:comp, call_exprs)
 end
 
@@ -2880,7 +2957,10 @@ end
     if _is_erased(stores)
         return :(@inbounds _erased_clear_column(stores, comp)(table))
     end
-    call_exprs = Expr[:(_clear_column!($(_storage_ref(:stores, stores, i)), table)) for i in 1:fieldcount(CS)]
+    call_exprs = Expr[
+        :(_clear_column!($(_storage_ref(:stores, stores, i)), $(_empty_ref(:stores, stores, i)), table))
+        for i in 1:fieldcount(CS)
+    ]
     _generate_component_switch(:comp, call_exprs)
 end
 
