@@ -9,18 +9,18 @@ end
 A query for components. See function
 [Query](@ref Query(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)) for details.
 """
-struct Query{QS<:Tuple,CT<:Tuple,OF,RO,M,K}
+struct Query{QS<:Tuple,CT<:Tuple,OF,RO,M,K,WT<:World}
     _filter::_MaskFilter{M,K}
     _archetypes::Vector{_Archetype{M}}
     _archetypes_hot::Vector{_ArchetypeHot{M}}
     _q_lock::_QueryCursor
-    _world_state::_WorldState{M,K}
+    _world::WT
     _storages::CT
     _empty_storages::QS
 end
 
 @inline function _check_query_world(world::World, query::Query)
-    _state(world) === query._world_state || throw(ArgumentError("query belongs to a different world"))
+    world === query._world || throw(ArgumentError("query belongs to a different world"))
     return nothing
 end
 
@@ -97,23 +97,22 @@ Base.@constprop :aggressive function Query(world::World, filter::Filter)
     return _Query_from_filter(world, filter)
 end
 
-function _mask_component_types(world_state::_WorldState, mask::_Mask)
-    world_types = world_state._registry.types
+function _mask_component_types(world::World, mask::_Mask)
+    world_types = world._registry.types
     component_ids = _active_bit_indices(mask)
     return tuple(DataType[world_types[Int(id)] for id in component_ids]...)
 end
 
-function _format_mask_types(world_state::_WorldState, mask::_Mask)
-    return join(map(_format_type, _mask_component_types(world_state, mask)), ", ")
+function _format_mask_types(world::World, mask::_Mask)
+    return join(map(_format_type, _mask_component_types(world, mask)), ", ")
 end
 
-function _format_mask_types_except(world_state::_WorldState, mask::_Mask, excluded_types::Tuple)
-    types = setdiff(_mask_component_types(world_state, mask), excluded_types)
+function _format_mask_types_except(world::World, mask::_Mask, excluded_types::Tuple)
+    types = setdiff(_mask_component_types(world, mask), excluded_types)
     return join(map(_format_type, types), ", ")
 end
 
 function _Query_from_filter_expr(::Type{W}, ::Type{F}) where {W<:World,F<:Filter}
-    Storage = _world_storage(W)
     CM = _filter_component_mask(F)
     OM = _filter_optional_mask(F)
     M = _filter_mask_chunks(F)
@@ -129,34 +128,32 @@ function _Query_from_filter_expr(::Type{W}, ::Type{F}) where {W<:World,F<:Filter
     # TODO: skip this for cached filters
     archetypes =
         length(ids_tuple) == 0 ?
-        :((world_state._archetypes, world_state._archetypes_hot)) :
-        :(_get_archetypes(world_state, $ids_tuple))
+        :((world._archetypes, world._archetypes_hot)) :
+        :(_get_archetypes(world, $ids_tuple))
 
     query_optional_mask = _and(CM, OM)
-    all_component_storage_types = fieldtypes(_schema_storage_types(Storage))
+    all_component_storage_types = fieldtypes(_schema_storage_types(W))
     query_storage_types = Any[all_component_storage_types[id] for id in output_ids]
     QS = Tuple{query_storage_types...}
     output_optional_ids = Int[i for i in eachindex(output_ids) if _get_bit(query_optional_mask, output_ids[i])]
     output_optional_mask = _Mask{M}(output_optional_ids...)
     CT = Tuple{map(A -> Vector{A}, query_storage_types)...}
     query_storages =
-        Expr(:tuple, (_storage_ref(:world_storage, Storage, id) for id in output_ids)...)
-    query_empties = Expr(:tuple, (_empty_ref(:world_storage, Storage, id) for id in output_ids)...)
+        Expr(:tuple, (_storage_ref(:world, W, id) for id in output_ids)...)
+    query_empties = Expr(:tuple, (_empty_ref(:world, W, id) for id in output_ids)...)
 
     return quote
         _check_filter_world(world, filter)
-        world_state = _state(world)
-        world_storage = _storage(world)
         query_storages = $query_storages
         query_empties = $query_empties
-        _lock(world_state._lock)
+        _lock(world._lock)
         arches, hot = $(archetypes)
-        Query{$QS,$CT,$(QuoteNode(output_optional_mask)),$(QuoteNode(output_readonly_mask)),$M,$K}(
+        Query{$QS,$CT,$(QuoteNode(output_optional_mask)),$(QuoteNode(output_readonly_mask)),$M,$K,$W}(
             filter._filter,
             arches,
             hot,
             _QueryCursor(false),
-            world_state,
+            world,
             query_storages,
             query_empties,
         )
@@ -170,17 +167,17 @@ end
     return _Query_from_filter_expr(W, F)
 end
 
-@inline function Base.iterate(q::Query, state::Tuple{Int,Int})
+@inline function Base.iterate(q::Query, world::Tuple{Int,Int})
     if _is_cached(q._filter)
-        return _iterate_registered(q, state)
+        return _iterate_registered(q, world)
     else
-        return _iterate(q, state)
+        return _iterate(q, world)
     end
 end
 
-@inline function _iterate(q::Query, state::Tuple{Int,Int})
-    arch, tab = state
-    world_state = q._world_state
+@inline function _iterate(q::Query, world::Tuple{Int,Int})
+    arch, tab = world
+    world = q._world
     while arch <= length(q._archetypes)
         if tab == 0
             @inbounds archetype_hot = q._archetypes_hot[arch]
@@ -191,7 +188,7 @@ end
             end
 
             if !archetype_hot.has_relations
-                table = @inbounds world_state._tables[Int(archetype_hot.table)]
+                table = @inbounds world._tables[Int(archetype_hot.table)]
                 if isempty(table.entities)
                     arch += 1
                     continue
@@ -210,12 +207,12 @@ end
         end
 
         @inbounds archetype = q._archetypes[arch]
-        tables = _get_tables(world_state, archetype, q._filter.relations)
+        tables = _get_tables(world, archetype, q._filter.relations)
 
         while tab <= length(tables)
-            table = @inbounds world_state._tables[Int(tables[tab])]
+            table = @inbounds world._tables[Int(tables[tab])]
             # TODO we can probably optimize here if exactly one relation in archetype and one queried.
-            if isempty(table.entities) || !_matches(world_state._relations, table, q._filter.relations)
+            if isempty(table.entities) || !_matches(world._relations, table, q._filter.relations)
                 tab += 1
                 continue
             end
@@ -232,12 +229,12 @@ end
     return nothing
 end
 
-@inline function _iterate_registered(q::Q, state::Tuple{Int,Int}) where {Q<:Query}
-    index, _ = state
-    world_state = q._world_state
+@inline function _iterate_registered(q::Q, world::Tuple{Int,Int}) where {Q<:Query}
+    index, _ = world
+    world = q._world
     while index <= length(q._filter.tables)
         @inbounds table_id = q._filter.tables[index]
-        @inbounds table = world_state._tables[table_id]
+        @inbounds table = world._tables[table_id]
         if !isempty(table.entities)
             result = _get_columns(q, table)
             return result, (index + 1, 0)
@@ -269,8 +266,8 @@ end
         throw(ArgumentError("query must contain exactly one matching table"))
     end
 
-    table, state = firstv
-    secondv = iterate(q, state)
+    table, world = firstv
+    secondv = iterate(q, world)
     if secondv !== nothing
         close!(q)
         throw(ArgumentError("query must contain exactly one matching table"))
@@ -280,11 +277,11 @@ end
 end
 
 function Base.length(q::Query)
-    world_state = q._world_state
+    world = q._world
     if _is_cached(q._filter)
-        return _length_registered(world_state, q._filter)
+        return _length_registered(world, q._filter)
     else
-        return _length(world_state, q._filter, q._archetypes, q._archetypes_hot)
+        return _length(world, q._filter, q._archetypes, q._archetypes_hot)
     end
 end
 
@@ -318,11 +315,11 @@ Does not iterate or [close!](@ref close!(::Query)) the query.
 """
 function count_entities(world::World, q::Query)
     _check_query_world(world, q)
-    world_state = q._world_state
+    world = q._world
     if _is_cached(q._filter)
-        return _count_entities_registered(world_state, q._filter)
+        return _count_entities_registered(world, q._filter)
     else
-        return _count_entities(world_state, q._filter, q._archetypes, q._archetypes_hot)
+        return _count_entities(world, q._filter, q._archetypes, q._archetypes_hot)
     end
 end
 
@@ -337,7 +334,7 @@ function close!(q::Query)
     if q._q_lock.closed == true
         return nothing
     end
-    _unlock(q._world_state._lock)
+    _unlock(q._world._lock)
     q._q_lock.closed = true
     return nothing
 end
@@ -450,12 +447,12 @@ function Base.show(io::IO, query::Query{QS,CT,OF,RO,M,K}) where {QS<:Tuple,CT<:T
 
     required_names = join(map(_format_type, required_types), ", ")
     optional_names = join(map(_format_type, optional_types), ", ")
-    with_names = _format_mask_types_except(query._world_state, query._filter.mask, comp_types)
+    with_names = _format_mask_types_except(query._world, query._filter.mask, comp_types)
     is_exclusive = query._filter.exclusive
 
     without_names = ""
     if !is_exclusive
-        without_names = _format_mask_types(query._world_state, query._filter.exclude_mask)
+        without_names = _format_mask_types(query._world, query._filter.exclude_mask)
     end
 
     kw_parts = String[]

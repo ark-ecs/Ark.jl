@@ -84,7 +84,7 @@ end
         @test _healths(world, entities) == 2 .* sorted_xs
 
         for (row, entity) in enumerate(entities)
-            @test _state(world)._entities[entity._id] == _EntityIndex(2, row)
+            @test world._entities[entity._id] == _EntityIndex(2, row)
         end
     end
 

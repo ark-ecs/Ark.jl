@@ -1,20 +1,20 @@
 
 @testset "Boxed storage flag" begin
     world = World(Position, Velocity; mode=:boxed)
-    @test Ark._is_boxed(typeof(_storage(world)))
+    @test Ark._is_boxed(typeof(world))
 
-    @test _storage(world)._storages isa Ark.Memory{Any}
-    @test _storage(world)._empty_storages isa Ark.Memory{Any}
-    @test !Ark._is_boxed(typeof(_storage(World(Position, Velocity))))
-    @test _storage(World(Position, Velocity))._storages isa Tuple
+    @test world._storages isa Ark.Memory{Any}
+    @test world._empty_storages isa Ark.Memory{Any}
+    @test !Ark._is_boxed(typeof(World(Position, Velocity; mode=:specialized)))
+    @test World(Position, Velocity; mode=:specialized)._storages isa Tuple
 
-    mono = _storage(World(Position, Velocity; mode=:specialized))
+    mono = World(Position, Velocity; mode=:specialized)
     @test !Ark._is_erased(typeof(mono)) && !Ark._is_boxed(typeof(mono))
 
-    boxed = _storage(World(Position, Velocity; mode=:boxed))
+    boxed = World(Position, Velocity; mode=:boxed)
     @test Ark._is_erased(typeof(boxed)) && Ark._is_boxed(typeof(boxed))
 
-    @test typeof(_storage(World(Position, Velocity))) === typeof(mono)
+    @test typeof(World(Position, Velocity; mode=:specialized)) === typeof(mono)
 
     @test_throws(
         "invalid world mode :unboxed, must be one of :specialized or :boxed",
@@ -67,7 +67,7 @@ end
         return log
     end
 
-    reference = run_ops!(World(Position, Velocity, Health))
+    reference = run_ops!(World(Position, Velocity, Health; mode=:specialized))
     @test run_ops!(World(Position, Velocity, Health; mode=:boxed)) == reference
 end
 
@@ -105,7 +105,7 @@ _boxed_add_velocity!(world, entity) = add_components!(world, entity, (Velocity(1
 
 @testset "Boxed storage is type stable" begin
     function check_inference(world)
-        stores = _storage(world)
+        stores = world
         @test @inferred(Ark._get_component_columns(stores, Position)) isa Vector{Vector{Position}}
         @test @inferred(Ark._get_component_empty(stores, Position)) isa Vector{Position}
         @test @inferred(Ark._get_component_columns(stores, Health)) isa Vector{Vector{Health}}
@@ -120,7 +120,7 @@ _boxed_add_velocity!(world, entity) = add_components!(world, entity, (Velocity(1
     end
 
     check_inference(World(Position, Velocity, Health; mode=:boxed))
-    check_inference(World(Position, Velocity, Health))
+    check_inference(World(Position, Velocity, Health; mode=:specialized))
 end
 
 @testset "Boxed storage does not allocate" begin
@@ -154,7 +154,7 @@ end
         return total
     end
 
-    for kwargs in ((;), (; mode=:boxed))
+    for kwargs in ((; mode=:specialized), (; mode=:boxed))
         world = World(Position, Velocity, Health; kwargs...)
         for _ in 1:50
             new_entity!(world, (Position(1, 1),))

@@ -1,15 +1,25 @@
 
 function _storage_from_component(world, comp)
-    empties = _storage(world)._empty_storages
+    empties = world._empty_storages
     i = findfirst(x -> x isa AbstractArray{comp}, empties)
     return typeof(empties[i])
 end
+
+const WORLD_MODES = (:boxed,)
+const DEFAULT_WORLD_MODE = Ref(first(WORLD_MODES))
+
+struct FakeComp{N} end
+const N_fake = 300
+const fake_types = [FakeComp{i} for i in 1:N_fake]
+const fake_storage = [Storage{WrappedVector} for i in 1:N_fake]
+const M_mask = ceil(Int, N_fake / 64)
+const offset_ID = (M_mask - 1) * 64 - 1
 
 function Ark.World(
     comp_types::Union{Type,Pair{<:Type,<:Type}}...;
     initial_capacity::Int=128,
     allow_mutable=false,
-    mode=:boxed,
+    mode=DEFAULT_WORLD_MODE[],
 )
     raw_types = map(arg -> arg isa Type ? arg : arg.first, comp_types)
     types = map(Ark._unwrap_relation_type, raw_types)
@@ -29,8 +39,8 @@ function Ark.World(
     end
     storages = Tuple(storages)
     Ark._World_from_types(
-        Val{Tuple{fake_types[1:255]...,types...,fake_types[256:300]...}}(),
-        Val{Tuple{fake_storage[1:255]...,storages...,fake_storage[256:300]...}}(),
+        Val{Tuple{fake_types[1:offset_ID]...,types...,fake_types[offset_ID+1:N_fake]...}}(),
+        Val{Tuple{fake_storage[1:offset_ID]...,storages...,fake_storage[offset_ID+1:N_fake]...}}(),
         Val{Tuple{relation_types...}}(),
         Val(allow_mutable),
         Val(Ark._mode_boxed(mode)),
@@ -50,10 +60,3 @@ Base.empty!(w::WrappedVector) = empty!(w.v)
 Base.resize!(w::WrappedVector, i::Integer) = resize!(w.v, i)
 Base.sizehint!(w::WrappedVector, i::Integer) = sizehint!(w.v, i)
 Base.pop!(w::WrappedVector) = pop!(w.v)
-
-struct FakeComp{N} end
-const fake_types = [FakeComp{i} for i in 1:300]
-const fake_storage = [Storage{WrappedVector} for i in 1:300]
-const N_fake = 300
-const offset_ID = 255
-const M_mask = 5

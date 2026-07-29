@@ -1,8 +1,8 @@
 
 @testset "Erased dispatch flag" begin
     world = World(Position, Velocity; mode=:boxed)
-    @test Ark._is_erased(typeof(_storage(world)))
-    @test !Ark._is_erased(typeof(_storage(World(Position, Velocity))))
+    @test Ark._is_erased(typeof(world))
+    @test !Ark._is_erased(typeof(World(Position, Velocity; mode=:specialized)))
 end
 
 @testset "Erased dispatch matches default dispatch" begin
@@ -46,7 +46,7 @@ end
     end
 
     @test run_ops!(World(Position, Velocity, Health; mode=:boxed)) ==
-          run_ops!(World(Position, Velocity, Health))
+          run_ops!(World(Position, Velocity, Health; mode=:specialized))
 end
 
 @testset "Erased dispatch with relations" begin

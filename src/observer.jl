@@ -49,7 +49,7 @@ Base.@constprop :aggressive function observe!(
     register::Bool=true,
 ) where {W<:World}
     _Observer_from_types(
-        _state(world)._event_manager,
+        world._event_manager,
         W,
         event,
         FunctionWrapper{Nothing,Tuple{Entity}}(fn),
@@ -185,7 +185,7 @@ Registers the given [Observer](@ref) with the specified world.
 Note that observers created with [observe!](@ref) are automatically registered by default.
 """
 function register!(world::World, observer::Observer)
-    _add_observer!(_state(world)._event_manager, observer)
+    _add_observer!(world._event_manager, observer)
 end
 
 """
@@ -194,7 +194,7 @@ end
 Un-registers the given [Observer](@ref) from the specified world.
 """
 function unregister!(world::World, observer::Observer)
-    _remove_observer!(_state(world)._event_manager, observer)
+    _remove_observer!(world._event_manager, observer)
 end
 
 function Base.show(io::IO, obs::Observer)

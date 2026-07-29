@@ -2,10 +2,10 @@
 @testset "World creation" begin
     world = World()
     @test isa(world, World)
-    @test isa(_state(world)._registry, _ComponentRegistry)
+    @test isa(world._registry, _ComponentRegistry)
 
-    !(@isdefined fake_types) && @test _storage(world)._storages == ()
-    @test length(_state(world)._archetypes) == 1
+    !(@isdefined fake_types) && @test isempty(world._storages)
+    @test length(world._archetypes) == 1
 end
 
 @testset "World creation 2" begin
@@ -16,7 +16,7 @@ end
         Relation{ChildOf},
     )
     @test isa(world, World)
-    params = typeof(world).parameters[1]
+    params = typeof(world)
 
     @test _component_index(params, Velocity) == offset_ID + 2
     @test _component_index(params, Position) == offset_ID + 1
@@ -25,23 +25,21 @@ end
         _component_index(params, Health))
 
     position_storage_type = _storage_from_component(world, Position)
-    @test isa(_get_component_columns(_storage(world), Position), Vector{position_storage_type})
-    @test isa(_get_component_empty(_storage(world), Position), position_storage_type)
+    @test isa(_get_component_columns(world, Position), Vector{position_storage_type})
+    @test isa(_get_component_empty(world, Position), position_storage_type)
     velocity_storage_type = _storage_from_component(world, Velocity)
-    @test isa(_get_component_columns(_storage(world), Velocity), Vector{velocity_storage_type})
-    @test isa(_get_component_empty(_storage(world), Velocity), velocity_storage_type)
+    @test isa(_get_component_columns(world, Velocity), Vector{velocity_storage_type})
+    @test isa(_get_component_empty(world, Velocity), velocity_storage_type)
     altitude_storage_type = _storage_from_component(world, Altitude)
-    @test isa(_get_component_columns(_storage(world), Altitude), Vector{altitude_storage_type})
-    @test isa(_get_component_empty(_storage(world), Altitude), altitude_storage_type)
-
-    world_state = _state(world)
-    stores = _storage(world)
-    @test length(_get_relations_storage(world_state, Position, stores).archetypes) == 0
-    @test length(_get_relations_storage(world_state, Position, stores).targets) == 0
-    @test length(_get_relations_storage(world_state, ChildOf, stores).archetypes) == 1
-    @test length(_get_relations_storage(world_state, ChildOf, stores).targets) == 1
-    @test _get_relations_storage(world_state, ChildOf, stores).archetypes[1] == 0
-    @test _get_relations_storage(world_state, ChildOf, stores).targets[1] == _no_entity
+    @test isa(_get_component_columns(world, Altitude), Vector{altitude_storage_type})
+    @test isa(_get_component_empty(world, Altitude), altitude_storage_type)
+    stores = world
+    @test length(_get_relations_storage(world, Position).archetypes) == 0
+    @test length(_get_relations_storage(world, Position).targets) == 0
+    @test length(_get_relations_storage(world, ChildOf).archetypes) == 1
+    @test length(_get_relations_storage(world, ChildOf).targets) == 1
+    @test _get_relations_storage(world, ChildOf).archetypes[1] == 0
+    @test _get_relations_storage(world, ChildOf).targets[1] == _no_entity
 end
 
 @testset "World show" begin
@@ -69,11 +67,11 @@ end
     )
 
     @test isa(
-        _get_component_columns(_storage(world), Position),
+        _get_component_columns(world, Position),
         Vector{_storage_from_component(world, Position)},
     )
     @test isa(
-        _get_component_columns(_storage(world), Velocity),
+        _get_component_columns(world, Velocity),
         Vector{_storage_from_component(world, Velocity)},
     )
 end
@@ -123,16 +121,15 @@ end
         Position, Velocity,
     )
 
-    @test length(_storage(world)._storages) == N_fake + 32
+    @test length(world._storages) == N_fake + 32
 end
 
 @testset "World create table" begin
     world = World(Position, Velocity)
 
     table1 = _find_or_create_table!(
-        _state(world),
-        _storage(world),
-        _state(world)._tables[1],
+        world,
+        world._tables[1],
         (offset_ID + 1,),
         (),
         (),
@@ -143,13 +140,12 @@ end
         Val(false),
     )
     @test table1 == (2, false)
-    @test _state(world)._tables[table1[1]].archetype == 2
-    @test length(_state(world)._tables) == 2
+    @test world._tables[table1[1]].archetype == 2
+    @test length(world._tables) == 2
 
     table2 = _find_or_create_table!(
-        _state(world),
-        _storage(world),
-        _state(world)._tables[1],
+        world,
+        world._tables[1],
         (offset_ID + 1, offset_ID + 2),
         (),
         (),
@@ -160,13 +156,12 @@ end
         Val(false),
     )
     @test table2 == (3, false)
-    @test _state(world)._tables[table2[1]].archetype == 3
-    @test length(_state(world)._tables) == 3
+    @test world._tables[table2[1]].archetype == 3
+    @test length(world._tables) == 3
 
     table3 = _find_or_create_table!(
-        _state(world),
-        _storage(world),
-        _state(world)._tables[1],
+        world,
+        world._tables[1],
         (offset_ID + 1,),
         (),
         (),
@@ -177,14 +172,14 @@ end
         Val(false),
     )
     @test table3 == table1
-    @test length(_state(world)._tables) == 3
+    @test length(world._tables) == 3
 end
 
 # The world keeps a component's columns and its empty column in separate containers; these
 # tests are about how the two behave together, so they carry them as a pair.
 _component_storage(world, ::Type{T}) where {T} = (
-    data=_get_component_columns(_storage(world), T),
-    empty_column=_get_component_empty(_storage(world), T),
+    data=_get_component_columns(world, T),
+    empty_column=_get_component_empty(world, T),
 )
 
 _column_or_empty(storage::NamedTuple, table) =
@@ -208,8 +203,8 @@ _column_or_empty(storage::NamedTuple, table) =
     parent2 = new_entity!(world, ())
     child1 = new_entity!(world, (ChildOf() => parent1,))
     child2 = new_entity!(world, (ChildOf() => parent2,))
-    child_table1 = _state(world)._entities[child1._id].table
-    child_table2 = _state(world)._entities[child2._id].table
+    child_table1 = world._entities[child1._id].table
+    child_table2 = world._entities[child2._id].table
 
     @test child_table1 != child_table2
     for table in (child_table1, child_table2)
@@ -224,8 +219,8 @@ _column_or_empty(storage::NamedTuple, table) =
 
     entity1 = new_entity!(world, (Position(1, 1), Velocity(1, 1), ChildOf() => parent1))
     entity2 = new_entity!(world, (Position(2, 2), Velocity(2, 2), ChildOf() => parent2))
-    table1 = _state(world)._entities[entity1._id].table
-    table2 = _state(world)._entities[entity2._id].table
+    table1 = world._entities[entity1._id].table
+    table2 = world._entities[entity2._id].table
 
     @test table1 != table2
     for storage in (pos_storage, vel_storage, child_storage)
@@ -259,12 +254,12 @@ end
         remove_components!(world[entity], (Position,))
         add_components!(world[entity], (Position(2, 2),))
     end
-    @test length(_state(world)._tables) > 1
+    @test length(world._tables) > 1
 
     # Table count grew, bookkeeping for the untouched components did not.
     @test isempty(vel_storage.data)
     @test isempty(alt_storage.data)
-    @test length(pos_storage.data) <= length(_state(world)._tables)
+    @test length(pos_storage.data) <= length(world._tables)
 
     # Reads and writes for an absent component still report it as absent rather
     # than indexing past the end of the (short) bookkeeping vector.
@@ -290,7 +285,7 @@ end
     add_components!(world[entity], (Velocity(3, 3),))
     @test !isempty(vel_storage.data)
     @test world[entity][Velocity] == Velocity(3, 3)
-    table = _state(world)._entities[entity._id].table
+    table = world._entities[entity._id].table
     @test _column_or_empty(vel_storage, table) !== vel_storage.empty_column
     @test length(_column_or_empty(vel_storage, table)) == 1
     @test isempty(alt_storage.data)
@@ -298,30 +293,30 @@ end
 
 @testset "World Component Registration" begin
     world = World(Int, Position)
-    params = typeof(world).parameters[1]
+    params = typeof(world)
 
     # Register Int component
     id_int = _component_index(params, Int)
     @test isa(id_int, Int)
-    @test _state(world)._registry.types[id_int] == Int
-    @test length(_storage(world)._storages) == N_fake + 2
-    @test _storage(world)._storages[id_int] isa Vector{_storage_from_component(world, Int)}
-    @test _storage(world)._empty_storages[id_int] isa _storage_from_component(world, Int)
-    @test isempty(_storage(world)._storages[id_int])
+    @test world._registry.types[id_int] == Int
+    @test length(world._storages) == N_fake + 2
+    @test world._storages[id_int] isa Vector{_storage_from_component(world, Int)}
+    @test world._empty_storages[id_int] isa _storage_from_component(world, Int)
+    @test isempty(world._storages[id_int])
 
     # Register Position component
     id_pos = _component_index(params, Position)
     @test isa(id_pos, Int)
-    @test _state(world)._registry.types[id_pos] == Position
-    @test length(_storage(world)._storages) == N_fake + 2
-    @test _storage(world)._storages[id_pos] isa Vector{_storage_from_component(world, Position)}
-    @test _storage(world)._empty_storages[id_pos] isa _storage_from_component(world, Position)
-    @test isempty(_storage(world)._storages[id_pos])
+    @test world._registry.types[id_pos] == Position
+    @test length(world._storages) == N_fake + 2
+    @test world._storages[id_pos] isa Vector{_storage_from_component(world, Position)}
+    @test world._empty_storages[id_pos] isa _storage_from_component(world, Position)
+    @test isempty(world._storages[id_pos])
 
     # Re-register Int component (should not add new storage)
     id_int2 = _component_index(params, Int)
     @test id_int2 == id_int
-    @test length(_storage(world)._storages) == N_fake + 2
+    @test length(world._storages) == N_fake + 2
 
     @test_throws("ArgumentError: Component type Velocity not found in the World",
         _component_index(params, Velocity))
@@ -337,40 +332,39 @@ end
 
 @testset "_get_component_columns Tests" begin
     world = World(Int)
-    params = typeof(world).parameters[1]
+    params = typeof(world)
 
-    columns1 = _get_component_columns(_storage(world), Int)
+    columns1 = _get_component_columns(world, Int)
     @test columns1 isa Vector{_storage_from_component(world, Int)}
-    @test _get_component_empty(_storage(world), Int) isa _storage_from_component(world, Int)
+    @test _get_component_empty(world, Int) isa _storage_from_component(world, Int)
 
     id = _component_index(params, Int)
-    columns2 = _get_component_columns(_storage(world), Int)
+    columns2 = _get_component_columns(world, Int)
     @test columns2 isa Vector{_storage_from_component(world, Int)}
 
     @test columns1 === columns2
-    @test _get_component_empty(_storage(world), Int) === _get_component_empty(_storage(world), Int)
+    @test _get_component_empty(world, Int) === _get_component_empty(world, Int)
 
     @test_throws("ArgumentError: Component type Float64 not found in the World",
-        _get_component_columns(_storage(world), Float64))
+        _get_component_columns(world, Float64))
 
     @test_throws("ArgumentError: Component type Float64 not found in the World",
-        _get_component_empty(_storage(world), Float64))
+        _get_component_empty(world, Float64))
 
     @test_throws("ArgumentError: Component type Float64 not found in the World",
-        _get_relations_storage(_state(world), Float64, _storage(world)))
+        _get_relations_storage(world, Float64))
 end
 
 @testset "_find_or_create_table! Tests" begin
     world = World(Position, Velocity)
-    params = typeof(world).parameters[1]
+    params = typeof(world)
 
     pos_id = _component_index(params, Position)
     @test pos_id == offset_ID + UInt8(1)
 
     index = _find_or_create_table!(
-        _state(world),
-        _storage(world),
-        _state(world)._tables[1],
+        world,
+        world._tables[1],
         (pos_id,),
         (),
         (),
@@ -381,16 +375,15 @@ end
         Val(false),
     )
     @test index == (2, false)
-    @test length(_state(world)._tables) == 2
-    @test length(_state(world)._archetypes) == 2
+    @test length(world._tables) == 2
+    @test length(world._archetypes) == 2
 
     vel_id = _component_index(params, Velocity)
     @test vel_id == offset_ID + UInt8(2)
 
     index = _find_or_create_table!(
-        _state(world),
-        _storage(world),
-        _state(world)._tables[1],
+        world,
+        world._tables[1],
         (pos_id, vel_id),
         (),
         (),
@@ -401,13 +394,12 @@ end
         Val(false),
     )
     @test index == (3, false)
-    @test length(_state(world)._tables) == 3
-    @test length(_state(world)._archetypes) == 3
+    @test length(world._tables) == 3
+    @test length(world._archetypes) == 3
 
     index = _find_or_create_table!(
-        _state(world),
-        _storage(world),
-        _state(world)._tables[1],
+        world,
+        world._tables[1],
         (pos_id, vel_id),
         (),
         (),
@@ -418,14 +410,14 @@ end
         Val(false),
     )
     @test index == (3, false)
-    @test length(_state(world)._tables) == 3
-    @test length(_state(world)._archetypes) == 3
+    @test length(world._tables) == 3
+    @test length(world._archetypes) == 3
 
-    @test _state(world)._archetypes[2].components == [pos_id]
-    @test _state(world)._archetypes[3].components == [pos_id, vel_id]
+    @test world._archetypes[2].components == [pos_id]
+    @test world._archetypes[3].components == [pos_id, vel_id]
 
-    @test length(_storage(world)._storages) == N_fake + 2
-    @test length(_state(world)._registry.types) == N_fake + 2
+    @test length(world._storages) == N_fake + 2
+    @test length(world._registry.types) == N_fake + 2
 
     pos_storage = _component_storage(world, Position)
     vel_storage = _component_storage(world, Velocity)
@@ -438,13 +430,12 @@ end
 
 @testset "_create_entity! Tests" begin
     world = World(Position, Velocity)
-    params = typeof(world).parameters[1]
+    params = typeof(world)
     pos_id = _component_index(params, Position)
     vel_id = _component_index(params, Velocity)
     table_index = _find_or_create_table!(
-        _state(world),
-        _storage(world),
-        _state(world)._tables[1],
+        world,
+        world._tables[1],
         (pos_id, vel_id),
         (),
         (),
@@ -456,15 +447,15 @@ end
     )
     @test table_index == (2, false)
 
-    entity, index = _create_entity!(_state(world), table_index[1])
+    entity, index = _create_entity!(world, table_index[1])
     push!(_component_storage(world, Position).data[table_index[1]], Position(0, 0))
     push!(_component_storage(world, Velocity).data[table_index[1]], Velocity(0, 0))
     @test entity == _new_entity(2, 0)
     @test index == 1
-    @test _state(world)._entities == [_EntityIndex(typemax(UInt32), 0), _EntityIndex(table_index[1], UInt32(1))]
+    @test world._entities == [_EntityIndex(typemax(UInt32), 0), _EntityIndex(table_index[1], UInt32(1))]
 
     remove_entity!(world, entity)
-    entity, index = _create_entity!(_state(world), table_index[1])
+    entity, index = _create_entity!(world, table_index[1])
     push!(_component_storage(world, Position).data[table_index[1]], Position(0, 0))
     push!(_component_storage(world, Velocity).data[table_index[1]], Velocity(0, 0))
     @test entity == _new_entity(2, 1)
@@ -534,8 +525,8 @@ end
     entity = new_entity!(world, (Position(1, 2), Velocity(3, 4)))
     @test entity == _new_entity(3, 0)
     @test is_alive(world, entity) == true
-    @test length(_storage(world)._storages[offset_ID+2][2]) == 1
-    @test length(_storage(world)._storages[offset_ID+3][2]) == 1
+    @test length(world._storages[offset_ID+2][2]) == 1
+    @test length(world._storages[offset_ID+3][2]) == 1
 
     pos, vel = get_components(world, entity, (Position, Velocity))
     @test pos == Position(1, 2)
@@ -582,18 +573,18 @@ end
     dead_parent = new_entity!(world, ())
     remove_entity!(world, dead_parent)
 
-    @test _state(world)._targets[parent1._id] == false
+    @test world._targets[parent1._id] == false
 
     e1 = new_entity!(world, (Position(0, 0), ChildOf() => parent1))
     e2 = new_entity!(world, (Position(0, 0), ChildOf() => parent2))
     e3 = new_entity!(world, (Position(0, 0), ChildOf() => parent2))
 
-    @test _state(world)._targets[parent1._id] == true
+    @test world._targets[parent1._id] == true
 
-    @test length(_state(world)._archetypes) == 2
-    @test length(_state(world)._tables) == 3
+    @test length(world._archetypes) == 2
+    @test length(world._tables) == 3
 
-    arch = _state(world)._archetypes[2]
+    arch = world._archetypes[2]
     @test length(arch.index[1]) == 2
     @test arch.index[1][parent1._id].ids == [2]
     @test arch.index[1][parent2._id].ids == [3]
@@ -634,7 +625,7 @@ end
     e2 = new_entity!(world, (Position(0, 0), ChildOf() => parent2, ChildOf2() => parent1))
     e3 = new_entity!(world, (Position(0, 0), ChildOf() => parent1, ChildOf2() => parent2))
 
-    @test length(_state(world)._archetypes[2].tables) == 2
+    @test length(world._archetypes[2].tables) == 2
     @test get_relations(world, e1, (ChildOf, ChildOf2)) == (parent1, parent2)
     @test get_relations(world, e2, (ChildOf, ChildOf2)) == (parent2, parent1)
     @test get_relations(world, e3, (ChildOf, ChildOf2)) == (parent1, parent2)
@@ -642,7 +633,7 @@ end
     remove_entity!(world, parent1)
     remove_entity!(world, parent2)
 
-    @test length(_state(world)._archetypes[2].tables) == 1
+    @test length(world._archetypes[2].tables) == 1
 
     @test get_relations(world, e1, (ChildOf, ChildOf2)) == (zero_entity, zero_entity)
     @test get_relations(world, e2, (ChildOf, ChildOf2)) == (zero_entity, zero_entity)
@@ -785,7 +776,7 @@ end
         @test get_relations(world, e, (ChildOf,)) == (parent4,)
         @test get_components(world, e, (Position,)) == (Position(i, i),)
     end
-    @test _state(world)._targets[parent4._id] == true
+    @test world._targets[parent4._id] == true
 
     @test_throws(
         "ArgumentError: can't use a dead entity as relation target, except for the zero entity",
@@ -825,9 +816,9 @@ end
 
     @test entity2._id == entity._id + 1
     @test entity2._id == 4
-    @test _state(world)._tables[2].entities == [entity, entity2]
-    @test length(_storage(world)._storages[offset_ID+2][2]) == 2
-    @test length(_storage(world)._storages[offset_ID+3][2]) == 2
+    @test world._tables[2].entities == [entity, entity2]
+    @test length(world._storages[offset_ID+2][2]) == 2
+    @test length(world._storages[offset_ID+3][2]) == 2
 
     pos, vel = get_components(world, entity2, (Position, Velocity))
     @test pos == Position(1, 2)
@@ -1021,9 +1012,9 @@ end
 
     @test cnt == 100
     @test is_locked(world) == false
-    @test length(_state(world)._tables[2].entities) == 101
-    @test length(_storage(world)._storages[offset_ID+2][2]) == 101
-    @test length(_storage(world)._storages[offset_ID+3][2]) == 101
+    @test length(world._tables[2].entities) == 101
+    @test length(world._storages[offset_ID+2][2]) == 101
+    @test length(world._storages[offset_ID+3][2]) == 101
 
     cnt = 0
     for (ent, pos_col, vel_col) in Query(world, (Position, Velocity))
@@ -1079,9 +1070,9 @@ end
     end
     @test count == 100
     @test is_locked(world) == false
-    @test length(_state(world)._tables[2].entities) == 101
-    @test length(_storage(world)._storages[offset_ID+2][2]) == 101
-    @test length(_storage(world)._storages[offset_ID+3][2]) == 101
+    @test length(world._tables[2].entities) == 101
+    @test length(world._storages[offset_ID+2][2]) == 101
+    @test length(world._storages[offset_ID+3][2]) == 101
 
     count = 0
     for (ent, pos_col, vel_col) in Query(world, (Position, Velocity))
@@ -1715,7 +1706,7 @@ end
     @test count == 1
     @test count_rel == 0
 
-    @test length(_state(world)._tables[4].entities) == 0
+    @test length(world._tables[4].entities) == 0
 
     entities1 = Entity[]
     new_entities!(world, 10, (Position(0, 0), Velocity(0, 0), ChildOf() => parent1)) do (entities, _, _, _)
@@ -1827,36 +1818,36 @@ end
 
     reset!(world)
 
-    @test length(_state(world)._entities) == 1
-    @test length(_state(world)._entity_pool.entities) == 1
-    @test length(_state(world)._cache.filters) == 0
+    @test length(world._entities) == 1
+    @test length(world._entity_pool.entities) == 1
+    @test length(world._cache.filters) == 0
     @test filter._filter.id[] == 0
     @test length(filter._filter.tables) == 0
 
     for t in 2:6
-        @test length(_state(world)._tables[t].entities) == 0
-        @test length(_state(world)._tables[t].filters[]) == 0
+        @test length(world._tables[t].entities) == 0
+        @test length(world._tables[t].filters[]) == 0
     end
 
     for s in 2:4
         storage = (
-            data=_storage(world)._storages[offset_ID+s],
-            empty_column=_storage(world)._empty_storages[offset_ID+s],
+            data=world._storages[offset_ID+s],
+            empty_column=world._empty_storages[offset_ID+s],
         )
         for t in 2:6
             @test length(_column_or_empty(storage, t)) == 0
         end
     end
 
-    @test length(_state(world)._archetypes[1].tables) == 1
-    @test length(_state(world)._archetypes[2].tables) == 1
-    @test length(_state(world)._archetypes[3].tables) == 1
-    @test length(_state(world)._archetypes[4].tables) == 1
-    @test length(_state(world)._archetypes[5].tables) == 0
-    @test length(_state(world)._archetypes[5].free_tables) == 2
+    @test length(world._archetypes[1].tables) == 1
+    @test length(world._archetypes[2].tables) == 1
+    @test length(world._archetypes[3].tables) == 1
+    @test length(world._archetypes[4].tables) == 1
+    @test length(world._archetypes[5].tables) == 0
+    @test length(world._archetypes[5].free_tables) == 2
 
     @test obs._id.id == 0
-    @test !_has_observers(_state(world)._event_manager, OnAddComponents)
+    @test !_has_observers(world._event_manager, OnAddComponents)
 
     e = new_entity!(world, (Position(1, 1),))
     @test e._id == 2
@@ -1881,12 +1872,10 @@ end
     new_entity!(world, (Position(0, 0), Velocity(0, 0), ChildOf() => parent2))
     new_entity!(world, (Position(0, 0), ChildOf2() => parent2, ChildOf() => parent1))
     new_entity!(world, (Position(0, 0), ChildOf2() => parent1, ChildOf() => parent2))
-
-    world_state = _state(world)
-    stores = _storage(world)
-    pos_relations = _get_relations_storage(world_state, Position, stores)
-    child_relations = _get_relations_storage(world_state, ChildOf, stores)
-    child2_relations = _get_relations_storage(world_state, ChildOf2, stores)
+    stores = world
+    pos_relations = _get_relations_storage(world, Position)
+    child_relations = _get_relations_storage(world, ChildOf)
+    child2_relations = _get_relations_storage(world, ChildOf2)
 
     @test length(pos_relations.archetypes) == 0
     @test length(pos_relations.targets) == 0
@@ -1915,9 +1904,9 @@ end
     @test child2_relations.targets[4] == parent2
     @test child2_relations.targets[5] == parent1
 
-    @test _state(world)._archetypes[1].num_relations == 0
-    @test _state(world)._archetypes[2].num_relations == 1
-    @test _state(world)._archetypes[3].num_relations == 2
+    @test world._archetypes[1].num_relations == 0
+    @test world._archetypes[2].num_relations == 1
+    @test world._archetypes[3].num_relations == 2
 end
 
 @testset "World add/remove resources Tests" begin

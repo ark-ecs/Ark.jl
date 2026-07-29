@@ -6,9 +6,9 @@ A filter for components. See function
 [Filter](@ref Filter(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)) for details.
 See also [Query](@ref).
 """
-struct Filter{OM,IDS,RO,M,K}
+struct Filter{OM,IDS,RO,M,K,WT<:World}
     _filter::_MaskFilter{M,K}
-    _world_state::_WorldState{M,K}
+    _world::WT
 end
 
 @inline _filter_component_mask(::Type{<:Filter{OM,IDS,RO,M}}) where {OM,IDS,RO,M} = _Mask{M}(IDS...)
@@ -19,7 +19,7 @@ end
 @inline _filter_relation_count(::Type{<:Filter{OM,IDS,RO,M,K}}) where {OM,IDS,RO,M,K} = K
 
 @inline function _check_filter_world(world::World, filter::Filter)
-    _state(world) === filter._world_state || throw(ArgumentError("filter belongs to a different world"))
+    world === filter._world || throw(ArgumentError("filter belongs to a different world"))
     return nothing
 end
 
@@ -74,9 +74,9 @@ Base.@constprop :aggressive function Filter(
         rel_types,
         targets,
     )
-    filter = filter_type(mask_filter, _state(world))
+    filter = filter_type(mask_filter, world)
     if register
-        _register_filter!(_state(world), mask_filter)
+        _register_filter!(world, mask_filter)
     end
     return filter
 end
@@ -159,7 +159,7 @@ end
 
     return quote
         filter_type =
-            Filter{$(QuoteNode(optional_mask)),$(QuoteNode(output_ids)),$(QuoteNode(output_readonly_mask)),$M,$K}
+            Filter{$(QuoteNode(optional_mask)),$(QuoteNode(output_ids)),$(QuoteNode(output_readonly_mask)),$M,$K,$W}
         mask_filter = _MaskFilter{$M,$K}(
             $(mask),
             $(exclude_mask),
@@ -180,7 +180,7 @@ Un-registers a [Filter](@ref).
 """
 function unregister!(world::World, filter::Filter)
     _check_filter_world(world, filter)
-    _unregister_filter!(_state(world), filter._filter)
+    _unregister_filter!(world, filter._filter)
 end
 
 function _matches(filter::F, archetype::_ArchetypeHot) where {F<:_MaskFilter}
@@ -188,7 +188,7 @@ function _matches(filter::F, archetype::_ArchetypeHot) where {F<:_MaskFilter}
            (!filter.has_excluded || !_contains_any(archetype.mask, filter.exclude_mask))
 end
 
-macro _each_matching_table(world_state, filter, archetypes, archetypes_hot, table, action)
+macro _each_matching_table(world, filter, archetypes, archetypes_hot, table, action)
     esc(quote
         for i in eachindex($(archetypes))
             archetype_hot = @inbounds $(archetypes_hot)[i]
@@ -198,7 +198,7 @@ macro _each_matching_table(world_state, filter, archetypes, archetypes_hot, tabl
 
             if !archetype_hot.has_relations
                 table_id = archetype_hot.table
-                $table = @inbounds $(world_state)._tables[Int(table_id)]
+                $table = @inbounds $(world)._tables[Int(table_id)]
                 if !isempty($table.entities)
                     $action
                 end
@@ -210,11 +210,11 @@ macro _each_matching_table(world_state, filter, archetypes, archetypes_hot, tabl
                 continue
             end
 
-            tables = _get_tables($(world_state), archetype, $(filter).relations)
+            tables = _get_tables($(world), archetype, $(filter).relations)
             for table_id in tables
                 # TODO we can probably optimize here if exactly one relation in archetype and one queried.
-                $table = @inbounds $(world_state)._tables[Int(table_id)]
-                if !isempty($table.entities) && _matches($(world_state)._relations, $table, $(filter).relations)
+                $table = @inbounds $(world)._tables[Int(table_id)]
+                if !isempty($table.entities) && _matches($(world)._relations, $table, $(filter).relations)
                     $action
                 end
             end
@@ -234,29 +234,28 @@ Returns the number of matching tables with at least one entity in the filter.
 function count_tables(world::World, f::F) where {F<:Filter}
     _check_filter_world(world, f)
     if _is_cached(f._filter)
-        return _length_registered(_state(world), f._filter)
+        return _length_registered(world, f._filter)
     else
-        world_state = _state(world)
-        arches, arches_hot = _get_archetypes(world_state, f)
-        return _length(world_state, f._filter, arches, arches_hot)
+        arches, arches_hot = _get_archetypes(world, f)
+        return _length(world, f._filter, arches, arches_hot)
     end
 end
 
 function _length(
-    state::_WorldState,
+    world::World,
     filter::_MaskFilter{M,K},
     archetypes::Vector{_Archetype{M}},
     archetypes_hot::Vector{_ArchetypeHot{M}},
 ) where {M,K}
     count = 0
-    @_each_matching_table(state, filter, archetypes, archetypes_hot, table, count += 1)
+    @_each_matching_table(world, filter, archetypes, archetypes_hot, table, count += 1)
     return count
 end
 
-function _length_registered(state::_WorldState, filter::_MaskFilter{M,K}) where {M,K}
+function _length_registered(world::World, filter::_MaskFilter{M,K}) where {M,K}
     count = 0
     @simd for table_id in filter.tables.ids
-        table = @inbounds state._tables[table_id]
+        table = @inbounds world._tables[table_id]
         count += (!isempty(table.entities)) % Int
     end
     return count
@@ -275,36 +274,35 @@ Returns the number of matching entities in the filter.
 function count_entities(world::World, f::F) where {F<:Filter}
     _check_filter_world(world, f)
     if _is_cached(f._filter)
-        return _count_entities_registered(_state(world), f._filter)
+        return _count_entities_registered(world, f._filter)
     else
-        world_state = _state(world)
-        arches, arches_hot = _get_archetypes(world_state, f)
-        return _count_entities(world_state, f._filter, arches, arches_hot)
+        arches, arches_hot = _get_archetypes(world, f)
+        return _count_entities(world, f._filter, arches, arches_hot)
     end
 end
 
 function _count_entities(
-    state::_WorldState,
+    world::World,
     filter::_MaskFilter{M,K},
     archetypes::Vector{_Archetype{M}},
     archetypes_hot::Vector{_ArchetypeHot{M}},
 ) where {M,K}
     count = 0
-    @_each_matching_table(state, filter, archetypes, archetypes_hot, table, count += length(table.entities))
+    @_each_matching_table(world, filter, archetypes, archetypes_hot, table, count += length(table.entities))
     return count
 end
 
-function _count_entities_registered(state::_WorldState, filter::_MaskFilter{M,K}) where {M,K}
+function _count_entities_registered(world::World, filter::_MaskFilter{M,K}) where {M,K}
     count = 0
     @simd for table_id in filter.tables.ids
-        table = @inbounds state._tables[table_id]
+        table = @inbounds world._tables[table_id]
         count += length(table.entities)
     end
     return count
 end
 
 function Base.show(io::IO, filter::Filter{OM,IDS,RO,M,K}) where {OM,IDS,RO,M,K}
-    world_types = filter._world_state._registry.types
+    world_types = filter._world._registry.types
     component_ids = IDS
     comp_types = tuple(DataType[world_types[Int(id)] for id in component_ids]...)
     display_types =

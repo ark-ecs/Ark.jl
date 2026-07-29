@@ -20,32 +20,55 @@ end
 
 include("TestTypes.jl")
 
-include("test_util.jl")
-include("test_world.jl")
+# Suites that build worlds without an explicit `mode`, so they exercise whichever
+# mode the current pass selects. Run once per entry of `WORLD_MODES`.
+const WORLD_SUITES = [
+    "test_world.jl",
+    "test_cache.jl",
+    "test_filter.jl",
+    "test_query.jl",
+    "test_event.jl",
+    "test_relations.jl",
+    "test_archetype.jl",
+    "test_structarray.jl",
+    "test_readme.jl",
+    "test_entity.jl",
+    "test_shuffle.jl",
+    "test_sort.jl",
+    "test_partition.jl",
+    "test_unchecked.jl",
+    "test_indexing_api.jl",
+    "test_kernels.jl",
+    "test_command_buffer.jl",
+    "test_graph.jl",
+    "test_gpu_vector.jl",
+]
+
+# Suites that never construct a world, or that pick their modes explicitly.
+# Running them once is enough.
+const MODE_AGNOSTIC_SUITES = [
+    "test_util.jl",
+    "test_pool.jl",
+    "test_lock.jl",
+    "test_mask.jl",
+    "test_registry.jl",
+    "test_vec_map.jl",
+    "test_linear_map.jl",
+    "test_quality.jl",
+]
+
+for suite in MODE_AGNOSTIC_SUITES
+    include(suite)
+end
+
 N_fake == 0 && include("test_erased.jl")
 N_fake == 0 && include("test_boxed.jl")
-include("test_cache.jl")
-include("test_filter.jl")
-include("test_query.jl")
-include("test_event.jl")
-include("test_relations.jl")
-include("test_archetype.jl")
-include("test_structarray.jl")
-include("test_readme.jl")
-include("test_entity.jl")
-include("test_pool.jl")
-include("test_lock.jl")
-include("test_mask.jl")
-include("test_registry.jl")
-include("test_vec_map.jl")
-include("test_linear_map.jl")
-include("test_graph.jl")
-include("test_shuffle.jl")
-include("test_sort.jl")
-include("test_partition.jl")
-include("test_unchecked.jl")
-include("test_indexing_api.jl")
-include("test_gpu_vector.jl")
-include("test_kernels.jl")
-include("test_quality.jl")
-include("test_command_buffer.jl")
+
+for world_mode in WORLD_MODES
+    DEFAULT_WORLD_MODE[] = world_mode
+    @testset "world mode :$(world_mode)" begin
+        for suite in WORLD_SUITES
+            include(suite)
+        end
+    end
+end

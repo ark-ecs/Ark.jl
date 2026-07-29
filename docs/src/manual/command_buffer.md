@@ -38,7 +38,7 @@ buf = CommandBuffer(world, (
 
 # output
 
-CommandBuffer{World{Ark._WorldStorage{Tuple{Vector{Position}, Vector{Velocity}, Vector{Health}}, (0x0000000000000000,), Nothing, Tuple{Vector{Vector{Position}}, Vector{Vector{Velocity}}, Vector{Vector{Health}}}, Tuple{Vector{Position}, Vector{Velocity}, Vector{Health}}}, Ark._WorldState{1, 0}}, Union{AddComponentsCommand{Tuple{Velocity}}, ExchangeComponentsCommand{Tuple{Health}, Tuple{Velocity}}, NewEntityCommand{Tuple{Position, Velocity}}, RemoveComponentsCommand{Tuple{Velocity}}, RemoveEntityCommand}}(World(entities=0, comp_types=(Position, Velocity, Health)), Union{AddComponentsCommand{Tuple{Velocity}}, ExchangeComponentsCommand{Tuple{Health}, Tuple{Velocity}}, NewEntityCommand{Tuple{Position, Velocity}}, RemoveComponentsCommand{Tuple{Velocity}}, RemoveEntityCommand}[])
+CommandBuffer{World{Ark._WorldState{1, 0, Tuple{Vector{Position}, Vector{Velocity}, Vector{Health}}, (0x0000000000000000,), Nothing, Tuple{Vector{Vector{Position}}, Vector{Vector{Velocity}}, Vector{Vector{Health}}}, Tuple{Vector{Position}, Vector{Velocity}, Vector{Health}}}}, Union{AddComponentsCommand{Tuple{Velocity}}, ExchangeComponentsCommand{Tuple{Health}, Tuple{Velocity}}, NewEntityCommand{Tuple{Position, Velocity}}, RemoveComponentsCommand{Tuple{Velocity}}, RemoveEntityCommand}}(World(entities=0, comp_types=(Position, Velocity, Health)), Union{AddComponentsCommand{Tuple{Velocity}}, ExchangeComponentsCommand{Tuple{Health}, Tuple{Velocity}}, NewEntityCommand{Tuple{Position, Velocity}}, RemoveComponentsCommand{Tuple{Velocity}}, RemoveEntityCommand}[])
 ```
 
 Each spec corresponds to one command type. The component types are captured at construction time
@@ -64,7 +64,7 @@ apply!(buf)
 
 # output
 
-CommandBuffer{World{Ark._WorldStorage{Tuple{Vector{Position}, Vector{Velocity}}, (0x0000000000000000,), Nothing, Tuple{Vector{Vector{Position}}, Vector{Vector{Velocity}}}, Tuple{Vector{Position}, Vector{Velocity}}}, Ark._WorldState{1, 0}}, NewEntityCommand{Tuple{Position, Velocity}}}(World(entities=1, comp_types=(Position, Velocity)), NewEntityCommand{Tuple{Position, Velocity}}[])
+CommandBuffer{World{Ark._WorldState{1, 0, Tuple{Vector{Position}, Vector{Velocity}}, (0x0000000000000000,), Nothing, Tuple{Vector{Vector{Position}}, Vector{Vector{Velocity}}}, Tuple{Vector{Position}, Vector{Velocity}}}}, NewEntityCommand{Tuple{Position, Velocity}}}(World(entities=1, comp_types=(Position, Velocity)), NewEntityCommand{Tuple{Position, Velocity}}[])
 ```
 
 ## Applying commands
@@ -85,7 +85,7 @@ apply!(buf)
 
 # output
 
-CommandBuffer{World{Ark._WorldStorage{Tuple{Vector{Position}, Vector{Velocity}, Vector{Health}}, (0x0000000000000000,), Nothing, Tuple{Vector{Vector{Position}}, Vector{Vector{Velocity}}, Vector{Vector{Health}}}, Tuple{Vector{Position}, Vector{Velocity}, Vector{Health}}}, Ark._WorldState{1, 0}}, Union{AddComponentsCommand{Tuple{Health}}, NewEntityCommand{Tuple{Position, Velocity}}}}(World(entities=1, comp_types=(Position, Velocity, Health)), Union{AddComponentsCommand{Tuple{Health}}, NewEntityCommand{Tuple{Position, Velocity}}}[])
+CommandBuffer{World{Ark._WorldState{1, 0, Tuple{Vector{Position}, Vector{Velocity}, Vector{Health}}, (0x0000000000000000,), Nothing, Tuple{Vector{Vector{Position}}, Vector{Vector{Velocity}}, Vector{Vector{Health}}}, Tuple{Vector{Position}, Vector{Velocity}, Vector{Health}}}}, Union{AddComponentsCommand{Tuple{Health}}, NewEntityCommand{Tuple{Position, Velocity}}}}(World(entities=1, comp_types=(Position, Velocity, Health)), Union{AddComponentsCommand{Tuple{Health}}, NewEntityCommand{Tuple{Position, Velocity}}}[])
 ```
 
 After `apply!` the buffer is cleared and can be reused.

@@ -339,11 +339,11 @@ end
     ))
 
     parent = new_entity!(world, (Position(1.0, 2.0),))
-    targets_len = length(_state(world)._targets)
+    targets_len = length(world._targets)
     child = new_entity!(buf, (Position(3.0, 4.0), ChildOf() => parent))
     @test !is_alive(world, child)
-    @test length(_state(world)._targets) == targets_len + 1
-    @test !_state(world)._targets[end]
+    @test length(world._targets) == targets_len + 1
+    @test !world._targets[end]
 
     apply!(buf)
 
@@ -359,13 +359,13 @@ end
     recycled = new_entity!(world, (Position(1.0, 2.0),))
     remove_entity!(world, recycled)
 
-    targets_len = length(_state(world)._targets)
+    targets_len = length(world._targets)
     buf = CommandBuffer(world, (NewEntityCommand((Position,)),))
     entity = new_entity!(buf, (Position(3.0, 4.0),))
     @test !is_alive(world, entity)
 
-    @test length(_state(world)._targets) == targets_len
-    @test all(!, _state(world)._targets)
+    @test length(world._targets) == targets_len
+    @test all(!, world._targets)
 
     apply!(buf)
 
