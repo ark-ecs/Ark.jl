@@ -1,9 +1,16 @@
 
-function _storage_from_component(world, comp)
-    empties = world._empty_storages
-    i = findfirst(x -> x isa AbstractArray{comp}, empties)
-    return typeof(empties[i])
+struct WrappedVector{T} <: AbstractVector{T}
+    v::Vector{T}
 end
+WrappedVector{T}() where T = WrappedVector{T}(Vector{T}())
+
+Base.size(w::WrappedVector) = size(w.v)
+Base.getindex(w::WrappedVector, i::Integer) = getindex(w.v, i)
+Base.setindex!(w::WrappedVector, v, i::Integer) = setindex!(w.v, v, i)
+Base.empty!(w::WrappedVector) = empty!(w.v)
+Base.resize!(w::WrappedVector, i::Integer) = resize!(w.v, i)
+Base.sizehint!(w::WrappedVector, i::Integer) = sizehint!(w.v, i)
+Base.pop!(w::WrappedVector) = pop!(w.v)
 
 const WORLD_MODES = (:boxed,)
 const DEFAULT_WORLD_MODE = Ref(first(WORLD_MODES))
@@ -14,6 +21,12 @@ const fake_types = [FakeComp{i} for i in 1:N_fake]
 const fake_storage = [Storage{WrappedVector} for i in 1:N_fake]
 const M_mask = ceil(Int, N_fake / 64)
 const offset_ID = (M_mask - 1) * 64 - 1
+
+function _storage_from_component(world, comp)
+    empties = world._empty_storages
+    i = findfirst(x -> x isa AbstractArray{comp}, empties)
+    return typeof(empties[i])
+end
 
 function Ark.World(
     comp_types::Union{Type,Pair{<:Type,<:Type}}...;
@@ -47,16 +60,3 @@ function Ark.World(
         initial_capacity,
     )
 end
-
-struct WrappedVector{T} <: AbstractVector{T}
-    v::Vector{T}
-end
-WrappedVector{T}() where T = WrappedVector{T}(Vector{T}())
-
-Base.size(w::WrappedVector) = size(w.v)
-Base.getindex(w::WrappedVector, i::Integer) = getindex(w.v, i)
-Base.setindex!(w::WrappedVector, v, i::Integer) = setindex!(w.v, v, i)
-Base.empty!(w::WrappedVector) = empty!(w.v)
-Base.resize!(w::WrappedVector, i::Integer) = resize!(w.v, i)
-Base.sizehint!(w::WrappedVector, i::Integer) = sizehint!(w.v, i)
-Base.pop!(w::WrappedVector) = pop!(w.v)
