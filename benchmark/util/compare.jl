@@ -53,7 +53,7 @@ function write_bench_table_aos(data::Vector{RowAoS}, file::String)
 end
 
 function table_to_csv(data::Vector{CompareRow})::String
-    header = "Name,N,Time main,Time curr,Factor"
+    header = "Name,N,Time main,Time curr,Factor\n"
     body = join([
             "$(row.name),$(row.n),$(row.time_ns_a),$(row.time_ns_b),$(row.factor)"
             for row in data

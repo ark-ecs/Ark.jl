@@ -92,7 +92,7 @@ function collect_data()
     return DataFrame(rows)
 end
 
-_series(df::DataFrame, m) = sort(filter(r -> r.mode == m.mode, df), :N)
+_series(df::DataFrame, m) = sort(filter(r -> r.mode == m.boxed, df), :N)
 
 function _style!(dark::Bool)
     family = "Courier"
