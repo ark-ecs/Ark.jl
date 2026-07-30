@@ -3,7 +3,7 @@ using Random
 
 @testset "Basic Shuffle" begin
     for register in (false, true)
-        world = World(Position, Velocity => Storage{StructArray})
+        world = TestWorld(Position, Velocity => Storage{StructArray})
         N = 100
         ids = Vector{Entity}(undef, N)
         for i in 1:N
@@ -46,7 +46,7 @@ end
 
 @testset "Relations Shuffle" begin
     for register in (false, true)
-        world = World(Position, Relation{ChildOf})
+        world = TestWorld(Position, Relation{ChildOf})
 
         parents = [new_entity!(world, (Position(i, i),)) for i in 1:100]
         children = [new_entity!(world, (Position(i, i), ChildOf() => parents[i])) for i in 1:100]

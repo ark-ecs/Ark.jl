@@ -1,7 +1,7 @@
 
 @testset "README example" begin
     # Create a world with the required components
-    world = World(Position, Velocity)
+    world = TestWorld(Position, Velocity)
 
     for i in 1:1000
         # Create an entity with components

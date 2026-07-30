@@ -1,6 +1,6 @@
 
 @testset "GPUVector components" begin
-    w = World(
+    w = TestWorld(
         A => Storage{GPUVector{:CPU}},
         B => Storage{GPUVector{:CPU}},
         Relation{C} => Storage{GPUVector{:CPU}},
@@ -84,7 +84,7 @@ end
     @test _gpuvector_hostwrap(gv.mem) === gv.mem
     @test_throws ArgumentError _gpuvector_hostwrap(1:3)
 
-    w = World(A => Storage{GPUVector{:CPU}})
+    w = TestWorld(A => Storage{GPUVector{:CPU}})
     new_entity!(w, (A(1.0),))
     @test _storage_from_component(w, A) == GPUVector{:CPU,A,Vector{A}}
 end

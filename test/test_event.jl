@@ -29,7 +29,7 @@
 end
 
 @testset "Observer creation" begin
-    world = World(Position, Velocity, Altitude, Health)
+    world = TestWorld(Position, Velocity, Altitude, Health)
 
     obs = observe!(world, OnAddComponents, (Position, Velocity)) do entity
         println(entity)
@@ -87,7 +87,7 @@ end
 end
 
 @testset "Observer registration" begin
-    world = World(Position, Velocity, Altitude, Health)
+    world = TestWorld(Position, Velocity, Altitude, Health)
     @test _has_observers(_state(world)._event_manager, OnAddComponents) == false
     @test _has_observers(_state(world)._event_manager, OnRemoveComponents) == false
 
@@ -155,7 +155,7 @@ end
 end
 
 @testset "Observer exclusive error" begin
-    world = World()
+    world = TestWorld()
     @test_throws("ArgumentError: cannot use 'exclusive' together with 'without'",
         observe!(world, OnCreateEntity, (); without=(Altitude,), exclusive=true) do entity
         end
@@ -163,7 +163,7 @@ end
 end
 
 @testset "Fire OnCreateEntity" begin
-    world = World(Dummy, Position, Velocity, Altitude)
+    world = TestWorld(Dummy, Position, Velocity, Altitude)
 
     counter = 0
     obs = observe!(world, OnCreateEntity) do entity
@@ -215,7 +215,7 @@ end
 end
 
 @testset "Fire OnAddRelations entity creation early out" begin
-    world = World(Dummy, Relation{ChildOf}, Relation{ChildOf2})
+    world = TestWorld(Dummy, Relation{ChildOf}, Relation{ChildOf2})
 
     counter = 0
     observe!(world, OnAddRelations, (ChildOf2,)) do entity
@@ -232,7 +232,7 @@ end
 end
 
 @testset "Fire OnAddRelations entity creation filtered" begin
-    world = World(Dummy, Relation{ChildOf}, Relation{ChildOf2})
+    world = TestWorld(Dummy, Relation{ChildOf}, Relation{ChildOf2})
 
     counter = 0
     obs = observe!(world, OnAddRelations, (ChildOf,)) do entity
@@ -249,7 +249,7 @@ end
 end
 
 @testset "Fire OnAddRelations entity creation" begin
-    world = World(Dummy, Position, Velocity, Altitude, Relation{ChildOf})
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Relation{ChildOf})
 
     counter = 0
     obs = observe!(world, OnAddRelations) do entity
@@ -298,7 +298,7 @@ end
 end
 
 @testset "Fire OnCreateEntity batch" begin
-    world = World(Dummy, Position, Velocity, Altitude)
+    world = TestWorld(Dummy, Position, Velocity, Altitude)
 
     counter = 0
     obs = observe!(world, OnCreateEntity) do entity
@@ -354,7 +354,7 @@ end
 end
 
 @testset "Fire OnRemoveEntity batch" begin
-    world = World(Dummy, Position, Velocity, Altitude)
+    world = TestWorld(Dummy, Position, Velocity, Altitude)
 
     counter = 0
     obs = observe!(world, OnRemoveEntity) do entity
@@ -408,7 +408,7 @@ end
 end
 
 @testset "Fire OnAddRelations batch" begin
-    world = World(Dummy, Position, Velocity, Altitude, Relation{ChildOf})
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Relation{ChildOf})
 
     counter = 0
     obs = observe!(world, OnAddRelations) do entity
@@ -460,7 +460,7 @@ end
 end
 
 @testset "Fire OnAddRelations batch early out" begin
-    world = World(Dummy, Relation{ChildOf}, Relation{ChildOf2})
+    world = TestWorld(Dummy, Relation{ChildOf}, Relation{ChildOf2})
 
     counter = 0
     observe!(world, OnAddRelations, (ChildOf2,)) do entity
@@ -477,7 +477,7 @@ end
 end
 
 @testset "Fire OnAddRelations batch filtered" begin
-    world = World(Dummy, Relation{ChildOf}, Relation{ChildOf2})
+    world = TestWorld(Dummy, Relation{ChildOf}, Relation{ChildOf2})
 
     counter = 0
     obs = observe!(world, OnAddRelations, (ChildOf,)) do entity
@@ -494,7 +494,7 @@ end
 end
 
 @testset "Fire OnRemoveRelations batch" begin
-    world = World(Dummy, Position, Velocity, Altitude, Relation{ChildOf})
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Relation{ChildOf})
 
     parent = new_entity!(world, ())
     filter = Filter(world, (ChildOf => parent,); register=true)
@@ -556,7 +556,7 @@ end
 end
 
 @testset "Fire OnRemoveRelations batch early out" begin
-    world = World(Dummy, Relation{ChildOf}, Relation{ChildOf2})
+    world = TestWorld(Dummy, Relation{ChildOf}, Relation{ChildOf2})
 
     counter = 0
     observe!(world, OnRemoveRelations, (ChildOf2,)) do entity
@@ -574,7 +574,7 @@ end
 end
 
 @testset "Fire OnAddRelations batch filtered" begin
-    world = World(Dummy, Relation{ChildOf}, Relation{ChildOf2})
+    world = TestWorld(Dummy, Relation{ChildOf}, Relation{ChildOf2})
 
     counter = 0
     obs = observe!(world, OnRemoveRelations, (ChildOf,)) do entity
@@ -592,7 +592,7 @@ end
 end
 
 @testset "Fire OnRemoveEntity" begin
-    world = World(Dummy, Position, Velocity, Altitude)
+    world = TestWorld(Dummy, Position, Velocity, Altitude)
 
     counter = 0
     obs = observe!(world, OnRemoveEntity) do entity
@@ -637,7 +637,7 @@ end
 end
 
 @testset "Fire OnRemoveRelations entity removal" begin
-    world = World(Dummy, Position, Velocity, Altitude, Relation{ChildOf})
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Relation{ChildOf})
 
     counter = 0
     obs = observe!(world, OnRemoveRelations) do entity
@@ -690,7 +690,7 @@ end
 end
 
 @testset "Fire OnAddComponents/OnRemoveComponents" begin
-    world = World(Dummy, Position, Velocity, Altitude, Health)
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Health)
 
     counter_add = 0
     counter_rem = 0
@@ -756,7 +756,7 @@ end
 end
 
 @testset "Fire OnAddComponents/OnRemoveComponents with" begin
-    world = World(Dummy, Position, Velocity, Altitude, Health)
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Health)
 
     counter_add = 0
     counter_rem = 0
@@ -791,7 +791,7 @@ end
 end
 
 @testset "Fire OnAddComponents/OnRemoveComponents without" begin
-    world = World(Dummy, Position, Velocity, Altitude, Health)
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Health)
 
     counter_add = 0
     counter_rem = 0
@@ -826,7 +826,7 @@ end
 end
 
 @testset "Fire OnAddRelations/OnRemoveRelations" begin
-    world = World(Dummy, Position, Velocity, Relation{ChildOf}, Relation{ChildOf2}, Relation{ChildOf3})
+    world = TestWorld(Dummy, Position, Velocity, Relation{ChildOf}, Relation{ChildOf2}, Relation{ChildOf3})
 
     counter_add = 0
     counter_rem = 0
@@ -883,7 +883,7 @@ end
 end
 
 @testset "Fire OnAddRelations/OnRemoveRelations with" begin
-    world = World(Dummy, Position, Velocity, Altitude, Relation{ChildOf}, Relation{ChildOf2})
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Relation{ChildOf}, Relation{ChildOf2})
 
     counter_add = 0
     counter_rem = 0
@@ -921,7 +921,7 @@ end
 end
 
 @testset "Fire OnAddRelations/OnRemoveRelations without" begin
-    world = World(Dummy, Position, Velocity, Altitude, Relation{ChildOf})
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Relation{ChildOf})
 
     counter_add = 0
     counter_rem = 0
@@ -959,7 +959,7 @@ end
 end
 
 @testset "Fire OnAddRelations/OnRemoveRelations batch" begin
-    world = World(Dummy, Position, Velocity, Relation{ChildOf}, Relation{ChildOf2}, Relation{ChildOf3})
+    world = TestWorld(Dummy, Position, Velocity, Relation{ChildOf}, Relation{ChildOf2}, Relation{ChildOf3})
 
     counter_add = 0
     counter_rem = 0
@@ -1011,7 +1011,7 @@ end
 end
 
 @testset "Fire batch exchange events" begin
-    world = World(Dummy, Position, Velocity, Altitude, Relation{ChildOf}, Relation{ChildOf2})
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Relation{ChildOf}, Relation{ChildOf2})
 
     counters = Int[0, 0, 0, 0]
     observe!(world, OnAddComponents, (Velocity,)) do entity
@@ -1064,7 +1064,7 @@ end
 end
 
 @testset "Fire batch exchange early out" begin
-    world = World(Dummy, Position, Velocity, Altitude, Relation{ChildOf}, Relation{ChildOf2})
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Relation{ChildOf}, Relation{ChildOf2})
 
     counters = Int[0, 0]
     observe!(world, OnAddRelations, (ChildOf2,)) do entity
@@ -1087,7 +1087,7 @@ end
 end
 
 @testset "Fire batch exchange with" begin
-    world = World(Dummy, Position, Velocity, Altitude, Relation{ChildOf}, Relation{ChildOf2})
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Relation{ChildOf}, Relation{ChildOf2})
 
     counters = Int[0, 0]
     observe!(world, OnAddRelations, (ChildOf,); with=(Position,)) do entity
@@ -1116,7 +1116,7 @@ end
 end
 
 @testset "Fire batch exchange with early out" begin
-    world = World(Dummy, Position, Velocity, Altitude, Relation{ChildOf}, Relation{ChildOf2})
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Relation{ChildOf}, Relation{ChildOf2})
 
     counters = Int[0, 0]
     observe!(world, OnAddRelations, (ChildOf,); with=(Velocity,)) do entity
@@ -1145,7 +1145,7 @@ end
 end
 
 @testset "Fire batch exchange without" begin
-    world = World(Dummy, Position, Velocity, Altitude, Relation{ChildOf}, Relation{ChildOf2})
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Relation{ChildOf}, Relation{ChildOf2})
 
     counters = Int[0, 0]
     observe!(world, OnAddRelations, (ChildOf,); without=(Position,)) do entity
@@ -1174,7 +1174,7 @@ end
 end
 
 @testset "Observers combine" begin
-    world = World(Dummy, Position, Velocity)
+    world = TestWorld(Dummy, Position, Velocity)
 
     counter = 0
     fn = (event::Event, entity::Entity) -> begin
@@ -1196,7 +1196,7 @@ end
 @testset "Fire custom event" begin
     reg = EventRegistry()
     OnUpdateComponents = new_event_type!(reg, :OnUpdateComponents)
-    world = World(Dummy, Position, Velocity, Altitude, Health)
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Health)
 
     e = new_entity!(world, ())
     emit_event!(world, OnUpdateComponents, e)
@@ -1241,7 +1241,7 @@ end
 @testset "Fire custom event with" begin
     reg = EventRegistry()
     OnUpdateComponents = new_event_type!(reg, :OnUpdateComponents)
-    world = World(Dummy, Position, Velocity, Altitude, Health)
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Health)
 
     counter = 0
     obs = observe!(world, OnUpdateComponents, (); with=(Position, Velocity)) do entity
@@ -1266,7 +1266,7 @@ end
 @testset "Fire custom event without" begin
     reg = EventRegistry()
     OnUpdateComponents = new_event_type!(reg, :OnUpdateComponents)
-    world = World(Dummy, Position, Velocity, Altitude, Health)
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Health)
 
     counter = 0
     obs = observe!(world, OnUpdateComponents, (); without=(Position, Velocity)) do entity
@@ -1291,7 +1291,7 @@ end
 @testset "Fire custom event errors" begin
     reg = EventRegistry()
     OnUpdateComponents = new_event_type!(reg, :OnUpdateComponents)
-    world = World(Dummy, Position, Velocity, Altitude, Health)
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Health)
     observe!(world, OnUpdateComponents, ()) do entity
     end
 
@@ -1312,7 +1312,7 @@ end
 end
 
 @testset "custom event without registered observers does not throw" begin
-    world = World()
+    world = TestWorld()
 
     # Make num_observers > 0 without extending storage to custom event ids
     observe!(_ -> nothing, world, OnCreateEntity)
@@ -1324,7 +1324,7 @@ end
 end
 
 @testset "Observer show" begin
-    world = World(
+    world = TestWorld(
         Position,
         Velocity,
         Altitude,

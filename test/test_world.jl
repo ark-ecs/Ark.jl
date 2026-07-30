@@ -1,6 +1,6 @@
 
 @testset "World creation" begin
-    world = World()
+    world = TestWorld()
     @test isa(world, World)
     @test isa(_state(world)._registry, _ComponentRegistry)
 
@@ -9,7 +9,7 @@
 end
 
 @testset "World creation 2" begin
-    world = World(
+    world = TestWorld(
         Position,
         Velocity => Storage{StructArray},
         Altitude,
@@ -45,7 +45,7 @@ end
 end
 
 @testset "World show" begin
-    world = World(
+    world = TestWorld(
         Position,
         Velocity,
         CompN{1},
@@ -62,7 +62,7 @@ end
 end
 
 @testset "World storage type" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Velocity => Storage{StructArray},
@@ -82,7 +82,7 @@ end
 @static if RUN_JET
     @testset "World creation JET" begin
         # TODO: type instability here. Add benchmarks for world creation.
-        @test_opt World(
+        @test_opt TestWorld(
             Position,
             Velocity => Storage{StructArray},
         )
@@ -93,27 +93,27 @@ end
 @testset "World creation error" begin
     @test_throws(
         "ArgumentError: duplicate component type Velocity during world creation",
-        World(Position, Velocity, Velocity))
+        TestWorld(Position, Velocity, Velocity))
 
     @test_throws(
         "ArgumentError: can't use Relation as component as it is not a concrete type",
-        World(Position, Velocity, Relation))
+        TestWorld(Position, Velocity, Relation))
 
     @test_throws(
         "ArgumentError: Health is not a valid storage mode, must be Storage{T<:AbstractVector}",
-        World(Position, Velocity, Altitude => Health))
+        TestWorld(Position, Velocity, Altitude => Health))
 
     @test_throws(
         ArgumentError,
-        World(Int64 => Storage{StructArray}))
+        TestWorld(Int64 => Storage{StructArray}))
 
     @test_throws(
         ArgumentError,
-        World(LabelComponent => Storage{StructArray}))
+        TestWorld(LabelComponent => Storage{StructArray}))
 end
 
 @testset "World creation large" begin
-    world = World(
+    world = TestWorld(
         CompN{1}, CompN{2}, CompN{3}, CompN{4}, CompN{5},
         CompN{6}, CompN{7}, CompN{8}, CompN{9}, CompN{10},
         CompN{11}, CompN{12}, CompN{13}, CompN{14}, CompN{15},
@@ -127,7 +127,7 @@ end
 end
 
 @testset "World create table" begin
-    world = World(Position, Velocity)
+    world = TestWorld(Position, Velocity)
 
     table1 = _find_or_create_table!(
         _state(world),
@@ -191,7 +191,7 @@ _column_or_empty(storage::NamedTuple, table) =
     Ark._column_or_empty(storage.data, storage.empty_column, table)
 
 @testset "World shares inactive storage columns" begin
-    world = World(Position, Velocity => Storage{StructArray}, Relation{ChildOf})
+    world = TestWorld(Position, Velocity => Storage{StructArray}, Relation{ChildOf})
     pos_storage = _component_storage(world, Position)
     vel_storage = _component_storage(world, Velocity)
     child_storage = _component_storage(world, ChildOf)
@@ -247,7 +247,7 @@ _column_or_empty(storage::NamedTuple, table) =
 end
 
 @testset "World grows storage columns lazily" begin
-    world = World(Position, Velocity, Altitude => Storage{StructArray})
+    world = TestWorld(Position, Velocity, Altitude => Storage{StructArray})
     pos_storage = _component_storage(world, Position)
     vel_storage = _component_storage(world, Velocity)
     alt_storage = _component_storage(world, Altitude)
@@ -297,7 +297,7 @@ end
 end
 
 @testset "World Component Registration" begin
-    world = World(Int, Position)
+    world = TestWorld(Int, Position)
     params = typeof(world).parameters[1]
 
     # Register Int component
@@ -327,16 +327,16 @@ end
         _component_index(params, Velocity))
 
     @test_throws("ArgumentError: Component type MutableComponent must be immutable unless 'allow_mutable' is used",
-        World(Position, MutableComponent))
+        TestWorld(Position, MutableComponent))
 
-    _ = World(Position, MutableComponent; allow_mutable=true)
+    _ = TestWorld(Position, MutableComponent; allow_mutable=true)
 
     @test_throws("ArgumentError: Component type MutableComponent must be immutable because it uses StructArray storage",
-        World(Position, MutableComponent => Storage{StructArray}))
+        TestWorld(Position, MutableComponent => Storage{StructArray}))
 end
 
 @testset "_get_component_columns Tests" begin
-    world = World(Int)
+    world = TestWorld(Int)
     params = typeof(world).parameters[1]
 
     columns1 = _get_component_columns(_storage(world), Int)
@@ -361,7 +361,7 @@ end
 end
 
 @testset "_find_or_create_table! Tests" begin
-    world = World(Position, Velocity)
+    world = TestWorld(Position, Velocity)
     params = typeof(world).parameters[1]
 
     pos_id = _component_index(params, Position)
@@ -437,7 +437,7 @@ end
 end
 
 @testset "_create_entity! Tests" begin
-    world = World(Position, Velocity)
+    world = TestWorld(Position, Velocity)
     params = typeof(world).parameters[1]
     pos_id = _component_index(params, Position)
     vel_id = _component_index(params, Velocity)
@@ -477,7 +477,7 @@ end
 end
 
 @testset "World get/set components" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Velocity => Storage{StructArray},
@@ -509,7 +509,7 @@ end
 
 @static if RUN_JET
     @testset "World get/set components JET" begin
-        world = World(
+        world = TestWorld(
             Position,
             Velocity => Storage{StructArray},
         )
@@ -521,7 +521,7 @@ end
 end
 
 @testset "World new_entity! Tests" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Velocity => Storage{StructArray},
@@ -552,7 +552,7 @@ end
 
 @static if RUN_JET
     @testset "World new_entity! JET" begin
-        world = World(
+        world = TestWorld(
             Position,
             Velocity => Storage{StructArray},
         )
@@ -573,7 +573,7 @@ end
 end
 
 @testset "World new_entity! relations" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Relation{ChildOf},
@@ -623,7 +623,7 @@ end
 end
 
 @testset "World new_entity! multiple relations" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Relation{ChildOf},
@@ -653,7 +653,7 @@ end
 end
 
 @testset "World get/set relations" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Relation{ChildOf},
@@ -725,7 +725,7 @@ end
 end
 
 @testset "World set relations batch" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Relation{ChildOf},
@@ -799,7 +799,7 @@ end
 end
 
 @testset "World copy_entity!" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Velocity => Storage{StructArray},
@@ -854,7 +854,7 @@ end
 end
 
 @testset "World copy_entity! with exchange" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Velocity => Storage{StructArray},
@@ -891,7 +891,7 @@ end
 end
 
 @testset "World copy_entity! copy modes" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Velocity => Storage{StructArray},
@@ -944,7 +944,7 @@ end
 end
 
 @testset "copy_entity! with more than 192 component types" begin
-    world = World(
+    world = TestWorld(
         Position,
         Velocity => Storage{StructArray},
         Health,
@@ -981,7 +981,7 @@ end
 end
 
 @testset "Corrupted copy of special mutable types issue #514" begin
-    world = World(String; allow_mutable=true)
+    world = TestWorld(String; allow_mutable=true)
 
     e1 = new_entity!(world, ("Original Data",))
     e2 = copy_entity!(world, e1)
@@ -993,7 +993,7 @@ end
 end
 
 @testset "World new_entities! with types" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Velocity => Storage{StructArray},
@@ -1040,7 +1040,7 @@ end
 end
 
 @testset "World new_entities! with values" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Velocity => Storage{StructArray},
@@ -1119,7 +1119,7 @@ end
 end
 
 @testset "World new_entities! with relations" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Relation{ChildOf},
@@ -1167,7 +1167,7 @@ end
 
 @static if RUN_JET
     @testset "World new_entities! JET" begin
-        world = World(
+        world = TestWorld(
             Position,
             Velocity => Storage{StructArray},
         )
@@ -1188,7 +1188,7 @@ end
 end
 
 @testset "World add/remove components" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Velocity => Storage{StructArray},
@@ -1234,7 +1234,7 @@ end
 end
 
 @testset "Issue #561" begin
-    world = World(Position)
+    world = TestWorld(Position)
 
     e1 = new_entity!(world, (Position(1.0, 1.0),))
 
@@ -1243,7 +1243,7 @@ end
         add_components!(world, e1, (Position(2.0, 2.0),)),
     )
 
-    world = World(Position)
+    world = TestWorld(Position)
 
     e1 = new_entity!(world, ())
 
@@ -1254,7 +1254,7 @@ end
 end
 
 @testset "Issue #430" begin
-    world = World(Position, Velocity)
+    world = TestWorld(Position, Velocity)
 
     entity1 = new_entity!(world, (Position(1.0, 2.0), Velocity(3.0, 4.0)))
     entity2 = new_entity!(world, (Position(5.0, 6.0), Velocity(7.0, 8.0)))
@@ -1284,7 +1284,7 @@ end
 end
 
 @testset "World add/remove components with relations" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Velocity,
@@ -1332,7 +1332,7 @@ end
 end
 
 @testset "World add/remove components batch" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position => Storage{StructArray},
         Velocity,
@@ -1375,7 +1375,7 @@ end
     @test count_entities(world, query) == 20
 
     @testset "with relations and callback" begin
-        world_rel = World(
+        world_rel = TestWorld(
             Dummy,
             Position => Storage{StructArray},
             Velocity,
@@ -1412,7 +1412,7 @@ end
 
 @static if RUN_JET
     @testset "World add/remove component JET" begin
-        world = World(
+        world = TestWorld(
             Dummy,
             Position,
             Velocity => Storage{StructArray},
@@ -1436,7 +1436,7 @@ end
 end
 
 @testset "World exchange components" begin
-    world = World(Dummy, Position, Velocity, Altitude, Health)
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Health)
 
     e1 = new_entity!(world, (Position(1, 2), Velocity(3, 4)))
 
@@ -1460,7 +1460,7 @@ end
 end
 
 @testset "World exchange components with relations" begin
-    world = World(Dummy, Relation{ChildOf}, Position, Velocity)
+    world = TestWorld(Dummy, Relation{ChildOf}, Position, Velocity)
 
     parent = new_entity!(world, ())
     e1 = new_entity!(world, (Position(1, 1), Velocity(1, 1)))
@@ -1471,7 +1471,7 @@ end
 end
 
 @testset "World exchange components batch" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position => Storage{StructArray},
         Velocity,
@@ -1528,7 +1528,7 @@ end
     @test count == 20
 
     @testset "with relations and callback" begin
-        world_rel = World(
+        world_rel = TestWorld(
             Dummy,
             Position => Storage{StructArray},
             Velocity,
@@ -1573,7 +1573,7 @@ end
 """
 @static if RUN_JET
     @testset "World exchange component JET" begin
-        world = World(Dummy, Position, Velocity, Altitude, Health)
+        world = TestWorld(Dummy, Position, Velocity, Altitude, Health)
 
         using FunctionWrappers
         excluded = Set([
@@ -1595,7 +1595,7 @@ end
 """
 
 @testset "remove_entity! Tests" begin
-    world = World(Dummy, Position, Velocity)
+    world = TestWorld(Dummy, Position, Velocity)
 
     e1 = new_entity!(world, (Position(1, 1), Velocity(1, 1)))
     e2 = new_entity!(world, (Position(2, 2), Velocity(1, 1)))
@@ -1617,7 +1617,7 @@ end
 end
 
 @testset "remove_entity! with more than 32 component types" begin
-    world = World(
+    world = TestWorld(
         Position,
         Velocity => Storage{StructArray},
         Health,
@@ -1657,7 +1657,7 @@ end
 end
 
 @testset "component exchange with more than 32 component types" begin
-    world = World(
+    world = TestWorld(
         Position,
         Velocity => Storage{StructArray},
         Health,
@@ -1697,7 +1697,7 @@ end
 end
 
 @testset "remove_entities! Tests" begin
-    world = World(Dummy, Position, Velocity, Altitude, Relation{ChildOf})
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Relation{ChildOf})
 
     count = 0
     obs1 = observe!(world, OnRemoveEntity) do entity
@@ -1768,7 +1768,7 @@ end
 end
 
 @testset "remove_entities! callback" begin
-    world = World(Dummy, Position, Velocity, Altitude)
+    world = TestWorld(Dummy, Position, Velocity, Altitude)
 
     new_entity!(world, (Position(1, 1),))
     new_entity!(world, (Position(2, 2),))
@@ -1786,7 +1786,7 @@ end
 end
 
 @testset "remove_entities! cached filter" begin
-    world = World(Dummy, Position, Velocity, Relation{ChildOf})
+    world = TestWorld(Dummy, Position, Velocity, Relation{ChildOf})
     filter = Filter(world, (Position,); register=true)
 
     parent = new_entity!(world, ())
@@ -1822,7 +1822,7 @@ end
 end
 
 @testset "World reset!" begin
-    world = World(Dummy, Position, Velocity, Relation{ChildOf})
+    world = TestWorld(Dummy, Position, Velocity, Relation{ChildOf})
 
     obs = observe!(world, OnAddComponents, (Position,)) do _
     end
@@ -1885,7 +1885,7 @@ end
 end
 
 @testset "World relations index" begin
-    world = World(Dummy, Relation{ChildOf}, Position, Velocity, Relation{ChildOf2})
+    world = TestWorld(Dummy, Relation{ChildOf}, Position, Velocity, Relation{ChildOf2})
     parent1 = new_entity!(world, ())
     parent2 = new_entity!(world, ())
 
@@ -1933,7 +1933,7 @@ end
 end
 
 @testset "World add/remove resources Tests" begin
-    world = World(Dummy, Position, Velocity)
+    world = TestWorld(Dummy, Position, Velocity)
 
     @test has_resource(world, Tick) == false
 
@@ -1957,7 +1957,7 @@ end
 
 @static if RUN_JET
     @testset "Resources JET" begin
-        world = World()
+        world = TestWorld()
 
         f = () -> begin
             _ = has_resource(world, Tick)
