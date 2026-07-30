@@ -169,7 +169,7 @@ For each component type, an individual [storage mode](@ref component-storages) c
 Relation components are declared in the constructor with [`Relation{T}`](@ref Relation).
 
 Additional arguments can be used to allow mutable component types (forbidden by default and discouraged),
-to choose an initial capacity for entities in [archetypes](@ref Architecture) and to choose a [world mode](@ref world-modes)
+to choose an initial capacity for entities in [archetypes](@ref Architecture) and to choose a world mode
 to trade runtime performance for compilation time.
 
 # Arguments
