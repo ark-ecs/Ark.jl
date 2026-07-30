@@ -15,8 +15,8 @@ const K_SITES = 1
 const N_ENTITIES = 10_000
 
 const MODES = (
-    (mode="specialized", label="specialized", color=:specialized, style=:solid, marker=:circle),
-    (mode="boxed", label="boxed", color=:boxed, style=:solid, marker=:diamond),
+    (boxed="false", label="specialized", color=:specialized, style=:solid, marker=:circle),
+    (boxed="true", label="boxed", color=:boxed, style=:solid, marker=:diamond),
 )
 
 const OUT_DIR = joinpath(REPO, "docs", "src", "assets", "images")
@@ -63,18 +63,18 @@ function collect_data()
     failed = Set{String}()
     for n in NS
         for m in MODES
-            if m.mode in failed
-                @info "skipping N=$n, mode=$(m.mode): mode already failed at a smaller N"
+            if m.boxed in failed
+                @info "skipping N=$n, mode=$(m.boxed): mode already failed at a smaller N"
                 continue
             end
-            @info "measuring N=$n, mode=$(m.mode)"
+            @info "measuring N=$n, mode=$(m.boxed)"
             out = try
-                run_worker(`$JULIA --project=$PROJECT $WORKER $n $K_SITES $(m.mode) $N_ENTITIES`)
+                run_worker(`$JULIA --project=$PROJECT $WORKER $n $K_SITES $(m.boxed) $N_ENTITIES`)
             catch err
                 err isa InterruptException && rethrow()
-                @warn "worker failed, dropping this mode from the rest of the sweep" N = n mode = m.mode exception =
+                @warn "worker failed, dropping this mode from the rest of the sweep" N = n mode = m.boxed exception =
                     err
-                push!(failed, m.mode)
+                push!(failed, m.boxed)
                 continue
             end
             for line in split(strip(out), '\n')

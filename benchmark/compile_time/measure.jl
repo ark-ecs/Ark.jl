@@ -1,8 +1,7 @@
 
 const N = parse(Int, ARGS[1])
 const K_SITES = parse(Int, ARGS[2])
-const MODE = Symbol(ARGS[3])  # kept as the CSV/plot label
-const BOXED = MODE === :boxed
+const BOXED = parse(Bool, ARGS[3])
 const N_ENTITIES = parse(Int, ARGS[4])
 
 using Ark
@@ -69,4 +68,4 @@ mem = Sys.maxrss()
 types = [CompN{i} for i in 1:N]
 rt_cold, rt_steady = measure_runtime(types)
 
-println("$N,$MODE,$sc,$so,$mem,$rt_cold,$rt_steady")
+println("$N,$BOXED,$sc,$so,$mem,$rt_cold,$rt_steady")
