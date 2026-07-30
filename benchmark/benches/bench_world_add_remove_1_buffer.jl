@@ -1,6 +1,6 @@
 
 function setup_world_add_remove_1_buffer(n_entities::Int)
-    world = World(Position, Velocity; mode=MODE)
+    world = World(Position, Velocity; boxed=BOXED)
     buf = CommandBuffer(world, (
         AddComponentsCommand((Velocity,)),
         RemoveComponentsCommand((Velocity,))
@@ -35,7 +35,7 @@ function benchmark_world_add_remove_1_buffer(args, n)
 end
 
 function setup_world_add_remove_1_buffer_single(n_entities::Int)
-    world = World(Position, Velocity; mode=MODE)
+    world = World(Position, Velocity; boxed=BOXED)
     buf1 = CommandBuffer(world, (
         AddComponentsCommand((Velocity,)),
     ))

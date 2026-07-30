@@ -14,7 +14,7 @@ function setup_world_add_remove_1_large(n_entities::Int)
         CompN{51}, CompN{52}, CompN{53}, CompN{54}, CompN{55},
         CompN{56}, CompN{57}, CompN{58}, CompN{59}, CompN{60},
         CompN{61}, CompN{62}, CompN{63}, CompN{64}, CompN{65},
-        Position, Velocity; mode=MODE
+        Position, Velocity; boxed=BOXED
     )
 
     entities = Vector{Entity}()

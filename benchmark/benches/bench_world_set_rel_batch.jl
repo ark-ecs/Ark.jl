@@ -1,6 +1,6 @@
 
 function setup_world_set_rel_batch(n_entities::Int)
-    world = World(Position, Relation{ChildOf}; mode=MODE)
+    world = World(Position, Relation{ChildOf}; boxed=BOXED)
     parent1 = new_entity!(world, ())
     parent2 = new_entity!(world, ())
 

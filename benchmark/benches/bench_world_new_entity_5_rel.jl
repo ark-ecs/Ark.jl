@@ -1,6 +1,6 @@
 
 function setup_world_new_entity_5_rel(n::Int)
-    world = World(Position, Velocity, CompA, CompB, Relation{ChildOf}; mode=MODE)
+    world = World(Position, Velocity, CompA, CompB, Relation{ChildOf}; boxed=BOXED)
     parent = new_entity!(world, ())
 
     # Run once to allocate memory

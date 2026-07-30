@@ -1,6 +1,6 @@
 
 function setup_query_create(n)
-    world = World(Position, Velocity; mode=MODE)
+    world = World(Position, Velocity; boxed=BOXED)
 
     for i in 1:n
         query = Query(world, (Position, Velocity))
@@ -25,7 +25,7 @@ SUITE["benchmark_query_create n=1000"] =
     @be setup_query_create($1000) benchmark_query_create(_, $1000) seconds = SECONDS
 
 function setup_query_create_filter(n)
-    world = World(Position, Velocity; mode=MODE)
+    world = World(Position, Velocity; boxed=BOXED)
 
     filter = Filter(world, (Position, Velocity))
     for i in 1:n

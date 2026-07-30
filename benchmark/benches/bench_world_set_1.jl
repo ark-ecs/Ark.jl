@@ -1,6 +1,6 @@
 
 function setup_world_set_1(n_entities::Int)
-    world = World(Position, Velocity; mode=MODE)
+    world = World(Position, Velocity; boxed=BOXED)
 
     entities = Vector{Entity}()
     for i in 1:n_entities
