@@ -99,15 +99,6 @@ end
     return @inbounds storages[comp]
 end
 
-@generated function _storage_at(storages::CS, comp::Int) where {CS<:Tuple}
-    call_exprs = Expr[:(storages[$i]) for i in 1:fieldcount(CS)]
-    switch = _generate_component_switch(:comp, call_exprs)
-    return quote
-        $switch
-        throw(ArgumentError(lazy"no component with id $comp in the World"))
-    end
-end
-
 @noinline function _build_erased!(v::Vector{FW}, comp::Int, stores, op::F) where {FW<:FunctionWrapper,F}
     @inbounds v[comp] = FW(op(_storage_at(stores._storages, comp), _storage_at(stores._empty_storages, comp)))
     return nothing

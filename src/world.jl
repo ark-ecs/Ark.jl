@@ -73,8 +73,10 @@ mutable struct _WorldStorage{CS<:Tuple,RT,S,L}
     const _empty_storages::L
 end
 
-mutable struct _WorldState{M,K,D}
-    const _dispatch::D
+mutable struct _WorldState{M,K}
+    # Only used by `:boxed` worlds; `:specialized` ones carry an empty table. Whether the
+    # erased dispatch is in use is a property of the storage, see `_is_boxed`.
+    const _dispatch::_ErasedDispatch
     const _entities::Vector{_EntityIndex}
     const _targets::BitVector
     const _relations::Vector{_ComponentRelations}
@@ -118,7 +120,6 @@ _schema_relation_types(::Type{<:_WorldStorage{CS,RT}}) where {CS,RT} =
     Tuple{map(i -> _component_type(fieldtypes(CS)[i]), _schema_relation_indices(_WorldStorage{CS,RT}))...}
 
 
-_is_erased(::Type{<:_WorldState{M,K,D}}) where {M,K,D} = D !== Nothing
 _is_boxed(::Type{<:_WorldStorage{CS,RT,S}}) where {CS,RT,S} = S === Memory{Any}
 
 function _storage_ref(sym::Symbol, Storage::Type{<:_WorldStorage}, i::Int)
@@ -140,8 +141,6 @@ end
 _world_storage(::Type{<:World{world_storage}}) where {world_storage<:_WorldStorage} = world_storage
 
 _world_state(::Type{<:World{S,State}}) where {S<:_WorldStorage,State<:_WorldState} = State
-
-_dispatch_type(::Type{<:_WorldState{M,K,D}}) where {M,K,D} = D
 
 _world_storage_types(::Type{W}) where {W<:World} = _schema_storage_types(_world_storage(W))
 
@@ -453,7 +452,7 @@ end
             _swap_remove_in_column_for_comp!(world_state, stores, comp, index.table, index.row)
         end
     end
-    if _is_erased(world_state)
+    if _is_boxed(Storage)
         remove_block = loop_call
     elseif fieldcount(CS) <= 32
         remove_block = unrolled_call
@@ -1039,12 +1038,12 @@ end
     relation_bits = _Mask{M}(relation_indices...).bits
     K = length(relation_indices)
     start_mask = _Mask{M}()
-    dispatch_type = BOXED ? _ErasedDispatch : Nothing
-    dispatch_expr = BOXED ? :(_ErasedDispatch($(length(types)))) : :(nothing)
+    # `:specialized` worlds never read the table, so they get an empty one.
+    dispatch_expr = :(_ErasedDispatch($(BOXED ? length(types) : 0)))
     world_storage_type = _WorldStorage{
         storage_tuple_type,relation_bits,storage_container_type,empty_container_type,
     }
-    world_state_type = _WorldState{M,K,dispatch_type}
+    world_state_type = _WorldState{M,K}
     return quote
         registry = _ComponentRegistry()
         ids = $id_tuple
@@ -1944,7 +1943,7 @@ end
 
     skip_ids = Val((AddIds..., RemIds...))
     unrolled_call = :(@inline _move_all_component_data!(state, stores, old_table, table_index, index, $skip_ids))
-    if !_is_erased(state) && fieldcount(CS) <= 32
+    if !_is_boxed(stores) && fieldcount(CS) <= 32
         move_block = unrolled_call
     else
         if isempty(RemIds)
@@ -1964,7 +1963,7 @@ end
                 $loop_body
             end
         end
-        if _is_erased(state)
+        if _is_boxed(stores)
             move_block = loop_block
         else
             move_block = quote
@@ -2133,7 +2132,7 @@ end
 
     copy_block = _copy_entity_block_expr(
         fieldcount(CS),
-        _is_erased(world_state),
+        _is_boxed(Storage),
         :(@inbounds world_state._archetypes_hot[table.archetype].mask),
         :(index.table),
         :(archetype.components),
@@ -2242,7 +2241,7 @@ end
         exprs,
         _copy_entity_block_expr(
             fieldcount(CS),
-            _is_erased(world_state),
+            _is_boxed(Storage),
             :(_and(world_state._archetypes_hot[old_table.archetype].mask, new_archetype.mask)),
             :new_table_index,
             :(old_archetype.components),
@@ -2787,7 +2786,7 @@ end
     index::Int,
     initial_capacity::Int,
 ) where CS
-    if _is_erased(state)
+    if _is_boxed(stores)
         return :(@inbounds _erased_activate_column(state, stores, comp)(index, initial_capacity))
     end
     call_exprs =
@@ -2806,7 +2805,7 @@ end
     arch::UInt32,
     needed::Int,
 ) where CS
-    if _is_erased(state)
+    if _is_boxed(stores)
         return :(@inbounds _erased_ensure_column_size(state, stores, comp)(arch, needed))
     end
     call_exprs = Expr[
@@ -2825,7 +2824,7 @@ end
     new_table::UInt32,
     row::UInt32,
 ) where CS
-    if _is_erased(state)
+    if _is_boxed(stores)
         return :(@inbounds _erased_move_data(state, stores, comp)(old_table, new_table, row))
     end
     call_exprs =
@@ -2843,7 +2842,7 @@ end
     mode::CP,
 ) where {CS<:Tuple,CP<:Val}
     _check_copy_mode(CP)
-    if _is_erased(state)
+    if _is_boxed(stores)
         return :(@inbounds _erased_copy_data(state, stores, comp, mode)(old_table, new_table, old_row))
     end
     call_exprs = Expr[
@@ -2860,7 +2859,7 @@ end
     old_table::UInt32,
     new_table::UInt32,
 ) where {CS<:Tuple}
-    if _is_erased(state)
+    if _is_boxed(stores)
         return :(@inbounds _erased_copy_data_to_end(state, stores, comp)(old_table, new_table))
     end
     call_exprs =
@@ -2874,7 +2873,7 @@ end
     comp::Int,
     table::UInt32,
 ) where {CS<:Tuple}
-    if _is_erased(state)
+    if _is_boxed(stores)
         return :(@inbounds _erased_clear_column(state, stores, comp)(table))
     end
     call_exprs = Expr[
@@ -2891,7 +2890,7 @@ end
     table::UInt32,
     row::UInt32,
 ) where {CS<:Tuple}
-    if _is_erased(state)
+    if _is_boxed(stores)
         return :(@inbounds _erased_remove_data(state, stores, comp)(table, row))
     end
     call_exprs = Expr[:(_remove_component_data!($(_storage_ref(:stores, stores, i)), table, row)) for i in 1:fieldcount(CS)]
@@ -2906,7 +2905,7 @@ end
     i::Int,
     j::Int,
 ) where {CS<:Tuple}
-    if _is_erased(state)
+    if _is_boxed(stores)
         return :(@inbounds _erased_swap_data(state, stores, comp)(table, i, j))
     end
     call_exprs = Expr[:(_swap_component_data!($(_storage_ref(:stores, stores, k)), table, i, j)) for k in 1:fieldcount(CS)]
@@ -2922,7 +2921,7 @@ end
     entity_index::Vector{_EntityIndex},
     start::Int,
 ) where {CS<:Tuple}
-    if _is_erased(state)
+    if _is_boxed(stores)
         return :(@inbounds _erased_permute_cycle(state, stores, comp)(table, entities, entity_index, start))
     end
     call_exprs = Expr[

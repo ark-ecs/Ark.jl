@@ -6,9 +6,9 @@ A filter for components. See function
 [Filter](@ref Filter(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)) for details.
 See also [Query](@ref).
 """
-struct Filter{OM,IDS,RO,M,K,D}
+struct Filter{OM,IDS,RO,M,K}
     _filter::_MaskFilter{M,K}
-    _world_state::_WorldState{M,K,D}
+    _world_state::_WorldState{M,K}
 end
 
 @inline _filter_component_mask(::Type{<:Filter{OM,IDS,RO,M}}) where {OM,IDS,RO,M} = _Mask{M}(IDS...)
@@ -159,7 +159,7 @@ end
 
     return quote
         filter_type =
-            Filter{$(QuoteNode(optional_mask)),$(QuoteNode(output_ids)),$(QuoteNode(output_readonly_mask)),$M,$K,$(_dispatch_type(_world_state(W)))}
+            Filter{$(QuoteNode(optional_mask)),$(QuoteNode(output_ids)),$(QuoteNode(output_readonly_mask)),$M,$K}
         mask_filter = _MaskFilter{$M,$K}(
             $(mask),
             $(exclude_mask),
