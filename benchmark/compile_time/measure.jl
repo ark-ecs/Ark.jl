@@ -22,7 +22,7 @@ function define_work()
     body = Expr[:(e = new_entity!(world, ()))]
     for s in 1:K_SITES
         a = types[s]
-        b = types[s + K_SITES]
+        b = types[s+K_SITES]
         push!(body, :(add_components!(world, e, ($(a)(1.0, 1.0),))))
         push!(body, :(exchange_components!(world, e; add=($(b)(1.0, 1.0),), remove=($(a),))))
         push!(body, :(remove_components!(world, e, ($(b),))))
@@ -49,8 +49,9 @@ function measure()
 end
 
 function measure_runtime(types)
-    cold = @belapsed work_many!(w) setup = (w = World($types...; boxed=$BOXED)) evals = 1 samples = RT_SAMPLES seconds =
-        RT_SECONDS
+    cold =
+        @belapsed work_many!(w) setup = (w = World($types...; boxed=($BOXED))) evals = 1 samples = RT_SAMPLES seconds =
+            RT_SECONDS
 
     warm = World(types...; boxed=BOXED)
     work_many!(warm)

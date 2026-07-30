@@ -1180,7 +1180,11 @@ end
         function_filter(@nospecialize f) = !(f in excluded)
 
         #@test_opt function_filter = function_filter new_entities!(world, 100, (Position, Velocity))
-        rep = JET.@report_opt function_filter = function_filter new_entities!(world, 100, (Position(13, 13), Velocity(13, 13)))
+        rep = JET.@report_opt function_filter = function_filter new_entities!(
+            world,
+            100,
+            (Position(13, 13), Velocity(13, 13)),
+        )
         reports = filter(!is_known_false_positive, JET.get_reports(rep))
         isempty(reports) || println(reports)
         @test isempty(reports)
@@ -1426,7 +1430,11 @@ end
         function_filter(@nospecialize f) = !(f in excluded)
 
         e1 = new_entity!(world, ())
-        rep = JET.@report_opt function_filter = function_filter add_components!(world, e1, (Position(1, 2), Velocity(3, 4)))
+        rep = JET.@report_opt function_filter = function_filter add_components!(
+            world,
+            e1,
+            (Position(1, 2), Velocity(3, 4)),
+        )
         reports = filter(!is_known_false_positive, JET.get_reports(rep))
         isempty(reports) || println(reports)
         @test isempty(reports)

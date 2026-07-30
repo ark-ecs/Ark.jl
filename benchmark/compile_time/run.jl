@@ -80,10 +80,13 @@ function collect_data()
             for line in split(strip(out), '\n')
                 isempty(line) && continue
                 n_s, mode_s, ctor_s, ops_s, mem_s, cold_s, steady_s = split(line, ',')
-                push!(rows, (N=parse(Int, n_s), mode=String(mode_s),
-                    ctor=parse(Float64, ctor_s), ops=parse(Float64, ops_s),
-                    mem=parse(Float64, mem_s), rt_cold=parse(Float64, cold_s),
-                    rt_steady=parse(Float64, steady_s)))
+                push!(
+                    rows,
+                    (N=parse(Int, n_s), mode=String(mode_s),
+                        ctor=parse(Float64, ctor_s), ops=parse(Float64, ops_s),
+                        mem=parse(Float64, mem_s), rt_cold=parse(Float64, cold_s),
+                        rt_steady=parse(Float64, steady_s)),
+                )
             end
         end
         println(DataFrame(rows))

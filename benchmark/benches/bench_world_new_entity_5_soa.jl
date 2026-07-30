@@ -6,7 +6,7 @@ function setup_world_new_entity_5_soa(n::Int)
         CompA => Storage{StructArray},
         CompB => Storage{StructArray},
         CompC => Storage{StructArray};
-        boxed=BOXED
+        boxed=BOXED,
     )
 
     # Run once to allocate memory

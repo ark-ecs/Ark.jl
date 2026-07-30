@@ -32,7 +32,11 @@ end
     return ids
 end
 
-@noinline function _register_component!(registry::_ComponentRegistry, @nospecialize(C::DataType), is_relation::Bool)::Int
+@noinline function _register_component!(
+    registry::_ComponentRegistry,
+    @nospecialize(C::DataType),
+    is_relation::Bool,
+)::Int
     if haskey(registry.components, C)
         throw(ArgumentError(lazy"duplicate component type $C during world creation"))
     end

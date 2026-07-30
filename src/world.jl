@@ -117,7 +117,6 @@ _schema_relation_indices(::Type{<:_WorldStorage{CS,RT}}) where {CS,RT} =
 _schema_relation_types(::Type{<:_WorldStorage{CS,RT}}) where {CS,RT} =
     Tuple{map(i -> _component_type(fieldtypes(CS)[i]), _schema_relation_indices(_WorldStorage{CS,RT}))...}
 
-
 _is_boxed(::Type{<:_WorldStorage{CS,RT,S}}) where {CS,RT,S} = S === Memory{Any}
 
 function _storage_ref(sym::Symbol, Storage::Type{<:_WorldStorage}, i::Int)
@@ -179,8 +178,8 @@ to trade runtime performance for compilation time.
   - `initial_capacity`: Initial capacity for entities in each archetype and in the entity index.
   - `allow_mutable`: Allows mutable components. Use with care, as all mutable objects are heap-allocated in Julia.
   - `boxed`: Useful to trade runtime performance for a lower compilation cost: `false` (default) allows for better runtime performance,
-     but the generated code and the time to compile it grows with the number of component types. If `true`, compilation mostly stops
-     depending on how many component types a world declares, at the price of worse runtime performance.
+    but the generated code and the time to compile it grows with the number of component types. If `true`, compilation mostly stops
+    depending on how many component types a world declares, at the price of worse runtime performance.
 
 # Examples
 
@@ -2806,7 +2805,10 @@ end
         return :(_erased_move_data(state, stores, comp)(old_table, new_table, row))
     end
     call_exprs =
-        Expr[:(_move_component_data!($(_storage_ref(:stores, stores, i)), old_table, new_table, row)) for i in 1:fieldcount(CS)]
+        Expr[
+            :(_move_component_data!($(_storage_ref(:stores, stores, i)), old_table, new_table, row)) for
+            i in 1:fieldcount(CS)
+        ]
     _generate_component_switch(:comp, call_exprs)
 end
 
@@ -2841,7 +2843,10 @@ end
         return :(_erased_copy_data_to_end(state, stores, comp)(old_table, new_table))
     end
     call_exprs =
-        Expr[:(_copy_component_data_to_end!($(_storage_ref(:stores, stores, i)), old_table, new_table)) for i in 1:fieldcount(CS)]
+        Expr[
+            :(_copy_component_data_to_end!($(_storage_ref(:stores, stores, i)), old_table, new_table)) for
+            i in 1:fieldcount(CS)
+        ]
     _generate_component_switch(:comp, call_exprs)
 end
 
@@ -2871,7 +2876,8 @@ end
     if _is_boxed(stores)
         return :(_erased_remove_data(state, stores, comp)(table, row))
     end
-    call_exprs = Expr[:(_remove_component_data!($(_storage_ref(:stores, stores, i)), table, row)) for i in 1:fieldcount(CS)]
+    call_exprs =
+        Expr[:(_remove_component_data!($(_storage_ref(:stores, stores, i)), table, row)) for i in 1:fieldcount(CS)]
     _generate_component_switch(:comp, call_exprs)
 end
 
@@ -2886,7 +2892,8 @@ end
     if _is_boxed(stores)
         return :(_erased_swap_data(state, stores, comp)(table, i, j))
     end
-    call_exprs = Expr[:(_swap_component_data!($(_storage_ref(:stores, stores, k)), table, i, j)) for k in 1:fieldcount(CS)]
+    call_exprs =
+        Expr[:(_swap_component_data!($(_storage_ref(:stores, stores, k)), table, i, j)) for k in 1:fieldcount(CS)]
     _generate_component_switch(:comp, call_exprs)
 end
 
