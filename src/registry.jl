@@ -23,11 +23,11 @@ end
 @noinline function _register_components!(
     registry::_ComponentRegistry,
     types::Vector{Any},
-    relation_indices::Vector{Int},
+    relation_flags::Vector{Bool},
 )::Vector{Int}
     ids = Vector{Int}(undef, length(types))
     for i in eachindex(types)
-        @inbounds ids[i] = _register_component!(registry, types[i]::DataType, i in relation_indices)
+        @inbounds ids[i] = _register_component!(registry, types[i]::DataType, relation_flags[i])
     end
     return ids
 end

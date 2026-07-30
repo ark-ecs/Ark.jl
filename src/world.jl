@@ -1001,35 +1001,26 @@ end
 
     storage_tuple_type = Tuple{_storage_types...}
     if BOXED
+        preamble = quote
+            comp_types = $(_type_vector(CS))
+            storage_modes = $(_type_vector(StorageModes))
+            relation_flags = $relation_flags
+        end
         storage_container_type = Memory{Any}
         empty_container_type = Memory{Any}
-        storage_values = :(_new_columns_vector(_type_vector($StorageModes), _type_vector($CS)))
-        empty_values = :(_new_empties_vector(_type_vector($StorageModes), _type_vector($CS)))
+        storage_values = :(_new_columns_vector(storage_modes, comp_types))
+        empty_values = :(_new_empties_vector(storage_modes, comp_types))
+        id_tuple = :(_register_components!(registry, comp_types, relation_flags))
+        relations_vec = :(_new_component_relations_vector(relation_flags))
     else
+        preamble = :()
         storage_container_type = Tuple{map(A -> Vector{A}, _storage_types)...}
         empty_container_type = Tuple{_storage_types...}
         storage_values = Expr(:tuple, storage_exprs...)
         empty_values = Expr(:tuple, empty_exprs...)
-    end
-
-    if BOXED
-        id_tuple = :(_register_components!(
-            registry,
-            _type_vector($CS),
-            $(Expr(:ref, :Int, relation_indices...)),
-        ))
-    else
         id_exprs =
             Expr[:(_register_component!(registry, $(types[i]), $(relation_flags[i]))) for i in eachindex(types)]
         id_tuple = Expr(:tuple, id_exprs...)
-    end
-
-    if BOXED
-        relations_vec = :(_new_component_relations_vector(
-            $(length(types)),
-            $(Expr(:ref, :Int, relation_indices...)),
-        ))
-    else
         relations_expr = Expr[:(_new_component_relations($(relation_flags[i]))) for i in eachindex(types)]
         relations_vec = Expr(:vect, relations_expr...)
     end
@@ -1045,6 +1036,7 @@ end
     }
     world_state_type = _WorldState{M,K}
     return quote
+        $preamble
         registry = _ComponentRegistry()
         ids = $id_tuple
         graph = _Graph{$(M)}()
@@ -2787,7 +2779,7 @@ end
     initial_capacity::Int,
 ) where CS
     if _is_boxed(stores)
-        return :(@inbounds _erased_activate_column(state, stores, comp)(index, initial_capacity))
+        return :(_erased_activate_column(state, stores, comp)(index, initial_capacity))
     end
     call_exprs =
         Expr[
@@ -2806,7 +2798,7 @@ end
     needed::Int,
 ) where CS
     if _is_boxed(stores)
-        return :(@inbounds _erased_ensure_column_size(state, stores, comp)(arch, needed))
+        return :(_erased_ensure_column_size(state, stores, comp)(arch, needed))
     end
     call_exprs = Expr[
         :(_ensure_column_size!(
@@ -2825,7 +2817,7 @@ end
     row::UInt32,
 ) where CS
     if _is_boxed(stores)
-        return :(@inbounds _erased_move_data(state, stores, comp)(old_table, new_table, row))
+        return :(_erased_move_data(state, stores, comp)(old_table, new_table, row))
     end
     call_exprs =
         Expr[:(_move_component_data!($(_storage_ref(:stores, stores, i)), old_table, new_table, row)) for i in 1:fieldcount(CS)]
@@ -2843,7 +2835,7 @@ end
 ) where {CS<:Tuple,CP<:Val}
     _check_copy_mode(CP)
     if _is_boxed(stores)
-        return :(@inbounds _erased_copy_data(state, stores, comp, mode)(old_table, new_table, old_row))
+        return :(_erased_copy_data(state, stores, comp, mode)(old_table, new_table, old_row))
     end
     call_exprs = Expr[
         :(_copy_component_data!($(_storage_ref(:stores, stores, i)), old_table, new_table, old_row, mode))
@@ -2860,7 +2852,7 @@ end
     new_table::UInt32,
 ) where {CS<:Tuple}
     if _is_boxed(stores)
-        return :(@inbounds _erased_copy_data_to_end(state, stores, comp)(old_table, new_table))
+        return :(_erased_copy_data_to_end(state, stores, comp)(old_table, new_table))
     end
     call_exprs =
         Expr[:(_copy_component_data_to_end!($(_storage_ref(:stores, stores, i)), old_table, new_table)) for i in 1:fieldcount(CS)]
@@ -2874,7 +2866,7 @@ end
     table::UInt32,
 ) where {CS<:Tuple}
     if _is_boxed(stores)
-        return :(@inbounds _erased_clear_column(state, stores, comp)(table))
+        return :(_erased_clear_column(state, stores, comp)(table))
     end
     call_exprs = Expr[
         :(_clear_column!($(_storage_ref(:stores, stores, i)), $(_empty_ref(:stores, stores, i)), table))
@@ -2891,7 +2883,7 @@ end
     row::UInt32,
 ) where {CS<:Tuple}
     if _is_boxed(stores)
-        return :(@inbounds _erased_remove_data(state, stores, comp)(table, row))
+        return :(_erased_remove_data(state, stores, comp)(table, row))
     end
     call_exprs = Expr[:(_remove_component_data!($(_storage_ref(:stores, stores, i)), table, row)) for i in 1:fieldcount(CS)]
     _generate_component_switch(:comp, call_exprs)
@@ -2906,7 +2898,7 @@ end
     j::Int,
 ) where {CS<:Tuple}
     if _is_boxed(stores)
-        return :(@inbounds _erased_swap_data(state, stores, comp)(table, i, j))
+        return :(_erased_swap_data(state, stores, comp)(table, i, j))
     end
     call_exprs = Expr[:(_swap_component_data!($(_storage_ref(:stores, stores, k)), table, i, j)) for k in 1:fieldcount(CS)]
     _generate_component_switch(:comp, call_exprs)
@@ -2922,7 +2914,7 @@ end
     start::Int,
 ) where {CS<:Tuple}
     if _is_boxed(stores)
-        return :(@inbounds _erased_permute_cycle(state, stores, comp)(table, entities, entity_index, start))
+        return :(_erased_permute_cycle(state, stores, comp)(table, entities, entity_index, start))
     end
     call_exprs = Expr[
         :(_permute_component_cycle!(

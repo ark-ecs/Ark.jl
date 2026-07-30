@@ -51,10 +51,10 @@ end
     return types
 end
 
-@noinline function _new_component_relations_vector(n::Int, relation_indices::Vector{Int})
-    relations = Vector{_ComponentRelations}(undef, n)
-    for i in 1:n
-        @inbounds relations[i] = _new_component_relations(i in relation_indices)
+@noinline function _new_component_relations_vector(relation_flags::Vector{Bool})
+    relations = Vector{_ComponentRelations}(undef, length(relation_flags))
+    for i in eachindex(relation_flags)
+        @inbounds relations[i] = _new_component_relations(relation_flags[i])
     end
     return relations
 end
