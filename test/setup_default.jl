@@ -5,8 +5,6 @@ function _storage_from_component(world, comp)
     return typeof(empties[i])
 end
 
-# The suite is run once per entry of `WORLD_MODES`. `TestWorld` calls without an explicit
-# `boxed` pick up the mode of the current pass, so every test covers every mode.
 const WORLD_MODES = (true, false)
 const DEFAULT_WORLD_BOXED = Ref(first(WORLD_MODES))
 
