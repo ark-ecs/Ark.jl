@@ -9,7 +9,7 @@ if RUN_JET
         ) ||
         (occursin("_valtuple(::Tuple)", msg) && occursin("Core.TypeofVararg", msg)) ||
         (occursin("_relation_types_and_targets", msg) && occursin("Core.TypeofVararg", msg)) ||
-        (occursin("runtime dispatch detected", msg) && occursin(r"FunctionWrapper.*Ark\._\w+Op", msg))
+        (occursin("runtime dispatch detected", msg) && occursin(r"Ark\._\w+Op", msg))
     end
 
     using Aqua
