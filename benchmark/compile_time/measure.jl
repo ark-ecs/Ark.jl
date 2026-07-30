@@ -1,7 +1,8 @@
 
 const N = parse(Int, ARGS[1])
 const K_SITES = parse(Int, ARGS[2])
-const MODE = Symbol(ARGS[3])
+const MODE = Symbol(ARGS[3])  # kept as the CSV/plot label
+const BOXED = MODE === :boxed
 const N_ENTITIES = parse(Int, ARGS[4])
 
 using Ark
@@ -43,16 +44,16 @@ end
 
 function measure()
     types = [CompN{i} for i in 1:N]
-    ctor = @timed World(types...; mode=MODE)
+    ctor = @timed World(types...; boxed=BOXED)
     ops = @timed work(ctor.value)
     return (ctor.compile_time, ops.compile_time)
 end
 
 function measure_runtime(types)
-    cold = @belapsed work_many!(w) setup = (w = World($types...; mode=$MODE)) evals = 1 samples = RT_SAMPLES seconds =
+    cold = @belapsed work_many!(w) setup = (w = World($types...; boxed=$BOXED)) evals = 1 samples = RT_SAMPLES seconds =
         RT_SECONDS
 
-    warm = World(types...; mode=MODE)
+    warm = World(types...; boxed=BOXED)
     work_many!(warm)
     steady = @belapsed work_many!($warm) setup = (reset!($warm)) evals = 1 samples = RT_SAMPLES seconds = RT_SECONDS
 

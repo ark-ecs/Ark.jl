@@ -5,16 +5,16 @@ function _storage_from_component(world, comp)
     return typeof(empties[i])
 end
 
-# A 300-component world is only viable in `:boxed` mode, so the large-world run
+# A 300-component world is only viable in boxed mode, so the large-world run
 # sticks to that single pass.
-const WORLD_MODES = (:boxed,)
-const DEFAULT_WORLD_MODE = Ref(first(WORLD_MODES))
+const WORLD_MODES = (true,)
+const DEFAULT_WORLD_BOXED = Ref(first(WORLD_MODES))
 
 function TestWorld(
     comp_types::Union{Type,Pair{<:Type,<:Type}}...;
     initial_capacity::Int=128,
     allow_mutable=false,
-    mode=DEFAULT_WORLD_MODE[],
+    boxed::Bool=DEFAULT_WORLD_BOXED[],
 )
     raw_types = map(arg -> arg isa Type ? arg : arg.first, comp_types)
     types = map(Ark._unwrap_relation_type, raw_types)
@@ -38,7 +38,7 @@ function TestWorld(
         Val{Tuple{fake_storage[1:255]...,storages...,fake_storage[256:300]...}}(),
         Val{Tuple{relation_types...}}(),
         Val(allow_mutable),
-        Val(Ark._mode_boxed(mode)),
+        Val(boxed),
         initial_capacity,
     )
 end

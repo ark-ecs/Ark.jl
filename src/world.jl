@@ -74,7 +74,7 @@ mutable struct _WorldStorage{CS<:Tuple,RT,S,L}
 end
 
 mutable struct _WorldState{M,K}
-    # Only used by `:boxed` worlds; `:specialized` ones carry an empty table. Whether the
+    # Only used by boxed worlds; specialized ones carry an empty table. Whether the
     # erased dispatch is in use is a property of the storage, see `_is_boxed`.
     const _dispatch::_ErasedDispatch
     const _entities::Vector{_EntityIndex}
@@ -155,14 +155,6 @@ end
 
 _storage(world::World) = getfield(world, :_stores)
 
-function _mode_boxed(mode::Symbol)
-    mode === :specialized && return false
-    mode === :boxed && return true
-    throw(ArgumentError(
-        lazy"invalid world mode $(repr(mode)), must be one of :specialized or :boxed",
-    ))
-end
-
 _state(world::World) = getfield(world, :_state)
 
 """
@@ -170,7 +162,7 @@ _state(world::World) = getfield(world, :_state)
         comp_types::Type...;
         initial_capacity::Int=16,
         allow_mutable::Bool=false,
-        mode::Symbol=:specialized,
+        boxed::Bool=false,
     )
 
 Creates a new, empty [World](@ref) for the given component types.
@@ -190,10 +182,10 @@ to trade runtime performance for compilation time.
   - `comp_types`: The component types used by the world.
   - `initial_capacity`: Initial capacity for entities in each archetype and in the entity index.
   - `allow_mutable`: Allows mutable components. Use with care, as all mutable objects are heap-allocated in Julia.
-  - `mode`: Useful to trade runtime performance for a lower compilation cost:
-      + `:specialized` (default): better runtime performance, but the generated code and the time to compile it
+  - `boxed`: Useful to trade runtime performance for a lower compilation cost:
+      + `false` (default): better runtime performance, but the generated code and the time to compile it
         grows with the number of component types.
-      + `:boxed`: compilation mostly stops depending on how many component types a world declares, at the price of
+      + `true`: compilation mostly stops depending on how many component types a world declares, at the price of
         worse runtime performance.
 
 # Examples
@@ -229,7 +221,7 @@ function World(
     comp_types::Union{Type,Pair{<:Type,<:Type}}...;
     initial_capacity::Int=16,
     allow_mutable=false,
-    mode::Symbol=:specialized,
+    boxed::Bool=false,
 )
     raw_types = map(arg -> arg isa Type ? arg : arg.first, comp_types)
     types = map(_unwrap_relation_type, raw_types)
@@ -240,7 +232,7 @@ function World(
         Val{Tuple{storages...}}(),
         Val{Tuple{relation_types...}}(),
         Val(allow_mutable),
-        Val(_mode_boxed(mode)),
+        Val(boxed),
         initial_capacity,
     )
 end
@@ -1029,7 +1021,7 @@ end
     relation_bits = _Mask{M}(relation_indices...).bits
     K = length(relation_indices)
     start_mask = _Mask{M}()
-    # `:specialized` worlds never read the table, so they get an empty one.
+    # Specialized worlds never read the table, so they get an empty one.
     dispatch_expr = :(_ErasedDispatch($(BOXED ? length(types) : 0)))
     world_storage_type = _WorldStorage{
         storage_tuple_type,relation_bits,storage_container_type,empty_container_type,

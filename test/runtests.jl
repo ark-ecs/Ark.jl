@@ -57,9 +57,9 @@ for suite in MODE_AGNOSTIC_SUITES
     include(suite)
 end
 
-for world_mode in WORLD_MODES
-    DEFAULT_WORLD_MODE[] = world_mode
-    @testset "world mode :$(world_mode)" begin
+for world_boxed in WORLD_MODES
+    DEFAULT_WORLD_BOXED[] = world_boxed
+    @testset "world mode $(world_boxed ? :boxed : :specialized)" begin
         for suite in WORLD_SUITES
             include(suite)
         end
