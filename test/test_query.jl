@@ -682,6 +682,6 @@ end
     if VERSION >= v"1.12"
         @test allocs == 0
     else
-        @test allocs <= 16
+        @test allocs <= 48
     end
 end

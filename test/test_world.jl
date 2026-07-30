@@ -565,7 +565,7 @@ end
         ])
         function_filter(@nospecialize f) = !(f in excluded)
 
-        @test_opt function_filter = function_filter new_entity!(world, (Position(1, 2), Velocity(3, 4)))
+        @test_opt_filtered function_filter = function_filter new_entity!(world, (Position(1, 2), Velocity(3, 4)))
     end
 end
 
@@ -1176,8 +1176,8 @@ end
         ])
         function_filter(@nospecialize f) = !(f in excluded)
 
-        #@test_opt function_filter = function_filter new_entities!(world, 100, (Position, Velocity))
-        @test_opt function_filter = function_filter new_entities!(world, 100, (Position(13, 13), Velocity(13, 13)))
+        #@test_opt_filtered function_filter = function_filter new_entities!(world, 100, (Position, Velocity))
+        @test_opt_filtered function_filter = function_filter new_entities!(world, 100, (Position(13, 13), Velocity(13, 13)))
     end
 end
 
@@ -1420,9 +1420,9 @@ end
         function_filter(@nospecialize f) = !(f in excluded)
 
         e1 = new_entity!(world, ())
-        @test_opt function_filter = function_filter add_components!(world, e1, (Position(1, 2), Velocity(3, 4)))
-        #@test_opt function_filter = function_filter has_components(world, e1, (Position, Velocity))
-        #@test_opt function_filter = function_filter remove_components!(world, e1, (Position, Velocity))
+        @test_opt_filtered function_filter = function_filter add_components!(world, e1, (Position(1, 2), Velocity(3, 4)))
+        #@test_opt_filtered function_filter = function_filter has_components(world, e1, (Position, Velocity))
+        #@test_opt_filtered function_filter = function_filter remove_components!(world, e1, (Position, Velocity))
     end
 end
 
@@ -1577,7 +1577,7 @@ end
         ex = (e::Entity) -> exchange_components!(world, e; add=(Altitude(1),), remove=(Position,))
 
         e1 = new_entity!(world, (Position(1, 2), Velocity(3, 4)))
-        @test_opt function_filter = function_filter ex(e1)
+        @test_opt_filtered function_filter = function_filter ex(e1)
     end
 end
 """

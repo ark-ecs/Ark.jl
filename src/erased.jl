@@ -1,17 +1,4 @@
 
-# Type-erased per-component dispatch.
-#
-# By default a `World` resolves the component index of a runtime operation with one
-# `if comp == i` branch per component type (see `_generate_component_switch`). The
-# resulting code is optimal, but its size grows with the number of component types, and
-# compiling it dominates latency for worlds that declare many components.
-#
-# A world created with `mode=:boxed` routes those operations through vectors of
-# `FunctionWrapper`s instead - one wrapper per component storage - so the size of the
-# generated code no longer depends on the number of component types. Wrappers are built
-# lazily, per operation and per component, so a world only ever compiles the combinations
-# it actually performs.
-
 const _FW_ActivateColumn = FunctionWrapper{Nothing,Tuple{Int,Int}}
 const _FW_EnsureColumnSize = FunctionWrapper{Nothing,Tuple{UInt32,Int}}
 const _FW_MoveData = FunctionWrapper{Nothing,Tuple{UInt32,UInt32,UInt32}}
@@ -22,9 +9,6 @@ const _FW_RemoveData = FunctionWrapper{Nothing,Tuple{UInt32,UInt32}}
 const _FW_SwapData = FunctionWrapper{Nothing,Tuple{UInt32,Int,Int}}
 const _FW_PermuteCycle = FunctionWrapper{Nothing,Tuple{UInt32,Entities,Vector{_EntityIndex},Int}}
 
-# One callable per storage operation. A `FunctionWrapper` can only wrap a callable value,
-# and a generated function may not emit closures, so the storage is captured in a struct.
-# Column lifecycle needs both halves of a storage; everything else only needs the columns.
 struct _ActivateColumnOp{S,E}
     storage::S
     empty::E

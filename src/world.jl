@@ -182,26 +182,20 @@ This allows Ark to use Julia's compile-time method generation to achieve the bes
 For each component type, an individual [storage mode](@ref component-storages) can be set.
 Relation components are declared in the constructor with [`Relation{T}`](@ref Relation).
 
-Additional arguments can be used to allow mutable component types (forbidden by default and discouraged)
-and an initial capacity for entities in [archetypes](@ref Architecture).
+Additional arguments can be used to allow mutable component types (forbidden by default and discouraged),
+to choose an initial capacity for entities in [archetypes](@ref Architecture) and to choose a [world mode](@ref world-modes)
+to trade runtime performance for compilation time.
 
 # Arguments
 
   - `comp_types`: The component types used by the world.
   - `initial_capacity`: Initial capacity for entities in each archetype and in the entity index.
   - `allow_mutable`: Allows mutable components. Use with care, as all mutable objects are heap-allocated in Julia.
-  - `mode`: How much code Ark generates per component type. Each step trades runtime performance
-    of structural operations for a lower compilation cost, and only pays off for worlds that
-    declare many component types. Queries and iteration are statically typed in every mode.
-
-      + `:specialized` (default): emits one specialized copy of each structural operation per
-        component type, selected by a runtime branch on the component id. Fastest structural
-        operations, but the generated code — and the time to compile it — grows with the number
-        of component types.
-      + `:boxed`: routes structural operations through type-erased calls and keeps the component
-        storages in a `Memory{Any}` instead of a tuple. No per-component code is generated
-        anywhere, so compilation stops depending on how many component types a world declares,
-        at the price of a type check on each storage access.
+  - `mode`: Useful to trade runtime performance for a lower compilation cost:
+      + `:specialized` (default): better runtime performance, but the generated code and the time to compile it
+        grows with the number of component types.
+      + `:boxed`: compilation mostly stops depending on how many component types a world declares, at the price of
+        worse runtime performance.
 
 # Examples
 

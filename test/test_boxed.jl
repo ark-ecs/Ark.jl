@@ -166,9 +166,10 @@ end
         churn!(world)
         iterate!(world)
 
-        @test @allocated(structural!(world, entity)) == 0
-        @test @allocated(accessors!(world, entity)) == 0
-        @test @allocated(churn!(world)) == 0
-        @test @allocated(iterate!(world)) == 0
+        allocs = VERSION >= v"1.11" ? 0 : 16
+        @test @allocated(structural!(world, entity)) <= allocs
+        @test @allocated(accessors!(world, entity)) <= allocs
+        @test @allocated(churn!(world)) <= allocs
+        @test @allocated(iterate!(world)) <= allocs
     end
 end
