@@ -93,9 +93,6 @@ function _ErasedDispatch(n::Int)
 end
 
 @inline function _storage_at(storages::Memory{Any}, comp::Int)
-    if comp < 1 || comp > length(storages)
-        throw(ArgumentError(lazy"no component with id $comp in the World"))
-    end
     return @inbounds storages[comp]
 end
 

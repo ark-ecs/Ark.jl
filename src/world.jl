@@ -138,8 +138,6 @@ end
 
 _world_storage(::Type{<:World{world_storage}}) where {world_storage<:_WorldStorage} = world_storage
 
-_world_state(::Type{<:World{S,State}}) where {S<:_WorldStorage,State<:_WorldState} = State
-
 _world_storage_types(::Type{W}) where {W<:World} = _schema_storage_types(_world_storage(W))
 
 _world_component_types(::Type{W}) where {W<:World} = _schema_component_types(_world_storage(W))
