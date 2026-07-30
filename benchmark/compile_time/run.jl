@@ -7,8 +7,8 @@ using Printf
 const HERE = @__DIR__
 const REPO = normpath(joinpath(HERE, "..", ".."))
 const WORKER = joinpath(HERE, "measure.jl")
-const PROJECT = dirname(Base.active_project())  # run workers in this same instantiated env
-const JULIA = first(Base.julia_cmd())           # same interpreter that runs this driver
+const PROJECT = dirname(Base.active_project())
+const JULIA = first(Base.julia_cmd())
 
 const NS = [10, 30, 50, 100, 150, 250, 350, 500, 650, 800, 1000, 1200, 1500, 2000, 2500, 3000, 4000, 5000]
 const K_SITES = 1
