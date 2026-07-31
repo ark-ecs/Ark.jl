@@ -1012,7 +1012,6 @@ end
     relation_bits = _Mask{M}(relation_indices...).bits
     K = length(relation_indices)
     start_mask = _Mask{M}()
-    # Specialized worlds never read the table, so they get an empty one.
     dispatch_expr = :(_ErasedDispatch($(BOXED ? length(types) : 0)))
     world_storage_type = _WorldStorage{
         storage_tuple_type,relation_bits,storage_container_type,empty_container_type,
