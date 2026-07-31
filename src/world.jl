@@ -995,20 +995,18 @@ end
         empty_container_type = Memory{Any}
         storage_values = :(_new_columns_vector(storage_modes, comp_types))
         empty_values = :(_new_empties_vector(storage_modes, comp_types))
-        id_tuple = :(_register_components!(registry, comp_types, relation_flags))
-        relations_vec = :(_new_component_relations_vector(relation_flags))
     else
-        preamble = :()
+        preamble = quote
+            comp_types = $(_type_vector(CS))
+            relation_flags = $relation_flags
+        end
         storage_container_type = Tuple{map(A -> Vector{A}, _storage_types)...}
         empty_container_type = Tuple{_storage_types...}
         storage_values = Expr(:tuple, storage_exprs...)
         empty_values = Expr(:tuple, empty_exprs...)
-        id_exprs =
-            Expr[:(_register_component!(registry, $(types[i]), $(relation_flags[i]))) for i in eachindex(types)]
-        id_tuple = Expr(:tuple, id_exprs...)
-        relations_expr = Expr[:(_new_component_relations($(relation_flags[i]))) for i in eachindex(types)]
-        relations_vec = Expr(:vect, relations_expr...)
     end
+    register_call = :(_register_components!(registry, comp_types, relation_flags))
+    relations_vec = :(_new_component_relations_vector(relation_flags))
 
     M = max(1, cld(length(types), 64))
     relation_bits = _Mask{M}(relation_indices...).bits
@@ -1023,7 +1021,7 @@ end
     return quote
         $preamble
         registry = _ComponentRegistry()
-        ids = $id_tuple
+        $register_call
         graph = _Graph{$(M)}()
         index = _EntityIndex[_EntityIndex(typemax(UInt32), 0)]
         sizehint!(index, initial_capacity)
