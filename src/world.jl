@@ -972,16 +972,8 @@ end
     end
 
     _storage_types = Vector{Any}(undef, length(types))
-    storage_exprs = Vector{Expr}(undef, length(types))
-
-    empty_exprs = Vector{Expr}(undef, length(types))
-
     for i in 1:length(types)
-        T = types[i]
-        mode = storage_val_types[i]
-        _storage_types[i] = _storage_type(mode, T)
-        storage_exprs[i] = :(_new_component_columns($mode, $T))
-        empty_exprs[i] = :(_new_component_empty($mode, $T))
+        _storage_types[i] = _storage_type(storage_val_types[i], types[i])
     end
 
     storage_tuple_type = Tuple{_storage_types...}
@@ -1002,8 +994,14 @@ end
         end
         storage_container_type = Tuple{map(A -> Vector{A}, _storage_types)...}
         empty_container_type = Tuple{_storage_types...}
-        storage_values = Expr(:tuple, storage_exprs...)
-        empty_values = Expr(:tuple, empty_exprs...)
+        storage_values = Expr(
+            :tuple,
+            Expr[:(_new_component_columns($(storage_val_types[i]), $(types[i]))) for i in eachindex(types)]...,
+        )
+        empty_values = Expr(
+            :tuple,
+            Expr[:(_new_component_empty($(storage_val_types[i]), $(types[i]))) for i in eachindex(types)]...,
+        )
     end
     register_call = :(_register_components!(registry, comp_types, relation_flags))
     relations_vec = :(_new_component_relations_vector(relation_flags))
