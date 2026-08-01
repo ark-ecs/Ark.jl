@@ -219,7 +219,7 @@ World(entities=0, comp_types=(Position, Velocity, Health))
 ```
 """
 function World(
-    comp_types::Tuple{Vararg{Union{Type,Pair{<:Type,<:Type}}}};
+    comp_types::Union{Type,Pair{<:Type,<:Type}}...;
     initial_capacity::Int=16,
     allow_mutable=false,
     boxed::Bool=false,
@@ -232,20 +232,6 @@ function World(
         Val(allow_mutable),
         Val(boxed),
         initial_capacity,
-    )
-end
-
-function World(
-    comp_types::Union{Type,Pair{<:Type,<:Type}}...;
-    initial_capacity::Int=16,
-    allow_mutable=false,
-    boxed::Bool=false,
-)
-    return World(
-        comp_types;
-        initial_capacity=initial_capacity,
-        allow_mutable=allow_mutable,
-        boxed=boxed,
     )
 end
 
