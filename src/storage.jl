@@ -132,7 +132,7 @@ end
     return col
 end
 
-@noinline function _activate_column!(cols::Vector{A}, empty::A, arch::Int, cap::Int) where {C,A<:AbstractArray{C,1}}
+function _activate_column!(cols::Vector{A}, empty::A, arch::Int, cap::Int) where {C,A<:AbstractArray{C,1}}
     sizehint!(_column_for_write!(cols, empty, arch), cap)
     return
 end
@@ -147,7 +147,7 @@ end
     return
 end
 
-@noinline function _ensure_column_size!(
+function _ensure_column_size!(
     cols::Vector{A},
     empty::A,
     arch::UInt32,
@@ -253,7 +253,7 @@ end
     end
 end
 
-@noinline function _copy_component_data_to_end!(
+function _copy_component_data_to_end!(
     cols::Vector{A},
     old_table::UInt32,
     new_table::UInt32,
