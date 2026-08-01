@@ -132,12 +132,12 @@ end
     return col
 end
 
-function _activate_column!(cols::Vector{A}, empty::A, arch::Int, cap::Int) where {C,A<:AbstractArray{C,1}}
+@noinline function _activate_column!(cols::Vector{A}, empty::A, arch::Int, cap::Int) where {C,A<:AbstractArray{C,1}}
     sizehint!(_column_for_write!(cols, empty, arch), cap)
     return
 end
 
-function _clear_column!(cols::Vector{A}, empty::A, arch::UInt32) where {C,A<:AbstractArray{C,1}}
+@noinline function _clear_column!(cols::Vector{A}, empty::A, arch::UInt32) where {C,A<:AbstractArray{C,1}}
     if arch <= length(cols)
         @inbounds col = cols[arch]
         if col !== empty
@@ -147,7 +147,7 @@ function _clear_column!(cols::Vector{A}, empty::A, arch::UInt32) where {C,A<:Abs
     return
 end
 
-function _ensure_column_size!(
+@noinline function _ensure_column_size!(
     cols::Vector{A},
     empty::A,
     arch::UInt32,
@@ -253,7 +253,7 @@ end
     end
 end
 
-function _copy_component_data_to_end!(
+@noinline function _copy_component_data_to_end!(
     cols::Vector{A},
     old_table::UInt32,
     new_table::UInt32,
