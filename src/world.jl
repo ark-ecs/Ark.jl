@@ -152,6 +152,14 @@ _storage(world::World) = getfield(world, :_stores)
 
 _state(world::World) = getfield(world, :_state)
 
+Base.@assume_effects :foldable function _world_type_params(comp_types::Tuple)
+    raw_types = map(arg -> arg isa Type ? arg : arg.first, comp_types)
+    types = map(_unwrap_relation_type, raw_types)
+    storages = map(arg -> arg isa Type ? Storage{Vector} : arg.second, comp_types)
+    relation_types = map(_unwrap_relation_type, filter(_declares_relation, raw_types))
+    return (Tuple{types...}, Tuple{storages...}, Tuple{relation_types...})
+end
+
 """
     World(
         comp_types::Type...;
@@ -211,22 +219,33 @@ World(entities=0, comp_types=(Position, Velocity, Health))
 ```
 """
 function World(
+    comp_types::Tuple{Vararg{Union{Type,Pair{<:Type,<:Type}}}};
+    initial_capacity::Int=16,
+    allow_mutable=false,
+    boxed::Bool=false,
+)
+    types, storages, relation_types = _world_type_params(comp_types)
+    _World_from_types(
+        Val{types}(),
+        Val{storages}(),
+        Val{relation_types}(),
+        Val(allow_mutable),
+        Val(boxed),
+        initial_capacity,
+    )
+end
+
+function World(
     comp_types::Union{Type,Pair{<:Type,<:Type}}...;
     initial_capacity::Int=16,
     allow_mutable=false,
     boxed::Bool=false,
 )
-    raw_types = map(arg -> arg isa Type ? arg : arg.first, comp_types)
-    types = map(_unwrap_relation_type, raw_types)
-    storages = map(arg -> arg isa Type ? Storage{Vector} : arg.second, comp_types)
-    relation_types = map(_unwrap_relation_type, filter(_declares_relation, raw_types))
-    _World_from_types(
-        Val{Tuple{types...}}(),
-        Val{Tuple{storages...}}(),
-        Val{Tuple{relation_types...}}(),
-        Val(allow_mutable),
-        Val(boxed),
-        initial_capacity,
+    return World(
+        comp_types;
+        initial_capacity=initial_capacity,
+        allow_mutable=allow_mutable,
+        boxed=boxed,
     )
 end
 
