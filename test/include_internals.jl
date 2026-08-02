@@ -1,8 +1,9 @@
 
 using Ark
 using Ark: _find_or_create_archetype!, _find_or_create_table!
-using Ark: _create_entity!, _move_entity!, _get_storage, _component_index, _get_relations, _get_relations_storage
-using Ark: _new_entity, _EntityIndex, _ComponentStorage, _column_or_empty
+using Ark: _create_entity!, _move_entity!, _get_component_columns, _get_component_empty, _component_index,
+    _get_relations, _get_relations_storage
+using Ark: _new_entity, _EntityIndex
 using Ark: _new_entities_column
 using Ark: _Archetype, _add_entity!, _has_relations, _empty_relations
 using Ark: _ComponentRegistry, _get_id!, _register_component!

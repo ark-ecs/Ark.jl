@@ -68,11 +68,13 @@ function _WorldPool{M}() where {M}
     )
 end
 
-struct _WorldStorage{CS<:Tuple,RT}
-    _storages::CS
+mutable struct _WorldStorage{CS<:Tuple,RT,S,L}
+    const _storages::S
+    const _empty_storages::L
 end
 
 mutable struct _WorldState{M,K}
+    const _dispatch::_ErasedDispatch
     const _entities::Vector{_EntityIndex}
     const _targets::BitVector
     const _relations::Vector{_ComponentRelations}
@@ -115,6 +117,24 @@ _schema_relation_indices(::Type{<:_WorldStorage{CS,RT}}) where {CS,RT} =
 _schema_relation_types(::Type{<:_WorldStorage{CS,RT}}) where {CS,RT} =
     Tuple{map(i -> _component_type(fieldtypes(CS)[i]), _schema_relation_indices(_WorldStorage{CS,RT}))...}
 
+_is_boxed(::Type{<:_WorldStorage{CS,RT,S}}) where {CS,RT,S} = S === Memory{Any}
+
+function _storage_ref(sym::Symbol, Storage::Type{<:_WorldStorage}, i::Int)
+    if _is_boxed(Storage)
+        A = fieldtype(_schema_storage_types(Storage), i)
+        return :((@inbounds $sym._storages[$i])::Vector{$A})
+    end
+    return :($sym._storages.$i)
+end
+
+function _empty_ref(sym::Symbol, Storage::Type{<:_WorldStorage}, i::Int)
+    if _is_boxed(Storage)
+        A = fieldtype(_schema_storage_types(Storage), i)
+        return :((@inbounds $sym._empty_storages[$i])::$A)
+    end
+    return :($sym._empty_storages.$i)
+end
+
 _world_storage(::Type{<:World{world_storage}}) where {world_storage<:_WorldStorage} = world_storage
 
 _world_storage_types(::Type{W}) where {W<:World} = _schema_storage_types(_world_storage(W))
@@ -129,13 +149,23 @@ function _component_index(world_storage::Type{<:_WorldStorage}, TargetType::Type
 end
 
 _storage(world::World) = getfield(world, :_stores)
+
 _state(world::World) = getfield(world, :_state)
+
+Base.@assume_effects :foldable function _world_type_params(comp_types::Tuple)
+    raw_types = map(arg -> arg isa Type ? arg : arg.first, comp_types)
+    types = map(_unwrap_relation_type, raw_types)
+    storages = map(arg -> arg isa Type ? Storage{Vector} : arg.second, comp_types)
+    relation_types = map(_unwrap_relation_type, filter(_declares_relation, raw_types))
+    return (Tuple{types...}, Tuple{storages...}, Tuple{relation_types...})
+end
 
 """
     World(
         comp_types::Type...;
         initial_capacity::Int=16,
         allow_mutable::Bool=false,
+        boxed::Bool=false,
     )
 
 Creates a new, empty [World](@ref) for the given component types.
@@ -146,14 +176,18 @@ This allows Ark to use Julia's compile-time method generation to achieve the bes
 For each component type, an individual [storage mode](@ref component-storages) can be set.
 Relation components are declared in the constructor with [`Relation{T}`](@ref Relation).
 
-Additional arguments can be used to allow mutable component types (forbidden by default and discouraged)
-and an initial capacity for entities in [archetypes](@ref Architecture).
+Additional arguments can be used to allow mutable component types (forbidden by default and discouraged),
+to choose an initial capacity for entities in [archetypes](@ref Architecture) and to choose a world mode
+to trade runtime performance for compilation time.
 
 # Arguments
 
   - `comp_types`: The component types used by the world.
   - `initial_capacity`: Initial capacity for entities in each archetype and in the entity index.
   - `allow_mutable`: Allows mutable components. Use with care, as all mutable objects are heap-allocated in Julia.
+  - `boxed`: Useful to trade runtime performance for a lower compilation cost: `false` (default) allows for better runtime performance,
+    but the generated code and the time to compile it grows with the number of component types. If `true`, compilation mostly stops
+    depending on how many component types a world declares, at the price of worse runtime performance.
 
 # Examples
 
@@ -184,17 +218,19 @@ world = World(
 World(entities=0, comp_types=(Position, Velocity, Health))
 ```
 """
-function World(comp_types::Union{Type,Pair{<:Type,<:Type}}...; initial_capacity::Int=16, allow_mutable=false)
-    raw_types = map(arg -> arg isa Type ? arg : arg.first, comp_types)
-    types = map(_unwrap_relation_type, raw_types)
-    storages = map(arg -> arg isa Type ? Storage{Vector} : arg.second, comp_types)
-    relation_types = map(_unwrap_relation_type, filter(_declares_relation, raw_types))
-
+function World(
+    comp_types::Union{Type,Pair{<:Type,<:Type}}...;
+    initial_capacity::Int=16,
+    allow_mutable=false,
+    boxed::Bool=false,
+)
+    types, storages, relation_types = _world_type_params(comp_types)
     _World_from_types(
-        Val{Tuple{types...}}(),
-        Val{Tuple{storages...}}(),
-        Val{Tuple{relation_types...}}(),
+        Val{types}(),
+        Val{storages}(),
+        Val{relation_types}(),
         Val(allow_mutable),
+        Val(boxed),
         initial_capacity,
     )
 end
@@ -372,10 +408,11 @@ end
 
     remove_exprs = Expr[]
     for i in 1:fieldcount(CS)
+        storage = _storage_ref(:stores, Storage, i)
         call =
             inline_jtable ?
-            :(@inline _remove_component_data!(stores._storages.$i, index.table, index.row)) :
-            :(_remove_component_data!(stores._storages.$i, index.table, index.row))
+            :(@inline _remove_component_data!($storage, index.table, index.row)) :
+            :(_remove_component_data!($storage, index.table, index.row))
         push!(remove_exprs, :(
             if _get_bit(arch_mask, $i)
                 $call
@@ -400,16 +437,21 @@ end
     world_has_rel = _has_relations(_schema_relation_types(Storage))
 
     unrolled_call = :(@inline _remove_all_component_data!(world_state, stores, table, index))
-    if fieldcount(CS) <= 32
+    loop_call = quote
+        for comp in archetype.components
+            _swap_remove_in_column_for_comp!(world_state, stores, comp, index.table, index.row)
+        end
+    end
+    if _is_boxed(Storage)
+        remove_block = loop_call
+    elseif fieldcount(CS) <= 32
         remove_block = unrolled_call
     else
         remove_block = quote
             if length(archetype.components) << 3 >= $(fieldcount(CS))
                 $unrolled_call
             else
-                for comp in archetype.components
-                    _swap_remove_in_column_for_comp!(stores, comp, index.table, index.row)
-                end
+                $loop_call
             end
         end
     end
@@ -866,7 +908,7 @@ function reset!(world::W) where {W<:World}
         _clear!(table.filters[])
         archetype = world_state._archetypes[table.archetype]
         for comp in archetype.components
-            _clear_component_data!(world_storage, comp, table.id)
+            _clear_component_data!(world_state, world_storage, comp, table.id)
         end
     end
 
@@ -892,8 +934,9 @@ end
     ::Val{StorageModes},
     ::Val{RelationTypes},
     ::Val{MUT},
+    ::Val{BOXED},
     initial_capacity::Int,
-) where {CS<:Tuple,StorageModes<:Tuple,RelationTypes<:Tuple,MUT}
+) where {CS<:Tuple,StorageModes<:Tuple,RelationTypes<:Tuple,MUT,BOXED}
     types = fieldtypes(CS)
     storage_val_types = fieldtypes(StorageModes)
     allow_mutable = MUT::Bool
@@ -933,35 +976,54 @@ end
         end
     end
 
-    # Storage type logic (based on resolved Val{...} types)
-    _storage_types = Vector{Expr}(undef, length(types))
-    storage_exprs = Vector{Expr}(undef, length(types))
-
+    _storage_types = Vector{Any}(undef, length(types))
     for i in 1:length(types)
-        T = types[i]
-        mode = storage_val_types[i]
-        _storage_types[i] = :(_ComponentStorage{$T,_storage_type($mode, $T)})
-        storage_exprs[i] = :(_new_component_storage($mode, $T))
+        _storage_types[i] = _storage_type(storage_val_types[i], types[i])
     end
 
-    # Final type and value tuples
-    storage_tuple_type = :(Tuple{$(_storage_types...)})
-    storage_tuple = Expr(:tuple, storage_exprs...)
-
-    # Component registration
-    id_exprs = Expr[:(_register_component!(registry, $(types[i]), $(relation_flags[i]))) for i in eachindex(types)]
-    id_tuple = Expr(:tuple, id_exprs...)
-
-    relations_expr = Expr[:(_new_component_relations($(relation_flags[i]))) for i in eachindex(types)]
-    relations_vec = Expr(:vect, relations_expr...)
+    storage_tuple_type = Tuple{_storage_types...}
+    if BOXED
+        preamble = quote
+            comp_types = $(_type_vector(CS))
+            storage_modes = $(_type_vector(StorageModes))
+            relation_flags = $relation_flags
+        end
+        storage_container_type = Memory{Any}
+        empty_container_type = Memory{Any}
+        storage_values = :(_new_columns_vector(storage_modes, comp_types))
+        empty_values = :(_new_empties_vector(storage_modes, comp_types))
+    else
+        preamble = quote
+            comp_types = $(_type_vector(CS))
+            relation_flags = $relation_flags
+        end
+        storage_container_type = Tuple{map(A -> Vector{A}, _storage_types)...}
+        empty_container_type = Tuple{_storage_types...}
+        storage_values = Expr(
+            :tuple,
+            Expr[:(_new_component_columns($(storage_val_types[i]), $(types[i]))) for i in eachindex(types)]...,
+        )
+        empty_values = Expr(
+            :tuple,
+            Expr[:(_new_component_empty($(storage_val_types[i]), $(types[i]))) for i in eachindex(types)]...,
+        )
+    end
+    register_call = :(_register_components!(registry, comp_types, relation_flags))
+    relations_vec = :(_new_component_relations_vector(relation_flags))
 
     M = max(1, cld(length(types), 64))
     relation_bits = _Mask{M}(relation_indices...).bits
     K = length(relation_indices)
     start_mask = _Mask{M}()
+    dispatch_expr = :(_ErasedDispatch($(BOXED ? length(types) : 0)))
+    world_storage_type = _WorldStorage{
+        storage_tuple_type,relation_bits,storage_container_type,empty_container_type,
+    }
+    world_state_type = _WorldState{M,K}
     return quote
+        $preamble
         registry = _ComponentRegistry()
-        ids = $id_tuple
+        $register_call
         graph = _Graph{$(M)}()
         index = _EntityIndex[_EntityIndex(typemax(UInt32), 0)]
         sizehint!(index, initial_capacity)
@@ -970,12 +1032,10 @@ end
 
         node = graph.nodes[$start_mask]
 
-        stores = _WorldStorage{
-            $storage_tuple_type,
-            $relation_bits,
-        }($storage_tuple)
+        stores = $world_storage_type($storage_values, $empty_values)
 
-        world_state = _WorldState{$M,$K}(
+        world_state = $world_state_type(
+            $dispatch_expr,
             index,
             targets,
             $relations_vec,
@@ -997,19 +1057,21 @@ end
             initial_capacity,
         )
 
-        World{
-            $(_WorldStorage){$storage_tuple_type,$relation_bits},
-            $(_WorldState){$M,$K},
-        }(
+        $(World{world_storage_type,world_state_type})(
             stores,
             world_state,
         )
     end
 end
 
-@generated function _get_storage(stores::_WorldStorage{CS}, ::Type{C}) where {CS<:Tuple,C}
+@generated function _get_component_columns(stores::_WorldStorage{CS}, ::Type{C}) where {CS<:Tuple,C}
     index = _component_index(CS, C)
-    return :(stores._storages.$index)
+    return _storage_ref(:stores, stores, index)
+end
+
+@generated function _get_component_empty(stores::_WorldStorage{CS}, ::Type{C}) where {CS<:Tuple,C}
+    index = _component_index(CS, C)
+    return _empty_ref(:stores, stores, index)
 end
 
 @generated function _get_relations_storage(
@@ -1298,7 +1360,7 @@ function _create_table!(
     push!(state._table_masks, arch.node.mask)
 
     for comp in arch.components
-        _activate_new_column_for_comp!(stores, comp, new_table_id, state._initial_capacity)
+        _activate_new_column_for_comp!(state, stores, comp, new_table_id, state._initial_capacity)
     end
 
     _push_zero_to_all_table_relations!(state, stores)
@@ -1655,12 +1717,12 @@ function _new_entity_expr(
     # Set each component
     for i in 1:length(types)
         T = types[i]
-        stor_sym = Symbol("stor", i)
+        cols_sym = Symbol("cols", i)
         col_sym = Symbol("col", i)
         val_expr = :(values.$i)
 
-        push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-        push!(exprs, :(@inbounds $col_sym = $stor_sym.data[table]))
+        push!(exprs, :($cols_sym = _get_component_columns(stores, $T)))
+        push!(exprs, :(@inbounds $col_sym = $cols_sym[table]))
         push!(exprs, :(push!($col_sym, $val_expr)))
     end
 
@@ -1798,7 +1860,7 @@ end
         end
 
         for comp in archetype.components
-            _ensure_column_size_for_comp!(stores, comp, table_index, new_length)
+            _ensure_column_size_for_comp!(state, stores, comp, table_index, new_length)
         end
 
         return old_length + 1, new_length
@@ -1820,10 +1882,11 @@ end
         if i in SkipIds
             continue
         end
+        storage = _storage_ref(:stores, stores, i)
         move_call =
             inline_jtable ?
-            :(@inline _move_component_data!(stores._storages.$i, index.table, table_index, index.row)) :
-            :(_move_component_data!(stores._storages.$i, index.table, table_index, index.row))
+            :(@inline _move_component_data!($storage, index.table, table_index, index.row)) :
+            :(_move_component_data!($storage, index.table, table_index, index.row))
         push!(move_exprs, :(
             if _get_bit(old_mask, $i)
                 $move_call
@@ -1850,33 +1913,42 @@ end
     ::Val{RemIds},
 )::Nothing where {CS<:Tuple,AddIds,RemIds}
     remove_exprs = Expr[
-        :(@inline _remove_component_data!(stores._storages.$i, index.table, index.row)) for i in RemIds
+        :(@inline _remove_component_data!(
+            $(_storage_ref(:stores, stores, i)), index.table, index.row,
+        )) for i in RemIds
     ]
 
     skip_ids = Val((AddIds..., RemIds...))
     unrolled_call = :(@inline _move_all_component_data!(state, stores, old_table, table_index, index, $skip_ids))
-    if fieldcount(CS) <= 32
+    if !_is_boxed(stores) && fieldcount(CS) <= 32
         move_block = unrolled_call
     else
         if isempty(RemIds)
-            loop_body = :(_move_component_data!(stores, comp, index.table, table_index, index.row))
+            loop_body = :(_move_component_data!(state, stores, comp, index.table, table_index, index.row))
         else
             M = max(1, cld(fieldcount(CS), 64))
             rem_mask = _Mask{M}(RemIds...)
             loop_body = quote
                 if !_get_bit($rem_mask, comp)
-                    _move_component_data!(stores, comp, index.table, table_index, index.row)
+                    _move_component_data!(state, stores, comp, index.table, table_index, index.row)
                 end
             end
         end
-        move_block = quote
-            @inbounds old_mask = state._archetypes_hot[old_table.archetype].mask
-            if _count_bits(old_mask) << 3 >= $(fieldcount(CS))
-                $unrolled_call
-            else
-                @inbounds old_archetype = state._archetypes[old_table.archetype]
-                for comp in old_archetype.components
-                    $loop_body
+        loop_block = quote
+            @inbounds old_archetype = state._archetypes[old_table.archetype]
+            for comp in old_archetype.components
+                $loop_body
+            end
+        end
+        if _is_boxed(stores)
+            move_block = loop_block
+        else
+            move_block = quote
+                @inbounds old_mask = state._archetypes_hot[old_table.archetype].mask
+                if _count_bits(old_mask) << 3 >= $(fieldcount(CS))
+                    $unrolled_call
+                else
+                    $loop_block
                 end
             end
         end
@@ -1929,7 +2001,7 @@ function _move_entities!(
 
     resize!(new_table, total_entities)
     for comp in new_archetype.components
-        _ensure_column_size_for_comp!(stores, comp, table_index, total_entities)
+        _ensure_column_size_for_comp!(state, stores, comp, table_index, total_entities)
     end
 
     @inbounds @simd for from in 1:num_entities
@@ -1940,9 +2012,9 @@ function _move_entities!(
     end
     for comp in old_archetype.components
         if _get_bit(new_archetype.node.mask, comp)
-            _copy_component_data_to_end!(stores, comp, old_table_index, table_index)
+            _copy_component_data_to_end!(state, stores, comp, old_table_index, table_index)
         end
-        _clear_component_data!(stores, comp, old_table_index)
+        _clear_component_data!(state, stores, comp, old_table_index)
     end
 
     empty!(old_table)
@@ -1962,10 +2034,11 @@ end
 
     copy_exprs = Expr[]
     for i in 1:fieldcount(CS)
+        storage = _storage_ref(:stores, Storage, i)
         call =
             inline_jtable ?
-            :(@inline _copy_component_data!(stores._storages.$i, from_table, to_table, row, mode)) :
-            :(_copy_component_data!(stores._storages.$i, from_table, to_table, row, mode))
+            :(@inline _copy_component_data!($storage, from_table, to_table, row, mode)) :
+            :(_copy_component_data!($storage, from_table, to_table, row, mode))
         push!(copy_exprs, :(
             if _get_bit(copy_mask, $i)
                 $call
@@ -1981,12 +2054,25 @@ end
 
 function _copy_entity_block_expr(
     N::Int,
+    erased::Bool,
     mask_expr::Expr,
     new_table_expr::Union{Symbol,Expr},
     components_expr::Expr,
     filter_mask_expr::Union{Nothing,Expr},
 )
     unrolled_call = :(_copy_all_component_data!(stores, copy_mask, index.table, $new_table_expr, index.row, mode))
+    if erased
+        return quote
+            for comp in $components_expr
+                $(filter_mask_expr === nothing ? :() : :(
+                    if !_get_bit($filter_mask_expr, comp)
+                        continue
+                    end
+                ))
+                _copy_component_data!(world_state, stores, comp, index.table, $new_table_expr, index.row, mode)
+            end
+        end
+    end
     if N <= 192
         return quote
             copy_mask = $mask_expr
@@ -2005,7 +2091,7 @@ function _copy_entity_block_expr(
                         continue
                     end
                 ))
-                _copy_component_data!(stores, comp, index.table, $new_table_expr, index.row, mode)
+                _copy_component_data!(world_state, stores, comp, index.table, $new_table_expr, index.row, mode)
             end
         end
     end
@@ -2023,6 +2109,7 @@ end
 
     copy_block = _copy_entity_block_expr(
         fieldcount(CS),
+        _is_boxed(Storage),
         :(@inbounds world_state._archetypes_hot[table.archetype].mask),
         :(index.table),
         :(archetype.components),
@@ -2131,6 +2218,7 @@ end
         exprs,
         _copy_entity_block_expr(
             fieldcount(CS),
+            _is_boxed(Storage),
             :(_and(world_state._archetypes_hot[old_table.archetype].mask, new_archetype.mask)),
             :new_table_index,
             :(old_archetype.components),
@@ -2140,12 +2228,12 @@ end
 
     for i in 1:length(add_types)
         T = add_types[i]
-        stor_sym = Symbol("stor", i)
+        cols_sym = Symbol("cols", i)
         col_sym = Symbol("col", i)
         val_expr = :(add.$i)
 
-        push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-        push!(exprs, :(@inbounds $col_sym = $stor_sym.data[new_table_index]))
+        push!(exprs, :($cols_sym = _get_component_columns(stores, $T)))
+        push!(exprs, :(@inbounds $col_sym = $cols_sym[new_table_index]))
         push!(exprs, :(@inbounds push!($col_sym, $val_expr)))
     end
 
@@ -2227,11 +2315,11 @@ end
 
     for i in 1:length(types)
         T = types[i]
-        stor_sym = Symbol("stor", i)
+        cols_sym = Symbol("cols", i)
         val_sym = Symbol("v", i)
 
-        push!(exprs, :($(stor_sym) = _get_storage(stores, $T)))
-        push!(exprs, :($(val_sym) = _get_component($(stor_sym), idx.table, idx.row)))
+        push!(exprs, :($(cols_sym) = _get_component_columns(stores, $T)))
+        push!(exprs, :($(val_sym) = _get_component($(cols_sym), idx.table, idx.row)))
     end
 
     vals = Symbol[Symbol("v", i) for i in 1:length(types)]
@@ -2304,11 +2392,11 @@ end
 
     for i in 1:length(types)
         T = types[i]
-        stor_sym = Symbol("stor", i)
+        cols_sym = Symbol("cols", i)
         val_expr = :(values.$i)
 
-        push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-        push!(exprs, :(_set_component!($stor_sym, idx.table, idx.row, $val_expr)))
+        push!(exprs, :($cols_sym = _get_component_columns(stores, $T)))
+        push!(exprs, :(_set_component!($cols_sym, idx.table, idx.row, $val_expr)))
     end
 
     push!(exprs, Expr(:return, :values))
@@ -2576,12 +2664,12 @@ end
     )
     for i in 1:length(add_types)
         T = add_types[i]
-        stor_sym = Symbol("stor", i)
+        cols_sym = Symbol("cols", i)
         col_sym = Symbol("col", i)
         val_expr = :(add.$i)
 
-        push!(exprs, :($stor_sym = _get_storage(stores, $T)))
-        push!(exprs, :(@inbounds $col_sym = $stor_sym.data[new_table_index]))
+        push!(exprs, :($cols_sym = _get_component_columns(stores, $T)))
+        push!(exprs, :(@inbounds $col_sym = $cols_sym[new_table_index]))
         push!(exprs, :(push!($col_sym, $val_expr)))
     end
 
@@ -2669,39 +2757,63 @@ function _do_emit_event!(world_state::_WorldState, event::Event, mask::_Mask, ha
 end
 
 @generated function _activate_new_column_for_comp!(
+    state::_WorldState,
     stores::_WorldStorage{CS},
     comp::Int,
     index::Int,
     initial_capacity::Int,
 ) where CS
+    if _is_boxed(stores)
+        return :(_erased_activate_column(state, stores, comp)(index, initial_capacity))
+    end
     call_exprs =
-        Expr[:(_activate_column!(stores._storages.$i, index, initial_capacity)) for i in 1:fieldcount(CS)]
+        Expr[
+            :(_activate_column!(
+                $(_storage_ref(:stores, stores, i)), $(_empty_ref(:stores, stores, i)), index, initial_capacity,
+            )) for i in 1:fieldcount(CS)
+        ]
     _generate_component_switch(:comp, call_exprs)
 end
 
 @generated function _ensure_column_size_for_comp!(
+    state::_WorldState,
     stores::_WorldStorage{CS},
     comp::Int,
     arch::UInt32,
     needed::Int,
 ) where CS
-    call_exprs = Expr[:(_ensure_column_size!(stores._storages.$i, arch, needed)) for i in 1:fieldcount(CS)]
+    if _is_boxed(stores)
+        return :(_erased_ensure_column_size(state, stores, comp)(arch, needed))
+    end
+    call_exprs = Expr[
+        :(_ensure_column_size!(
+            $(_storage_ref(:stores, stores, i)), $(_empty_ref(:stores, stores, i)), arch, needed,
+        )) for i in 1:fieldcount(CS)
+    ]
     _generate_component_switch(:comp, call_exprs)
 end
 
 @generated function _move_component_data!(
+    state::_WorldState,
     stores::_WorldStorage{CS},
     comp::Int,
     old_table::UInt32,
     new_table::UInt32,
     row::UInt32,
 ) where CS
+    if _is_boxed(stores)
+        return :(_erased_move_data(state, stores, comp)(old_table, new_table, row))
+    end
     call_exprs =
-        Expr[:(_move_component_data!(stores._storages.$i, old_table, new_table, row)) for i in 1:fieldcount(CS)]
+        Expr[
+            :(_move_component_data!($(_storage_ref(:stores, stores, i)), old_table, new_table, row)) for
+            i in 1:fieldcount(CS)
+        ]
     _generate_component_switch(:comp, call_exprs)
 end
 
 @generated function _copy_component_data!(
+    state::_WorldState,
     stores::_WorldStorage{CS},
     comp::Int,
     old_table::UInt32,
@@ -2710,55 +2822,83 @@ end
     mode::CP,
 ) where {CS<:Tuple,CP<:Val}
     _check_copy_mode(CP)
+    if _is_boxed(stores)
+        return :(_erased_copy_data(state, stores, comp, mode)(old_table, new_table, old_row))
+    end
     call_exprs = Expr[
-        :(_copy_component_data!(stores._storages.$i, old_table, new_table, old_row, mode))
+        :(_copy_component_data!($(_storage_ref(:stores, stores, i)), old_table, new_table, old_row, mode))
         for i in 1:fieldcount(CS)
     ]
     _generate_component_switch(:comp, call_exprs)
 end
 
 @generated function _copy_component_data_to_end!(
+    state::_WorldState,
     stores::_WorldStorage{CS},
     comp::Int,
     old_table::UInt32,
     new_table::UInt32,
 ) where {CS<:Tuple}
+    if _is_boxed(stores)
+        return :(_erased_copy_data_to_end(state, stores, comp)(old_table, new_table))
+    end
     call_exprs =
-        Expr[:(_copy_component_data_to_end!(stores._storages.$i, old_table, new_table)) for i in 1:fieldcount(CS)]
+        Expr[
+            :(_copy_component_data_to_end!($(_storage_ref(:stores, stores, i)), old_table, new_table)) for
+            i in 1:fieldcount(CS)
+        ]
     _generate_component_switch(:comp, call_exprs)
 end
 
 @generated function _clear_component_data!(
+    state::_WorldState,
     stores::_WorldStorage{CS},
     comp::Int,
     table::UInt32,
 ) where {CS<:Tuple}
-    call_exprs = Expr[:(_clear_column!(stores._storages.$i, table)) for i in 1:fieldcount(CS)]
+    if _is_boxed(stores)
+        return :(_erased_clear_column(state, stores, comp)(table))
+    end
+    call_exprs = Expr[
+        :(_clear_column!($(_storage_ref(:stores, stores, i)), $(_empty_ref(:stores, stores, i)), table))
+        for i in 1:fieldcount(CS)
+    ]
     _generate_component_switch(:comp, call_exprs)
 end
 
 @generated function _swap_remove_in_column_for_comp!(
+    state::_WorldState,
     stores::_WorldStorage{CS},
     comp::Int,
     table::UInt32,
     row::UInt32,
 ) where {CS<:Tuple}
-    call_exprs = Expr[:(_remove_component_data!(stores._storages.$i, table, row)) for i in 1:fieldcount(CS)]
+    if _is_boxed(stores)
+        return :(_erased_remove_data(state, stores, comp)(table, row))
+    end
+    call_exprs =
+        Expr[:(_remove_component_data!($(_storage_ref(:stores, stores, i)), table, row)) for i in 1:fieldcount(CS)]
     _generate_component_switch(:comp, call_exprs)
 end
 
 @generated function _swap_components!(
+    state::_WorldState,
     stores::_WorldStorage{CS},
     comp::Int,
     table::UInt32,
     i::Int,
     j::Int,
 ) where {CS<:Tuple}
-    call_exprs = Expr[:(_swap_component_data!(stores._storages.$k, table, i, j)) for k in 1:fieldcount(CS)]
+    if _is_boxed(stores)
+        return :(_erased_swap_data(state, stores, comp)(table, i, j))
+    end
+    call_exprs =
+        Expr[:(_swap_component_data!($(_storage_ref(:stores, stores, k)), table, i, j)) for k in 1:fieldcount(CS)]
     _generate_component_switch(:comp, call_exprs)
 end
 
 @generated function _permute_component_cycle!(
+    state::_WorldState,
     stores::_WorldStorage{CS},
     comp::Int,
     table::UInt32,
@@ -2766,9 +2906,12 @@ end
     entity_index::Vector{_EntityIndex},
     start::Int,
 ) where {CS<:Tuple}
+    if _is_boxed(stores)
+        return :(_erased_permute_cycle(state, stores, comp)(table, entities, entity_index, start))
+    end
     call_exprs = Expr[
         :(_permute_component_cycle!(
-            stores._storages.$i,
+            $(_storage_ref(:stores, stores, i)),
             table,
             entities,
             entity_index,
@@ -2844,7 +2987,7 @@ end
         state._entities[entity_j._id] = _EntityIndex(table.id, i)
 
         for comp in archetype.components
-            _swap_components!(stores, comp, table.id, i, j)
+            _swap_components!(state, stores, comp, table.id, i, j)
         end
     end
     return

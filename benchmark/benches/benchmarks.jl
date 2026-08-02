@@ -4,6 +4,8 @@ using Chairmarks
 
 const SECONDS = 0.5
 const SUITE = BenchmarkGroup()
+# Flipped by the CI matrix so the same suite runs once per world mode.
+const BOXED = get(ENV, "ARK_BENCH_BOXED", "false") == "true"
 
 include("BenchTypes.jl")
 

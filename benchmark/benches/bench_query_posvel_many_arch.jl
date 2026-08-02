@@ -2,8 +2,9 @@
 function setup_query_posvel_32_arch(n_entities::Int)
     world = World(
         Position, Velocity,
-        CompN{1}, CompN{2}, CompN{3}, CompN{4}, CompN{5};
+        CompN{1}, CompN{2}, CompN{3}, CompN{4}, CompN{5},
         initial_capacity=clamp(nextpow(2, div(n_entities, 32) + 1), 32, 1024),
+        boxed=BOXED,
     )
 
     pos = Position(0, 0)
@@ -56,6 +57,7 @@ function setup_query_posvel_1k_arch(n_entities::Int, register::Bool)
         CompN{1}, CompN{2}, CompN{3}, CompN{4}, CompN{5},
         CompN{6}, CompN{7}, CompN{8}, CompN{9}, CompN{10};
         initial_capacity=clamp(nextpow(2, div(n_entities, 1000) + 1), 32, 1024),
+        boxed=BOXED,
     )
 
     pos = Position(0, 0)

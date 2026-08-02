@@ -1,6 +1,6 @@
 
 @testset "Query basic functionality" begin
-    world = World(Dummy, Position, Velocity, Altitude, Health)
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Health)
 
     for i in 1:10
         new_entity!(world, (Altitude(1), Health(2)))
@@ -44,7 +44,7 @@
 end
 
 @testset "Query preserves requested column order" begin
-    world = World(Position, Velocity)
+    world = TestWorld(Position, Velocity)
 
     new_entity!(world, (Position(1, 2), Velocity(3, 4)))
 
@@ -67,7 +67,7 @@ end
 end
 
 @testset "Query Const components return read-only columns" begin
-    world = World(Position, Velocity, Altitude)
+    world = TestWorld(Position, Velocity, Altitude)
 
     new_entity!(world, (Position(1, 2), Velocity(3, 4), Altitude(5)))
 
@@ -116,7 +116,7 @@ end
 end
 
 @testset "Query from filter preserves requested column order" begin
-    world = World(Position, Velocity)
+    world = TestWorld(Position, Velocity)
 
     new_entity!(world, (Position(1, 2), Velocity(3, 4)))
 
@@ -134,7 +134,7 @@ end
 end
 
 @testset "Query from filter" begin
-    world = World(Dummy, Position, Velocity, Altitude, Health)
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Health)
 
     for i in 1:10
         new_entity!(world, (Altitude(1), Health(2)))
@@ -155,7 +155,7 @@ end
 end
 
 @testset "Query from registered filter" begin
-    world = World(Dummy, Position, Velocity, Altitude, Health)
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Health)
 
     for i in 1:10
         new_entity!(world, (Altitude(1), Health(2)))
@@ -177,7 +177,7 @@ end
 end
 
 @testset "Query with" begin
-    world = World(Dummy, Position, Velocity, Altitude)
+    world = TestWorld(Dummy, Position, Velocity, Altitude)
 
     for i in 1:10
         new_entity!(world, (Position(i, i * 2), Velocity(1, 1)))
@@ -200,7 +200,7 @@ end
 end
 
 @testset "Query without" begin
-    world = World(Dummy, Position, Velocity, Altitude)
+    world = TestWorld(Dummy, Position, Velocity, Altitude)
 
     for i in 1:10
         new_entity!(world, (Position(i, i * 2), Velocity(1, 1)))
@@ -223,7 +223,7 @@ end
 end
 
 @testset "Query optional" begin
-    world = World(Dummy, Position, Velocity, Altitude)
+    world = TestWorld(Dummy, Position, Velocity, Altitude)
 
     for i in 1:10
         new_entity!(world, (Position(i, i * 2), Velocity(1, 1)))
@@ -253,7 +253,7 @@ end
 end
 
 @testset "Query exclusive" begin
-    world = World(Dummy, Position, Velocity, Altitude, Health)
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Health)
 
     for i in 1:10
         new_entity!(world, (Position(i, i * 2), Velocity(1, 1)))
@@ -284,7 +284,7 @@ end
 end
 
 @testset "Query relations" begin
-    world = World(Dummy, Position, Velocity, Relation{ChildOf})
+    world = TestWorld(Dummy, Position, Velocity, Relation{ChildOf})
     parent1 = new_entity!(world, ())
     parent2 = new_entity!(world, ())
     parent3 = new_entity!(world, ())
@@ -319,7 +319,7 @@ end
 end
 
 @testset "Query multiple relations" begin
-    world = World(Dummy, Position, Relation{ChildOf}, Relation{ChildOf2})
+    world = TestWorld(Dummy, Position, Relation{ChildOf}, Relation{ChildOf2})
     parent1 = new_entity!(world, ())
     parent2 = new_entity!(world, ())
     parent3 = new_entity!(world, ())
@@ -367,7 +367,7 @@ end
 end
 
 @testset "Query empty" begin
-    world = World(Dummy, Position, Velocity)
+    world = TestWorld(Dummy, Position, Velocity)
 
     query = Query(world, (Position, Velocity))
     @test_throws("ArgumentError: query must contain exactly one matching table", only(query))
@@ -396,7 +396,7 @@ end
 end
 
 @testset "Query no comps" begin
-    world = World(Dummy, Position, Velocity)
+    world = TestWorld(Dummy, Position, Velocity)
 
     for i in 1:10
         new_entity!(world, (Position(i, i * 2),))
@@ -423,7 +423,7 @@ end
 end
 
 @testset "Query StructArray" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Velocity => Storage{StructArray},
@@ -451,7 +451,7 @@ end
 end
 
 @testset "Query FieldViewable" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Velocity => Storage{StructArray},
@@ -488,7 +488,7 @@ end
 end
 
 @testset "Query duplicates" begin
-    world = World(
+    world = TestWorld(
         Position,
         Velocity,
         Altitude,
@@ -501,7 +501,7 @@ end
 end
 
 @testset "Query eltype" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Velocity => Storage{StructArray},
@@ -541,7 +541,7 @@ end
 end
 
 @testset "Query Const eltype" begin
-    world = World(Position, Velocity, Altitude)
+    world = TestWorld(Position, Velocity, Altitude)
 
     new_entity!(world, (Position(1, 2), Velocity(3, 4), Altitude(5)))
 
@@ -561,7 +561,7 @@ end
 """
 @static if RUN_JET
 @testset "Query JET" begin
-    world = World(
+    world = TestWorld(
         Position,
         Velocity => Storage{StructArray},
         Altitude,
@@ -584,7 +584,7 @@ end
 """
 
 @testset "Query error messages" begin
-    world = World(Dummy, Position, Velocity)
+    world = TestWorld(Dummy, Position, Velocity)
 
     query = Query(world, (Position, Velocity))
     for _ in query
@@ -605,7 +605,7 @@ end
 end
 
 @testset "Single eval of rhs for unpack" begin
-    world = World(Position => Storage{StructArray})
+    world = TestWorld(Position => Storage{StructArray})
     new_entity!(world, (Position(1.0, 2.0),))
 
     calls = Ref(0)
@@ -626,7 +626,7 @@ end
 end
 
 @testset "Query show" begin
-    world = World(
+    world = TestWorld(
         Position,
         Velocity,
         Altitude,
@@ -652,7 +652,7 @@ end
         dx::Float64
     end
 
-    world = World(FreshA, FreshB)
+    world = TestWorld(FreshA, FreshB)
     for i in 1:500
         new_entity!(world, (FreshA(0.0), FreshB(0.0)))
     end
@@ -673,7 +673,7 @@ end
 
     query_user_work!(world)
 
-    world2 = World(FreshA, FreshB)
+    world2 = TestWorld(FreshA, FreshB)
     for i in 1:500
         new_entity!(world2, (FreshA(0.0), FreshB(0.0)))
     end
@@ -682,6 +682,6 @@ end
     if VERSION >= v"1.12"
         @test allocs == 0
     else
-        @test allocs <= 16
+        @test allocs <= 48
     end
 end

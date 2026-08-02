@@ -47,6 +47,20 @@ world = World(Position, Velocity; initial_capacity=1024)
 World(entities=0, comp_types=(Position, Velocity))
 ```
 
+## World modes
+
+The keyword argument `boxed` selects how much code Ark generates per component type.
+
+Queries and iteration are statically typed in both modes.
+
+### Boxed storage
+
+By default Ark resolves the component of a structural operation by generating one branch per component type, each holding a copy of the operation specialized for that component, and holds the component storages in a tuple. That is what makes structural operations fast, but both grow with the number of component types a world declares, and so does the time spent compiling them.
+
+Setting `boxed=true` removes both. Structural operations are routed through type-erased calls, each compiled only when it is first used, and the storages are kept in an untyped container whose types are carried as values rather than as static arguments. No generated code is left that depends on the number of component types in the operations. The effect grows with the number of component types.
+
+Stay on `boxed=false` unless compile time is a problem, and measure before committing to `boxed=true`.
+
 ## World reset
 
 Ark's primary goal is to empower high-performance simulation models.

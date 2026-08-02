@@ -1,10 +1,13 @@
 
 using Random
 
+sort_key(world) = e -> world[e][CompN{1}].x
+
 function setup_world_shuffle(n_entities::Int)
     world = World(
         CompN{1}, CompN{2}, CompN{3}, CompN{4}, CompN{5},
-        CompN{6}, CompN{7}, CompN{8}, CompN{9}, CompN{10},
+        CompN{6}, CompN{7}, CompN{8}, CompN{9}, CompN{10};
+        boxed=BOXED,
     )
 
     for i in 1:n_entities
@@ -24,12 +27,17 @@ function setup_world_shuffle(n_entities::Int)
             CompN{6}, CompN{7}, CompN{8}, CompN{9}, CompN{10},
         ),
     )
-    rng = Xoshiro(42)
-    shuffle_entities!(rng, world, f)
-
     pred = let world = world, limit = n_entities / 2
         e -> world[e][CompN{1}].x < limit
     end
+
+    rng = Xoshiro(42)
+
+    shuffle_entities!(rng, world, f)
+    sort_entities!(world, f; by=sort_key(world))
+    partition_entities!(world, f; pred)
+
+    shuffle_entities!(rng, world, f)
 
     return (rng, world, f, pred)
 end
@@ -41,7 +49,7 @@ end
 
 function benchmark_world_sort(args)
     _, world, f, _ = args
-    sort_entities!(world, f; by=e -> world[e][CompN{1}].x)
+    sort_entities!(world, f; by=sort_key(world))
 end
 
 function benchmark_world_partition(args)

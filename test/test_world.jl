@@ -1,15 +1,15 @@
 
 @testset "World creation" begin
-    world = World()
+    world = TestWorld()
     @test isa(world, World)
     @test isa(_state(world)._registry, _ComponentRegistry)
 
-    !(@isdefined fake_types) && @test _storage(world)._storages == ()
+    !(@isdefined fake_types) && @test isempty(_storage(world)._storages)
     @test length(_state(world)._archetypes) == 1
 end
 
 @testset "World creation 2" begin
-    world = World(
+    world = TestWorld(
         Position,
         Velocity => Storage{StructArray},
         Altitude,
@@ -24,19 +24,15 @@ end
         "ArgumentError: Component type Health not found in the World",
         _component_index(params, Health))
 
-    @test isa(
-        _get_storage(_storage(world), Position),
-        _ComponentStorage{Position,_storage_from_component(world, Position)},
-    )
-    @test isa(_get_storage(_storage(world), Position).empty_column, _storage_from_component(world, Position))
+    position_storage_type = _storage_from_component(world, Position)
+    @test isa(_get_component_columns(_storage(world), Position), Vector{position_storage_type})
+    @test isa(_get_component_empty(_storage(world), Position), position_storage_type)
     velocity_storage_type = _storage_from_component(world, Velocity)
-    @test isa(_get_storage(_storage(world), Velocity), _ComponentStorage{Velocity,velocity_storage_type})
-    @test isa(_get_storage(_storage(world), Velocity).empty_column, velocity_storage_type)
-    @test isa(
-        _get_storage(_storage(world), Altitude),
-        _ComponentStorage{Altitude,_storage_from_component(world, Altitude)},
-    )
-    @test isa(_get_storage(_storage(world), Altitude).empty_column, _storage_from_component(world, Altitude))
+    @test isa(_get_component_columns(_storage(world), Velocity), Vector{velocity_storage_type})
+    @test isa(_get_component_empty(_storage(world), Velocity), velocity_storage_type)
+    altitude_storage_type = _storage_from_component(world, Altitude)
+    @test isa(_get_component_columns(_storage(world), Altitude), Vector{altitude_storage_type})
+    @test isa(_get_component_empty(_storage(world), Altitude), altitude_storage_type)
 
     world_state = _state(world)
     stores = _storage(world)
@@ -49,7 +45,7 @@ end
 end
 
 @testset "World show" begin
-    world = World(
+    world = TestWorld(
         Position,
         Velocity,
         CompN{1},
@@ -66,19 +62,19 @@ end
 end
 
 @testset "World storage type" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Velocity => Storage{StructArray},
     )
 
     @test isa(
-        _get_storage(_storage(world), Position),
-        _ComponentStorage{Position,_storage_from_component(world, Position)},
+        _get_component_columns(_storage(world), Position),
+        Vector{_storage_from_component(world, Position)},
     )
     @test isa(
-        _get_storage(_storage(world), Velocity),
-        _ComponentStorage{Velocity,_storage_from_component(world, Velocity)},
+        _get_component_columns(_storage(world), Velocity),
+        Vector{_storage_from_component(world, Velocity)},
     )
 end
 
@@ -86,7 +82,7 @@ end
 @static if RUN_JET
     @testset "World creation JET" begin
         # TODO: type instability here. Add benchmarks for world creation.
-        @test_opt World(
+        @test_opt TestWorld(
             Position,
             Velocity => Storage{StructArray},
         )
@@ -97,27 +93,27 @@ end
 @testset "World creation error" begin
     @test_throws(
         "ArgumentError: duplicate component type Velocity during world creation",
-        World(Position, Velocity, Velocity))
+        TestWorld(Position, Velocity, Velocity))
 
     @test_throws(
         "ArgumentError: can't use Relation as component as it is not a concrete type",
-        World(Position, Velocity, Relation))
+        TestWorld(Position, Velocity, Relation))
 
     @test_throws(
         "ArgumentError: Health is not a valid storage mode, must be Storage{T<:AbstractVector}",
-        World(Position, Velocity, Altitude => Health))
+        TestWorld(Position, Velocity, Altitude => Health))
 
     @test_throws(
         ArgumentError,
-        World(Int64 => Storage{StructArray}))
+        TestWorld(Int64 => Storage{StructArray}))
 
     @test_throws(
         ArgumentError,
-        World(LabelComponent => Storage{StructArray}))
+        TestWorld(LabelComponent => Storage{StructArray}))
 end
 
 @testset "World creation large" begin
-    world = World(
+    world = TestWorld(
         CompN{1}, CompN{2}, CompN{3}, CompN{4}, CompN{5},
         CompN{6}, CompN{7}, CompN{8}, CompN{9}, CompN{10},
         CompN{11}, CompN{12}, CompN{13}, CompN{14}, CompN{15},
@@ -131,7 +127,7 @@ end
 end
 
 @testset "World create table" begin
-    world = World(Position, Velocity)
+    world = TestWorld(Position, Velocity)
 
     table1 = _find_or_create_table!(
         _state(world),
@@ -184,11 +180,21 @@ end
     @test length(_state(world)._tables) == 3
 end
 
+# The world keeps a component's columns and its empty column in separate containers; these
+# tests are about how the two behave together, so they carry them as a pair.
+_component_storage(world, ::Type{T}) where {T} = (
+    data=_get_component_columns(_storage(world), T),
+    empty_column=_get_component_empty(_storage(world), T),
+)
+
+_column_or_empty(storage::NamedTuple, table) =
+    Ark._column_or_empty(storage.data, storage.empty_column, table)
+
 @testset "World shares inactive storage columns" begin
-    world = World(Position, Velocity => Storage{StructArray}, Relation{ChildOf})
-    pos_storage = _get_storage(_storage(world), Position)
-    vel_storage = _get_storage(_storage(world), Velocity)
-    child_storage = _get_storage(_storage(world), ChildOf)
+    world = TestWorld(Position, Velocity => Storage{StructArray}, Relation{ChildOf})
+    pos_storage = _component_storage(world, Position)
+    vel_storage = _component_storage(world, Velocity)
+    child_storage = _component_storage(world, ChildOf)
 
     # Nothing is instantiated up front: untouched storages hold no columns at all.
     @test isempty(pos_storage.data)
@@ -241,10 +247,10 @@ end
 end
 
 @testset "World grows storage columns lazily" begin
-    world = World(Position, Velocity, Altitude => Storage{StructArray})
-    pos_storage = _get_storage(_storage(world), Position)
-    vel_storage = _get_storage(_storage(world), Velocity)
-    alt_storage = _get_storage(_storage(world), Altitude)
+    world = TestWorld(Position, Velocity, Altitude => Storage{StructArray})
+    pos_storage = _component_storage(world, Position)
+    vel_storage = _component_storage(world, Velocity)
+    alt_storage = _component_storage(world, Altitude)
 
     # Several tables, none of which uses Velocity or Altitude.
     entity = new_entity!(world, (Position(1, 1),))
@@ -291,7 +297,7 @@ end
 end
 
 @testset "World Component Registration" begin
-    world = World(Int, Position)
+    world = TestWorld(Int, Position)
     params = typeof(world).parameters[1]
 
     # Register Int component
@@ -299,16 +305,18 @@ end
     @test isa(id_int, Int)
     @test _state(world)._registry.types[id_int] == Int
     @test length(_storage(world)._storages) == N_fake + 2
-    @test _storage(world)._storages[id_int] isa _ComponentStorage{Int,_storage_from_component(world, Int)}
-    @test isempty(_storage(world)._storages[id_int].data)
+    @test _storage(world)._storages[id_int] isa Vector{_storage_from_component(world, Int)}
+    @test _storage(world)._empty_storages[id_int] isa _storage_from_component(world, Int)
+    @test isempty(_storage(world)._storages[id_int])
 
     # Register Position component
     id_pos = _component_index(params, Position)
     @test isa(id_pos, Int)
     @test _state(world)._registry.types[id_pos] == Position
     @test length(_storage(world)._storages) == N_fake + 2
-    @test _storage(world)._storages[id_pos] isa _ComponentStorage{Position,_storage_from_component(world, Position)}
-    @test isempty(_storage(world)._storages[id_pos].data)
+    @test _storage(world)._storages[id_pos] isa Vector{_storage_from_component(world, Position)}
+    @test _storage(world)._empty_storages[id_pos] isa _storage_from_component(world, Position)
+    @test isempty(_storage(world)._storages[id_pos])
 
     # Re-register Int component (should not add new storage)
     id_int2 = _component_index(params, Int)
@@ -319,36 +327,41 @@ end
         _component_index(params, Velocity))
 
     @test_throws("ArgumentError: Component type MutableComponent must be immutable unless 'allow_mutable' is used",
-        World(Position, MutableComponent))
+        TestWorld(Position, MutableComponent))
 
-    _ = World(Position, MutableComponent; allow_mutable=true)
+    _ = TestWorld(Position, MutableComponent; allow_mutable=true)
 
     @test_throws("ArgumentError: Component type MutableComponent must be immutable because it uses StructArray storage",
-        World(Position, MutableComponent => Storage{StructArray}))
+        TestWorld(Position, MutableComponent => Storage{StructArray}))
 end
 
-@testset "_get_storage Tests" begin
-    world = World(Int)
+@testset "_get_component_columns Tests" begin
+    world = TestWorld(Int)
     params = typeof(world).parameters[1]
 
-    storage1 = _get_storage(_storage(world), Int)
-    @test storage1 isa _ComponentStorage{Int,_storage_from_component(world, Int)}
+    columns1 = _get_component_columns(_storage(world), Int)
+    @test columns1 isa Vector{_storage_from_component(world, Int)}
+    @test _get_component_empty(_storage(world), Int) isa _storage_from_component(world, Int)
 
     id = _component_index(params, Int)
-    storage2 = _get_storage(_storage(world), Int)
-    @test storage2 isa _ComponentStorage{Int,_storage_from_component(world, Int)}
+    columns2 = _get_component_columns(_storage(world), Int)
+    @test columns2 isa Vector{_storage_from_component(world, Int)}
 
-    @test storage1 === storage2
+    @test columns1 === columns2
+    @test _get_component_empty(_storage(world), Int) === _get_component_empty(_storage(world), Int)
 
     @test_throws("ArgumentError: Component type Float64 not found in the World",
-        _get_storage(_storage(world), Float64))
+        _get_component_columns(_storage(world), Float64))
+
+    @test_throws("ArgumentError: Component type Float64 not found in the World",
+        _get_component_empty(_storage(world), Float64))
 
     @test_throws("ArgumentError: Component type Float64 not found in the World",
         _get_relations_storage(_state(world), Float64, _storage(world)))
 end
 
 @testset "_find_or_create_table! Tests" begin
-    world = World(Position, Velocity)
+    world = TestWorld(Position, Velocity)
     params = typeof(world).parameters[1]
 
     pos_id = _component_index(params, Position)
@@ -414,17 +427,17 @@ end
     @test length(_storage(world)._storages) == N_fake + 2
     @test length(_state(world)._registry.types) == N_fake + 2
 
-    pos_storage = _get_storage(_storage(world), Position)
-    vel_storage = _get_storage(_storage(world), Velocity)
+    pos_storage = _component_storage(world, Position)
+    vel_storage = _component_storage(world, Velocity)
 
-    @test isa(pos_storage, _ComponentStorage{Position,_storage_from_component(world, Position)})
-    @test isa(vel_storage, _ComponentStorage{Velocity,_storage_from_component(world, Velocity)})
+    @test isa(pos_storage.data, Vector{_storage_from_component(world, Position)})
+    @test isa(vel_storage.data, Vector{_storage_from_component(world, Velocity)})
     @test length(pos_storage.data) == 3
     @test length(vel_storage.data) == 3
 end
 
 @testset "_create_entity! Tests" begin
-    world = World(Position, Velocity)
+    world = TestWorld(Position, Velocity)
     params = typeof(world).parameters[1]
     pos_id = _component_index(params, Position)
     vel_id = _component_index(params, Velocity)
@@ -444,27 +457,27 @@ end
     @test table_index == (2, false)
 
     entity, index = _create_entity!(_state(world), table_index[1])
-    push!(_get_storage(_storage(world), Position).data[table_index[1]], Position(0, 0))
-    push!(_get_storage(_storage(world), Velocity).data[table_index[1]], Velocity(0, 0))
+    push!(_component_storage(world, Position).data[table_index[1]], Position(0, 0))
+    push!(_component_storage(world, Velocity).data[table_index[1]], Velocity(0, 0))
     @test entity == _new_entity(2, 0)
     @test index == 1
     @test _state(world)._entities == [_EntityIndex(typemax(UInt32), 0), _EntityIndex(table_index[1], UInt32(1))]
 
     remove_entity!(world, entity)
     entity, index = _create_entity!(_state(world), table_index[1])
-    push!(_get_storage(_storage(world), Position).data[table_index[1]], Position(0, 0))
-    push!(_get_storage(_storage(world), Velocity).data[table_index[1]], Velocity(0, 0))
+    push!(_component_storage(world, Position).data[table_index[1]], Position(0, 0))
+    push!(_component_storage(world, Velocity).data[table_index[1]], Velocity(0, 0))
     @test entity == _new_entity(2, 1)
 
-    pos_storage = _get_storage(_storage(world), Position)
-    vel_storage = _get_storage(_storage(world), Velocity)
+    pos_storage = _component_storage(world, Position)
+    vel_storage = _component_storage(world, Velocity)
 
     @test length(pos_storage.data[table_index[1]]) == 1
     @test length(vel_storage.data[table_index[1]]) == 1
 end
 
 @testset "World get/set components" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Velocity => Storage{StructArray},
@@ -496,7 +509,7 @@ end
 
 @static if RUN_JET
     @testset "World get/set components JET" begin
-        world = World(
+        world = TestWorld(
             Position,
             Velocity => Storage{StructArray},
         )
@@ -508,7 +521,7 @@ end
 end
 
 @testset "World new_entity! Tests" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Velocity => Storage{StructArray},
@@ -521,8 +534,8 @@ end
     entity = new_entity!(world, (Position(1, 2), Velocity(3, 4)))
     @test entity == _new_entity(3, 0)
     @test is_alive(world, entity) == true
-    @test length(_column_or_empty(_storage(world)._storages[offset_ID+2], 2)) == 1
-    @test length(_column_or_empty(_storage(world)._storages[offset_ID+3], 2)) == 1
+    @test length(_storage(world)._storages[offset_ID+2][2]) == 1
+    @test length(_storage(world)._storages[offset_ID+3][2]) == 1
 
     pos, vel = get_components(world, entity, (Position, Velocity))
     @test pos == Position(1, 2)
@@ -539,7 +552,7 @@ end
 
 @static if RUN_JET
     @testset "World new_entity! JET" begin
-        world = World(
+        world = TestWorld(
             Position,
             Velocity => Storage{StructArray},
         )
@@ -552,12 +565,15 @@ end
         ])
         function_filter(@nospecialize f) = !(f in excluded)
 
-        @test_opt function_filter = function_filter new_entity!(world, (Position(1, 2), Velocity(3, 4)))
+        rep = JET.@report_opt function_filter = function_filter new_entity!(world, (Position(1, 2), Velocity(3, 4)))
+        reports = filter(!is_known_false_positive, JET.get_reports(rep))
+        isempty(reports) || println(reports)
+        @test isempty(reports)
     end
 end
 
 @testset "World new_entity! relations" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Relation{ChildOf},
@@ -607,7 +623,7 @@ end
 end
 
 @testset "World new_entity! multiple relations" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Relation{ChildOf},
@@ -637,7 +653,7 @@ end
 end
 
 @testset "World get/set relations" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Relation{ChildOf},
@@ -709,7 +725,7 @@ end
 end
 
 @testset "World set relations batch" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Relation{ChildOf},
@@ -783,7 +799,7 @@ end
 end
 
 @testset "World copy_entity!" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Velocity => Storage{StructArray},
@@ -813,8 +829,8 @@ end
     @test entity2._id == entity._id + 1
     @test entity2._id == 4
     @test _state(world)._tables[2].entities == [entity, entity2]
-    @test length(_column_or_empty(_storage(world)._storages[offset_ID+2], 2)) == 2
-    @test length(_column_or_empty(_storage(world)._storages[offset_ID+3], 2)) == 2
+    @test length(_storage(world)._storages[offset_ID+2][2]) == 2
+    @test length(_storage(world)._storages[offset_ID+3][2]) == 2
 
     pos, vel = get_components(world, entity2, (Position, Velocity))
     @test pos == Position(1, 2)
@@ -838,7 +854,7 @@ end
 end
 
 @testset "World copy_entity! with exchange" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Velocity => Storage{StructArray},
@@ -875,7 +891,7 @@ end
 end
 
 @testset "World copy_entity! copy modes" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Velocity => Storage{StructArray},
@@ -928,7 +944,7 @@ end
 end
 
 @testset "copy_entity! with more than 192 component types" begin
-    world = World(
+    world = TestWorld(
         Position,
         Velocity => Storage{StructArray},
         Health,
@@ -965,7 +981,7 @@ end
 end
 
 @testset "Corrupted copy of special mutable types issue #514" begin
-    world = World(String; allow_mutable=true)
+    world = TestWorld(String; allow_mutable=true)
 
     e1 = new_entity!(world, ("Original Data",))
     e2 = copy_entity!(world, e1)
@@ -977,7 +993,7 @@ end
 end
 
 @testset "World new_entities! with types" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Velocity => Storage{StructArray},
@@ -1009,8 +1025,8 @@ end
     @test cnt == 100
     @test is_locked(world) == false
     @test length(_state(world)._tables[2].entities) == 101
-    @test length(_column_or_empty(_storage(world)._storages[offset_ID+2], 2)) == 101
-    @test length(_column_or_empty(_storage(world)._storages[offset_ID+3], 2)) == 101
+    @test length(_storage(world)._storages[offset_ID+2][2]) == 101
+    @test length(_storage(world)._storages[offset_ID+3][2]) == 101
 
     cnt = 0
     for (ent, pos_col, vel_col) in Query(world, (Position, Velocity))
@@ -1024,7 +1040,7 @@ end
 end
 
 @testset "World new_entities! with values" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Velocity => Storage{StructArray},
@@ -1067,8 +1083,8 @@ end
     @test count == 100
     @test is_locked(world) == false
     @test length(_state(world)._tables[2].entities) == 101
-    @test length(_column_or_empty(_storage(world)._storages[offset_ID+2], 2)) == 101
-    @test length(_column_or_empty(_storage(world)._storages[offset_ID+3], 2)) == 101
+    @test length(_storage(world)._storages[offset_ID+2][2]) == 101
+    @test length(_storage(world)._storages[offset_ID+3][2]) == 101
 
     count = 0
     for (ent, pos_col, vel_col) in Query(world, (Position, Velocity))
@@ -1103,7 +1119,7 @@ end
 end
 
 @testset "World new_entities! with relations" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Relation{ChildOf},
@@ -1151,7 +1167,7 @@ end
 
 @static if RUN_JET
     @testset "World new_entities! JET" begin
-        world = World(
+        world = TestWorld(
             Position,
             Velocity => Storage{StructArray},
         )
@@ -1164,12 +1180,19 @@ end
         function_filter(@nospecialize f) = !(f in excluded)
 
         #@test_opt function_filter = function_filter new_entities!(world, 100, (Position, Velocity))
-        @test_opt function_filter = function_filter new_entities!(world, 100, (Position(13, 13), Velocity(13, 13)))
+        rep = JET.@report_opt function_filter = function_filter new_entities!(
+            world,
+            100,
+            (Position(13, 13), Velocity(13, 13)),
+        )
+        reports = filter(!is_known_false_positive, JET.get_reports(rep))
+        isempty(reports) || println(reports)
+        @test isempty(reports)
     end
 end
 
 @testset "World add/remove components" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Velocity => Storage{StructArray},
@@ -1215,7 +1238,7 @@ end
 end
 
 @testset "Issue #561" begin
-    world = World(Position)
+    world = TestWorld(Position)
 
     e1 = new_entity!(world, (Position(1.0, 1.0),))
 
@@ -1224,7 +1247,7 @@ end
         add_components!(world, e1, (Position(2.0, 2.0),)),
     )
 
-    world = World(Position)
+    world = TestWorld(Position)
 
     e1 = new_entity!(world, ())
 
@@ -1235,7 +1258,7 @@ end
 end
 
 @testset "Issue #430" begin
-    world = World(Position, Velocity)
+    world = TestWorld(Position, Velocity)
 
     entity1 = new_entity!(world, (Position(1.0, 2.0), Velocity(3.0, 4.0)))
     entity2 = new_entity!(world, (Position(5.0, 6.0), Velocity(7.0, 8.0)))
@@ -1265,7 +1288,7 @@ end
 end
 
 @testset "World add/remove components with relations" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position,
         Velocity,
@@ -1313,7 +1336,7 @@ end
 end
 
 @testset "World add/remove components batch" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position => Storage{StructArray},
         Velocity,
@@ -1356,7 +1379,7 @@ end
     @test count_entities(world, query) == 20
 
     @testset "with relations and callback" begin
-        world_rel = World(
+        world_rel = TestWorld(
             Dummy,
             Position => Storage{StructArray},
             Velocity,
@@ -1393,7 +1416,7 @@ end
 
 @static if RUN_JET
     @testset "World add/remove component JET" begin
-        world = World(
+        world = TestWorld(
             Dummy,
             Position,
             Velocity => Storage{StructArray},
@@ -1407,14 +1430,21 @@ end
         function_filter(@nospecialize f) = !(f in excluded)
 
         e1 = new_entity!(world, ())
-        @test_opt function_filter = function_filter add_components!(world, e1, (Position(1, 2), Velocity(3, 4)))
+        rep = JET.@report_opt function_filter = function_filter add_components!(
+            world,
+            e1,
+            (Position(1, 2), Velocity(3, 4)),
+        )
+        reports = filter(!is_known_false_positive, JET.get_reports(rep))
+        isempty(reports) || println(reports)
+        @test isempty(reports)
         #@test_opt function_filter = function_filter has_components(world, e1, (Position, Velocity))
         #@test_opt function_filter = function_filter remove_components!(world, e1, (Position, Velocity))
     end
 end
 
 @testset "World exchange components" begin
-    world = World(Dummy, Position, Velocity, Altitude, Health)
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Health)
 
     e1 = new_entity!(world, (Position(1, 2), Velocity(3, 4)))
 
@@ -1438,7 +1468,7 @@ end
 end
 
 @testset "World exchange components with relations" begin
-    world = World(Dummy, Relation{ChildOf}, Position, Velocity)
+    world = TestWorld(Dummy, Relation{ChildOf}, Position, Velocity)
 
     parent = new_entity!(world, ())
     e1 = new_entity!(world, (Position(1, 1), Velocity(1, 1)))
@@ -1449,7 +1479,7 @@ end
 end
 
 @testset "World exchange components batch" begin
-    world = World(
+    world = TestWorld(
         Dummy,
         Position => Storage{StructArray},
         Velocity,
@@ -1506,7 +1536,7 @@ end
     @test count == 20
 
     @testset "with relations and callback" begin
-        world_rel = World(
+        world_rel = TestWorld(
             Dummy,
             Position => Storage{StructArray},
             Velocity,
@@ -1551,7 +1581,7 @@ end
 """
 @static if RUN_JET
     @testset "World exchange component JET" begin
-        world = World(Dummy, Position, Velocity, Altitude, Health)
+        world = TestWorld(Dummy, Position, Velocity, Altitude, Health)
 
         using FunctionWrappers
         excluded = Set([
@@ -1564,13 +1594,16 @@ end
         ex = (e::Entity) -> exchange_components!(world, e; add=(Altitude(1),), remove=(Position,))
 
         e1 = new_entity!(world, (Position(1, 2), Velocity(3, 4)))
-        @test_opt function_filter = function_filter ex(e1)
+        rep = JET.@report_opt function_filter = function_filter ex(e1)
+        reports = filter(!is_known_false_positive, JET.get_reports(rep))
+        isempty(reports) || println(reports)
+        @test isempty(reports)
     end
 end
 """
 
 @testset "remove_entity! Tests" begin
-    world = World(Dummy, Position, Velocity)
+    world = TestWorld(Dummy, Position, Velocity)
 
     e1 = new_entity!(world, (Position(1, 1), Velocity(1, 1)))
     e2 = new_entity!(world, (Position(2, 2), Velocity(1, 1)))
@@ -1592,7 +1625,7 @@ end
 end
 
 @testset "remove_entity! with more than 32 component types" begin
-    world = World(
+    world = TestWorld(
         Position,
         Velocity => Storage{StructArray},
         Health,
@@ -1632,7 +1665,7 @@ end
 end
 
 @testset "component exchange with more than 32 component types" begin
-    world = World(
+    world = TestWorld(
         Position,
         Velocity => Storage{StructArray},
         Health,
@@ -1672,7 +1705,7 @@ end
 end
 
 @testset "remove_entities! Tests" begin
-    world = World(Dummy, Position, Velocity, Altitude, Relation{ChildOf})
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Relation{ChildOf})
 
     count = 0
     obs1 = observe!(world, OnRemoveEntity) do entity
@@ -1743,7 +1776,7 @@ end
 end
 
 @testset "remove_entities! callback" begin
-    world = World(Dummy, Position, Velocity, Altitude)
+    world = TestWorld(Dummy, Position, Velocity, Altitude)
 
     new_entity!(world, (Position(1, 1),))
     new_entity!(world, (Position(2, 2),))
@@ -1761,7 +1794,7 @@ end
 end
 
 @testset "remove_entities! cached filter" begin
-    world = World(Dummy, Position, Velocity, Relation{ChildOf})
+    world = TestWorld(Dummy, Position, Velocity, Relation{ChildOf})
     filter = Filter(world, (Position,); register=true)
 
     parent = new_entity!(world, ())
@@ -1797,7 +1830,7 @@ end
 end
 
 @testset "World reset!" begin
-    world = World(Dummy, Position, Velocity, Relation{ChildOf})
+    world = TestWorld(Dummy, Position, Velocity, Relation{ChildOf})
 
     obs = observe!(world, OnAddComponents, (Position,)) do _
     end
@@ -1826,8 +1859,12 @@ end
     end
 
     for s in 2:4
+        storage = (
+            data=_storage(world)._storages[offset_ID+s],
+            empty_column=_storage(world)._empty_storages[offset_ID+s],
+        )
         for t in 2:6
-            @test length(_column_or_empty(_storage(world)._storages[offset_ID+s], t)) == 0
+            @test length(_column_or_empty(storage, t)) == 0
         end
     end
 
@@ -1856,7 +1893,7 @@ end
 end
 
 @testset "World relations index" begin
-    world = World(Dummy, Relation{ChildOf}, Position, Velocity, Relation{ChildOf2})
+    world = TestWorld(Dummy, Relation{ChildOf}, Position, Velocity, Relation{ChildOf2})
     parent1 = new_entity!(world, ())
     parent2 = new_entity!(world, ())
 
@@ -1904,7 +1941,7 @@ end
 end
 
 @testset "World add/remove resources Tests" begin
-    world = World(Dummy, Position, Velocity)
+    world = TestWorld(Dummy, Position, Velocity)
 
     @test has_resource(world, Tick) == false
 
@@ -1928,7 +1965,7 @@ end
 
 @static if RUN_JET
     @testset "Resources JET" begin
-        world = World()
+        world = TestWorld()
 
         f = () -> begin
             _ = has_resource(world, Tick)

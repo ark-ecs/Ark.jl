@@ -2,7 +2,8 @@
 function setup_query_posvel_soa(n_entities::Int)
     world = World(
         Position => Storage{StructArray},
-        Velocity => Storage{StructArray},
+        Velocity => Storage{StructArray};
+        boxed=BOXED,
     )
     for i in 1:n_entities
         new_entity!(world, (Position(i, i * 2), Velocity(1, 1)))

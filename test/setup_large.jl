@@ -1,10 +1,39 @@
 
 function _storage_from_component(world, comp)
-    i = findfirst(x -> x.empty_column isa AbstractArray{comp}, _storage(world)._storages)
-    return typeof(_storage(world)._storages[i].empty_column)
+    empties = _storage(world)._empty_storages
+    i = findfirst(x -> x isa AbstractArray{comp}, empties)
+    return typeof(empties[i])
 end
 
-function Ark.World(comp_types::Union{Type,Pair{<:Type,<:Type}}...; initial_capacity::Int=128, allow_mutable=false)
+struct WrappedVector{T} <: AbstractVector{T}
+    v::Vector{T}
+end
+WrappedVector{T}() where T = WrappedVector{T}(Vector{T}())
+
+Base.size(w::WrappedVector) = size(w.v)
+Base.getindex(w::WrappedVector, i::Integer) = getindex(w.v, i)
+Base.setindex!(w::WrappedVector, v, i::Integer) = setindex!(w.v, v, i)
+Base.empty!(w::WrappedVector) = empty!(w.v)
+Base.resize!(w::WrappedVector, i::Integer) = resize!(w.v, i)
+Base.sizehint!(w::WrappedVector, i::Integer) = sizehint!(w.v, i)
+Base.pop!(w::WrappedVector) = pop!(w.v)
+
+const WORLD_MODES = (true,)
+const DEFAULT_WORLD_BOXED = Ref(first(WORLD_MODES))
+
+struct FakeComp{N} end
+const N_fake = 300
+const fake_types = [FakeComp{i} for i in 1:N_fake]
+const fake_storage = [Storage{WrappedVector} for i in 1:N_fake]
+const M_mask = ceil(Int, N_fake / 64)
+const offset_ID = (M_mask - 1) * 64 - 1
+
+function TestWorld(
+    comp_types::Union{Type,Pair{<:Type,<:Type}}...;
+    initial_capacity::Int=128,
+    allow_mutable=false,
+    boxed::Bool=DEFAULT_WORLD_BOXED[],
+)
     raw_types = map(arg -> arg isa Type ? arg : arg.first, comp_types)
     types = map(Ark._unwrap_relation_type, raw_types)
     storages = map(arg -> arg isa Type ? Storage{WrappedVector} : arg.second, comp_types)
@@ -23,30 +52,11 @@ function Ark.World(comp_types::Union{Type,Pair{<:Type,<:Type}}...; initial_capac
     end
     storages = Tuple(storages)
     Ark._World_from_types(
-        Val{Tuple{fake_types[1:255]...,types...,fake_types[256:300]...}}(),
-        Val{Tuple{fake_storage[1:255]...,storages...,fake_storage[256:300]...}}(),
+        Val{Tuple{fake_types[1:offset_ID]...,types...,fake_types[offset_ID+1:N_fake]...}}(),
+        Val{Tuple{fake_storage[1:offset_ID]...,storages...,fake_storage[offset_ID+1:N_fake]...}}(),
         Val{Tuple{relation_types...}}(),
         Val(allow_mutable),
+        Val(boxed),
         initial_capacity,
     )
 end
-
-struct WrappedVector{T} <: AbstractVector{T}
-    v::Vector{T}
-end
-WrappedVector{T}() where T = WrappedVector{T}(Vector{T}())
-
-Base.size(w::WrappedVector) = size(w.v)
-Base.getindex(w::WrappedVector, i::Integer) = getindex(w.v, i)
-Base.setindex!(w::WrappedVector, v, i::Integer) = setindex!(w.v, v, i)
-Base.empty!(w::WrappedVector) = empty!(w.v)
-Base.resize!(w::WrappedVector, i::Integer) = resize!(w.v, i)
-Base.sizehint!(w::WrappedVector, i::Integer) = sizehint!(w.v, i)
-Base.pop!(w::WrappedVector) = pop!(w.v)
-
-struct FakeComp{N} end
-const fake_types = [FakeComp{i} for i in 1:300]
-const fake_storage = [Storage{WrappedVector} for i in 1:300]
-const N_fake = 300
-const offset_ID = 255
-const M_mask = 5

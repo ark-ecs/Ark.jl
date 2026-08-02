@@ -43,7 +43,7 @@
         _find_node(graph, node3, (5,), (), _Mask{1}(5), _Mask{1}(), _UseMap())
     )
 
-    world = World(Position, Velocity)
+    world = TestWorld(Position, Velocity)
     e = new_entity!(world, (Position(0.0, 0.0),))
 
     # Test error on adding and removing the same components

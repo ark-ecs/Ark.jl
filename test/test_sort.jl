@@ -25,7 +25,7 @@ end
 
 @testset "sort_entities!" begin
     @testset "basic sort" begin
-        world = World(A, B)
+        world = TestWorld(A, B)
 
         e1 = new_entity!(world, (A(0.0), B(0.0)))
         e2 = new_entity!(world, (A(1.0), B(1.0)))
@@ -61,7 +61,7 @@ end
             @test [b.x for b in bs] == [2.0]
         end
 
-        world = World(Position, Velocity => Storage{StructArray}, Health)
+        world = TestWorld(Position, Velocity => Storage{StructArray}, Health)
 
         xs = [3.0, -2.0, 5.0, 1.0, 4.0]
         for x in xs
@@ -89,7 +89,7 @@ end
     end
 
     @testset "reverse sort" begin
-        world = World(Position, Velocity)
+        world = TestWorld(Position, Velocity)
 
         xs = [1.0, 4.0, 2.0, 5.0, 3.0]
         for x in xs
@@ -108,7 +108,7 @@ end
     end
 
     @testset "sort with custom isless" begin
-        world = World(Position, Health)
+        world = TestWorld(Position, Health)
 
         hs = [10.0, 5.0, 20.0, 15.0]
         for h in hs
@@ -127,7 +127,7 @@ end
     end
 
     @testset "sort with registered filters" begin
-        world = World(Position, Velocity, Altitude)
+        world = TestWorld(Position, Velocity, Altitude)
 
         xs = [8.0, 3.0, 5.0, 1.0]
         for x in xs
@@ -150,7 +150,7 @@ end
     end
 
     @testset "sort only matching relationship tables" begin
-        world = World(Position, Velocity, Relation{ChildOf})
+        world = TestWorld(Position, Velocity, Relation{ChildOf})
 
         parent1 = new_entity!(world, (Position(0.0, 0.0),))
         parent2 = new_entity!(world, (Position(10.0, 10.0),))
