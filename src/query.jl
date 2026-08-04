@@ -333,7 +333,8 @@ Get the given components for an [Entity](@ref) through a [Query](@ref).
 Components are returned as a tuple.
 
 Only components which are part of the query can be accessed, optional and
-[Const](@ref) ones included. The entity must have all the requested components.
+[Const](@ref) ones included. The entity must match the query and have all the
+requested components.
 
 Does not iterate or [close!](@ref close!(::Query)) the query.
 
@@ -365,7 +366,7 @@ Types are inferred from the values.
 
 Only components which are part of the query can be set, optional ones included.
 Components marked as [Const](@ref) in the query are read-only and can't be set.
-The entity must have all the given components.
+The entity must match the query and have all the given components.
 
 Does not iterate or [close!](@ref close!(::Query)) the query.
 
@@ -401,7 +402,8 @@ end
 Returns whether an [Entity](@ref) has all the given components.
 
 Only components which are part of the query can be checked, optional and
-[Const](@ref) ones included.
+[Const](@ref) ones included. An entity that does not match the query returns
+`false`.
 
 Does not iterate or [close!](@ref close!(::Query)) the query.
 
@@ -457,6 +459,23 @@ end
     return nothing
 end
 
+@inline function _matches_query(q::Query, idx::_EntityIndex)
+    world_state = q._world_state
+    @inbounds table = world_state._tables[idx.table]
+    @inbounds archetype = world_state._archetypes_hot[table.archetype]
+    return _matches(q._filter, archetype) &&
+           _matches(world_state._relations, table, q._filter.relations)
+end
+
+@noinline function _throw_entity_not_in_query()
+    throw(ArgumentError("entity does not match query"))
+end
+
+@inline function _check_query_match(q::Query, idx::_EntityIndex)
+    _matches_query(q, idx) || _throw_entity_not_in_query()
+    return nothing
+end
+
 @generated function _get_components(
     q::Query{QS},
     entity::Entity,
@@ -484,6 +503,10 @@ end
     end
 
     push!(exprs, :(@inbounds idx = q._world_state._entities[entity._id]))
+
+    if !Unchecked
+        push!(exprs, :(_check_query_match(q, idx)))
+    end
 
     for i in eachindex(types)
         cols_sym = Symbol("cols", i)
@@ -536,7 +559,12 @@ end
 
     checks = Expr[:(_has_query_component(q._storages[$index], idx)) for index in indices]
     check_expr = foldr((a, b) -> Expr(:&&, a, b), checks)
-    push!(exprs, Expr(:return, check_expr))
+
+    if !Unchecked
+        push!(exprs, Expr(:return, :(_matches_query(q, idx) && $check_expr)))
+    else
+        push!(exprs, Expr(:return, check_expr))
+    end
 
     return quote
         @inbounds begin
@@ -579,6 +607,10 @@ end
     end
 
     push!(exprs, :(@inbounds idx = q._world_state._entities[entity._id]))
+
+    if !Unchecked
+        push!(exprs, :(_check_query_match(q, idx)))
+    end
 
     for i in eachindex(types)
         cols_sym = Symbol("cols", i)

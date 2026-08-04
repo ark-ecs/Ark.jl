@@ -822,6 +822,35 @@ end
     close!(query)
 end
 
+@testset "Query entity component access requires a matching entity" begin
+    world = TestWorld(Position, Velocity, Altitude, Health, Relation{ChildOf})
+    parent1 = new_entity!(world, ())
+    parent2 = new_entity!(world, ())
+    matching = new_entity!(world, (Position(1, 2), Velocity(3, 4), ChildOf() => parent1))
+    missing_with = new_entity!(world, (Position(5, 6), ChildOf() => parent1))
+    excluded = new_entity!(world, (Position(7, 8), Velocity(9, 10), Altitude(11), ChildOf() => parent1))
+    extra_component = new_entity!(world, (Position(12, 13), Velocity(14, 15), Health(16)))
+    wrong_target = new_entity!(world, (Position(17, 18), Velocity(19, 20), ChildOf() => parent2))
+
+    query = Query(world, (Position,); with=(Velocity,))
+    @test get_components(query, matching, (Position,)) == (Position(1, 2),)
+    @test_throws("ArgumentError: entity does not match query", get_components(query, missing_with, (Position,)))
+    @test has_components(query, missing_with, (Position,)) == false
+    close!(query)
+
+    query = Query(world, (Position,); with=(Velocity,), without=(Altitude,))
+    @test_throws("ArgumentError: entity does not match query", set_components!(query, excluded, (Position(0, 0),)))
+    close!(query)
+
+    query = Query(world, (Position, Velocity); exclusive=true)
+    @test_throws("ArgumentError: entity does not match query", get_components(query, extra_component, (Position,)))
+    close!(query)
+
+    query = Query(world, (Position, ChildOf => parent1); with=(Velocity,))
+    @test_throws("ArgumentError: entity does not match query", get_components(query, wrong_target, (Position,)))
+    close!(query)
+end
+
 @testset "Query entity component access unchecked" begin
     world = TestWorld(Position, Velocity)
 
