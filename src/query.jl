@@ -534,7 +534,7 @@ end
 
     push!(exprs, :(@inbounds idx = q._world_state._entities[entity._id]))
 
-    checks = Any[:(_has_query_component(q._storages[$index], idx)) for index in indices]
+    checks = Expr[:(_has_query_component(q._storages[$index], idx)) for index in indices]
     check_expr = foldr((a, b) -> Expr(:&&, a, b), checks)
     push!(exprs, Expr(:return, check_expr))
 
@@ -556,7 +556,7 @@ end
     _check_no_duplicates(types)
 
     if length(types) == 0
-        return :(values)
+        return :()
     end
 
     query_types = _query_component_types(QS)
