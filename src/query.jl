@@ -477,11 +477,11 @@ end
 end
 
 @generated function _get_components(
-    q::Query{QS},
+    q::Query{QS,CT,OF},
     entity::Entity,
     ::TS,
     ::Val{Unchecked},
-) where {QS<:Tuple,TS<:Tuple,Unchecked}
+) where {QS<:Tuple,CT<:Tuple,OF,TS<:Tuple,Unchecked}
     types = _to_types(TS)
     _check_no_duplicates(types)
 
@@ -513,7 +513,7 @@ end
         val_sym = Symbol("v", i)
 
         push!(exprs, :($cols_sym = q._storages[$(indices[i])]))
-        if !Unchecked
+        if !Unchecked && _get_bit(OF, indices[i])
             push!(exprs, :(_check_query_component($cols_sym, idx, $(types[i]))))
         end
         push!(exprs, :($val_sym = _get_component($cols_sym, idx.table, idx.row)))
@@ -530,11 +530,11 @@ end
 end
 
 @generated function _has_components(
-    q::Query{QS},
+    q::Query{QS,CT,OF},
     entity::Entity,
     ::TS,
     ::Val{Unchecked},
-) where {QS<:Tuple,TS<:Tuple,Unchecked}
+) where {QS<:Tuple,CT<:Tuple,OF,TS<:Tuple,Unchecked}
     types = _to_types(TS)
     _check_no_duplicates(types)
 
@@ -557,8 +557,9 @@ end
 
     push!(exprs, :(@inbounds idx = q._world_state._entities[entity._id]))
 
-    checks = Expr[:(_has_query_component(q._storages[$index], idx)) for index in indices]
-    check_expr = foldr((a, b) -> Expr(:&&, a, b), checks)
+    checked_indices = Unchecked ? indices : Int[index for index in indices if _get_bit(OF, index)]
+    checks = Expr[:(_has_query_component(q._storages[$index], idx)) for index in checked_indices]
+    check_expr = isempty(checks) ? :(true) : foldr((a, b) -> Expr(:&&, a, b), checks)
 
     if !Unchecked
         push!(exprs, Expr(:return, :(_matches_query(q, idx) && $check_expr)))
@@ -616,7 +617,7 @@ end
         cols_sym = Symbol("cols", i)
 
         push!(exprs, :($cols_sym = q._storages[$(indices[i])]))
-        if !Unchecked
+        if !Unchecked && _get_bit(OF, indices[i])
             push!(exprs, :(_check_query_component($cols_sym, idx, $(types[i]))))
         end
         push!(exprs, :(_set_component!($cols_sym, idx.table, idx.row, values[$i])))
