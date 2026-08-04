@@ -18,8 +18,6 @@
 - `unregister!` and `register!` now require the world as an argument (#660).
 - API functions for `Query` and `Filter` now require the world as an argument (#662).
 - `length` for a filter has been renamed to `count_tables` (#662).
-- The `world` field of `EntityHandle` has been renamed to `source`, since a handle can now
-  be created from a `Query` as well.
 
 ### Performance
 
