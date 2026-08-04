@@ -786,17 +786,17 @@ end
     query = Query(world, (Position, Velocity))
 
     @test_throws(
-        "ArgumentError: component Health is not part of the query (Position, Velocity)",
+        "ArgumentError: component Health is not part of the query on (Position, Velocity)",
         get_components(query, e1, (Health,))
     )
     @test_throws(
-        "ArgumentError: component Health is not part of the query (Position, Velocity)",
+        "ArgumentError: component Health is not part of the query on (Position, Velocity)",
         set_components!(query, e1, (Health(1),))
     )
     @test_throws("ArgumentError: entity has no Position component", get_components(query, e2, (Position,)))
     @test_throws("ArgumentError: entity has no Position component", set_components!(query, e2, (Position(1, 1),)))
     @test_throws(
-        "ArgumentError: component Health is not part of the query (Position, Velocity)",
+        "ArgumentError: component Health is not part of the query on (Position, Velocity)",
         has_components(query, e1, (Health,))
     )
     @test_throws("ArgumentError: can't get components of a dead entity", get_components(query, dead, (Position,)))
