@@ -137,12 +137,10 @@ end
     qe2 = query[e2]
 
     @testset "Components" begin
-        # getting
         @test qe1[Position] == Position(1.0, 2.0)
         @test qe1[(Position, Velocity)] == (Position(1.0, 2.0), Velocity(0.1, 0.2))
         @test qe2[(Velocity, Position)] == (Velocity(1.0, 2.0), Position(10.0, 20.0))
 
-        # setting
         qe1[Position] = Position(3.0, 4.0)
         @test qe1[Position] == Position(3.0, 4.0)
 
@@ -151,17 +149,14 @@ end
         @test qe1[Velocity] == Velocity(0.5, 0.6)
         @test get_components(world, e1, (Position, Velocity)) == (Position(5.0, 6.0), Velocity(0.5, 0.6))
 
-        # has components
         @test Position in qe1
         @test (Position, Velocity) in qe1
 
-        # components outside of the query are not accessible
         @test_throws(
             "ArgumentError: component Health is not part of the query on (Position, Velocity)",
             qe2[Health]
         )
 
-        # relations and structural changes are not available through a query handle
         @test_throws("ArgumentError: relations can be accessed only through a world handle", qe1.rel)
         @test_throws MethodError add_components!(qe1, (Health(1.0),))
         @test_throws MethodError remove_components!(qe1, (Velocity,))
