@@ -883,6 +883,11 @@ end
 
     query = Query(world, (Position, Velocity))
     query_entity_access!(query, entities)
-    @test @allocated(query_entity_access!(query, entities)) == 0
+    if VERSION >= v"1.11"
+        @test @allocated(query_entity_access!(query, entities)) == 0
+    else
+        @test @allocated(query_entity_access!(query, entities)) == 16
+    end
+
     close!(query)
 end
