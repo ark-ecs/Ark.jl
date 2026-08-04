@@ -157,7 +157,7 @@ end
 
         # components outside of the query are not accessible
         @test_throws(
-            "ArgumentError: component Health is not part of the query (Position, Velocity)",
+            "ArgumentError: component Health is not part of the query on (Position, Velocity)",
             qe2[Health]
         )
 
