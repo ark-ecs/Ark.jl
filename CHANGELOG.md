@@ -9,12 +9,17 @@
 - Adds GPUVector{:CPU} and GPUStructArray{:CPU} to use a GPU storage on devices
   which do not have a GPU (#701).
 - Adds the `boxed` keyword argument to the world constructor, which cuts the compilation cost of Ark, at the price of some slowdown in performance.
+- Adds `get_components`, `set_components!` and `has_components` for a `Query`, to access the
+  components of a query for a single entity without iterating or closing the query.
+  `EntityHandle` now works with queries as well, i.e. `query[entity][Position]`.
 
 ### Breaking changes
 
 - `unregister!` and `register!` now require the world as an argument (#660).
 - API functions for `Query` and `Filter` now require the world as an argument (#662).
 - `length` for a filter has been renamed to `count_tables` (#662).
+- The `world` field of `EntityHandle` has been renamed to `source`, since a handle can now
+  be created from a `Query` as well.
 
 ### Performance
 

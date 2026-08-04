@@ -57,7 +57,7 @@ In worlds with a large number of archetypes, query performance can be further im
 
 ## [World component access](@id component-access)
 
-To retrieve components for a specific entity outside query iteration ([get_components](@ref)),
+To retrieve components for a specific entity outside query iteration ([get_components](@ref get_components(::World, ::Entity, ::Tuple))),
 the World maintains a list indexed by entity ID (the entity index at the very left in the graph above).
 Each entry in this list points to the entity's archetype and the position within the archetype's table.
 

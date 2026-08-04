@@ -45,9 +45,9 @@ isless(::Entity,::Entity)
 [Components](@ref) contain the data associated with [Entities](@ref entities-api).
 
 ```@docs
-get_components
-has_components
-set_components!
+get_components(::World, ::Entity, ::Tuple)
+has_components(::World, ::Entity, ::Tuple)
+set_components!(::World, ::Entity, ::Tuple)
 add_components!
 remove_components!
 exchange_components!
@@ -77,6 +77,9 @@ certain set of [Components](@ref components-api).
 Query
 Query(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)
 Query(::World, ::Filter)
+get_components(::Query, ::Entity, ::Tuple)
+set_components!(::Query, ::Entity, ::Tuple)
+has_components(::Query, ::Entity, ::Tuple)
 close!(::Query)
 Filter
 Filter(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)

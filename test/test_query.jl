@@ -685,3 +685,181 @@ end
         @test allocs <= 48
     end
 end
+
+@testset "Query entity component access" begin
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Health)
+
+    e1 = new_entity!(world, (Position(1, 2), Velocity(3, 4)))
+    e2 = new_entity!(world, (Position(5, 6), Velocity(7, 8), Health(10)))
+    e3 = new_entity!(world, (Health(1),))
+
+    query = Query(world, (Position, Velocity))
+
+    # getting
+    @test get_components(query, e1, (Position, Velocity)) == (Position(1, 2), Velocity(3, 4))
+    @test get_components(query, e1, (Velocity, Position)) == (Velocity(3, 4), Position(1, 2))
+    @test get_components(query, e1, (Position,)) == (Position(1, 2),)
+    @test get_components(query, e2, (Position, Velocity)) == (Position(5, 6), Velocity(7, 8))
+    @test get_components(query, e1, ()) == ()
+
+    # checking
+    @test has_components(query, e1, (Position, Velocity)) == true
+    @test has_components(query, e3, (Position,)) == false
+    @test has_components(query, e3, (Position, Velocity)) == false
+    @test has_components(query, e1, ()) == true
+
+    # setting
+    @test set_components!(query, e1, (Position(0, 0),)) == (Position(0, 0),)
+    @test get_components(query, e1, (Position,)) == (Position(0, 0),)
+    set_components!(query, e1, (Velocity(1, 1), Position(2, 2)))
+    @test get_components(world, e1, (Position, Velocity)) == (Position(2, 2), Velocity(1, 1))
+    @test set_components!(query, e1, ()) == ()
+
+    # inference (the component types are constant-folded)
+    get_pos_vel(q, e) = get_components(q, e, (Position, Velocity))
+    set_pos(q, e) = set_components!(q, e, (Position(2, 2),))
+    has_pos_vel(q, e) = has_components(q, e, (Position, Velocity))
+    @inferred get_pos_vel(query, e1)
+    @inferred set_pos(query, e1)
+    @inferred has_pos_vel(query, e1)
+
+    # the operations above neither iterate nor close the query
+    @test query._q_lock.closed == false
+    @test is_locked(world) == true
+    @test count_tables(world, query) == 2
+    @test count_entities(world, query) == 2
+
+    count = 0
+    for (entities, positions, velocities) in query
+        count += length(entities)
+    end
+    @test count == 2
+    @test query._q_lock.closed == true
+    @test is_locked(world) == false
+end
+
+@testset "Query entity component access with Const" begin
+    world = TestWorld(Position, Velocity, Altitude)
+
+    e1 = new_entity!(world, (Position(1, 2), Velocity(3, 4), Altitude(5)))
+
+    query = Query(world, (Const(Position), Velocity); optional=(Const(Altitude),))
+
+    @test get_components(query, e1, (Position,)) == (Position(1, 2),)
+    @test get_components(query, e1, (Const(Position), Altitude)) == (Position(1, 2), Altitude(5))
+    @test set_components!(query, e1, (Velocity(0, 0),)) == (Velocity(0, 0),)
+
+    @test_throws(
+        "ArgumentError: component Position is read-only in the query",
+        set_components!(query, e1, (Position(0, 0),))
+    )
+    @test_throws(
+        "ArgumentError: component Altitude is read-only in the query",
+        set_components!(query, e1, (Altitude(0),))
+    )
+    close!(query)
+end
+
+@testset "Query entity component access with optional" begin
+    world = TestWorld(Position, Velocity, Health)
+
+    e1 = new_entity!(world, (Position(1, 2), Velocity(3, 4), Health(10)))
+    e2 = new_entity!(world, (Position(5, 6), Velocity(7, 8)))
+
+    query = Query(world, (Position,); optional=(Health,))
+
+    @test get_components(query, e1, (Position, Health)) == (Position(1, 2), Health(10))
+    set_components!(query, e1, (Health(20),))
+    @test get_components(query, e1, (Health,)) == (Health(20),)
+
+    @test has_components(query, e1, (Health,)) == true
+    @test has_components(query, e2, (Health,)) == false
+
+    @test_throws("ArgumentError: entity has no Health component", get_components(query, e2, (Health,)))
+    @test_throws("ArgumentError: entity has no Health component", set_components!(query, e2, (Health(1),)))
+    close!(query)
+end
+
+@testset "Query entity component access errors" begin
+    world = TestWorld(Dummy, Position, Velocity, Health)
+
+    e1 = new_entity!(world, (Position(1, 2), Velocity(3, 4)))
+    e2 = new_entity!(world, (Health(1),))
+    dead = new_entity!(world, (Position(0, 0), Velocity(0, 0)))
+    remove_entity!(world, dead)
+
+    query = Query(world, (Position, Velocity))
+
+    @test_throws(
+        "ArgumentError: component Health is not part of the query (Position, Velocity)",
+        get_components(query, e1, (Health,))
+    )
+    @test_throws(
+        "ArgumentError: component Health is not part of the query (Position, Velocity)",
+        set_components!(query, e1, (Health(1),))
+    )
+    @test_throws("ArgumentError: entity has no Position component", get_components(query, e2, (Position,)))
+    @test_throws("ArgumentError: entity has no Position component", set_components!(query, e2, (Position(1, 1),)))
+    @test_throws(
+        "ArgumentError: component Health is not part of the query (Position, Velocity)",
+        has_components(query, e1, (Health,))
+    )
+    @test_throws("ArgumentError: can't get components of a dead entity", get_components(query, dead, (Position,)))
+    @test_throws(
+        "ArgumentError: can't check components of a dead entity",
+        has_components(query, dead, (Position,))
+    )
+    @test_throws(
+        "ArgumentError: can't set components of a dead entity",
+        set_components!(query, dead, (Position(1, 1),))
+    )
+    @test_throws(
+        "ArgumentError: duplicate component types: Position",
+        get_components(query, e1, (Position, Position))
+    )
+    @test_throws(
+        "ArgumentError: duplicate component types: Position",
+        set_components!(query, e1, (Position(1, 1), Position(2, 2)))
+    )
+
+    # the query is still usable
+    @test get_components(query, e1, (Position, Velocity)) == (Position(1, 2), Velocity(3, 4))
+    @test count_entities(world, query) == 1
+    close!(query)
+end
+
+@testset "Query entity component access unchecked" begin
+    world = TestWorld(Position, Velocity)
+
+    e1 = new_entity!(world, (Position(1, 2), Velocity(3, 4)))
+
+    query = Query(world, (Position, Velocity))
+    @unchecked begin
+        @test get_components(query, e1, (Position, Velocity)) == (Position(1, 2), Velocity(3, 4))
+        set_components!(query, e1, (Position(5, 6),))
+        @test get_components(query, e1, (Position,)) == (Position(5, 6),)
+        @test has_components(query, e1, (Position, Velocity)) == true
+    end
+    close!(query)
+end
+
+@testset "Query entity component access does not allocate" begin
+    world = TestWorld(Position, Velocity)
+
+    entities = [new_entity!(world, (Position(i, i), Velocity(1, 1))) for i in 1:100]
+
+    function query_entity_access!(query, entities)
+        s = 0.0
+        for e in entities
+            pos, vel = get_components(query, e, (Position, Velocity))
+            set_components!(query, e, (Position(pos.x + vel.dx, pos.y + vel.dy),))
+            s += pos.x
+        end
+        return s
+    end
+
+    query = Query(world, (Position, Velocity))
+    query_entity_access!(query, entities)
+    @test @allocated(query_entity_access!(query, entities)) == 0
+    close!(query)
+end
