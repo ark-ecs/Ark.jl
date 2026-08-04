@@ -695,27 +695,23 @@ end
 
     query = Query(world, (Position, Velocity))
 
-    # getting
     @test get_components(query, e1, (Position, Velocity)) == (Position(1, 2), Velocity(3, 4))
     @test get_components(query, e1, (Velocity, Position)) == (Velocity(3, 4), Position(1, 2))
     @test get_components(query, e1, (Position,)) == (Position(1, 2),)
     @test get_components(query, e2, (Position, Velocity)) == (Position(5, 6), Velocity(7, 8))
     @test get_components(query, e1, ()) == ()
 
-    # checking
     @test has_components(query, e1, (Position, Velocity)) == true
     @test has_components(query, e3, (Position,)) == false
     @test has_components(query, e3, (Position, Velocity)) == false
     @test has_components(query, e1, ()) == true
 
-    # setting
     @test set_components!(query, e1, (Position(0, 0),)) == (Position(0, 0),)
     @test get_components(query, e1, (Position,)) == (Position(0, 0),)
     set_components!(query, e1, (Velocity(1, 1), Position(2, 2)))
     @test get_components(world, e1, (Position, Velocity)) == (Position(2, 2), Velocity(1, 1))
     @test set_components!(query, e1, ()) == ()
 
-    # inference (the component types are constant-folded)
     get_pos_vel(q, e) = get_components(q, e, (Position, Velocity))
     set_pos(q, e) = set_components!(q, e, (Position(2, 2),))
     has_pos_vel(q, e) = has_components(q, e, (Position, Velocity))
@@ -723,7 +719,6 @@ end
     @inferred set_pos(query, e1)
     @inferred has_pos_vel(query, e1)
 
-    # the operations above neither iterate nor close the query
     @test query._q_lock.closed == false
     @test is_locked(world) == true
     @test count_tables(world, query) == 2
@@ -822,7 +817,6 @@ end
         set_components!(query, e1, (Position(1, 1), Position(2, 2)))
     )
 
-    # the query is still usable
     @test get_components(query, e1, (Position, Velocity)) == (Position(1, 2), Velocity(3, 4))
     @test count_entities(world, query) == 1
     close!(query)
