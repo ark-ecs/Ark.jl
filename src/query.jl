@@ -354,7 +354,7 @@ close!(query)
     comp_types::Tuple;
     _unchecked::Bool=false,
 )
-    return @inline _query_get_components(query, entity, _valtuple(comp_types), Val(_unchecked))
+    return @inline _get_components(query, entity, _valtuple(comp_types), Val(_unchecked))
 end
 
 """
@@ -386,7 +386,7 @@ close!(query)
     values::Tuple;
     _unchecked::Bool=false,
 )
-    return @inline _query_set_components!(
+    return @inline _set_components!(
         query,
         entity,
         Val{typeof(values)}(),
@@ -422,7 +422,7 @@ close!(query)
     comp_types::Tuple;
     _unchecked::Bool=false,
 )
-    return @inline _query_has_components(query, entity, _valtuple(comp_types), Val(_unchecked))
+    return @inline _has_components(query, entity, _valtuple(comp_types), Val(_unchecked))
 end
 
 _query_component_types(::Type{QS}) where {QS<:Tuple} =
@@ -457,7 +457,7 @@ end
     return nothing
 end
 
-@generated function _query_get_components(
+@generated function _get_components(
     q::Query{QS},
     entity::Entity,
     ::TS,
@@ -506,7 +506,7 @@ end
     end
 end
 
-@generated function _query_has_components(
+@generated function _has_components(
     q::Query{QS},
     entity::Entity,
     ::TS,
@@ -545,7 +545,7 @@ end
     end
 end
 
-@generated function _query_set_components!(
+@generated function _set_components!(
     q::Query{QS,CT,OF,RO},
     entity::Entity,
     ::Val{TS},
@@ -558,7 +558,7 @@ end
     if length(types) == 0
         return :()
     end
-
+ 
     query_types = _query_component_types(QS)
     indices = Int[_query_component_index(query_types, T) for T in types]
 
