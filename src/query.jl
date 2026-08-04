@@ -556,7 +556,7 @@ end
     _check_no_duplicates(types)
 
     if length(types) == 0
-        return :()
+        return :(())
     end
  
     query_types = _query_component_types(QS)
