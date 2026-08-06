@@ -165,17 +165,11 @@ function _ensure_diskvector_capacity!(dv::DiskVector{T}, requested::Int) where {
         return nothing
     end
 
-    path = _ensure_diskvector_file!(dv)
-    new_capacity = max(requested, 2 * dv.capacity, 1)
-
     old_mem = dv.mem
     old_capacity = dv.capacity
-    if dv.capacity > 0
-        dv.mem = Vector{T}()
-        dv.capacity = 0
-        _unmap_diskvector_mem!(old_mem, old_capacity)
-    end
-    dv.mem = _mmap_diskvector(T, path, new_capacity)
+    _unmap_diskvector_mem!(old_mem, old_capacity)
+    new_capacity = max(requested, 2 * old_capacity, 1)
+    dv.mem = _mmap_diskvector(T, dv.path, new_capacity)
     dv.capacity = new_capacity
     return nothing
 end
