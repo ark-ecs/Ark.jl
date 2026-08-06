@@ -80,9 +80,7 @@ function DiskVector{T}(::UndefInitializer, n::Integer) where {T}
 end
 
 function _finalize_diskvector!(dv::DiskVector)
-    mem = dv.mem
-    path = dv.path
-    @async _cleanup_diskvector_resources!(mem, path)
+    @async _cleanup_diskvector_resources!(dv.mem, dv.path)
     return nothing
 end
 
