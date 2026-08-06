@@ -81,20 +81,17 @@ end
 
 function _finalize_diskvector!(dv::DiskVector)
     mem = dv.mem
-    capacity = dv.capacity
     path = dv.path
-    @async _cleanup_diskvector_resources!(mem, capacity, path)
+    @async _cleanup_diskvector_resources!(mem, path)
     return nothing
 end
 
-function _cleanup_diskvector_resources!(mem::Vector, capacity::Int, path::String)
-    if !isempty(path) && capacity > 0
+function _cleanup_diskvector_resources!(mem::Vector, path::String)
+    if !isempty(path)
         try
-            _unmap_diskvector_mem!(mem, capacity)
+            finalize(mem)
         catch
         end
-    end
-    if !isempty(path)
         try
             rm(path; force=true)
         catch
@@ -116,12 +113,6 @@ function _mmap_diskvector(::Type{T}, path::String, capacity::Int) where {T}
     return open(path, "r+") do io
         Mmap.mmap(io, Vector{T}, capacity, 0; grow=true, shared=true)
     end
-end
-
-function _unmap_diskvector_mem!(mem::Vector, capacity::Int)
-    capacity == 0 && return nothing
-    finalize(mem)
-    return nothing
 end
 
 function _diskvector_uses_disk(dv::DiskVector, requested::Int)
@@ -167,7 +158,7 @@ function _ensure_diskvector_capacity!(dv::DiskVector{T}, requested::Int) where {
 
     old_mem = dv.mem
     old_capacity = dv.capacity
-    _unmap_diskvector_mem!(old_mem, old_capacity)
+    finalize(old_mem)
     new_capacity = max(requested, 2 * old_capacity, 1)
     dv.mem = _mmap_diskvector(T, dv.path, new_capacity)
     dv.capacity = new_capacity
