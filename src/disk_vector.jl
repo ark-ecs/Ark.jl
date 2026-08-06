@@ -106,12 +106,7 @@ end
 function _ensure_diskvector_file!(dv::DiskVector)
     if isempty(dv.path)
         path, io = mktemp(_ark_session_dir())
-        try
-            close(io)
-        catch
-            rm(path; force=true)
-            rethrow()
-        end
+        close(io)
         dv.path = path
     end
     return dv.path
