@@ -2,11 +2,11 @@
 @testset "partition_entities!" begin
     @testset "basic tests" begin
         for register in (true, false)
-            world = World(Position, Velocity)
+            world = TestWorld(Position, Velocity)
             new_entity!(world, (Position(0.0, 0.0),))
             partition_entities!(world, Filter(world, (Position,); register); pred=e -> true)
 
-            world = World(Position, Velocity)
+            world = TestWorld(Position, Velocity)
 
             xs = [3.0, -2.0, 5.0, 1.0, 4.0]
             for i in eachindex(xs)
@@ -34,7 +34,7 @@
     end
 
     @testset "partition preserves entity data" begin
-        world = World(Position, Velocity)
+        world = TestWorld(Position, Velocity)
 
         original_xs = Float64[]
         for i in 1:10
@@ -56,7 +56,7 @@
     end
 
     @testset "partition only works on matching archetypes" begin
-        world = World(Position, Velocity, Altitude)
+        world = TestWorld(Position, Velocity, Altitude)
 
         for i in 1:4
             new_entity!(world, (Position(10.0 + i, 10.0 + i),))

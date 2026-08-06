@@ -252,7 +252,7 @@ end
 end
 
 @testset "GPUStructArray query columns" begin
-    w = World(A => Storage{GPUStructArray{:CPU}})
+    w = TestWorld(A => Storage{GPUStructArray{:CPU}})
     for i in 1:3
         new_entity!(w, (A(i),))
     end
@@ -268,8 +268,29 @@ end
     reset!(w)
 end
 
+@testset "StructArrayView adapts to the device view" begin
+    w = TestWorld(A => Storage{GPUStructArray{:CPU}})
+    for i in 1:5
+        new_entity!(w, (A(i),))
+    end
+
+    _, as = only(Query(w, (A,)))
+    @test as isa StructArrayView
+
+    dv = Adapt.adapt(nothing, as)
+    @test dv isa StructArrayView
+    @test dv.x isa SubArray
+    @test dv.x == [1.0, 2.0, 3.0, 4.0, 5.0]
+
+    dv[2] = A(20.0)
+    @test as[2] == A(20.0)
+    @test as.x[2] == 20.0
+
+    reset!(w)
+end
+
 @testset "GPUStructArray components" begin
-    w = World(
+    w = TestWorld(
         A => Storage{GPUStructArray{:CPU}},
         B => Storage{GPUStructArray{:CPU}},
     )

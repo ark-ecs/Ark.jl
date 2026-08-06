@@ -171,7 +171,7 @@ function _component_index(CS::Type{<:Tuple}, TargetType::Type)::Union{Int,Nothin
     TargetType = _unwrap_const_type(TargetType)
     _storage_types = fieldtypes(CS)
     for (i, S) in enumerate(_storage_types)
-        if S <: _ComponentStorage && _component_type(S) === TargetType
+        if S <: AbstractArray && _component_type(S) === TargetType
             return i
         end
     end

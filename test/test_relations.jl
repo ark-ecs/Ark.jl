@@ -1,6 +1,6 @@
 
 @testset "Relations remove target" begin
-    world = World(Position, Relation{ChildOf}, Relation{ChildOf2})
+    world = TestWorld(Position, Relation{ChildOf}, Relation{ChildOf2})
 
     parent1 = new_entity!(world, ())
     parent2 = new_entity!(world, ())
@@ -84,7 +84,7 @@
 end
 
 @testset "Relations multiple" begin
-    world = World(Position, Relation{ChildOf}, Relation{ChildOf2})
+    world = TestWorld(Position, Relation{ChildOf}, Relation{ChildOf2})
 
     parent1 = new_entity!(world, ())
     parent2 = new_entity!(world, ())
@@ -195,7 +195,7 @@ end
 end
 
 @testset "Relation rejected for stale entity with recycled id" begin
-    world = World(Position, Relation{ChildOf})
+    world = TestWorld(Position, Relation{ChildOf})
 
     old_parent = new_entity!(world, (Position(0.0, 0.0),))
     child = new_entity!(world, (ChildOf() => old_parent,))
@@ -212,7 +212,7 @@ end
     @test get_relations(world, child, (ChildOf,)) == (new_parent,)
     @test_throws ArgumentError set_relations!(world, child, (ChildOf => old_parent,))
 
-    world = World(Position, Relation{ChildOf})
+    world = TestWorld(Position, Relation{ChildOf})
 
     old_parent = new_entity!(world, (Position(0.0, 0.0),))
     remove_entity!(world, old_parent)
@@ -223,7 +223,7 @@ end
 end
 
 @testset "Issue #477" begin
-    world = World(Relation{ChildOf})
+    world = TestWorld(Relation{ChildOf})
 
     parent = new_entity!(world, ())
     child = new_entity!(world, (ChildOf() => parent,))
@@ -254,7 +254,7 @@ end
 end
 
 @testset "Filter incorrect targets Issue #497" begin
-    world = World(Relation{ChildOf})
+    world = TestWorld(Relation{ChildOf})
 
     t1 = new_entity!(world, ())
     filter_t1 = Filter(world, (ChildOf => t1,))
@@ -280,7 +280,7 @@ end
 end
 
 @testset "Cleanup error Issue #498" begin
-    world = World(Position, Relation{ChildOf})
+    world = TestWorld(Position, Relation{ChildOf})
     observe!(world, OnRemoveEntity) do entity
         nothing
     end
@@ -296,7 +296,7 @@ end
     struct R1 end
     struct R2 end
 
-    world = World(Tag, Relation{R1}, Relation{R2})
+    world = TestWorld(Tag, Relation{R1}, Relation{R2})
 
     p1 = new_entity!(world, (Tag(),))
     p2 = new_entity!(world, (Tag(),))

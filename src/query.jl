@@ -9,13 +9,14 @@ end
 A query for components. See function
 [Query](@ref Query(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)) for details.
 """
-struct Query{QS<:Tuple,OF,RO,M,K}
+struct Query{QS<:Tuple,CT<:Tuple,OF,RO,M,K}
     _filter::_MaskFilter{M,K}
     _archetypes::Vector{_Archetype{M}}
     _archetypes_hot::Vector{_ArchetypeHot{M}}
     _q_lock::_QueryCursor
     _world_state::_WorldState{M,K}
-    _storages::QS
+    _storages::CT
+    _empty_storages::QS
 end
 
 @inline function _check_query_world(world::World, query::Query)
@@ -137,22 +138,27 @@ function _Query_from_filter_expr(::Type{W}, ::Type{F}) where {W<:World,F<:Filter
     QS = Tuple{query_storage_types...}
     output_optional_ids = Int[i for i in eachindex(output_ids) if _get_bit(query_optional_mask, output_ids[i])]
     output_optional_mask = _Mask{M}(output_optional_ids...)
-    query_storages = Expr(:tuple, (:(world_storage._storages[$id]) for id in output_ids)...)
+    CT = Tuple{map(A -> Vector{A}, query_storage_types)...}
+    query_storages =
+        Expr(:tuple, (_storage_ref(:world_storage, Storage, id) for id in output_ids)...)
+    query_empties = Expr(:tuple, (_empty_ref(:world_storage, Storage, id) for id in output_ids)...)
 
     return quote
         _check_filter_world(world, filter)
         world_state = _state(world)
         world_storage = _storage(world)
         query_storages = $query_storages
+        query_empties = $query_empties
         _lock(world_state._lock)
         arches, hot = $(archetypes)
-        Query{$QS,$(QuoteNode(output_optional_mask)),$(QuoteNode(output_readonly_mask)),$M,$K}(
+        Query{$QS,$CT,$(QuoteNode(output_optional_mask)),$(QuoteNode(output_readonly_mask)),$M,$K}(
             filter._filter,
             arches,
             hot,
             _QueryCursor(false),
             world_state,
             query_storages,
+            query_empties,
         )
     end
 end
@@ -321,6 +327,312 @@ function count_entities(world::World, q::Query)
 end
 
 """
+    get_components(query::Query, entity::Entity, comp_types::Tuple)
+
+Get the given components for an [Entity](@ref) through a [Query](@ref).
+Components are returned as a tuple.
+
+Only components which are part of the query can be accessed, optional and
+[Const](@ref) ones included. The entity must match the query and have all the
+requested components.
+
+Does not iterate or [close!](@ref close!(::Query)) the query.
+
+# Example
+
+```jldoctest; setup = :(using Ark; include(string(dirname(pathof(Ark)), "/docs.jl"))), output = false
+query = Query(world, (Position, Velocity))
+pos, vel = get_components(query, entity, (Position, Velocity))
+close!(query)
+
+# output
+
+```
+"""
+@inline Base.@constprop :aggressive function get_components(
+    query::Query,
+    entity::Entity,
+    comp_types::Tuple;
+    _unchecked::Bool=false,
+)
+    return @inline _get_components(query, entity, _valtuple(comp_types), Val(_unchecked))
+end
+
+"""
+    set_components!(query::Query, entity::Entity, values::Tuple)
+
+Sets the given component values for an [Entity](@ref) through a [Query](@ref).
+Types are inferred from the values.
+
+Only components which are part of the query can be set, optional ones included.
+Components marked as [Const](@ref) in the query are read-only and can't be set.
+The entity must match the query and have all the given components.
+
+Does not iterate or [close!](@ref close!(::Query)) the query.
+
+# Example
+
+```jldoctest; setup = :(using Ark; include(string(dirname(pathof(Ark)), "/docs.jl"))), output = false
+query = Query(world, (Position, Velocity))
+set_components!(query, entity, (Position(0, 0), Velocity(1, 1)))
+close!(query)
+
+# output
+
+```
+"""
+@inline Base.@constprop :aggressive function set_components!(
+    query::Query,
+    entity::Entity,
+    values::Tuple;
+    _unchecked::Bool=false,
+)
+    return @inline _set_components!(
+        query,
+        entity,
+        Val{typeof(values)}(),
+        values,
+        Val(_unchecked),
+    )
+end
+
+"""
+    has_components(query::Query, entity::Entity, comp_types::Tuple)::Bool
+
+Returns whether an [Entity](@ref) has all the given components.
+
+Only components which are part of the query can be checked, optional and
+[Const](@ref) ones included. An entity that does not match the query returns
+`false`.
+
+Does not iterate or [close!](@ref close!(::Query)) the query.
+
+# Example
+
+```jldoctest; setup = :(using Ark; include(string(dirname(pathof(Ark)), "/docs.jl"))), output = false
+query = Query(world, (Position, Velocity))
+has = has_components(query, entity, (Position, Velocity))
+close!(query)
+
+# output
+
+```
+"""
+@inline Base.@constprop :aggressive function has_components(
+    query::Query,
+    entity::Entity,
+    comp_types::Tuple;
+    _unchecked::Bool=false,
+)
+    return @inline _has_components(query, entity, _valtuple(comp_types), Val(_unchecked))
+end
+
+_query_component_types(::Type{QS}) where {QS<:Tuple} =
+    DataType[_component_type(S) for S in fieldtypes(QS)]
+
+function _query_component_index(query_types::Vector{DataType}, T::DataType)
+    index = findfirst(==(T), query_types)
+    if index === nothing
+        available = join(map(_format_type, query_types), ", ")
+        throw(ArgumentError(lazy"component $(_format_type(T)) is not part of the query on ($available)"))
+    end
+    return index
+end
+
+@noinline function _throw_missing_query_component(::Type{T}) where {T}
+    throw(ArgumentError(lazy"entity has no $T component"))
+end
+
+@inline function _has_query_component(cols::Vector{A}, idx::_EntityIndex) where {A<:AbstractArray}
+    table = Int(idx.table)
+    return table <= length(cols) && length(@inbounds cols[table]) >= idx.row
+end
+
+@inline function _check_query_component(
+    cols::Vector{A},
+    idx::_EntityIndex,
+    ::Type{T},
+) where {A<:AbstractArray,T}
+    if !_has_query_component(cols, idx)
+        _throw_missing_query_component(T)
+    end
+    return nothing
+end
+
+@inline function _matches_query(q::Query, idx::_EntityIndex)
+    world_state = q._world_state
+    @inbounds table = world_state._tables[idx.table]
+    @inbounds archetype = world_state._archetypes_hot[table.archetype]
+    return _matches(q._filter, archetype) &&
+           _matches(world_state._relations, table, q._filter.relations)
+end
+
+@noinline function _throw_entity_not_in_query()
+    throw(ArgumentError("entity does not match query"))
+end
+
+@inline function _check_query_match(q::Query, idx::_EntityIndex)
+    _matches_query(q, idx) || _throw_entity_not_in_query()
+    return nothing
+end
+
+@generated function _get_components(
+    q::Query{QS,CT,OF},
+    entity::Entity,
+    ::TS,
+    ::Val{Unchecked},
+) where {QS<:Tuple,CT<:Tuple,OF,TS<:Tuple,Unchecked}
+    types = _to_types(TS)
+    _check_no_duplicates(types)
+
+    if length(types) == 0
+        return :(())
+    end
+
+    query_types = _query_component_types(QS)
+    indices = Int[_query_component_index(query_types, T) for T in types]
+
+    exprs = Expr[]
+
+    if !Unchecked
+        push!(exprs, :(
+            if !is_alive(q._world_state, entity)
+                throw(ArgumentError("can't get components of a dead entity"))
+            end
+        ))
+    end
+
+    push!(exprs, :(@inbounds idx = q._world_state._entities[entity._id]))
+
+    if !Unchecked
+        push!(exprs, :(_check_query_match(q, idx)))
+    end
+
+    for i in eachindex(types)
+        cols_sym = Symbol("cols", i)
+        val_sym = Symbol("v", i)
+
+        push!(exprs, :($cols_sym = q._storages[$(indices[i])]))
+        if !Unchecked && _get_bit(OF, indices[i])
+            push!(exprs, :(_check_query_component($cols_sym, idx, $(types[i]))))
+        end
+        push!(exprs, :($val_sym = _get_component($cols_sym, idx.table, idx.row)))
+    end
+
+    vals = Symbol[Symbol("v", i) for i in eachindex(types)]
+    push!(exprs, Expr(:return, Expr(:tuple, vals...)))
+
+    return quote
+        @inbounds begin
+            $(Expr(:block, exprs...))
+        end
+    end
+end
+
+@generated function _has_components(
+    q::Query{QS,CT,OF},
+    entity::Entity,
+    ::TS,
+    ::Val{Unchecked},
+) where {QS<:Tuple,CT<:Tuple,OF,TS<:Tuple,Unchecked}
+    types = _to_types(TS)
+    _check_no_duplicates(types)
+
+    if length(types) == 0
+        return :(true)
+    end
+
+    query_types = _query_component_types(QS)
+    indices = Int[_query_component_index(query_types, T) for T in types]
+
+    exprs = Expr[]
+
+    if !Unchecked
+        push!(exprs, :(
+            if !is_alive(q._world_state, entity)
+                throw(ArgumentError("can't check components of a dead entity"))
+            end
+        ))
+    end
+
+    push!(exprs, :(@inbounds idx = q._world_state._entities[entity._id]))
+
+    checked_indices = Unchecked ? indices : Int[index for index in indices if _get_bit(OF, index)]
+    checks = Expr[:(_has_query_component(q._storages[$index], idx)) for index in checked_indices]
+    check_expr = isempty(checks) ? :(true) : foldr((a, b) -> Expr(:&&, a, b), checks)
+
+    if !Unchecked
+        push!(exprs, Expr(:return, :(_matches_query(q, idx) && $check_expr)))
+    else
+        push!(exprs, Expr(:return, check_expr))
+    end
+
+    return quote
+        @inbounds begin
+            $(Expr(:block, exprs...))
+        end
+    end
+end
+
+@generated function _set_components!(
+    q::Query{QS,CT,OF,RO},
+    entity::Entity,
+    ::Val{TS},
+    values::Tuple,
+    ::Val{Unchecked},
+) where {QS<:Tuple,CT<:Tuple,OF,RO,TS<:Tuple,Unchecked}
+    types = _to_types(fieldtypes(TS))
+    _check_no_duplicates(types)
+
+    if length(types) == 0
+        return :(())
+    end
+
+    query_types = _query_component_types(QS)
+    indices = Int[_query_component_index(query_types, T) for T in types]
+
+    for i in eachindex(types)
+        if _get_bit(RO, indices[i])
+            throw(ArgumentError(lazy"component $(_format_type(types[i])) is read-only in the query"))
+        end
+    end
+
+    exprs = Expr[]
+
+    if !Unchecked
+        push!(exprs, :(
+            if !is_alive(q._world_state, entity)
+                throw(ArgumentError("can't set components of a dead entity"))
+            end
+        ))
+    end
+
+    push!(exprs, :(@inbounds idx = q._world_state._entities[entity._id]))
+
+    if !Unchecked
+        push!(exprs, :(_check_query_match(q, idx)))
+    end
+
+    for i in eachindex(types)
+        cols_sym = Symbol("cols", i)
+
+        push!(exprs, :($cols_sym = q._storages[$(indices[i])]))
+        if !Unchecked && _get_bit(OF, indices[i])
+            push!(exprs, :(_check_query_component($cols_sym, idx, $(types[i]))))
+        end
+        push!(exprs, :(_set_component!($cols_sym, idx.table, idx.row, values[$i])))
+    end
+
+    push!(exprs, Expr(:return, :values))
+
+    return quote
+        @inbounds begin
+            $(Expr(:block, exprs...))
+        end
+    end
+end
+
+"""
     close!(q::Query)
 
 Closes the query and unlocks the world.
@@ -336,7 +648,10 @@ function close!(q::Query)
     return nothing
 end
 
-@generated function _get_columns(q::Query{QS,OF,RO,M,K}, table::_Table) where {QS<:Tuple,OF,RO,M,K}
+@generated function _get_columns(
+    q::Query{QS,CT,OF,RO,M,K},
+    table::_Table,
+) where {QS<:Tuple,CT<:Tuple,OF,RO,M,K}
     component_storage_types = fieldtypes(QS)
     comp_types = map(_component_type, component_storage_types)
     storage_array_types = map(_storage_array_type, component_storage_types)
@@ -349,7 +664,14 @@ end
         col_sym = Symbol("col", i)
         vec_sym = Symbol("vec", i)
         push!(exprs, :(@inbounds $stor_sym = q._storages[$i]))
-        push!(exprs, :(@inbounds $col_sym = $stor_sym.data[table.id]))
+        if _get_bit(OF, i)
+            push!(
+                exprs,
+                :($col_sym = _column_or_empty($stor_sym, (@inbounds q._empty_storages[$i]), table.id)),
+            )
+        else
+            push!(exprs, :(@inbounds $col_sym = $stor_sym[table.id]))
+        end
 
         view_expr = if storage_array_types[i] <: GPUVector
             :(_gpuvector_view($col_sym, 1:($col_sym).len))
@@ -375,7 +697,7 @@ end
         push!(result_exprs, Symbol("vec", i))
     end
 
-    element_type = :(Base.eltype(Query{QS,OF,RO,M,K}))
+    element_type = :(Base.eltype(Query{QS,CT,OF,RO,M,K}))
 
     tuple_expr = Expr(:tuple, result_exprs...)
     push!(exprs, Expr(:return, Expr(:(::), tuple_expr, element_type)))
@@ -389,7 +711,9 @@ end
 
 Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
 
-@generated function Base.eltype(::Type{Query{QS,OF,RO,M,K}}) where {QS<:Tuple,OF,RO,M,K}
+@generated function Base.eltype(
+    ::Type{<:Query{QS,CT,OF,RO,M,K}},
+) where {QS<:Tuple,CT<:Tuple,OF,RO,M,K}
     component_storage_types = fieldtypes(QS)
     comp_types = map(_component_type, component_storage_types)
     storage_array_types = map(_storage_array_type, component_storage_types)
@@ -424,7 +748,7 @@ Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
     end
 end
 
-function Base.show(io::IO, query::Query{QS,OF,RO,M,K}) where {QS<:Tuple,OF,RO,M,K}
+function Base.show(io::IO, query::Query{QS,CT,OF,RO,M,K}) where {QS<:Tuple,CT<:Tuple,OF,RO,M,K}
     component_storage_types = fieldtypes(QS)
     comp_types = tuple(DataType[_component_type(S) for S in component_storage_types]...)
     display_types =

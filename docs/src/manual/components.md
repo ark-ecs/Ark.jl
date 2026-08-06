@@ -19,7 +19,7 @@ by the optional argument `allow_mutable` of the [world constructor](@ref World(:
 
 Although the majority of the logic in an application that uses Ark will be performed in [Queries](@ref),
 it may be necessary to access components for a particular entity.
-One or more components of an entity can be accessed via [get_components](@ref):
+One or more components of an entity can be accessed via [get_components](@ref get_components(::World, ::Entity, ::Tuple)):
 
 ```@meta
 DocTestSetup = quote
@@ -65,7 +65,7 @@ has_pos_vel = (Position, Velocity) in we
 true
 ```
 
-Similarly, the components of an entity can be overwritten by new values via [set_components!](@ref) or by indexing:
+Similarly, the components of an entity can be overwritten by new values via [set_components!](@ref set_components!(::World, ::Entity, ::Tuple)) or by indexing:
 
 ```jldoctest; output = false
 set_components!(world, entity, (Position(0, 0), Velocity(1,1)))
@@ -138,7 +138,7 @@ For these columns, Ark offers storage types for both CPU anf GPU computing by de
   - Not allowed for mutable components.
   - Not allowed for components without fields, like labels and primitives.
   - ≈10-20% runtime overhead for component operations and entity creation.
-  - Slower component access with [get_components](@ref) and [set_components!](@ref).
+  - Slower component access with [get_components](@ref get_components(::World, ::Entity, ::Tuple)) and [set_components!](@ref set_components!(::World, ::Entity, ::Tuple)).
 
 #### Disk-Backed Storages
 

@@ -1,6 +1,6 @@
 
 @testset "Filter basic functionality" begin
-    world = World(Dummy, Position, Velocity, Altitude, Health)
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Health)
 
     f1 = Filter(world, (Position, Velocity))
     f2 = Filter(world, (Position, Velocity); with=(Altitude,))
@@ -16,7 +16,7 @@
 end
 
 @testset "Filter table and entity counts" begin
-    world = World(Dummy, Position, Velocity, Altitude, Health)
+    world = TestWorld(Dummy, Position, Velocity, Altitude, Health)
 
     new_entities!(world, 10, (Position(0, 0),))
     new_entities!(world, 10, (Position(0, 0), Velocity(0, 0)))
@@ -32,7 +32,7 @@ end
 end
 
 @testset "Issue #563" begin
-    world = World(Dummy)
+    world = TestWorld(Dummy)
     e = new_entity!(world, (Dummy(),))
 
     filter = Filter(world, (Dummy,); register=true)
@@ -51,7 +51,7 @@ end
 end
 
 @testset "Filter show" begin
-    world = World(
+    world = TestWorld(
         Position,
         Velocity,
         Altitude,
@@ -75,7 +75,7 @@ end
 end
 
 @testset "Filter relation targets" begin
-    world = World(Dummy, Position, Relation{ChildOf})
+    world = TestWorld(Dummy, Position, Relation{ChildOf})
     parent1 = new_entity!(world, ())
     parent2 = new_entity!(world, ())
     parent3 = new_entity!(world, ())

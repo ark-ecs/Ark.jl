@@ -1,11 +1,6 @@
 
-struct _ComponentStorage{C,A<:AbstractArray{C,1}}
-    data::Vector{A}
-    empty_column::A
-end
-
-@inline _component_type(::Type{<:_ComponentStorage{C}}) where {C} = C
-@inline _storage_array_type(::Type{<:_ComponentStorage{C,A}}) where {C,A} = A
+@inline _component_type(::Type{A}) where {A<:AbstractArray} = eltype(A)
+@inline _storage_array_type(::Type{A}) where {A<:AbstractArray} = A
 
 function _new_storage(::Type{S}, ::Type{C}) where {S<:Storage,C}
     _storage_type(S, C)()
@@ -43,55 +38,66 @@ function _storage_type(::Type{Storage{GPUVector{B}}}, ::Type{C}) where {B,C}
     GPUVector{B,C,_gpuvector_type(C, Val{B}())}
 end
 
-function _new_component_storage(::Type{S}, ::Type{C}) where {S<:Storage,C}
-    empty_column = _new_storage(S, C)
-    return _ComponentStorage{C,typeof(empty_column)}([empty_column], empty_column)
+function _new_component_columns(::Type{S}, ::Type{C}) where {S<:Storage,C}
+    return _storage_type(S, C)[]
 end
 
-@inline function _get_component(
-    s::_ComponentStorage{C,A},
-    arch::UInt32,
-    row::UInt32,
-    ::Val{false},
-) where {C,A<:AbstractArray}
-    @inbounds col = s.data[arch]
-    if col === s.empty_column
-        throw(ArgumentError(lazy"entity has no $C component"))
+function _new_component_empty(::Type{S}, ::Type{C}) where {S<:Storage,C}
+    return _new_storage(S, C)
+end
+
+@inline function _column_or_empty(cols::Vector{A}, empty::A, table::Integer) where {A<:AbstractArray}
+    return table <= length(cols) ? (@inbounds cols[table]) : empty
+end
+
+@noinline function _type_vector(::Type{T})::Vector{Any} where {T<:Tuple}
+    n = fieldcount(T)
+    types = Vector{Any}(undef, n)
+    for i in 1:n
+        @inbounds types[i] = fieldtype(T, i)
     end
-    return @inbounds col[row]
+    return types
 end
 
-@inline function _get_component(
-    s::_ComponentStorage{C,A},
-    arch::UInt32,
-    row::UInt32,
-    ::Val{true},
-) where {C,A<:AbstractArray}
-    return @inbounds s.data[arch][row]
+@noinline function _new_component_relations_vector(relation_flags::Vector{Bool})
+    relations = Vector{_ComponentRelations}(undef, length(relation_flags))
+    for i in eachindex(relation_flags)
+        @inbounds relations[i] = _new_component_relations(relation_flags[i])
+    end
+    return relations
+end
+
+@noinline function _new_columns_vector(modes::Vector{Any}, types::Vector{Any})
+    length(modes) == length(types) ||
+        throw(ArgumentError("storage modes and component types must have the same length"))
+    columns = Memory{Any}(undef, length(types))
+    for i in eachindex(types)
+        @inbounds columns[i] = _new_component_columns(modes[i], types[i])
+    end
+    return columns
+end
+
+@noinline function _new_empties_vector(modes::Vector{Any}, types::Vector{Any})
+    length(modes) == length(types) ||
+        throw(ArgumentError("storage modes and component types must have the same length"))
+    empties = Memory{Any}(undef, length(types))
+    for i in eachindex(types)
+        @inbounds empties[i] = _new_component_empty(modes[i], types[i])
+    end
+    return empties
+end
+
+@inline function _get_component(cols::Vector{A}, arch::UInt32, row::UInt32) where {A<:AbstractArray}
+    return @inbounds cols[arch][row]
 end
 
 @inline function _set_component!(
-    s::_ComponentStorage{C,A},
+    cols::Vector{A},
     arch::UInt32,
     row::UInt32,
-    value::C,
-    ::Val{false},
-) where {C,A<:AbstractArray}
-    @inbounds col = s.data[arch]
-    if length(col) == 0
-        throw(ArgumentError(lazy"entity has no $C component"))
-    end
-    return @inbounds col[row] = value
-end
-
-@inline function _set_component!(
-    s::_ComponentStorage{C,A},
-    arch::UInt32,
-    row::UInt32,
-    value::C,
-    ::Val{true},
-) where {C,A<:AbstractArray}
-    return @inbounds s.data[arch][row] = value
+    value,
+) where {A<:AbstractArray}
+    return @inbounds cols[arch][row] = value
 end
 
 @generated function _new_storage_column(::Type{C}, ::Type{A}) where {C,A<:AbstractArray}
@@ -107,25 +113,57 @@ end
     end
 end
 
-function _add_column!(storage::_ComponentStorage)
-    push!(storage.data, storage.empty_column)
-end
-
-function _activate_column!(storage::_ComponentStorage{C,A}, arch::Int, cap::Int) where {C,A<:AbstractArray}
-    @inbounds if storage.data[arch] === storage.empty_column
-        storage.data[arch] = _new_storage_column(C, A)
+@noinline function _instantiate_column!(
+    cols::Vector{A},
+    empty::A,
+    table::Int,
+) where {C,A<:AbstractArray{C,1}}
+    old_len = length(cols)
+    if table > old_len
+        resize!(cols, table)
+        @inbounds for i in (old_len+1):table
+            cols[i] = empty
+        end
     end
-    @inbounds sizehint!(storage.data[arch], cap)
+    col = _new_storage_column(C, A)
+    @inbounds cols[table] = col
+    return col
 end
 
-function _clear_column!(storage::_ComponentStorage{C,A}, arch::UInt32) where {C,A<:AbstractArray}
-    @inbounds if storage.data[arch] !== storage.empty_column
-        empty!(storage.data[arch])
+@inline function _column_for_write!(
+    cols::Vector{A},
+    empty::A,
+    table::Integer,
+) where {C,A<:AbstractArray{C,1}}
+    if table > length(cols)
+        return _instantiate_column!(cols, empty, Int(table))
     end
+    @inbounds col = cols[table]
+    return col
 end
 
-function _ensure_column_size!(storage::_ComponentStorage{C,A}, arch::UInt32, needed::Int) where {C,A<:AbstractArray}
-    @inbounds col = storage.data[arch]
+function _activate_column!(cols::Vector{A}, empty::A, arch::Int, cap::Int) where {C,A<:AbstractArray{C,1}}
+    sizehint!(_column_for_write!(cols, empty, arch), cap)
+    return
+end
+
+@noinline function _clear_column!(cols::Vector{A}, empty::A, arch::UInt32) where {C,A<:AbstractArray{C,1}}
+    if arch <= length(cols)
+        @inbounds col = cols[arch]
+        if col !== empty
+            empty!(col)
+        end
+    end
+    return
+end
+
+function _ensure_column_size!(
+    cols::Vector{A},
+    empty::A,
+    arch::UInt32,
+    needed::Int,
+) where {C,A<:AbstractArray{C,1}}
+    col = _column_for_write!(cols, empty, arch)
     if length(col) < needed
         resize!(col, needed)
     end
@@ -133,23 +171,23 @@ function _ensure_column_size!(storage::_ComponentStorage{C,A}, arch::UInt32, nee
 end
 
 function _move_component_data!(
-    s::_ComponentStorage{C,A},
+    cols::Vector{A},
     old_table::UInt32,
     new_table::UInt32,
     row::UInt32,
-) where {C,A<:AbstractArray}
-    @inbounds old_vec = s.data[old_table]
-    @inbounds new_vec = s.data[new_table]
+) where {A<:AbstractArray}
+    @inbounds old_vec = cols[old_table]
+    @inbounds new_vec = cols[new_table]
     @inbounds push!(new_vec, old_vec[row])
     _swap_remove!(old_vec, row)
 end
 
 @generated function _move_component_data!(
-    s::_ComponentStorage{C,A},
+    cols::Vector{A},
     old_table::UInt32,
     new_table::UInt32,
     row::UInt32,
-) where {C,A<:_AbstractStructArray}
+) where {A<:_AbstractStructArray}
     names = fieldnames(eltype(A))
     exprs_push_remove = Expr[]
     for name in names
@@ -157,8 +195,8 @@ end
         push!(exprs_push_remove, :(_swap_remove!(old_vec_comp.$name, row)))
     end
     quote
-        @inbounds old_vec = s.data[old_table]
-        @inbounds new_vec = s.data[new_table]
+        @inbounds old_vec = cols[old_table]
+        @inbounds new_vec = cols[new_table]
         old_vec_comp = getfield(old_vec, :_components)
         new_vec_comp = getfield(new_vec, :_components)
         $(exprs_push_remove...)
@@ -166,23 +204,23 @@ end
 end
 
 @generated function _copy_component_data!(
-    s::_ComponentStorage{C,A},
+    cols::Vector{A},
     old_table::UInt32,
     new_table::UInt32,
     old_row::UInt32,
     ::CP,
-) where {C,A<:AbstractArray,CP<:Val}
+) where {C,A<:AbstractArray{C,1},CP<:Val}
     # TODO: this can probably be optimized for StructArray storage
     # by moving per component instead of unpacking/packing.
     exprs = Expr[]
-    push!(exprs, :(@inbounds old_vec = s.data[old_table]))
-    push!(exprs, :(@inbounds new_vec = s.data[new_table]))
+    push!(exprs, :(@inbounds old_vec = cols[old_table]))
+    push!(exprs, :(@inbounds new_vec = cols[new_table]))
 
     if CP === Val{:ref} || isbitstype(C)
         # no copy required for isbits types
         if A <: _AbstractStructArray
             return quote
-                _copy_component_data_per_field!(s, old_table, new_table, old_row)
+                _copy_component_data_per_field!(cols, old_table, new_table, old_row)
             end
         else
             push!(exprs, :(push!(new_vec, old_vec[old_row])))
@@ -205,19 +243,19 @@ end
 end
 
 @generated function _copy_component_data_per_field!(
-    s::_ComponentStorage{C,A},
+    cols::Vector{A},
     old_table::UInt32,
     new_table::UInt32,
     old_row::UInt32,
-) where {C,A<:_AbstractStructArray}
-    names = fieldnames(C)
+) where {A<:_AbstractStructArray}
+    names = fieldnames(eltype(A))
     exprs = Expr[]
     for name in names
         push!(exprs, :(@inbounds push!(new_vec_comp.$name, old_vec_comp.$name[old_row])))
     end
     return quote
-        @inbounds old_vec = s.data[old_table]
-        @inbounds new_vec = s.data[new_table]
+        @inbounds old_vec = cols[old_table]
+        @inbounds new_vec = cols[new_table]
         old_vec_comp = getfield(old_vec, :_components)
         new_vec_comp = getfield(new_vec, :_components)
         $(exprs...)
@@ -226,12 +264,12 @@ end
 end
 
 function _copy_component_data_to_end!(
-    s::_ComponentStorage{C,A},
+    cols::Vector{A},
     old_table::UInt32,
     new_table::UInt32,
-) where {C,A<:AbstractArray}
-    @inbounds old_vec = s.data[old_table]
-    @inbounds new_vec = s.data[new_table]
+) where {A<:AbstractArray}
+    @inbounds old_vec = cols[old_table]
+    @inbounds new_vec = cols[new_table]
     _copy_old_data!(new_vec, old_vec)
     return nothing
 end
@@ -252,23 +290,23 @@ function _copy_old_data!(new_vec::_AbstractStructArray, old_vec::_AbstractStruct
     unsafe_copyto!(new_vec, length(new_vec) - length(old_vec) + 1, old_vec, 1, length(old_vec))
 end
 
-function _remove_component_data!(s::_ComponentStorage{C,A}, arch::UInt32, row::UInt32) where {C,A<:AbstractArray}
-    @inbounds col = s.data[arch]
+function _remove_component_data!(cols::Vector{A}, arch::UInt32, row::UInt32) where {A<:AbstractArray}
+    @inbounds col = cols[arch]
     _swap_remove!(col, row)
 end
 
 @generated function _remove_component_data!(
-    s::_ComponentStorage{C,A},
+    cols::Vector{A},
     arch::UInt32,
     row::UInt32,
-) where {C,A<:_AbstractStructArray}
+) where {A<:_AbstractStructArray}
     names = fieldnames(eltype(A))
     exprs_remove = Expr[]
     for name in names
         push!(exprs_remove, :(_swap_remove!(getfield(col, :_components).$name, row)))
     end
     quote
-        @inbounds col = s.data[arch]
+        @inbounds col = cols[arch]
         $(exprs_remove...)
     end
 end
@@ -303,40 +341,40 @@ function _activate_table_column!(rel::_ComponentRelations, table::Int, entity::E
 end
 
 @inline function _swap_component_data!(
-    s::_ComponentStorage{C,A},
+    cols::Vector{A},
     arch::UInt32,
     i::Int,
     j::Int,
-) where {C,A<:AbstractArray}
-    @inbounds col = s.data[arch]
+) where {A<:AbstractArray}
+    @inbounds col = cols[arch]
     _swap_indices!(col, i, j)
 end
 
 @generated function _swap_component_data!(
-    s::_ComponentStorage{C,A},
+    cols::Vector{A},
     arch::UInt32,
     i::Int,
     j::Int,
-) where {C,A<:_AbstractStructArray}
+) where {A<:_AbstractStructArray}
     names = fieldnames(eltype(A))
     exprs_swap = Expr[]
     for name in names
         push!(exprs_swap, :(_swap_indices!(getfield(col, :_components).$name, i, j)))
     end
     quote
-        @inbounds col = s.data[arch]
+        @inbounds col = cols[arch]
         $(exprs_swap...)
     end
 end
 
 @inline @generated function _permute_component_cycle!(
-    s::_ComponentStorage{C,A},
+    cols::Vector{A},
     table::UInt32,
     entities::Entities,
     entity_index::Vector{_EntityIndex},
     start::Int,
-) where {C,A<:AbstractArray}
-    names = fieldnames(C)
+) where {A<:AbstractArray}
+    names = fieldnames(eltype(A))
 
     if A <: _AbstractStructArray
         tmp_syms = Symbol[gensym(:tmp) for _ in names]
@@ -362,7 +400,7 @@ end
     end
 
     return quote
-        @inbounds col = s.data[table]
+        @inbounds col = cols[table]
         $(A <: _AbstractStructArray ? :(comps = getfield(col, :_components)) : (:(nothing)))
 
         $(tmp_exprs...)

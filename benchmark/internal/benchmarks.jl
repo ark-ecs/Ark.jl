@@ -4,6 +4,7 @@ using Chairmarks
 
 const SECONDS = 0.5
 const SUITE = BenchmarkGroup()
+const BOXED = false
 
 include("BenchTypes.jl")
 

@@ -8,6 +8,10 @@
 - Adds the possibility to specify that a query column is read-only (#677).
 - Adds GPUVector{:CPU} and GPUStructArray{:CPU} to use a GPU storage on devices
   which do not have a GPU (#701).
+- Adds the `boxed` keyword argument to the world constructor, which cuts the compilation cost of Ark, at the price of some slowdown in performance.
+- Adds `get_components`, `set_components!` and `has_components` for a `Query`, to access the
+  components of a query for a single entity without iterating or closing the query.
+  `EntityHandle` now works with queries as well, i.e. `query[entity][Position]`.
 
 ### Breaking changes
 
@@ -21,6 +25,7 @@
 - Operations executed on the CPU with a GPU storage are almost overhead-less in respect to
   CPU only storage (#701).
 - Compile time performance is improved through a better internal specialization mechanism (#662).
+- Component registration no longer compiles one `Dict` insertion per component type during world construction.
 - Getting components performance improved by 10% (#664).
 
 ## [[v0.5.1]](https://github.com/ark-ecs/Ark.jl/compare/v0.5.0...v0.5.1)

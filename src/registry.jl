@@ -1,13 +1,13 @@
 
 mutable struct _ComponentRegistry
     counter::Int
-    const components::Dict{DataType,Int}
+    const components::IdDict{DataType,Int}
     const types::Vector{DataType}
     const is_relation::Vector{Bool}
 end
 
 function _ComponentRegistry()
-    _ComponentRegistry(0x01, Dict{DataType,Int}(), Vector{DataType}(), Vector{Bool}())
+    _ComponentRegistry(0x01, IdDict{DataType,Int}(), Vector{DataType}(), Vector{Bool}())
 end
 
 @inline function _get_id!(registry::_ComponentRegistry, ::Type{C})::Int where C
@@ -20,7 +20,23 @@ end
     return registry.is_relation[comp_id]
 end
 
-function _register_component!(registry::_ComponentRegistry, ::Type{C}, is_relation::Bool)::Int where C
+@noinline function _register_components!(
+    registry::_ComponentRegistry,
+    types::Vector{Any},
+    relation_flags::Vector{Bool},
+)::Vector{Int}
+    ids = Vector{Int}(undef, length(types))
+    for i in eachindex(types)
+        @inbounds ids[i] = _register_component!(registry, types[i]::DataType, relation_flags[i])
+    end
+    return ids
+end
+
+@noinline function _register_component!(
+    registry::_ComponentRegistry,
+    @nospecialize(C::DataType),
+    is_relation::Bool,
+)::Int
     if haskey(registry.components, C)
         throw(ArgumentError(lazy"duplicate component type $C during world creation"))
     end

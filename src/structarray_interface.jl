@@ -213,3 +213,13 @@ macro unpack(expr)
         $(esc(lhs)) = $new_rhs
     end
 end
+
+@generated function Adapt.adapt_structure(to, sa::StructArrayView{C}) where {C}
+    names = fieldnames(C)
+    adapted_exprs = Expr[:($name = Adapt.adapt(to, getfield(sa, :_components).$name)) for name in names]
+    adapted_tuple_expr = Expr(:tuple, adapted_exprs...)
+    return quote
+        adapted_tuple = $(adapted_tuple_expr)
+        StructArrayView{C,typeof(adapted_tuple)}(adapted_tuple)
+    end
+end

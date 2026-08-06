@@ -1,11 +1,16 @@
 
 """
-    EntityHandle{W<:World}
+    EntityHandle{S<:Union{World,Query}}
 
-A handle to an [`Entity`](@ref) within a specific [`World`](@ref),
+A handle to an [`Entity`](@ref) within a specific [`World`](@ref) or [`Query`](@ref),
 allowing for dict-like component and relationship access.
 
-Created by indexing a world with an entity i.e. `we = world[entity]`.
+Created by indexing a world or a query with an entity i.e. `we = world[entity]`
+or `qe = query[entity]`.
+
+A handle created from a query gives access only to the components of the query and
+supports component access alone, i.e. no relationships and no structural changes.
+Creating and using it neither iterates nor [closes](@ref close!(::Query)) the query.
 
 # Examples
 
@@ -28,9 +33,15 @@ has_pos_vel = (Position, Velocity) in we
 we.rel[ChildOf] = parent
 parent = we.rel[ChildOf]
 
+# Components of a query
+query = Query(world, (Position, Velocity))
+qe = query[entity]
+pos, vel = qe[(Position, Velocity)]
+qe[Position] = Position(0, 0)
+close!(query)
+
 # output
 
-Entity(2, 0)
 ```
 
 !!! note
@@ -39,8 +50,8 @@ Entity(2, 0)
     directly the entities instead. Handles are provided only to allow to use a more appealing syntax for access and
     modification of components and relationships.
 """
-struct EntityHandle{W<:World}
-    world::W
+struct EntityHandle{S<:Union{World,Query}}
+    source::S
     entity::Entity
 end
 
@@ -51,36 +62,38 @@ end
 
 @inline Base.getindex(world::World, entity::Entity) = EntityHandle(world, entity)
 
+@inline Base.getindex(query::Query, entity::Entity) = EntityHandle(query, entity)
+
 @inline Base.@constprop :aggressive function Base.getindex(entityhandle::EntityHandle, ::Type{T}) where {T}
-    return get_components(entityhandle.world, entityhandle.entity, (T,))[1]
+    return get_components(entityhandle.source, entityhandle.entity, (T,))[1]
 end
 
 @inline Base.@constprop :aggressive function Base.getindex(entityhandle::EntityHandle, comps::Tuple)
-    return get_components(entityhandle.world, entityhandle.entity, comps)
+    return get_components(entityhandle.source, entityhandle.entity, comps)
 end
 
 @inline Base.@constprop :aggressive function Base.setindex!(entityhandle::EntityHandle, value, ::Type{T}) where {T}
-    set_components!(entityhandle.world, entityhandle.entity, (value,))[1]
+    set_components!(entityhandle.source, entityhandle.entity, (value,))[1]
 end
 
 @inline Base.@constprop :aggressive function Base.setindex!(entityhandle::EntityHandle, values::Tuple, comps::Tuple)
-    set_components!(entityhandle.world, entityhandle.entity, values)
+    set_components!(entityhandle.source, entityhandle.entity, values)
 end
 
 @inline Base.@constprop :aggressive function Base.in(::Type{T}, entityhandle::EntityHandle) where {T}
-    return has_components(entityhandle.world, entityhandle.entity, (T,))
+    return has_components(entityhandle.source, entityhandle.entity, (T,))
 end
 
 @inline Base.@constprop :aggressive function Base.in(comps::Tuple, entityhandle::EntityHandle)
-    return has_components(entityhandle.world, entityhandle.entity, comps)
+    return has_components(entityhandle.source, entityhandle.entity, comps)
 end
 
 @inline Base.@constprop :aggressive function _unchecked_getindex(entityhandle::EntityHandle, ::Type{T}) where {T}
-    return get_components(entityhandle.world, entityhandle.entity, (T,); _unchecked=true)[1]
+    return get_components(entityhandle.source, entityhandle.entity, (T,); _unchecked=true)[1]
 end
 
 @inline Base.@constprop :aggressive function _unchecked_getindex(entityhandle::EntityHandle, comps::Tuple)
-    return get_components(entityhandle.world, entityhandle.entity, comps; _unchecked=true)
+    return get_components(entityhandle.source, entityhandle.entity, comps; _unchecked=true)
 end
 
 @inline Base.@constprop :aggressive function _unchecked_setindex!(
@@ -88,7 +101,7 @@ end
     value,
     ::Type{T},
 ) where {T}
-    set_components!(entityhandle.world, entityhandle.entity, (value,); _unchecked=true)
+    set_components!(entityhandle.source, entityhandle.entity, (value,); _unchecked=true)
 end
 
 @inline Base.@constprop :aggressive function _unchecked_setindex!(
@@ -96,40 +109,44 @@ end
     values::Tuple,
     comps::Tuple,
 )
-    set_components!(entityhandle.world, entityhandle.entity, values; _unchecked=true)
+    set_components!(entityhandle.source, entityhandle.entity, values; _unchecked=true)
 end
 
 @inline Base.@constprop :aggressive function _unchecked_in(::Type{T}, entityhandle::EntityHandle) where {T}
-    return has_components(entityhandle.world, entityhandle.entity, (T,); _unchecked=true)
+    return has_components(entityhandle.source, entityhandle.entity, (T,); _unchecked=true)
 end
 
 @inline Base.@constprop :aggressive function _unchecked_in(comps::Tuple, entityhandle::EntityHandle)
-    return has_components(entityhandle.world, entityhandle.entity, comps; _unchecked=true)
+    return has_components(entityhandle.source, entityhandle.entity, comps; _unchecked=true)
 end
 
 @inline Base.@constprop :aggressive function add_components!(
-    entityhandle::EntityHandle,
+    entityhandle::EntityHandle{<:World},
     values::Tuple;
     _unchecked::Bool=false,
 )
-    world = entityhandle.world
+    world = entityhandle.source
     entity = entityhandle.entity
     return add_components!(world, entity, values; _unchecked)
 end
 
 @inline Base.@constprop :aggressive function remove_components!(
-    entityhandle::EntityHandle,
+    entityhandle::EntityHandle{<:World},
     comp_types::Tuple;
     _unchecked::Bool=false,
 )
-    world = entityhandle.world
+    world = entityhandle.source
     entity = entityhandle.entity
     return remove_components!(world, entity, comp_types; _unchecked)
 end
 
 Base.@constprop :aggressive function Base.getproperty(entityhandle::EntityHandle, name::Symbol)
     if name === :rel
-        return _EntityHandleRel(getfield(entityhandle, :world), getfield(entityhandle, :entity))
+        source = getfield(entityhandle, :source)
+        if !(source isa World)
+            throw(ArgumentError("relations can be accessed only through a world handle"))
+        end
+        return _EntityHandleRel(source, getfield(entityhandle, :entity))
     end
     return getfield(entityhandle, name)
 end

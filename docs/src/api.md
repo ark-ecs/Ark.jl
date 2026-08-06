@@ -45,9 +45,9 @@ isless(::Entity,::Entity)
 [Components](@ref) contain the data associated with [Entities](@ref entities-api).
 
 ```@docs
-get_components
-has_components
-set_components!
+get_components(::World, ::Entity, ::Tuple)
+has_components(::World, ::Entity, ::Tuple)
+set_components!(::World, ::Entity, ::Tuple)
 add_components!
 remove_components!
 exchange_components!
@@ -58,9 +58,8 @@ set_relations!
 ## [Storages](@id storage-api)
 
 [Storages](@ref component-storages) define the data structures for the containers of
-[Components](@ref). The built-in ones are Vector, [StructArray](@ref), [DiskVector](@ref),
-[DiskStructArray](@ref), [GPUVector](@ref) and [GPUStructArray](@ref). New ones can be
-defined implementing the [Storage Interface](@ref new-component-storages).
+[Components](@ref). The built-in ones are Vector, [StructArray](@ref), [GPUVector](@ref),
+[GPUStructArray](@ref). New ones can be defined implementing the [Storage Interface](@ref new-component-storages).
 
 ```@docs
 Storage
@@ -80,6 +79,9 @@ certain set of [Components](@ref components-api).
 Query
 Query(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)
 Query(::World, ::Filter)
+get_components(::Query, ::Entity, ::Tuple)
+set_components!(::Query, ::Entity, ::Tuple)
+has_components(::Query, ::Entity, ::Tuple)
 close!(::Query)
 Filter
 Filter(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)
