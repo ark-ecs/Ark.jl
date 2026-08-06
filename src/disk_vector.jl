@@ -125,11 +125,7 @@ end
 
 function _unmap_diskvector_mem!(mem::Vector, capacity::Int)
     capacity == 0 && return nothing
-    @static if VERSION >= v"1.11"
-        finalize(mem.ref.mem)
-    else
-        finalize(mem)
-    end
+    finalize(mem)
     return nothing
 end
 
