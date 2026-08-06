@@ -90,7 +90,7 @@ end
 function _cleanup_diskvector_resources!(mem::Vector, capacity::Int, path::String)
     if !isempty(path) && capacity > 0
         try
-            _release_diskvector_mem!(mem, capacity)
+            _unmap_diskvector_mem!(mem, capacity)
         catch
         end
     end
@@ -129,20 +129,12 @@ function _unmap_diskvector_mem!(mem::Vector, capacity::Int)
     return nothing
 end
 
-function _release_diskvector_mem!(mem::Vector, capacity::Int)
-    capacity == 0 && return nothing
-    Mmap.sync!(mem)
-    _unmap_diskvector_mem!(mem, capacity)
-    return nothing
-end
-
 function _diskvector_uses_disk(dv::DiskVector, requested::Int)
     return !isempty(dv.path) || requested > DISKVECTOR_MEMORY_LENGTH
 end
 
 function _ensure_diskvector_memory_capacity!(dv::DiskVector{T}, requested::Int) where {T}
     requested <= dv.capacity && return nothing
-
     new_capacity = min(max(requested, 2 * dv.capacity, 1), DISKVECTOR_MEMORY_LENGTH)
     new_mem = Vector{T}(undef, new_capacity)
     if dv.len > 0
@@ -158,24 +150,12 @@ function _move_diskvector_to_disk!(dv::DiskVector{T}, requested::Int) where {T}
     path = _ensure_diskvector_file!(dv)
     new_capacity = max(requested, 2 * dv.capacity, DISKVECTOR_MEMORY_LENGTH + 1)
     old_mem = dv.mem
-
-    try
-        new_mem = _mmap_diskvector(T, path, new_capacity)
-        if dv.len > 0
-            copyto!(new_mem, 1, old_mem, 1, dv.len)
-        end
-        dv.mem = new_mem
-        dv.capacity = new_capacity
-    catch
-        if isempty(old_path)
-            try
-                rm(path; force=true)
-            catch
-            end
-            dv.path = ""
-        end
-        rethrow()
+    new_mem = _mmap_diskvector(T, path, new_capacity)
+    if dv.len > 0
+        copyto!(new_mem, 1, old_mem, 1, dv.len)
     end
+    dv.mem = new_mem
+    dv.capacity = new_capacity
     return nothing
 end
 
@@ -196,33 +176,12 @@ function _ensure_diskvector_capacity!(dv::DiskVector{T}, requested::Int) where {
     old_mem = dv.mem
     old_capacity = dv.capacity
     if dv.capacity > 0
-        try
-            Mmap.sync!(old_mem)
-            dv.mem = Vector{T}()
-            dv.capacity = 0
-            _unmap_diskvector_mem!(old_mem, old_capacity)
-        catch
-            dv.mem = old_mem
-            dv.capacity = old_capacity
-            rethrow()
-        end
+        dv.mem = Vector{T}()
+        dv.capacity = 0
+        _unmap_diskvector_mem!(old_mem, old_capacity)
     end
-
-    try
-        dv.mem = _mmap_diskvector(T, path, new_capacity)
-        dv.capacity = new_capacity
-    catch
-        if old_capacity > 0
-            try
-                dv.mem = _mmap_diskvector(T, path, old_capacity)
-                dv.capacity = old_capacity
-            catch
-                dv.mem = Vector{T}()
-                dv.capacity = 0
-            end
-        end
-        rethrow()
-    end
+    dv.mem = _mmap_diskvector(T, path, new_capacity)
+    dv.capacity = new_capacity
     return nothing
 end
 
@@ -283,13 +242,7 @@ function Base.fill!(dv::DiskVector, value)
     return dv
 end
 
-function Base.copyto!(
-    dest::DiskVector,
-    doffs::Integer,
-    src::DiskVector,
-    soffs::Integer,
-    n::Integer,
-)
+function Base.copyto!(dest::DiskVector, doffs::Integer, src::DiskVector, soffs::Integer, n::Integer)
     copyto!(dest.mem, doffs, src.mem, soffs, n)
     return dest
 end
