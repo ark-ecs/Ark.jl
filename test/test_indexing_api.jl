@@ -125,3 +125,64 @@
         @test Ark._unchecked_in(1, [1]) == true
     end
 end
+
+@testset "Query indexing API" begin
+    world = TestWorld(Position, Velocity, Altitude, Health)
+
+    e1 = new_entity!(world, (Position(1.0, 2.0), Velocity(0.1, 0.2)))
+    e2 = new_entity!(world, (Position(10.0, 20.0), Velocity(1.0, 2.0), Health(5.0)))
+
+    query = Query(world, (Position, Velocity))
+    qe1 = query[e1]
+    qe2 = query[e2]
+
+    @testset "Components" begin
+        @test qe1[Position] == Position(1.0, 2.0)
+        @test qe1[(Position, Velocity)] == (Position(1.0, 2.0), Velocity(0.1, 0.2))
+        @test qe2[(Velocity, Position)] == (Velocity(1.0, 2.0), Position(10.0, 20.0))
+
+        qe1[Position] = Position(3.0, 4.0)
+        @test qe1[Position] == Position(3.0, 4.0)
+
+        qe1[(Position, Velocity)] = (Position(5.0, 6.0), Velocity(0.5, 0.6))
+        @test qe1[Position] == Position(5.0, 6.0)
+        @test qe1[Velocity] == Velocity(0.5, 0.6)
+        @test get_components(world, e1, (Position, Velocity)) == (Position(5.0, 6.0), Velocity(0.5, 0.6))
+
+        @test Position in qe1
+        @test (Position, Velocity) in qe1
+
+        @test_throws(
+            "ArgumentError: component Health is not part of the query on (Position, Velocity)",
+            qe2[Health]
+        )
+
+        @test_throws("ArgumentError: relations can be accessed only through a world handle", qe1.rel)
+        @test_throws MethodError add_components!(qe1, (Health(1.0),))
+        @test_throws MethodError remove_components!(qe1, (Velocity,))
+    end
+
+    @testset "Unchecked" begin
+        @unchecked begin
+            @test qe1[Position] == Position(5.0, 6.0)
+            @test Base.getindex(qe1, Position) == Position(5.0, 6.0)
+            qe1[Position] = Position(7.0, 8.0)
+            @test qe1[Position] == Position(7.0, 8.0)
+
+            qe1[(Position, Velocity)] = (Position(9.0, 10.0), Velocity(1.1, 1.2))
+            @test qe1[(Position, Velocity)] == (Position(9.0, 10.0), Velocity(1.1, 1.2))
+        end
+    end
+
+    @testset "Query is not consumed" begin
+        @test query._q_lock.closed == false
+        @test is_locked(world) == true
+
+        count = 0
+        for (entities, positions, velocities) in query
+            count += length(entities)
+        end
+        @test count == 2
+        @test is_locked(world) == false
+    end
+end

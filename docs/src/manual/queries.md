@@ -270,6 +270,35 @@ The world is automatically unlocked when query iteration finishes.
 When breaking out of a query loop, however, it must be unlocked by calling
 [close!](@ref close!(::Query)) on the query.
 
+## Single entity access
+
+Components of a single [Entity](@ref) can also be accessed through a query, without
+iterating it. Only the components of the query are accessible, optional and
+[`Const`](@ref) ones included:
+
+```jldoctest; output = false
+entity = new_entity!(world, (Position(0, 0), Velocity(1, 1)))
+query = Query(world, (Position, Velocity))
+
+pos, vel = get_components(query, entity, (Position, Velocity))
+set_components!(query, entity, (Position(pos.x + vel.dx, pos.y + vel.dy),))
+has_both = has_components(query, entity, (Position, Velocity))
+
+# the same, using an entity handle
+qe = query[entity]
+pos, vel = qe[(Position, Velocity)]
+qe[Position] = Position(pos.x + vel.dx, pos.y + vel.dy)
+
+close!(query)
+
+# output
+
+```
+
+These operations neither iterate nor [close!](@ref close!(::Query)) the query, so the query
+can still be iterated afterwards. As during iteration, the entity must have the components
+which are accessed, and [`Const`](@ref) components can't be set.
+
 ## `Const` components
 
 Components wrapped in [`Const`](@ref) are read-only during query iteration.
