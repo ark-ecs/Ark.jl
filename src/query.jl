@@ -587,7 +587,7 @@ end
     if length(types) == 0
         return :(())
     end
- 
+
     query_types = _query_component_types(QS)
     indices = Int[_query_component_index(query_types, T) for T in types]
 
