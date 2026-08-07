@@ -74,12 +74,6 @@ function DiskVector{T}() where {T}
     return dv
 end
 
-function DiskVector{T}(::UndefInitializer, n::Integer) where {T}
-    dv = DiskVector{T}()
-    resize!(dv, n)
-    return dv
-end
-
 function _finalize_diskvector!(dv::DiskVector)
     @async _cleanup_diskvector_resources!(dv.mem, dv.path)
     return nothing
