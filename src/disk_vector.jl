@@ -45,7 +45,7 @@ function _sweep_stale_ark_sessions!()
         m = match(_ARK_SESSION_REGEX, entry)
         captures = m.captures
         if m !== nothing && captures !== nothing
-            pid = tryparse(Int, captures[1])
+            pid = tryparse(Int, captures[1]::SubString{String})
             if pid !== nothing && isvalidpid(host, pid)
                 continue
             end
