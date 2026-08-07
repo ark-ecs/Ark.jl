@@ -38,7 +38,6 @@ end
     names = fieldnames(C)
     types = fieldtypes(C)
     num_fields = length(types)
-    num_fields == 0 && error("DiskStructArray storage not allowed for components without fields")
 
     vec_types = Expr[:(DiskVector{$t}) for t in types]
     nt_type = :(NamedTuple{$names,Tuple{$(vec_types...)}})
@@ -54,7 +53,6 @@ end
     names = fieldnames(C)
     types = fieldtypes(C)
     num_fields = length(types)
-    num_fields == 0 && error("DiskStructArray storage not allowed for components without fields")
 
     vec_types = Expr[:(DiskVector{$t}) for t in types]
     nt_type = :(NamedTuple{$names,Tuple{$(vec_types...)}})
