@@ -37,11 +37,10 @@ end
 @generated function _DiskStructArray_from_type(::Type{C}) where {C}
     names = fieldnames(C)
     types = fieldtypes(C)
-
+    num_fields = length(types)
     vec_types = Expr[:(DiskVector{$t}) for t in types]
     nt_type = :(NamedTuple{$names,Tuple{$(vec_types...)}})
     kv_exprs = Expr[:($name = DiskVector{$t}()) for (name, t) in zip(names, types)]
-
     return quote
         _check_diskstructarray_type(C)
         DiskStructArray{C,$nt_type,$num_fields}((; $(kv_exprs...)))
@@ -52,10 +51,8 @@ end
     names = fieldnames(C)
     types = fieldtypes(C)
     num_fields = length(types)
-
     vec_types = Expr[:(DiskVector{$t}) for t in types]
     nt_type = :(NamedTuple{$names,Tuple{$(vec_types...)}})
-
     return quote
         DiskStructArray{C,$nt_type,$num_fields}
     end
@@ -64,7 +61,6 @@ end
 @generated function _DiskStructArrayView_type(::Type{C}, ::Type{I}) where {C,I<:AbstractUnitRange{T}} where {T<:Integer}
     names = fieldnames(C)
     types = fieldtypes(C)
-
     subarray_types = Expr[:(SubArray{$t,1,DiskVector{$t},Tuple{I},true}) for t in types]
     nt_type = :(NamedTuple{
         $names,
