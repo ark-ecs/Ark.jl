@@ -43,8 +43,9 @@ function _sweep_stale_ark_sessions!()
     host = gethostname()
     for entry in readdir(TMP_ARK_DIR)
         m = match(_ARK_SESSION_REGEX, entry)
-        if m !== nothing && m.captures !== nothing
-            pid = tryparse(Int, m.captures[1])
+        captures = m.captures
+        if m !== nothing && captures !== nothing
+            pid = tryparse(Int, captures[1])
             if pid !== nothing && isvalidpid(host, pid)
                 continue
             end
