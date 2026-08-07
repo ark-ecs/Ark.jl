@@ -37,7 +37,6 @@ end
 @generated function _DiskStructArray_from_type(::Type{C}) where {C}
     names = fieldnames(C)
     types = fieldtypes(C)
-    num_fields = length(types)
 
     vec_types = Expr[:(DiskVector{$t}) for t in types]
     nt_type = :(NamedTuple{$names,Tuple{$(vec_types...)}})
