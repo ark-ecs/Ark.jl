@@ -62,7 +62,10 @@ end
 end
 
 @testset "tryonly catch" begin
-    @test (Ark.@tryonly error("expected")) === nothing
+    dir = mktempdir()
+    write(joinpath(dir, "keep.txt"), "x")
+    Ark._cleanup_diskvector_resources!(Int[], dir)
+    @test ispath(joinpath(dir, "keep.txt"))
 end
 
 @testset "DiskVector validation" begin
