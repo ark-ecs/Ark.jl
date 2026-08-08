@@ -54,10 +54,7 @@ include("command_buffer.jl")
 !_is_testing() && include("precompile.jl")
 
 function __init__()
-    try
-        _sweep_stale_ark_sessions!()
-    catch
-    end
+    _sweep_stale_ark_sessions!()
     return nothing
 end
 
