@@ -22,6 +22,16 @@ const _ARK_SESSION_DIR = Ref{String}()
 const _ARK_SESSION_DIR_LOCK = ReentrantLock()
 const _ARK_SESSION_REGEX = r"^ark_session_(\d+)_"
 
+macro tryonly(ex)
+    quote
+        try
+            $(esc(ex))
+        catch
+            nothing
+        end
+    end
+end
+
 function _ark_session_dir()
     lock(_ARK_SESSION_DIR_LOCK) do
         if !isassigned(_ARK_SESSION_DIR)
@@ -50,10 +60,7 @@ function _sweep_stale_ark_sessions!()
                 continue
             end
         end
-        try
-            rm(joinpath(TMP_ARK_DIR, entry); recursive=true, force=true)
-        catch
-        end
+        @tryonly rm(joinpath(TMP_ARK_DIR, entry); recursive=true, force=true)
     end
     return nothing
 end
@@ -81,14 +88,8 @@ end
 
 function _cleanup_diskvector_resources!(mem::Vector, path::String)
     if !isempty(path)
-        try
-            finalize(mem)
-        catch
-        end
-        try
-            rm(path; force=true)
-        catch
-        end
+        @tryonly finalize(mem)
+        @tryonly rm(path; force=true)
     end
     return nothing
 end
