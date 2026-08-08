@@ -677,6 +677,7 @@ end
             :(_gpuvector_view($col_sym, 1:($col_sym).len))
         elseif storage_array_types[i] <: StructArray ||
                storage_array_types[i] <: GPUStructArray ||
+               storage_array_types[i] <: DiskStructArray ||
                fieldcount(comp_types[i]) == 0
             :(view($col_sym, :))
         else
@@ -731,6 +732,8 @@ Base.IteratorSize(::Type{<:Query}) = Base.HasLength()
             :(_StructArrayView_type($T, UnitRange{Int}))
         elseif storage_type <: GPUStructArray
             :(_GPUStructArrayView_type($storage_type, UnitRange{Int}))
+        elseif storage_type <: DiskStructArray
+            :(_DiskStructArrayView_type($T, UnitRange{Int}))
         else
             :(_FieldsViewable_type($storage_type))
         end

@@ -558,6 +558,7 @@ end
         )
 
         using FunctionWrappers
+        using Mmap
         excluded = Set([
             FunctionWrappers.gen_fptr,
             Base.unsafe_convert,
@@ -565,7 +566,8 @@ end
         ])
         function_filter(@nospecialize f) = !(f in excluded)
 
-        rep = JET.@report_opt function_filter = function_filter new_entity!(world, (Position(1, 2), Velocity(3, 4)))
+        rep = JET.@report_opt function_filter = function_filter ignored_modules =
+            (AnyFrameModule(Mmap), AnyFrameModule(Base.Filesystem)) new_entity!(world, (Position(1, 2), Velocity(3, 4)))
         reports = filter(!is_known_false_positive, JET.get_reports(rep))
         isempty(reports) || println(reports)
         @test isempty(reports)
@@ -1172,6 +1174,7 @@ end
             Velocity => Storage{StructArray},
         )
         using FunctionWrappers
+        using Mmap
         excluded = Set([
             FunctionWrappers.gen_fptr,
             Base.unsafe_convert,
@@ -1180,7 +1183,8 @@ end
         function_filter(@nospecialize f) = !(f in excluded)
 
         #@test_opt function_filter = function_filter new_entities!(world, 100, (Position, Velocity))
-        rep = JET.@report_opt function_filter = function_filter new_entities!(
+        rep = JET.@report_opt function_filter = function_filter ignored_modules =
+            (AnyFrameModule(Mmap), AnyFrameModule(Base.Filesystem)) new_entities!(
             world,
             100,
             (Position(13, 13), Velocity(13, 13)),
@@ -1422,6 +1426,7 @@ end
             Velocity => Storage{StructArray},
         )
         using FunctionWrappers
+        using Mmap
         excluded = Set([
             FunctionWrappers.gen_fptr,
             Base.unsafe_convert,
@@ -1430,7 +1435,8 @@ end
         function_filter(@nospecialize f) = !(f in excluded)
 
         e1 = new_entity!(world, ())
-        rep = JET.@report_opt function_filter = function_filter add_components!(
+        rep = JET.@report_opt function_filter = function_filter ignored_modules =
+            (AnyFrameModule(Mmap), AnyFrameModule(Base.Filesystem)) add_components!(
             world,
             e1,
             (Position(1, 2), Velocity(3, 4)),

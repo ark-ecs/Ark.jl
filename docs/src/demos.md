@@ -108,3 +108,4 @@ Exploits GPU computing for performance.
 <img alt="NBody demo" src="https://raw.githubusercontent.com/ark-ecs/Ark.jl/refs/heads/gh-images/screenshots/nbody.png" />
 </div>
 ```
+

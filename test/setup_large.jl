@@ -46,6 +46,12 @@ function TestWorld(
         end
     end
     for i in 1:length(storages)
+        if storages[i] == Storage{WrappedVector} && isbitstype(types[i]) && fieldcount(types[i]) > 0
+            storages[i] = Storage{DiskVector}
+            break
+        end
+    end
+    for i in 1:length(storages)
         if storages[i] == Storage{StructArray}
             storages[i] = Storage{GPUStructArray{:CPU}}
         end

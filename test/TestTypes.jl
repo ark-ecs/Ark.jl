@@ -57,6 +57,10 @@ mutable struct Tick
     time::Int
 end
 
+struct DiskRelation
+    weight::Int
+end
+
 struct Position_Mod
     x::Float64
     y::Float64

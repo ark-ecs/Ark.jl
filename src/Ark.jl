@@ -2,12 +2,15 @@ module Ark
 
 using Adapt
 using FieldViews
+using FileWatching
+using Mmap
 using Preferences
 using StaticArrays
 using FunctionWrappers: FunctionWrapper
 using Random
 
 const THREAD_SAFE_LOCK = @load_preference("THREAD_SAFE_LOCK", default = "true")
+const TMP_ARK_DIR = @load_preference("TMP_ARK_DIR", default = joinpath(@__DIR__, "tmp_ark"))
 
 isdefined(@__MODULE__, :Memory) || const Memory = Vector # Compat for Julia < 1.11
 
@@ -19,6 +22,8 @@ include("collections.jl")
 include("structarray.jl")
 include("gpu_vector.jl")
 include("gpu_structarray.jl")
+include("disk_vector.jl")
+include("disk_structarray.jl")
 include("structarray_interface.jl")
 include("fieldsview.jl")
 include("entity.jl")
@@ -47,6 +52,11 @@ include("handle.jl")
 include("unchecked.jl")
 include("command_buffer.jl")
 !_is_testing() && include("precompile.jl")
+
+function __init__()
+    _sweep_stale_ark_sessions!()
+    return nothing
+end
 
 #include("docs.jl") # doctest setup
 
@@ -86,6 +96,6 @@ export SetComponentsCommand, SetRelationsCommand
 
 export Relation
 
-export Storage, StructArray, GPUStructArray, GPUVector
+export Storage, StructArray, GPUStructArray, GPUVector, DiskVector, DiskStructArray
 
 end

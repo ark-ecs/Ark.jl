@@ -126,6 +126,8 @@ For these columns, Ark offers storage types for both CPU anf GPU computing by de
 
 ### CPU Storages
 
+#### In-Memory Storages
+
 - **Vector storage** stores components in a simple vector per column. This is the default.
 
 - **[StructArray](@ref) storage** stores components in an SoA data structure similar to  
@@ -138,7 +140,26 @@ For these columns, Ark offers storage types for both CPU anf GPU computing by de
   - ≈10-20% runtime overhead for component operations and entity creation.
   - Slower component access with [get_components](@ref get_components(::World, ::Entity, ::Tuple)) and [set_components!](@ref set_components!(::World, ::Entity, ::Tuple)).
 
+#### Disk-Backed Storages
+
+- **[DiskVector](@ref) storage** stores components in temporary memory-mapped files on disk.
+  It can be useful for large component columns that cannot be backed by ordinary
+  Julia heap arrays. [DiskVector](@ref) is working storage, not persistent world serialization:
+  files are managed by Ark and removed automatically when the storage is garbage-collected.
+  [DiskVector](@ref) storage has some limitations:
+  - Only allowed for isbits component types.
+  - Not allowed for zero-size component types, like label components.
+
+- **[DiskStructArray](@ref) storage** stores components in an SoA data structure like
+  [StructArray](@ref), with each field vector backed by a [DiskVector](@ref).
+  It combines the field-vector access of [StructArray](@ref) storage in [queries](@ref Queries)
+  with the out-of-core storage of [DiskVector](@ref).
+  The limitations of both [StructArray](@ref) and [DiskVector](@ref) storage apply,
+  with the isbits and nonzero-size requirements holding for each field of the component.
+
 ### GPU Storages
+
+#### Unified Memory Storages
 
 - **[GPUVector](@ref) storage** stores components using unified memory for mixed CPU/GPU operations. [GPUVector](@ref) is compatible with CUDA.jl, Metal.jl, oneAPI.jl or OpenCL.jl, and with a device-less CPU backend. Mutable components are not allowed.
 
@@ -153,11 +174,12 @@ The storage mode can be selected per component type by using the [Storage](@ref)
 world = World(
     Position => Storage{Vector},
     Velocity => Storage{StructArray},
+    Health => Storage{DiskVector},
 )
 
 # output
 
-World(entities=0, comp_types=(Position, Velocity))
+World(entities=0, comp_types=(Position, Velocity, Health))
 ```
 
 The default is `Storage{Vector}` if no storage mode is specified:
@@ -227,4 +249,3 @@ World(entities=0, comp_types=(Position, Velocity))
 ```
 
 All the methods in the example need to be defined, along with the empty constructor.
-
