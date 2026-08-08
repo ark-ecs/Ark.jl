@@ -61,6 +61,10 @@ end
     )
 end
 
+@testset "tryonly catch" begin
+    @test (Ark.@tryonly error("expected")) === nothing
+end
+
 @testset "DiskVector validation" begin
     @test_throws(
         "ArgumentError: DiskVector storage requires an isbits component type, got NoIsBits",
