@@ -231,10 +231,6 @@ function Base.unsafe_copyto!(
     return dest
 end
 
-function Base.similar(::DiskVector{T}) where {T}
-    return DiskVector{T}()
-end
-
 function Base.similar(::DiskVector, ::Type{T}, dims::Dims{1}) where {T}
     dv = DiskVector{T}()
     resize!(dv, dims[1])
