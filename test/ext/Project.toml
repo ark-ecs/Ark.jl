@@ -20,7 +20,7 @@ Ark = {path = "../.."}
 [compat]
 Mooncake = "0.4, 0.5"
 DifferentiationInterface = "0.7"
-Enzyme = "0.13"
+Enzyme = "0.13.199"
 FiniteDiff = "2"
 FiniteDifferences = "0.12"
 GTPSA = "1"
