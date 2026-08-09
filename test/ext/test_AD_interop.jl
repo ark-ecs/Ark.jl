@@ -143,7 +143,8 @@ using ReverseDiff
             ("GTPSA", AutoGTPSA()),
             ("PolyesterForwardDiff", AutoPolyesterForwardDiff()),
             ("ReverseDiff", AutoReverseDiff()),
-            ("Enzyme (Reverse)", AutoEnzyme(mode=Enzyme.set_runtime_activity(Enzyme.Reverse))),
+            ("Enzyme", AutoEnzyme(mode=Enzyme.set_runtime_activity(Enzyme.Reverse))),
+            ("EnzymeForward", AutoEnzyme(mode=Enzyme.set_runtime_activity(Enzyme.Forward))),
         )
             @testset "$name" begin
                 println("Gradient TTFX with $name")
