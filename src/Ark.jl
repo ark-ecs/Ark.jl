@@ -98,4 +98,6 @@ export Relation
 
 export Storage, StructArray, GPUStructArray, GPUVector, DiskVector, DiskStructArray
 
+export shallow_copy
+
 end

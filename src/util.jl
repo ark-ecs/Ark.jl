@@ -142,7 +142,7 @@ function _format_type_parameter(x)
     return sprint(show, x)
 end
 
-@generated function _shallow_copy(x::T) where T
+@generated function shallow_copy(x::T) where T
     if T == Symbol || T == String
         return :(x)
     end
