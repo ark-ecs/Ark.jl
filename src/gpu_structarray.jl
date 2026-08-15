@@ -9,6 +9,11 @@ When passed as a storage the back-end must be specified (either :CUDA, :Metal,
 As for [`GPUVector`](@ref), the `:CPU` back-end is always available and stores
 each field in a plain `Vector`.
 
+As for [`GPUVector`](@ref), the storage can be pinned to a specific device on
+back-ends with more than one, by pairing the back-end with a zero-based device
+ordinal, like `(:CUDA, 1)` for the second GPU of the system, or by passing a
+device object through `Storage(GPUStructArray{:CUDA}, device)`.
+
 # Examples
 
 ```julia
@@ -17,6 +22,24 @@ using CUDA
 world = World(
     Position => Storage{GPUStructArray{:CUDA}},
     Velocity => Storage{GPUStructArray{:CUDA}},
+)
+```
+
+```julia
+using CUDA
+
+world = World(
+    Position => Storage{GPUStructArray{(:CUDA, 1)}},
+    Velocity => Storage{GPUStructArray{(:CUDA, 1)}},
+)
+```
+
+```julia
+using CUDA
+
+world = World(
+    Position => Storage(GPUStructArray{:CUDA}, CuDevice(1)),
+    Velocity => Storage(GPUStructArray{:CUDA}, CuDevice(1)),
 )
 ```
 
@@ -97,4 +120,9 @@ end
     return quote
         StructArrayView{C,$nt_type}((; $(view_exprs...)))
     end
+end
+
+function Storage(::Type{GPUStructArray{B}}, device) where {B}
+    _gpuvector_device_check(B)
+    return Storage{GPUStructArray{(B, _gpuvector_ordinal(device))}}()
 end

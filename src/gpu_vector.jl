@@ -11,6 +11,16 @@ The `:CPU` back-end is always available and stores the elements in a plain
 `Vector`. It requires no GPU package and is useful for testing and for running
 GPU-shaped code on machines without a device.
 
+On back-ends with more than one device, the storage can be pinned to a specific
+device by pairing the back-end with a zero-based device ordinal, like
+`(:CUDA, 1)` for the second GPU of the system. Alternatively, a device object
+can be passed through `Storage(GPUVector{:CUDA}, device)`, which is translated
+into the ordinal-based form. All memory of the storage is then allocated on that
+device, including re-allocations during growth. Device selection is currently
+supported for the :CUDA, :Metal and :oneAPI back-ends. Kernels operating on the
+components still have to be launched on the matching device (e.g. by using
+`CUDA.device!`).
+
 # Examples
 
 ```
@@ -19,6 +29,24 @@ using CUDA
 world = World(
     Position => Storage{GPUVector{:CUDA}},
     Velocity => Storage{GPUVector{:CUDA}},
+)
+```
+
+```
+using CUDA
+
+world = World(
+    Position => Storage{GPUVector{(:CUDA, 1)}},
+    Velocity => Storage{GPUVector{(:CUDA, 1)}},
+)
+```
+
+```
+using CUDA
+
+world = World(
+    Position => Storage(GPUVector{:CUDA}, CuDevice(1)),
+    Velocity => Storage(GPUVector{:CUDA}, CuDevice(1)),
 )
 ```
 
@@ -39,8 +67,53 @@ function _gpuvector_type end
 
 _gpuvector_type(::Type{T}, ::Val{:CPU}) where {T} = Vector{T}
 
+function _gpuvector_type(::Type{T}, v::Val{B}) where {T,B}
+    if B isa Tuple{Symbol,<:Integer}
+        return _gpuvector_type(T, Val{B[1]}())
+    end
+    throw(MethodError(_gpuvector_type, (T, v)))
+end
+
 function _gpu_backend(::Type{<:GPUVector{B}}) where {B}
     return B
+end
+
+function _gpuvector_device end
+
+function _gpuvector_device(::Val{B}) where {B}
+    B isa Tuple{Symbol,<:Integer} && return _gpuvector_pinned_device(Val{B[1]}(), B[2])
+    return nothing
+end
+
+function _gpuvector_pinned_device end
+
+function _gpuvector_pinned_device(::Val{B}, ::Integer) where {B}
+    throw(ArgumentError(lazy"GPU device selection is not supported for the $B back-end"))
+end
+
+function _gpuvector_withdev end
+
+@inline _gpuvector_withdev(f, ::Nothing) = f()
+
+function _gpuvector_ordinal end
+
+function _gpuvector_ordinal(device)
+    throw(ArgumentError(lazy"GPU device lookup is not supported for devices of type $(typeof(device))"))
+end
+
+@inline function _gpuvector_device_check(B)
+    B isa Tuple{Symbol,<:Integer} &&
+        throw(ArgumentError("storage is already pinned to a GPU device"))
+    return
+end
+
+function Storage(::Type{GPUVector{B}}, device) where {B}
+    _gpuvector_device_check(B)
+    return Storage{GPUVector{(B, _gpuvector_ordinal(device))}}()
+end
+
+function Storage(::Type{A}, device) where {A<:AbstractVector}
+    throw(ArgumentError(lazy"storage mode $A does not support GPU device selection"))
 end
 
 function _gpuvectorview_type(::Type{GPUVector{B,T,M}}) where {B,T,M}
@@ -59,7 +132,9 @@ function GPUVector{B,T,M}(mem::M, len::Integer) where {B,T,M}
 end
 
 function GPUVector{B,T,M}() where {B,T,M}
-    return GPUVector{B,T,M}(M(), 0)
+    dev = _gpuvector_device(Val{B}())
+    mem = _gpuvector_withdev(() -> M(undef, 0), dev)
+    return GPUVector{B,T,M}(mem, 0)
 end
 
 Base.size(gv::GPUVector) = (length(gv),)
@@ -76,13 +151,17 @@ Base.@propagate_inbounds function Base.setindex!(gv::GPUVector, v, i::Int)
     return v
 end
 
-function _resize_mem!(gv::GPUVector, new_len::Integer)
+function _resize_mem!(gv::GPUVector{B}, new_len::Integer) where {B}
     if length(gv.mem) < new_len
         new_cap = max(new_len, 2 * length(gv.mem))
-        new_mem = typeof(gv.mem)(undef, new_cap)
-        copyto!(new_mem, 1, gv.mem, 1, length(gv))
-        gv.mem = new_mem
-        gv.host = _gpuvector_hostwrap(new_mem)
+        dev = _gpuvector_device(Val{B}())
+        _gpuvector_withdev(dev) do
+            new_mem = typeof(gv.mem)(undef, new_cap)
+            unsafe_copyto!(new_mem, 1, gv.mem, 1, length(gv))
+            gv.mem = new_mem
+            gv.host = _gpuvector_hostwrap(new_mem)
+            return nothing
+        end
     end
     return
 end
@@ -116,23 +195,37 @@ function Base.sizehint!(gv::GPUVector, new_len::Integer)
     return gv
 end
 
+@inline function _gpuvector_copy_bounds(dest, doffs::Integer, src, soffs::Integer, n::Integer)
+    n < 0 && throw(ArgumentError("Can't copy a negative number of elements"))
+    if doffs < 1 || doffs + n - 1 > length(dest) || soffs < 1 || soffs + n - 1 > length(src)
+        throw(BoundsError((dest, src), (doffs, soffs)))
+    end
+    return
+end
+
 function Base.copyto!(gv::GPUVector, doffs::Integer, src::AbstractVector, soffs::Integer, n::Integer)
+    n == 0 && return gv
+    _gpuvector_copy_bounds(gv, doffs, src, soffs, n)
     copyto!(gv.host, doffs, src, soffs, n)
     return gv
 end
 
 function Base.copyto!(gv::GPUVector, doffs::Integer, src::GPUVector, soffs::Integer, n::Integer)
-    copyto!(gv.host, doffs, src.host, soffs, n)
+    n == 0 && return gv
+    _gpuvector_copy_bounds(gv, doffs, src, soffs, n)
+    unsafe_copyto!(gv, doffs, src, soffs, n)
     return gv
 end
 
 function Base.unsafe_copyto!(gv::GPUVector, doffs::Integer, src::GPUVector, soffs::Integer, n::Integer)
-    unsafe_copyto!(gv.host, doffs, src.host, soffs, n)
+    unsafe_copyto!(gv.mem, doffs, src.mem, soffs, n)
     return gv
 end
 
 function Base.similar(gv::GPUVector{B,T,M}, ::Type{T}, size::Dims{1}) where {B,T,M}
-    return GPUVector{B,T,M}(M(undef, size), size[1])
+    dev = _gpuvector_device(Val{B}())
+    mem = _gpuvector_withdev(() -> M(undef, size[1]), dev)
+    return GPUVector{B,T,M}(mem, size[1])
 end
 
 Base.IndexStyle(::Type{<:GPUVector}) = IndexLinear()

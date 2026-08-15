@@ -220,6 +220,35 @@ world = World(
 World(entities=0, comp_types=(Position, Velocity))
 ```
 
+On back-ends with more than one GPU, a specific device can be selected by pairing the
+back-end with a zero-based device ordinal, like `(:CUDA, 1)` for the second GPU of the system:
+
+```julia
+using CUDA
+
+world = World(
+    Position => Storage{GPUVector{(:CUDA, 1)}},
+    Velocity => Storage{GPUStructArray{(:CUDA, 1)}},
+)
+```
+
+Instead of the ordinal, the device object itself can be passed, and is translated
+into the ordinal-based storage form:
+
+```julia
+using CUDA
+
+world = World(
+    Position => Storage(GPUVector{:CUDA}, CuDevice(1)),
+    Velocity => Storage(GPUStructArray{:CUDA}, CuDevice(1)),
+)
+```
+
+All memory of these storages is allocated on the selected device, including
+re-allocations during growth. Device selection is currently supported for the
+`:CUDA`, `:Metal` and `:oneAPI` back-ends. Kernels operating on the components
+still have to be launched on the matching device (e.g. via `CUDA.device!`).
+
 ## [User-defined component storages](@id new-component-storages)
 
 New storage modes can be created by the user. The new storage must be a one-indexed subtype of `AbstractVector` and must implement its required interface along with some optional methods. A complete example of a custom type is this one:
