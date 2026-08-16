@@ -1,7 +1,7 @@
 
-mutable struct _EntityPool
-    const gens::Vector{UInt32}   # slot k = current generation (all slots)
-    const free::Vector{UInt32}   # stack of free ids (free slots only)
+struct _EntityPool
+    gens::Vector{UInt32}   # slot k = current generation (all slots)
+    free::Vector{UInt32}   # stack of free ids (free slots only)
 end
 
 function _EntityPool(cap::UInt32)
