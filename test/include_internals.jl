@@ -25,6 +25,7 @@ using Ark: DiskStructArray, _DiskStructArray_type, _DiskStructArrayView_type
 using Ark: GPUVectorView, _gpuvector_type, _gpuvector_hostwrap, _gpuvector_view
 using Ark: _gpuvector_device, _gpuvector_pinned_device, _gpuvector_withdev
 using Ark: _gpuvector_ordinal
+using Ark: _GPUDevice
 using Ark: Adapt
 using Ark: _format_type, _state, _storage
 using Ark: _IdCollection, _add_id!, _remove_id!, _get_table, _new_table, _no_entity

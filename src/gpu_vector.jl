@@ -14,12 +14,10 @@ GPU-shaped code on machines without a device.
 On back-ends with more than one device, the storage can be pinned to a specific
 device by passing a device object to the storage, like
 `Storage(GPUVector{:CUDA}, CuDevice(1))` for the second GPU of the system.
-Alternatively, the back-end can be paired with a zero-based device ordinal, like
-`Storage(GPUVector{(:CUDA, 1)})`. All memory of the storage is then allocated on
-that device, including re-allocations during growth. Device selection is
-currently supported for the :CUDA, :Metal and :oneAPI back-ends. Kernels
-operating on the components still have to be launched on the matching device
-(e.g. by using `CUDA.device!`).
+All memory of the storage is then allocated on that device, including
+re-allocations during growth. Device selection is currently supported for the
+:CUDA, :Metal and :oneAPI back-ends. Kernels operating on the components still
+have to be launched on the matching device (e.g. by using `CUDA.device!`).
 
 # Examples
 
@@ -42,15 +40,6 @@ world = World(
 ```
 
 ```
-using CUDA
-
-world = World(
-    Position => Storage(GPUVector{(:CUDA, 1)}),
-    Velocity => Storage(GPUVector{(:CUDA, 1)}),
-)
-```
-
-```
 world = World(
     Position => Storage(GPUVector{:CPU}),
     Velocity => Storage(GPUVector{:CPU}),
@@ -63,13 +52,20 @@ mutable struct GPUVector{B,T,M} <: AbstractVector{T}
     len::Int
 end
 
+# Internal marker for a GPU back-end pinned to a specific device, produced by
+# `Storage(GPUVector{:CUDA}, device)`. Users do not write this type directly.
+struct _GPUDevice{B,D} end
+
+_gpu_backend_symbol(::Type{_GPUDevice{B,D}}) where {B,D} = B
+_gpu_device_ordinal(::Type{_GPUDevice{B,D}}) where {B,D} = D
+
 function _gpuvector_type end
 
 _gpuvector_type(::Type{T}, ::Val{:CPU}) where {T} = Vector{T}
 
 function _gpuvector_type(::Type{T}, v::Val{B}) where {T,B}
-    if B isa Tuple{Symbol,<:Integer}
-        return _gpuvector_type(T, Val{B[1]}())
+    if B isa Type && B <: _GPUDevice
+        return _gpuvector_type(T, Val{_gpu_backend_symbol(B)}())
     end
     throw(MethodError(_gpuvector_type, (T, v)))
 end
@@ -81,7 +77,9 @@ end
 function _gpuvector_device end
 
 function _gpuvector_device(::Val{B}) where {B}
-    B isa Tuple{Symbol,<:Integer} && return _gpuvector_pinned_device(Val{B[1]}(), B[2])
+    if B isa Type && B <: _GPUDevice
+        return _gpuvector_pinned_device(Val{_gpu_backend_symbol(B)}(), _gpu_device_ordinal(B))
+    end
     return nothing
 end
 
@@ -102,14 +100,18 @@ function _gpuvector_ordinal(device)
 end
 
 @inline function _gpuvector_device_check(B)
-    B isa Tuple{Symbol,<:Integer} &&
+    (B isa Tuple{Symbol,<:Integer} || (B isa Type && B <: _GPUDevice)) &&
         throw(ArgumentError("storage is already pinned to a GPU device"))
     return
 end
 
+function Storage(::Type{GPUVector{B}}) where {B}
+    return Storage{GPUVector{B}}
+end
+
 function Storage(::Type{GPUVector{B}}, device) where {B}
     _gpuvector_device_check(B)
-    return Storage{GPUVector{(B, _gpuvector_ordinal(device))}}
+    return Storage{GPUVector{_GPUDevice{B,_gpuvector_ordinal(device)}}}
 end
 
 function Storage(::Type{A}, device) where {A<:AbstractVector}

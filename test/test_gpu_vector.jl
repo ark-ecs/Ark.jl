@@ -212,30 +212,24 @@ end
     @test dest[1] == 7 && dest[2] == 8
 end
 
+struct _TestGPUDevice end
+Ark._gpuvector_ordinal(::_TestGPUDevice) = 1
+
 @testset "GPUVector device selection" begin
     @test _gpuvector_device(Val{:CPU}()) === nothing
     @test _gpuvector_withdev(() -> 42, nothing) == 42
 
-    @test _gpuvector_type(Int, Val{(:CPU, 0)}()) == Vector{Int}
-    @test_throws ArgumentError _gpuvector_device(Val{(:CPU, 0)}())
-    @test_throws ArgumentError _gpuvector_device(Val{(:OpenCL, 0)}())
+    @test _gpuvector_type(Int, Val{:CPU}()) == Vector{Int}
+    @test _gpuvector_type(Int, Val{_GPUDevice{:CPU, 0}}()) == Vector{Int}
+    @test_throws MethodError _gpuvector_type(Int, Val{(:CPU, 0)}())
+    @test_throws ArgumentError _gpuvector_device(Val{_GPUDevice{:CPU, 0}}())
+    @test_throws ArgumentError _gpuvector_device(Val{_GPUDevice{:OpenCL, 0}}())
 
-    @test_throws ArgumentError TestWorld(A => Storage(GPUVector{(:CPU, 0)}))
-    @test_throws ArgumentError TestWorld(A => Storage(GPUStructArray{(:CPU, 0)}))
+    @test_throws ArgumentError TestWorld(A => Storage(GPUVector{:CPU}, _TestGPUDevice()))
+    @test_throws ArgumentError TestWorld(A => Storage(GPUStructArray{:CPU}, _TestGPUDevice()))
 end
 
-if !@isdefined(_TestGPUDevice)
-    struct _TestGPUDevice end
-    Ark._gpuvector_ordinal(::_TestGPUDevice) = 1
-end
-
-# A back-end registered after Ark has been loaded, as done by the GPU back-end
-# extensions. The storage types of a world must not depend on such back-ends at
-# world-construction time, as generated code cannot dispatch to methods that are
-# only added later (world age).
-if !@isdefined(_TestRuntimeBackend)
-    struct _TestRuntimeBackend end
-end
+struct _TestRuntimeBackend end
 Ark._gpuvector_type(::Type{T}, ::Val{:RUNTIME}) where {T} = Vector{T}
 
 @testset "GPU back-end registered at runtime (world age)" begin
@@ -247,17 +241,15 @@ Ark._gpuvector_type(::Type{T}, ::Val{:RUNTIME}) where {T} = Vector{T}
     new_entity!(w, (A(2.0),))
     @test collect(Query(w, (A,)))[1][2][1] == A(2.0)
 
-    @test_throws ArgumentError TestWorld(A => Storage(GPUVector{(:RUNTIME, 1)}))
+    @test_throws ArgumentError TestWorld(A => Storage(GPUVector{:RUNTIME}, _TestGPUDevice()))
 end
 
 @testset "GPUVector device normalization" begin
     s = Storage(GPUVector{:CPU}, _TestGPUDevice())
-    @test s == Storage(GPUVector{(:CPU, 1)})
+    @test s == Storage{GPUVector{_GPUDevice{:CPU, 1}}}
     s = Storage(GPUStructArray{:CPU}, _TestGPUDevice())
-    @test s == Storage(GPUStructArray{(:CPU, 1)})
+    @test s == Storage{GPUStructArray{_GPUDevice{:CPU, 1}}}
 
-    @test_throws ArgumentError Storage(GPUVector{(:CPU, 0)}, _TestGPUDevice())
-    @test_throws ArgumentError Storage(GPUStructArray{(:CPU, 0)}, _TestGPUDevice())
     @test_throws ArgumentError Storage(GPUVector{:CPU}, :unknown_device)
     @test_throws ArgumentError Storage(GPUVector{:CPU,Int,Vector{Int}}, _TestGPUDevice())
     @test_throws ArgumentError Storage(Vector, _TestGPUDevice())

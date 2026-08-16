@@ -11,8 +11,7 @@ each field in a plain `Vector`.
 
 As for [`GPUVector`](@ref), the storage can be pinned to a specific device on
 back-ends with more than one, by passing a device object to the storage, like
-`Storage(GPUStructArray{:CUDA}, CuDevice(1))`, or by pairing the back-end with a
-zero-based device ordinal, like `Storage(GPUStructArray{(:CUDA, 1)})`.
+`Storage(GPUStructArray{:CUDA}, CuDevice(1))` for the second GPU of the system.
 
 # Examples
 
@@ -31,15 +30,6 @@ using CUDA
 world = World(
     Position => Storage(GPUStructArray{:CUDA}, CuDevice(1)),
     Velocity => Storage(GPUStructArray{:CUDA}, CuDevice(1)),
-)
-```
-
-```julia
-using CUDA
-
-world = World(
-    Position => Storage(GPUStructArray{(:CUDA, 1)}),
-    Velocity => Storage(GPUStructArray{(:CUDA, 1)}),
 )
 ```
 
@@ -122,7 +112,11 @@ end
     end
 end
 
+function Storage(::Type{GPUStructArray{B}}) where {B}
+    return Storage{GPUStructArray{B}}
+end
+
 function Storage(::Type{GPUStructArray{B}}, device) where {B}
     _gpuvector_device_check(B)
-    return Storage{GPUStructArray{(B, _gpuvector_ordinal(device))}}
+    return Storage{GPUStructArray{_GPUDevice{B,_gpuvector_ordinal(device)}}}
 end

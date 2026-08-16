@@ -232,18 +232,6 @@ world = World(
 )
 ```
 
-Alternatively, the back-end can be paired with a zero-based device ordinal, like
-`(:CUDA, 1)`, which the device object is translated into:
-
-```julia
-using CUDA
-
-world = World(
-    Position => Storage(GPUVector{(:CUDA, 1)}),
-    Velocity => Storage(GPUStructArray{(:CUDA, 1)}),
-)
-```
-
 All memory of these storages is allocated on the selected device, including
 re-allocations during growth. Device selection is currently supported for the
 `:CUDA`, `:Metal` and `:oneAPI` back-ends. Kernels operating on the components

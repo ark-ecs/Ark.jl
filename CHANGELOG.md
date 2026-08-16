@@ -9,10 +9,9 @@
 - Adds `DiskVector` and `DiskStructArray` to use the disk for components in very large simulations (#656).
 - Adds `GPUVector{:CPU}` and `GPUStructArray{:CPU}` to use a GPU storage on devices
   which do not have a GPU (#701).
-- Adds GPU device selection for GPU storages: the back-end can be paired with a
-  zero-based device ordinal, like `Storage{GPUVector{(:CUDA, 1)}}`, or a device
-  object can be passed directly, like `Storage(GPUVector{:CUDA}, CuDevice(1))`.
-  All memory of the storage is then allocated on that device, including
+- Adds GPU device selection for GPU storages: a device object can be passed to the
+  storage, like `Storage(GPUVector{:CUDA}, CuDevice(1))`, to pin it to a specific
+  device. All memory of the storage is then allocated on that device, including
   re-allocations during growth. Supported for the :CUDA, :Metal and :oneAPI back-ends.
 - Adds the `boxed` keyword argument to the world constructor, which cuts the compilation cost of Ark, at the price of some slowdown in performance.
 - Adds `get_components`, `set_components!` and `has_components` for a `Query`, to access the
@@ -22,8 +21,7 @@
 ### Breaking changes
 
 - Storage modes are now specified with `Storage(...)` instead of `Storage{...}`, e.g.
-  `World(Position => Storage(StructArray))`. The `Storage{...}` type is now an internal
-  detail, while `Storage(x)` returns the same value.
+  `World(Position => Storage(StructArray))`.
 - `unregister!` and `register!` now require the world as an argument (#660).
 - API functions for `Query` and `Filter` now require the world as an argument (#662).
 - `length` for a filter has been renamed to `count_tables` (#662).
