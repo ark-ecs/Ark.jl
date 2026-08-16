@@ -212,24 +212,28 @@ end
     @test dest[1] == 7 && dest[2] == 8
 end
 
-struct _TestGPUDevice end
-Ark._gpuvector_ordinal(::_TestGPUDevice) = 1
+if !@isdefined(_TestGPUDevice)
+    struct _TestGPUDevice end
+    Ark._gpuvector_ordinal(::_TestGPUDevice) = 1
+end
 
 @testset "GPUVector device selection" begin
     @test _gpuvector_device(Val{:CPU}()) === nothing
     @test _gpuvector_withdev(() -> 42, nothing) == 42
 
     @test _gpuvector_type(Int, Val{:CPU}()) == Vector{Int}
-    @test _gpuvector_type(Int, Val{_GPUDevice{:CPU, 0}}()) == Vector{Int}
+    @test _gpuvector_type(Int, Val{_GPUDevice{:CPU,0}}()) == Vector{Int}
     @test_throws MethodError _gpuvector_type(Int, Val{(:CPU, 0)}())
-    @test_throws ArgumentError _gpuvector_device(Val{_GPUDevice{:CPU, 0}}())
-    @test_throws ArgumentError _gpuvector_device(Val{_GPUDevice{:OpenCL, 0}}())
+    @test_throws ArgumentError _gpuvector_device(Val{_GPUDevice{:CPU,0}}())
+    @test_throws ArgumentError _gpuvector_device(Val{_GPUDevice{:RUNTIME,0}}())
 
     @test_throws ArgumentError TestWorld(A => Storage(GPUVector{:CPU}, _TestGPUDevice()))
     @test_throws ArgumentError TestWorld(A => Storage(GPUStructArray{:CPU}, _TestGPUDevice()))
 end
 
-struct _TestRuntimeBackend end
+if !@isdefined(_TestRuntimeBackend)
+    struct _TestRuntimeBackend end
+end
 Ark._gpuvector_type(::Type{T}, ::Val{:RUNTIME}) where {T} = Vector{T}
 
 @testset "GPU back-end registered at runtime (world age)" begin
@@ -246,9 +250,9 @@ end
 
 @testset "GPUVector device normalization" begin
     s = Storage(GPUVector{:CPU}, _TestGPUDevice())
-    @test s == Storage{GPUVector{_GPUDevice{:CPU, 1}}}
+    @test s == Storage{GPUVector{_GPUDevice{:CPU,1}}}
     s = Storage(GPUStructArray{:CPU}, _TestGPUDevice())
-    @test s == Storage{GPUStructArray{_GPUDevice{:CPU, 1}}}
+    @test s == Storage{GPUStructArray{_GPUDevice{:CPU,1}}}
 
     @test_throws ArgumentError Storage(GPUVector{:CPU}, :unknown_device)
     @test_throws ArgumentError Storage(GPUVector{:CPU,Int,Vector{Int}}, _TestGPUDevice())

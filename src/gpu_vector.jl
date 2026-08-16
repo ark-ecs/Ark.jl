@@ -16,7 +16,7 @@ device by passing a device object to the storage, like
 `Storage(GPUVector{:CUDA}, CuDevice(1))` for the second GPU of the system.
 All memory of the storage is then allocated on that device, including
 re-allocations during growth. Device selection is currently supported for the
-:CUDA, :Metal and :oneAPI back-ends. Kernels operating on the components still
+:CUDA, :Metal, :oneAPI and :OpenCL back-ends. Kernels operating on the components still
 have to be launched on the matching device (e.g. by using `CUDA.device!`).
 
 # Examples
@@ -123,7 +123,8 @@ function _gpuvectorview_type(::Type{<:GPUVector{B,T}}) where {B,T}
 end
 
 @inline function _new_gpuvector_storage(B, ::Type{T}) where {T}
-    return GPUVector{B,T,_gpuvector_type(T, Val{B}())}()
+    dev = _gpuvector_device(Val{B}())
+    return _gpuvector_withdev(() -> GPUVector{B,T,_gpuvector_type(T, Val{B}())}(), dev)
 end
 
 function _gpuvector_hostwrap(mem::AbstractVector)

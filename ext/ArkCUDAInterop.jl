@@ -16,10 +16,7 @@ function Ark._gpuvector_pinned_device(::Val{:CUDA}, ordinal::Integer)
 end
 
 function Ark._gpuvector_ordinal(dev::CuDevice)
-    ordinal = CUDA.deviceid(dev)
-    0 <= ordinal < length(CUDA.devices()) ||
-        throw(ArgumentError("device not found among the CUDA devices"))
-    return ordinal
+    return CUDA.deviceid(dev)
 end
 
 function Ark._gpuvector_withdev(f, dev::CuDevice)

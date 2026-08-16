@@ -12,7 +12,7 @@
 - Adds GPU device selection for GPU storages: a device object can be passed to the
   storage, like `Storage(GPUVector{:CUDA}, CuDevice(1))`, to pin it to a specific
   device. All memory of the storage is then allocated on that device, including
-  re-allocations during growth. Supported for the :CUDA, :Metal and :oneAPI back-ends.
+  re-allocations during growth. Supported for the :CUDA, :Metal, :oneAPI and :OpenCL back-ends.
 - Adds the `boxed` keyword argument to the world constructor, which cuts the compilation cost of Ark, at the price of some slowdown in performance.
 - Adds `get_components`, `set_components!` and `has_components` for a `Query`, to access the
   components of a query for a single entity without iterating or closing the query.

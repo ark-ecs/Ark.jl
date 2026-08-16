@@ -234,7 +234,7 @@ world = World(
 
 All memory of these storages is allocated on the selected device, including
 re-allocations during growth. Device selection is currently supported for the
-`:CUDA`, `:Metal` and `:oneAPI` back-ends. Kernels operating on the components
+`:CUDA`, `:Metal`, `:oneAPI` and `:OpenCL` back-ends. Kernels operating on the components
 still have to be launched on the matching device (e.g. via `CUDA.device!`).
 
 ## [User-defined component storages](@id new-component-storages)
