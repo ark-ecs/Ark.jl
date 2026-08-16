@@ -109,15 +109,19 @@ end
 
 function Storage(::Type{GPUVector{B}}, device) where {B}
     _gpuvector_device_check(B)
-    return Storage{GPUVector{(B, _gpuvector_ordinal(device))}}()
+    return Storage{GPUVector{(B, _gpuvector_ordinal(device))}}
 end
 
 function Storage(::Type{A}, device) where {A<:AbstractVector}
     throw(ArgumentError(lazy"storage mode $A does not support GPU device selection"))
 end
 
-function _gpuvectorview_type(::Type{GPUVector{B,T,M}}) where {B,T,M}
-    return GPUVectorView{B,T,GPUVector{B,T,M},SubArray{T,1,Vector{T},Tuple{UnitRange{Int}},true}}
+function _gpuvectorview_type(::Type{<:GPUVector{B,T}}) where {B,T}
+    return GPUVectorView{B,T,GPUVector{B,T},SubArray{T,1,Vector{T},Tuple{UnitRange{Int}},true}}
+end
+
+@inline function _new_gpuvector_storage(B, ::Type{T}) where {T}
+    return GPUVector{B,T,_gpuvector_type(T, Val{B}())}()
 end
 
 function _gpuvector_hostwrap(mem::AbstractVector)
@@ -236,10 +240,10 @@ struct GPUVectorView{B,T,GV<:GPUVector,HV<:AbstractVector{T}} <: AbstractVector{
     host::HV
 end
 
-function _gpuvector_view(gv::GPUVector{B,T,M}, rng::AbstractUnitRange) where {B,T,M}
+function _gpuvector_view(gv::GPUVector{B,T}, rng::AbstractUnitRange) where {B,T}
     r = UnitRange{Int}(rng)
     hv = view(gv.host, r)
-    GPUVectorView{B,T,typeof(gv),typeof(hv)}(gv, r, hv)
+    GPUVectorView{B,T,GPUVector{B,T},typeof(hv)}(gv, r, hv)
 end
 
 function Adapt.adapt_structure(to, v::GPUVectorView)

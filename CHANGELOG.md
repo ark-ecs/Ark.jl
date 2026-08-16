@@ -9,6 +9,11 @@
 - Adds `DiskVector` and `DiskStructArray` to use the disk for components in very large simulations (#656).
 - Adds `GPUVector{:CPU}` and `GPUStructArray{:CPU}` to use a GPU storage on devices
   which do not have a GPU (#701).
+- Adds GPU device selection for GPU storages: the back-end can be paired with a
+  zero-based device ordinal, like `Storage{GPUVector{(:CUDA, 1)}}`, or a device
+  object can be passed directly, like `Storage(GPUVector{:CUDA}, CuDevice(1))`.
+  All memory of the storage is then allocated on that device, including
+  re-allocations during growth. Supported for the :CUDA, :Metal and :oneAPI back-ends.
 - Adds the `boxed` keyword argument to the world constructor, which cuts the compilation cost of Ark, at the price of some slowdown in performance.
 - Adds `get_components`, `set_components!` and `has_components` for a `Query`, to access the
   components of a query for a single entity without iterating or closing the query.
@@ -28,6 +33,14 @@
 - Compile time performance is improved through a better internal specialization mechanism (#662).
 - Component registration no longer compiles one `Dict` insertion per component type during world construction.
 - Getting components performance improved by 10% (#664).
+- GPU storages now copy data device-to-device on reallocation and entity migration,
+  instead of going through the host.
+
+### Bugfixes
+
+- Fixed world construction with GPU storages for GPU back-ends, which failed when the
+  back-end package (e.g. CUDA.jl) was loaded after Ark: the storage types of a world no
+  longer depend on the back-end memory type at world-construction time.
 
 ## [[v0.5.1]](https://github.com/ark-ecs/Ark.jl/compare/v0.5.0...v0.5.1)
 

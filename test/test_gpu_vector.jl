@@ -229,11 +229,32 @@ if !@isdefined(_TestGPUDevice)
     Ark._gpuvector_ordinal(::_TestGPUDevice) = 1
 end
 
+# A back-end registered after Ark has been loaded, as done by the GPU back-end
+# extensions. The storage types of a world must not depend on such back-ends at
+# world-construction time, as generated code cannot dispatch to methods that are
+# only added later (world age).
+if !@isdefined(_TestRuntimeBackend)
+    struct _TestRuntimeBackend end
+end
+Ark._gpuvector_type(::Type{T}, ::Val{:RUNTIME}) where {T} = Vector{T}
+
+@testset "GPU back-end registered at runtime (world age)" begin
+    w = TestWorld(A => Storage{GPUVector{:RUNTIME}})
+    new_entity!(w, (A(1.0),))
+    @test collect(Query(w, (A,)))[1][2][1] == A(1.0)
+
+    w = TestWorld(A => Storage{GPUStructArray{:RUNTIME}})
+    new_entity!(w, (A(2.0),))
+    @test collect(Query(w, (A,)))[1][2][1] == A(2.0)
+
+    @test_throws ArgumentError TestWorld(A => Storage{GPUVector{(:RUNTIME, 1)}})
+end
+
 @testset "GPUVector device normalization" begin
     s = Storage(GPUVector{:CPU}, _TestGPUDevice())
-    @test s isa Storage{GPUVector{(:CPU, 1)}}
+    @test s == Storage{GPUVector{(:CPU, 1)}}
     s = Storage(GPUStructArray{:CPU}, _TestGPUDevice())
-    @test s isa Storage{GPUStructArray{(:CPU, 1)}}
+    @test s == Storage{GPUStructArray{(:CPU, 1)}}
 
     @test_throws ArgumentError Storage(GPUVector{(:CPU, 0)}, _TestGPUDevice())
     @test_throws ArgumentError Storage(GPUStructArray{(:CPU, 0)}, _TestGPUDevice())

@@ -69,11 +69,11 @@ end
     num_fields == 0 && error("GPUStructArray storage not allowed for components without fields")
 
     QB = QuoteNode(B)
-    vec_types = Expr[:(GPUVector{$QB,$t,_gpuvector_type($t, Val{$QB}())}) for t in types]
+    vec_types = Expr[:(GPUVector{$QB,$t}) for t in types]
     quoted_names = QuoteNode[QuoteNode(name) for name in names]
     nt_type = :(NamedTuple{($(quoted_names...),),Tuple{$(vec_types...)}})
     kv_exprs = Expr[
-        :($name = GPUVector{$QB,$t,_gpuvector_type($t, Val{$QB}())}()) for (name, t) in zip(names, types)
+        :($name = _new_gpuvector_storage($QB, $t)) for (name, t) in zip(names, types)
     ]
 
     return quote
@@ -88,7 +88,7 @@ end
     num_fields == 0 && error("GPUStructArray storage not allowed for components without fields")
 
     QB = QuoteNode(B)
-    vec_types = Expr[:(GPUVector{$QB,$t,_gpuvector_type($t, Val{$QB}())}) for t in types]
+    vec_types = Expr[:(GPUVector{$QB,$t}) for t in types]
     nt_type = :(NamedTuple{$names,Tuple{$(vec_types...)}})
 
     return quote
@@ -124,5 +124,5 @@ end
 
 function Storage(::Type{GPUStructArray{B}}, device) where {B}
     _gpuvector_device_check(B)
-    return Storage{GPUStructArray{(B, _gpuvector_ordinal(device))}}()
+    return Storage{GPUStructArray{(B, _gpuvector_ordinal(device))}}
 end
