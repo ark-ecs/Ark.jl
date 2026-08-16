@@ -16,7 +16,7 @@ function _get_entity(p::_EntityPool)::Entity
         return _get_new_entity(p)
     end
     id = pop!(p.free)
-    @inbounds gen = p.gens[id]
+    @inbounds gen = p.gens[id % Int]
     return _Entity(id, gen)
 end
 
@@ -32,7 +32,7 @@ function _get_pending_entity(p::_EntityPool)::Entity
 end
 
 function _activate_entity!(p::_EntityPool, e::Entity)
-    @inbounds p.gens[e._id] = e._gen
+    @inbounds p.gens[e._id % Int] = e._gen
     return nothing
 end
 
@@ -51,12 +51,12 @@ function _recycle(p::_EntityPool, e::Entity)
         throw(ArgumentError("can't recycle the reserved zero entity"))
     end
     push!(p.free, e._id)
-    @inbounds p.gens[e._id] = e._gen + UInt32(1)
+    @inbounds p.gens[e._id % Int] = e._gen + UInt32(1)
     return nothing
 end
 
 function _is_alive(p::_EntityPool, e::Entity)::Bool
-    @inbounds return e._gen == p.gens[e._id]
+    @inbounds return e._gen == p.gens[e._id % Int]
 end
 
 function _reset!(p::_EntityPool)
