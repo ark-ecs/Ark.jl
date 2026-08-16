@@ -11,7 +11,7 @@ end
 @testset "World creation 2" begin
     world = TestWorld(
         Position,
-        Velocity => Storage{StructArray},
+        Velocity => Storage(StructArray),
         Altitude,
         Relation{ChildOf},
     )
@@ -65,7 +65,7 @@ end
     world = TestWorld(
         Dummy,
         Position,
-        Velocity => Storage{StructArray},
+        Velocity => Storage(StructArray),
     )
 
     @test isa(
@@ -84,7 +84,7 @@ end
         # TODO: type instability here. Add benchmarks for world creation.
         @test_opt TestWorld(
             Position,
-            Velocity => Storage{StructArray},
+            Velocity => Storage(StructArray),
         )
     end
 end
@@ -100,16 +100,16 @@ end
         TestWorld(Position, Velocity, Relation))
 
     @test_throws(
-        "ArgumentError: Health is not a valid storage mode, must be Storage{T<:AbstractVector}",
+        "ArgumentError: Health is not a valid storage mode, must be Storage(T<:AbstractVector)",
         TestWorld(Position, Velocity, Altitude => Health))
 
     @test_throws(
         ArgumentError,
-        TestWorld(Int64 => Storage{StructArray}))
+        TestWorld(Int64 => Storage(StructArray)))
 
     @test_throws(
         ArgumentError,
-        TestWorld(LabelComponent => Storage{StructArray}))
+        TestWorld(LabelComponent => Storage(StructArray)))
 end
 
 @testset "World creation large" begin
@@ -191,7 +191,7 @@ _column_or_empty(storage::NamedTuple, table) =
     Ark._column_or_empty(storage.data, storage.empty_column, table)
 
 @testset "World shares inactive storage columns" begin
-    world = TestWorld(Position, Velocity => Storage{StructArray}, Relation{ChildOf})
+    world = TestWorld(Position, Velocity => Storage(StructArray), Relation{ChildOf})
     pos_storage = _component_storage(world, Position)
     vel_storage = _component_storage(world, Velocity)
     child_storage = _component_storage(world, ChildOf)
@@ -247,7 +247,7 @@ _column_or_empty(storage::NamedTuple, table) =
 end
 
 @testset "World grows storage columns lazily" begin
-    world = TestWorld(Position, Velocity, Altitude => Storage{StructArray})
+    world = TestWorld(Position, Velocity, Altitude => Storage(StructArray))
     pos_storage = _component_storage(world, Position)
     vel_storage = _component_storage(world, Velocity)
     alt_storage = _component_storage(world, Altitude)
@@ -332,7 +332,7 @@ end
     _ = TestWorld(Position, MutableComponent; allow_mutable=true)
 
     @test_throws("ArgumentError: Component type MutableComponent must be immutable because it uses StructArray storage",
-        TestWorld(Position, MutableComponent => Storage{StructArray}))
+        TestWorld(Position, MutableComponent => Storage(StructArray)))
 end
 
 @testset "_get_component_columns Tests" begin
@@ -480,7 +480,7 @@ end
     world = TestWorld(
         Dummy,
         Position,
-        Velocity => Storage{StructArray},
+        Velocity => Storage(StructArray),
     )
 
     e1 = new_entity!(world, (Position(1, 2), Velocity(3, 4)))
@@ -511,7 +511,7 @@ end
     @testset "World get/set components JET" begin
         world = TestWorld(
             Position,
-            Velocity => Storage{StructArray},
+            Velocity => Storage(StructArray),
         )
         e1 = new_entity!(world, (Position(1, 2), Velocity(3, 4)))
 
@@ -524,7 +524,7 @@ end
     world = TestWorld(
         Dummy,
         Position,
-        Velocity => Storage{StructArray},
+        Velocity => Storage(StructArray),
     )
 
     entity = new_entity!(world, ())
@@ -554,7 +554,7 @@ end
     @testset "World new_entity! JET" begin
         world = TestWorld(
             Position,
-            Velocity => Storage{StructArray},
+            Velocity => Storage(StructArray),
         )
 
         using FunctionWrappers
@@ -579,7 +579,7 @@ end
         Dummy,
         Position,
         Relation{ChildOf},
-        Velocity => Storage{StructArray},
+        Velocity => Storage(StructArray),
     )
 
     parent1 = new_entity!(world, ())
@@ -804,9 +804,9 @@ end
     world = TestWorld(
         Dummy,
         Position,
-        Velocity => Storage{StructArray},
+        Velocity => Storage(StructArray),
         Relation{ChildOf},
-        NoIsBits2 => Storage{StructArray},
+        NoIsBits2 => Storage(StructArray),
     )
 
     counter = 0
@@ -859,7 +859,7 @@ end
     world = TestWorld(
         Dummy,
         Position,
-        Velocity => Storage{StructArray},
+        Velocity => Storage(StructArray),
         Altitude,
         Relation{ChildOf},
     )
@@ -896,7 +896,7 @@ end
     world = TestWorld(
         Dummy,
         Position,
-        Velocity => Storage{StructArray},
+        Velocity => Storage(StructArray),
         NoIsBits,
         MutableComponent,
         MutableNoIsBits;
@@ -948,7 +948,7 @@ end
 @testset "copy_entity! with more than 192 component types" begin
     world = TestWorld(
         Position,
-        Velocity => Storage{StructArray},
+        Velocity => Storage(StructArray),
         Health,
         [CompN{i} for i in 1:197]...,
     )
@@ -998,7 +998,7 @@ end
     world = TestWorld(
         Dummy,
         Position,
-        Velocity => Storage{StructArray},
+        Velocity => Storage(StructArray),
         Altitude,
     )
 
@@ -1045,7 +1045,7 @@ end
     world = TestWorld(
         Dummy,
         Position,
-        Velocity => Storage{StructArray},
+        Velocity => Storage(StructArray),
         Altitude,
     )
 
@@ -1171,7 +1171,7 @@ end
     @testset "World new_entities! JET" begin
         world = TestWorld(
             Position,
-            Velocity => Storage{StructArray},
+            Velocity => Storage(StructArray),
         )
         using FunctionWrappers
         using Mmap
@@ -1199,7 +1199,7 @@ end
     world = TestWorld(
         Dummy,
         Position,
-        Velocity => Storage{StructArray},
+        Velocity => Storage(StructArray),
         Altitude,
         Health,
     )
@@ -1342,7 +1342,7 @@ end
 @testset "World add/remove components batch" begin
     world = TestWorld(
         Dummy,
-        Position => Storage{StructArray},
+        Position => Storage(StructArray),
         Velocity,
         Altitude,
         Health,
@@ -1385,7 +1385,7 @@ end
     @testset "with relations and callback" begin
         world_rel = TestWorld(
             Dummy,
-            Position => Storage{StructArray},
+            Position => Storage(StructArray),
             Velocity,
             Relation{ChildOf},
         )
@@ -1423,7 +1423,7 @@ end
         world = TestWorld(
             Dummy,
             Position,
-            Velocity => Storage{StructArray},
+            Velocity => Storage(StructArray),
         )
         using FunctionWrappers
         using Mmap
@@ -1487,10 +1487,10 @@ end
 @testset "World exchange components batch" begin
     world = TestWorld(
         Dummy,
-        Position => Storage{StructArray},
+        Position => Storage(StructArray),
         Velocity,
         Altitude,
-        Health => Storage{StructArray},
+        Health => Storage(StructArray),
     )
 
     new_entities!(world, 10, (Position(1, 1), Altitude(100)))
@@ -1544,7 +1544,7 @@ end
     @testset "with relations and callback" begin
         world_rel = TestWorld(
             Dummy,
-            Position => Storage{StructArray},
+            Position => Storage(StructArray),
             Velocity,
             Altitude,
             Relation{ChildOf},
@@ -1633,7 +1633,7 @@ end
 @testset "remove_entity! with more than 32 component types" begin
     world = TestWorld(
         Position,
-        Velocity => Storage{StructArray},
+        Velocity => Storage(StructArray),
         Health,
         [CompN{i} for i in 1:30]...,
     )
@@ -1673,7 +1673,7 @@ end
 @testset "component exchange with more than 32 component types" begin
     world = TestWorld(
         Position,
-        Velocity => Storage{StructArray},
+        Velocity => Storage(StructArray),
         Health,
         [CompN{i} for i in 1:31]...,
     )

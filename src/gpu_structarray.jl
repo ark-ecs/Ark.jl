@@ -10,9 +10,9 @@ As for [`GPUVector`](@ref), the `:CPU` back-end is always available and stores
 each field in a plain `Vector`.
 
 As for [`GPUVector`](@ref), the storage can be pinned to a specific device on
-back-ends with more than one, by pairing the back-end with a zero-based device
-ordinal, like `(:CUDA, 1)` for the second GPU of the system, or by passing a
-device object through `Storage(GPUStructArray{:CUDA}, device)`.
+back-ends with more than one, by passing a device object to the storage, like
+`Storage(GPUStructArray{:CUDA}, CuDevice(1))`, or by pairing the back-end with a
+zero-based device ordinal, like `Storage(GPUStructArray{(:CUDA, 1)})`.
 
 # Examples
 
@@ -20,17 +20,8 @@ device object through `Storage(GPUStructArray{:CUDA}, device)`.
 using CUDA
 
 world = World(
-    Position => Storage{GPUStructArray{:CUDA}},
-    Velocity => Storage{GPUStructArray{:CUDA}},
-)
-```
-
-```julia
-using CUDA
-
-world = World(
-    Position => Storage{GPUStructArray{(:CUDA, 1)}},
-    Velocity => Storage{GPUStructArray{(:CUDA, 1)}},
+    Position => Storage(GPUStructArray{:CUDA}),
+    Velocity => Storage(GPUStructArray{:CUDA}),
 )
 ```
 
@@ -44,9 +35,18 @@ world = World(
 ```
 
 ```julia
+using CUDA
+
 world = World(
-    Position => Storage{GPUStructArray{:CPU}},
-    Velocity => Storage{GPUStructArray{:CPU}},
+    Position => Storage(GPUStructArray{(:CUDA, 1)}),
+    Velocity => Storage(GPUStructArray{(:CUDA, 1)}),
+)
+```
+
+```julia
+world = World(
+    Position => Storage(GPUStructArray{:CPU}),
+    Velocity => Storage(GPUStructArray{:CPU}),
 )
 ```
 """

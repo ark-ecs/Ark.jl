@@ -208,9 +208,9 @@ A World with individually configured storage modes:
 
 ```jldoctest; setup = :(using Ark; include(string(dirname(pathof(Ark)), "/docs.jl"))), output = false
 world = World(
-    Position => Storage{StructArray},
-    Velocity => Storage{StructArray},
-    Health => Storage{Vector},
+    Position => Storage(StructArray),
+    Velocity => Storage(StructArray),
+    Health => Storage(Vector),
 )
 
 # output
@@ -952,7 +952,7 @@ end
         if !(mode <: Storage)
             throw(
                 ArgumentError(
-                    "$(nameof(mode)) is not a valid storage mode, must be Storage{T<:AbstractVector}",
+                    "$(nameof(mode)) is not a valid storage mode, must be Storage(T<:AbstractVector)",
                 ),
             )
         end

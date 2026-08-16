@@ -1,9 +1,9 @@
 
 @testset "GPUVector components" begin
     w = TestWorld(
-        A => Storage{GPUVector{:CPU}},
-        B => Storage{GPUVector{:CPU}},
-        Relation{C} => Storage{GPUVector{:CPU}},
+        A => Storage(GPUVector{:CPU}),
+        B => Storage(GPUVector{:CPU}),
+        Relation{C} => Storage(GPUVector{:CPU}),
     )
     e1 = new_entity!(w, (A(2.0), B(2.0)))
     @test get_components(w, e1, (A, B)) == (A(2.0), B(2.0))
@@ -84,7 +84,7 @@ end
     @test _gpuvector_hostwrap(gv.mem) === gv.mem
     @test_throws ArgumentError _gpuvector_hostwrap(1:3)
 
-    w = TestWorld(A => Storage{GPUVector{:CPU}})
+    w = TestWorld(A => Storage(GPUVector{:CPU}))
     new_entity!(w, (A(1.0),))
     @test _storage_from_component(w, A) == GPUVector{:CPU,A,Vector{A}}
 end
@@ -220,8 +220,8 @@ end
     @test_throws ArgumentError _gpuvector_device(Val{(:CPU, 0)}())
     @test_throws ArgumentError _gpuvector_device(Val{(:OpenCL, 0)}())
 
-    @test_throws ArgumentError TestWorld(A => Storage{GPUVector{(:CPU, 0)}})
-    @test_throws ArgumentError TestWorld(A => Storage{GPUStructArray{(:CPU, 0)}})
+    @test_throws ArgumentError TestWorld(A => Storage(GPUVector{(:CPU, 0)}))
+    @test_throws ArgumentError TestWorld(A => Storage(GPUStructArray{(:CPU, 0)}))
 end
 
 if !@isdefined(_TestGPUDevice)
@@ -239,22 +239,22 @@ end
 Ark._gpuvector_type(::Type{T}, ::Val{:RUNTIME}) where {T} = Vector{T}
 
 @testset "GPU back-end registered at runtime (world age)" begin
-    w = TestWorld(A => Storage{GPUVector{:RUNTIME}})
+    w = TestWorld(A => Storage(GPUVector{:RUNTIME}))
     new_entity!(w, (A(1.0),))
     @test collect(Query(w, (A,)))[1][2][1] == A(1.0)
 
-    w = TestWorld(A => Storage{GPUStructArray{:RUNTIME}})
+    w = TestWorld(A => Storage(GPUStructArray{:RUNTIME}))
     new_entity!(w, (A(2.0),))
     @test collect(Query(w, (A,)))[1][2][1] == A(2.0)
 
-    @test_throws ArgumentError TestWorld(A => Storage{GPUVector{(:RUNTIME, 1)}})
+    @test_throws ArgumentError TestWorld(A => Storage(GPUVector{(:RUNTIME, 1)}))
 end
 
 @testset "GPUVector device normalization" begin
     s = Storage(GPUVector{:CPU}, _TestGPUDevice())
-    @test s == Storage{GPUVector{(:CPU, 1)}}
+    @test s == Storage(GPUVector{(:CPU, 1)})
     s = Storage(GPUStructArray{:CPU}, _TestGPUDevice())
-    @test s == Storage{GPUStructArray{(:CPU, 1)}}
+    @test s == Storage(GPUStructArray{(:CPU, 1)})
 
     @test_throws ArgumentError Storage(GPUVector{(:CPU, 0)}, _TestGPUDevice())
     @test_throws ArgumentError Storage(GPUStructArray{(:CPU, 0)}, _TestGPUDevice())

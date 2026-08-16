@@ -48,7 +48,7 @@ end
 
 function run_world(backend; n_entities=10^6, n_iterations=1000)
     T = backend isa CUDABackend ? GPUVector{:CUDA} : Vector
-    world = World(Position => Storage{T}, Velocity => Storage{T})
+    world = World(Position => Storage(T), Velocity => Storage(T))
 
     for i in 1:n_entities
         new_entity!(world, (Position(Float32(i), Float32(i * 2)), Velocity(Float32(i), Float32(i))))

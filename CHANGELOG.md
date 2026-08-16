@@ -21,6 +21,9 @@
 
 ### Breaking changes
 
+- Storage modes are now specified with `Storage(...)` instead of `Storage{...}`, e.g.
+  `World(Position => Storage(StructArray))`. The `Storage{...}` type is now an internal
+  detail, while `Storage(x)` returns the same value.
 - `unregister!` and `register!` now require the world as an argument (#660).
 - API functions for `Query` and `Filter` now require the world as an argument (#662).
 - `length` for a filter has been renamed to `count_tables` (#662).

@@ -172,9 +172,9 @@ The storage mode can be selected per component type by using the [Storage](@ref)
 
 ```jldoctest; output = false
 world = World(
-    Position => Storage{Vector},
-    Velocity => Storage{StructArray},
-    Health => Storage{DiskVector},
+    Position => Storage(Vector),
+    Velocity => Storage(StructArray),
+    Health => Storage(DiskVector),
 )
 
 # output
@@ -182,12 +182,12 @@ world = World(
 World(entities=0, comp_types=(Position, Velocity, Health))
 ```
 
-The default is `Storage{Vector}` if no storage mode is specified:
+The default is `Storage(Vector)` if no storage mode is specified:
 
 ```jldoctest; output = false
 world = World(
     Position,
-    Velocity => Storage{StructArray},
+    Velocity => Storage(StructArray),
 )
 
 # output
@@ -201,8 +201,8 @@ To use the [GPUVector](@ref) or the [GPUStructArray](@ref) storage, also the GPU
 using CUDA
 
 world = World(
-    Position => Storage{GPUVector{:CUDA}},
-    Velocity => Storage{GPUStructArray{:CUDA}},
+    Position => Storage(GPUVector{:CUDA}),
+    Velocity => Storage(GPUStructArray{:CUDA}),
 )
 ```
 
@@ -211,8 +211,8 @@ It is useful to run and test GPU-shaped code on machines without a device:
 
 ```jldoctest; output = false
 world = World(
-    Position => Storage{GPUVector{:CPU}},
-    Velocity => Storage{GPUStructArray{:CPU}},
+    Position => Storage(GPUVector{:CPU}),
+    Velocity => Storage(GPUStructArray{:CPU}),
 )
 
 # output
@@ -220,20 +220,8 @@ world = World(
 World(entities=0, comp_types=(Position, Velocity))
 ```
 
-On back-ends with more than one GPU, a specific device can be selected by pairing the
-back-end with a zero-based device ordinal, like `(:CUDA, 1)` for the second GPU of the system:
-
-```julia
-using CUDA
-
-world = World(
-    Position => Storage{GPUVector{(:CUDA, 1)}},
-    Velocity => Storage{GPUStructArray{(:CUDA, 1)}},
-)
-```
-
-Instead of the ordinal, the device object itself can be passed, and is translated
-into the ordinal-based storage form:
+On back-ends with more than one GPU, a specific device can be selected by passing a
+device object to the storage, like `CuDevice(1)` for the second GPU of the system:
 
 ```julia
 using CUDA
@@ -241,6 +229,18 @@ using CUDA
 world = World(
     Position => Storage(GPUVector{:CUDA}, CuDevice(1)),
     Velocity => Storage(GPUStructArray{:CUDA}, CuDevice(1)),
+)
+```
+
+Alternatively, the back-end can be paired with a zero-based device ordinal, like
+`(:CUDA, 1)`, which the device object is translated into:
+
+```julia
+using CUDA
+
+world = World(
+    Position => Storage(GPUVector{(:CUDA, 1)}),
+    Velocity => Storage(GPUStructArray{(:CUDA, 1)}),
 )
 ```
 
@@ -268,8 +268,8 @@ Base.sizehint!(w::WrappedVector, i::Integer) = sizehint!(w.v, i)
 Base.pop!(w::WrappedVector) = pop!(w.v)
 
 world = World(
-    Position => Storage{WrappedVector},
-    Velocity => Storage{StructArray},
+    Position => Storage(WrappedVector),
+    Velocity => Storage(StructArray),
 )
 
 # output

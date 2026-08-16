@@ -71,23 +71,23 @@ end
 @testset "DiskVector validation" begin
     @test_throws(
         "ArgumentError: DiskVector storage requires an isbits component type, got NoIsBits",
-        World(NoIsBits => Storage{DiskVector})
+        World(NoIsBits => Storage(DiskVector))
     )
     @test_throws(
         "ArgumentError: DiskVector storage requires an isbits component type, got MutableComponent",
-        World(MutableComponent => Storage{DiskVector}; allow_mutable=true)
+        World(MutableComponent => Storage(DiskVector); allow_mutable=true)
     )
     @test_throws(
         "ArgumentError: DiskVector storage requires a nonzero-size component type, got LabelComponent",
-        World(LabelComponent => Storage{DiskVector})
+        World(LabelComponent => Storage(DiskVector))
     )
 end
 
 @testset "DiskVector components" begin
     world = World(
-        A => Storage{DiskVector},
-        B => Storage{DiskVector},
-        Relation{DiskRelation} => Storage{DiskVector};
+        A => Storage(DiskVector),
+        B => Storage(DiskVector),
+        Relation{DiskRelation} => Storage(DiskVector);
         initial_capacity=1024,
     )
 
@@ -124,10 +124,10 @@ end
 
 @testset "DiskVector query and batch operations" begin
     world = World(
-        Position => Storage{DiskVector},
-        Velocity => Storage{DiskVector},
-        Health => Storage{DiskVector},
-        Int64 => Storage{DiskVector};
+        Position => Storage(DiskVector),
+        Velocity => Storage(DiskVector),
+        Health => Storage(DiskVector),
+        Int64 => Storage(DiskVector);
         initial_capacity=1024,
     )
 

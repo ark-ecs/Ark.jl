@@ -25,22 +25,25 @@ World(entities=0, comp_types=(Joint))
 struct Relation{T} end
 
 """
-    Storage{T}
+    Storage(storage::Type{<:AbstractVector})
 
-Marks component types for using `T` as a [storage](@ref component-storages) in the
+Marks component types for using `storage` as a [storage](@ref component-storages) in the
 world constructor. Built-in storages include `Vector`, `StructArray`, `DiskVector`,
 `DiskStructArray`, `GPUVector` and `GPUStructArray`.
 
-If, during world construction, the storage mode is not specified, it defaults to `Storage{Vector}`.
+If, during world construction, the storage mode is not specified, it defaults to `Storage(Vector)`.
 
 In `StructArray` storages, mutable components are not allowed.
+
+For GPU storages, the device can be selected by passing a device object (see
+[`GPUVector`](@ref) and [`GPUStructArray`](@ref)).
 
 # Example
 
 ```jldoctest; setup = :(using Ark; include(string(dirname(pathof(Ark)), "/docs.jl"))), output = false
 world = World(
     Position,
-    Velocity => Storage{StructArray},
+    Velocity => Storage(StructArray),
 )
 
 # output
@@ -49,3 +52,5 @@ World(entities=0, comp_types=(Position, Velocity))
 ```
 """
 struct Storage{T<:AbstractVector} end
+
+Storage(::Type{A}) where {A<:AbstractVector} = Storage{A}

@@ -11,8 +11,8 @@ must be isbits types with nonzero size.
 
 ```julia
 world = World(
-    Position => Storage{DiskStructArray},
-    Velocity => Storage{DiskStructArray},
+    Position => Storage(DiskStructArray),
+    Velocity => Storage(DiskStructArray),
 )
 ```
 """

@@ -12,14 +12,14 @@ The `:CPU` back-end is always available and stores the elements in a plain
 GPU-shaped code on machines without a device.
 
 On back-ends with more than one device, the storage can be pinned to a specific
-device by pairing the back-end with a zero-based device ordinal, like
-`(:CUDA, 1)` for the second GPU of the system. Alternatively, a device object
-can be passed through `Storage(GPUVector{:CUDA}, device)`, which is translated
-into the ordinal-based form. All memory of the storage is then allocated on that
-device, including re-allocations during growth. Device selection is currently
-supported for the :CUDA, :Metal and :oneAPI back-ends. Kernels operating on the
-components still have to be launched on the matching device (e.g. by using
-`CUDA.device!`).
+device by passing a device object to the storage, like
+`Storage(GPUVector{:CUDA}, CuDevice(1))` for the second GPU of the system.
+Alternatively, the back-end can be paired with a zero-based device ordinal, like
+`Storage(GPUVector{(:CUDA, 1)})`. All memory of the storage is then allocated on
+that device, including re-allocations during growth. Device selection is
+currently supported for the :CUDA, :Metal and :oneAPI back-ends. Kernels
+operating on the components still have to be launched on the matching device
+(e.g. by using `CUDA.device!`).
 
 # Examples
 
@@ -27,17 +27,8 @@ components still have to be launched on the matching device (e.g. by using
 using CUDA
 
 world = World(
-    Position => Storage{GPUVector{:CUDA}},
-    Velocity => Storage{GPUVector{:CUDA}},
-)
-```
-
-```
-using CUDA
-
-world = World(
-    Position => Storage{GPUVector{(:CUDA, 1)}},
-    Velocity => Storage{GPUVector{(:CUDA, 1)}},
+    Position => Storage(GPUVector{:CUDA}),
+    Velocity => Storage(GPUVector{:CUDA}),
 )
 ```
 
@@ -51,9 +42,18 @@ world = World(
 ```
 
 ```
+using CUDA
+
 world = World(
-    Position => Storage{GPUVector{:CPU}},
-    Velocity => Storage{GPUVector{:CPU}},
+    Position => Storage(GPUVector{(:CUDA, 1)}),
+    Velocity => Storage(GPUVector{(:CUDA, 1)}),
+)
+```
+
+```
+world = World(
+    Position => Storage(GPUVector{:CPU}),
+    Velocity => Storage(GPUVector{:CPU}),
 )
 ```
 """
