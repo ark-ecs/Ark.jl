@@ -37,12 +37,6 @@
 - GPU storages now copy data device-to-device on reallocation and entity migration,
   instead of going through the host.
 
-### Bugfixes
-
-- Fixed world construction with GPU storages for GPU back-ends, which failed when the
-  back-end package (e.g. CUDA.jl) was loaded after Ark: the storage types of a world no
-  longer depend on the back-end memory type at world-construction time.
-
 ## [[v0.5.1]](https://github.com/ark-ecs/Ark.jl/compare/v0.5.0...v0.5.1)
 
 ### Bugfixes
