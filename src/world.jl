@@ -1836,30 +1836,34 @@ end
 
         i = old_length + 1
         # Pop from free list
-        @inbounds while i <= new_length && pool.next != 0
-            entity = _get_entity(pool)
-            entities[i] = entity
-            id = Int(entity._id)
-            state._entities[id] = _EntityIndex(table_index, UInt32(i))
-            $(world_has_rel ? :(state._targets[id] = false) : (:(nothing)))
-            i += 1
+        nfree = length(pool.free)
+        take = min(nfree, new_length - i + 1)
+        if take > 0
+            @inbounds for k in 0:(take-1)
+                id = Int(pool.free[nfree-k])
+                entities[i] = _Entity(UInt32(id), pool.gens[id])
+                state._entities[id] = _EntityIndex(table_index, UInt32(i))
+                $(world_has_rel ? :(state._targets[id] = false) : (:(nothing)))
+                i += 1
+            end
+            resize!(pool.free, nfree - take)
         end
 
         # Bulk-allocate the rest
         if i <= new_length
             rem = new_length - i + 1
-            old_pool_len = length(pool.entities)
+            old_pool_len = length(pool.gens)
             @check old_pool_len == length(state._entities)
             _get_new_entities!(pool, rem)
 
-            new_pool_len = length(pool.entities)
+            new_pool_len = length(pool.gens)
             resize!(state._entities, new_pool_len)
             $(world_has_rel ? :(resize!(state._targets, new_pool_len)) : nothing)
             $(world_has_rel ? :(view(state._targets, (old_pool_len+1):new_pool_len) .= false) : nothing)
 
             @inbounds @simd for j in 1:rem
                 id = old_pool_len + j
-                entity = pool.entities[id]
+                entity = _new_entity(id, 0)
                 entities[i] = entity
                 state._entities[id] = _EntityIndex(table_index, UInt32(i))
                 i += 1
