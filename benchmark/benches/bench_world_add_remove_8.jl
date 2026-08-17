@@ -1,3 +1,4 @@
+using Random
 
 function setup_world_add_remove_8(n_entities::Int)
     world = World(Position,

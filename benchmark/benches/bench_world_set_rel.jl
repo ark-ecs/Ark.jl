@@ -1,3 +1,4 @@
+using Random
 
 function setup_world_set_rel(n_entities::Int)
     world = World(Position, Relation{ChildOf}; boxed=BOXED)

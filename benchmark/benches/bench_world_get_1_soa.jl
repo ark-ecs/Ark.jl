@@ -1,3 +1,4 @@
+using Random
 
 function setup_world_get_1_soa(n_entities::Int)
     world = World(

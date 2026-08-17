@@ -1,3 +1,5 @@
+using Random
+
 function setup_world_has_1(n_entities::Int)
     world = World(Position, Velocity; boxed=BOXED)
 

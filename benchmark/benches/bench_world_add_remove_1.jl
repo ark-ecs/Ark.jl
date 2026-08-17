@@ -1,4 +1,3 @@
-
 using Random
 
 function setup_world_add_remove_1(n_entities::Int)

@@ -1,3 +1,4 @@
+using Random
 
 function setup_world_update_5(n_entities::Int)
     world = World(Position, Velocity, CompA, CompB, CompC; boxed=BOXED)

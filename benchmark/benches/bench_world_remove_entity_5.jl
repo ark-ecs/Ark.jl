@@ -1,3 +1,4 @@
+using Random
 
 function setup_world_remove_entity_5(n::Int)
     world = World(Position, Velocity, CompA, CompB, CompC; boxed=BOXED)
