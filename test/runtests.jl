@@ -52,6 +52,7 @@ const MODE_AGNOSTIC_SUITES = [
     "test_linear_map.jl",
     "test_disk_vector.jl",
     "test_quality.jl",
+    "test_unique_vector.jl",
 ]
 
 for suite in MODE_AGNOSTIC_SUITES

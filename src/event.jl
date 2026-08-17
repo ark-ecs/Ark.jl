@@ -214,9 +214,9 @@ function _remove_observer!(m::_EventManager{M}, o::Observer{M}) where {M}
 
     e = o._event._id
     observers = m.observers[e]
-    swapped = _swap_remove!(observers, o._id.id)
+    swapped, moved = _swap_remove!(observers, o._id.id)
     if swapped
-        observers[o._id.id]._id.id = o._id.id
+        moved._id.id = o._id.id
     end
     o._id.id = 0
 

@@ -1,19 +1,25 @@
 
-_swap!(v::AbstractArray, i, j) = @inbounds v[i] = v[j]
+@inline function _swap!(v::AbstractArray, i, j)
+    moved = @inbounds v[j]
+    @inbounds v[i] = moved
+    return moved
+end
 
 @inline function _swap_indices!(v::AbstractArray, i, j)
     @inbounds v[i], v[j] = v[j], v[i]
     return
 end
 
-@inline function _swap_remove!(v::AbstractArray, i::UInt32)::Bool
+@inline function _swap_remove!(v::AbstractArray, i::UInt32)
     last_index = length(v)
     swapped = i != last_index
-    if swapped
+    moved = if swapped
         _swap!(v, i, last_index)
+    else
+        @inbounds v[i]
     end
     pop!(v)
-    return swapped
+    return swapped, moved
 end
 
 function _type_parameter(::Type{Type{T}}) where {T}
