@@ -13,6 +13,9 @@ function setup_world_posvel(n_entities::Int)
         world[e][Position] = Position(pos.x + vel.dx, pos.y + vel.dy)
     end
 
+    rng = Xoshiro(42)
+    shuffle!(rng, entities)
+
     return (entities, world)
 end
 

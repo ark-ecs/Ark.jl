@@ -24,6 +24,9 @@ function setup_world_add_remove_8(n_entities::Int)
         )
     end
 
+    rng = Xoshiro(42)
+    shuffle!(rng, entities)
+
     return (entities, world)
 end
 

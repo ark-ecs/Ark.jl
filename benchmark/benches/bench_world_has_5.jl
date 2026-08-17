@@ -7,6 +7,9 @@ function setup_world_has_5(n_entities::Int)
         push!(entities, e)
     end
 
+    rng = Xoshiro(42)
+    shuffle!(rng, entities)
+
     return (entities, world)
 end
 

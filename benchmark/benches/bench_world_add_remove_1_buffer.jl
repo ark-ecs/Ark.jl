@@ -20,6 +20,9 @@ function setup_world_add_remove_1_buffer(n_entities::Int)
     end
     apply!(buf)
 
+    rng = Xoshiro(42)
+    shuffle!(rng, entities)
+
     return (entities, buf)
 end
 

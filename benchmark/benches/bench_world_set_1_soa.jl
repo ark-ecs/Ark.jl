@@ -16,6 +16,9 @@ function setup_world_set_1_soa(n_entities::Int)
         world[e][Position] = Position(1, 2)
     end
 
+    rng = Xoshiro(42)
+    shuffle!(rng, entities)
+
     return (entities, world)
 end
 

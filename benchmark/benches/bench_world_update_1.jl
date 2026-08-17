@@ -13,6 +13,9 @@ function setup_world_update_1(n_entities::Int)
         world[e][Position] = Position(pos.x + 1, pos.y)
     end
 
+    rng = Xoshiro(42)
+    shuffle!(rng, entities)
+
     return (entities, world)
 end
 

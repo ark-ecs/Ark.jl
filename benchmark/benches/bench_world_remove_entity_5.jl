@@ -18,6 +18,9 @@ function setup_world_remove_entity_5(n::Int)
         entities[i] = e
     end
 
+    rng = Xoshiro(42)
+    shuffle!(rng, entities)
+
     return (world, entities)
 end
 

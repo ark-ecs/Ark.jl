@@ -13,7 +13,9 @@ function setup_world_get_5(n_entities::Int)
         pos, vel, a, b, c = world[e][(Position, Velocity, CompA, CompB, CompC)]
         sum += pos.x + vel.dx + a.x + b.x + c.x
     end
-    sum
+
+    rng = Xoshiro(42)
+    shuffle!(rng, entities)
 
     return (entities, world)
 end
