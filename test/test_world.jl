@@ -1854,7 +1854,7 @@ end
     reset!(world)
 
     @test length(_state(world)._entities) == 1
-    @test length(_state(world)._entity_pool.entities) == 1
+    @test length(_state(world)._entity_pool.gens) == 1
     @test length(_state(world)._cache.filters) == 0
     @test filter._filter.id[] == 0
     @test length(filter._filter.tables) == 0
