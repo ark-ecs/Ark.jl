@@ -1,7 +1,7 @@
 
-struct _EntityPool
-    gens::Vector{UInt32}
-    free::Vector{UInt32}
+mutable struct _EntityPool
+    const gens::Vector{UInt32}
+    const free::Vector{UInt32}
 end
 
 function _EntityPool(cap::UInt32)
