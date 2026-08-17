@@ -1,5 +1,5 @@
 
-mutable struct _EntityPool
+struct _EntityPool
     gens::Vector{UInt32}
     free::Vector{UInt32}
 end
