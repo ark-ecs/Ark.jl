@@ -1,3 +1,4 @@
+using Random
 
 function setup_world_remove_entity_5(n::Int)
     world = World(Position, Velocity, CompA, CompB, CompC; boxed=BOXED)
@@ -17,6 +18,9 @@ function setup_world_remove_entity_5(n::Int)
         e = new_entity!(world, (Position(0, 0), Velocity(0, 0), CompA(0, 0), CompB(0, 0), CompC(0, 0)))
         entities[i] = e
     end
+
+    rng = Xoshiro(42)
+    shuffle!(rng, entities)
 
     return (world, entities)
 end

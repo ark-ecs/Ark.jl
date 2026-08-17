@@ -1,3 +1,4 @@
+using Random
 
 function setup_world_set_rel(n_entities::Int)
     world = World(Position, Relation{ChildOf}; boxed=BOXED)
@@ -17,6 +18,9 @@ function setup_world_set_rel(n_entities::Int)
     for e in entities
         world[e].rel[ChildOf] = parent1
     end
+
+    rng = Xoshiro(42)
+    shuffle!(rng, entities)
 
     return (entities, world, parent2)
 end
