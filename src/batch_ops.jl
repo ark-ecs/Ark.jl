@@ -966,17 +966,17 @@ end
             if isempty(table)
                 continue
             end
-            for entity in table.entities
-                $(world_has_rel ?
-                  :(
+            $(world_has_rel ?
+              :(
+                for entity in table.entities
                     if world_state._targets[entity._id]
                         push!(cleanup, entity)
                     end
-                ) :
-                  (:(nothing))
-                )
-                _recycle(world_state._entity_pool, entity)
-            end
+                end
+            ) :
+              (:(nothing))
+            )
+            _recycle_entities!(world_state._entity_pool, table.entities._data)
             empty!(table)
             for comp in world_state._archetypes[table.archetype].components
                 _clear_component_data!(world_state, stores, comp, table.id)
