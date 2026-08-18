@@ -1,3 +1,4 @@
+using Random
 
 function setup_world_add_remove_1_buffer(n_entities::Int)
     world = World(Position, Velocity; boxed=BOXED)
@@ -19,6 +20,9 @@ function setup_world_add_remove_1_buffer(n_entities::Int)
         remove_components!(buf, e, (Velocity,))
     end
     apply!(buf)
+
+    rng = Xoshiro(42)
+    shuffle!(rng, entities)
 
     return (entities, buf)
 end

@@ -1,3 +1,4 @@
+using Random
 
 function setup_world_get_rel(n_entities::Int)
     world = World(Position, Relation{ChildOf}; boxed=BOXED)
@@ -14,7 +15,9 @@ function setup_world_get_rel(n_entities::Int)
         p = world[e].rel[ChildOf]
         sum += p._id
     end
-    sum
+
+    rng = Xoshiro(42)
+    shuffle!(rng, entities)
 
     return (entities, world)
 end
