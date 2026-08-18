@@ -1,3 +1,4 @@
+u
 
 function setup_world_get_1(n_entities::Int)
     world = World(Position, Velocity; boxed=BOXED)
