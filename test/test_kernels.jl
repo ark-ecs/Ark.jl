@@ -15,9 +15,9 @@ end
 @testset "KernelAbstractions kernels on the :CPU back-end" begin
     backend = CPU()
     world = TestWorld(
-        Position => Storage{GPUStructArray{:CPU}},
-        Velocity => Storage{GPUStructArray{:CPU}},
-        Health => Storage{GPUVector{:CPU}},
+        Position => Storage(GPUStructArray{:CPU}),
+        Velocity => Storage(GPUStructArray{:CPU}),
+        Health => Storage(GPUVector{:CPU}),
     )
 
     n = 64

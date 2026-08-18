@@ -14,6 +14,10 @@ function _new_storage(::Type{Storage{GPUStructArray{B}}}, ::Type{C}) where {B,C}
     GPUStructArray{B}(C)
 end
 
+function _new_storage(::Type{Storage{GPUVector{B}}}, ::Type{C}) where {B,C}
+    return _new_gpuvector_storage(B, C)
+end
+
 function _new_storage(::Type{Storage{DiskStructArray}}, ::Type{C}) where {C}
     DiskStructArray(C)
 end
@@ -34,8 +38,12 @@ function _storage_type(::Type{Storage{DiskStructArray}}, ::Type{C}) where {C}
     _DiskStructArray_type(C)
 end
 
+function _storage_type(::Type{Storage{GPUVector{:CPU}}}, ::Type{C}) where {C}
+    GPUVector{:CPU,C,Vector{C}}
+end
+
 function _storage_type(::Type{Storage{GPUVector{B}}}, ::Type{C}) where {B,C}
-    GPUVector{B,C,_gpuvector_type(C, Val{B}())}
+    GPUVector{B,C}
 end
 
 function _new_component_columns(::Type{S}, ::Type{C}) where {S<:Storage,C}
@@ -104,6 +112,9 @@ end
     if A <: GPUStructArray
         QB = QuoteNode(_gpu_backend(A))
         return :(GPUStructArray{$QB}(C))
+    elseif A <: GPUVector
+        QB = QuoteNode(_gpu_backend(A))
+        return :(_new_gpuvector_storage($QB, C))
     elseif A <: StructArray
         return :(StructArray(C))
     elseif A <: DiskStructArray

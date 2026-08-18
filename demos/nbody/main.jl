@@ -14,9 +14,9 @@ const IS_CI = "CI" in keys(ENV)
 function nbody_simulation(n, dt, backend)
     T = (backend isa CPU) ? StructArray : GPUStructArray{:CUDA}
     world = World(
-        Position => Storage{T},
-        Velocity => Storage{T},
-        Mass => Storage{T},
+        Position => Storage(T),
+        Velocity => Storage(T),
+        Mass => Storage(T),
     )
 
     add_resource!(world, TimeStep(dt))

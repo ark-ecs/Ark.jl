@@ -61,7 +61,7 @@ end
             @test [b.x for b in bs] == [2.0]
         end
 
-        world = TestWorld(Position, Velocity => Storage{StructArray}, Health)
+        world = TestWorld(Position, Velocity => Storage(StructArray), Health)
 
         xs = [3.0, -2.0, 5.0, 1.0, 4.0]
         for x in xs

@@ -1,9 +1,9 @@
 
 @testset "GPUVector components" begin
     w = TestWorld(
-        A => Storage{GPUVector{:CPU}},
-        B => Storage{GPUVector{:CPU}},
-        Relation{C} => Storage{GPUVector{:CPU}},
+        A => Storage(GPUVector{:CPU}),
+        B => Storage(GPUVector{:CPU}),
+        Relation{C} => Storage(GPUVector{:CPU}),
     )
     e1 = new_entity!(w, (A(2.0), B(2.0)))
     @test get_components(w, e1, (A, B)) == (A(2.0), B(2.0))
@@ -84,7 +84,7 @@ end
     @test _gpuvector_hostwrap(gv.mem) === gv.mem
     @test_throws ArgumentError _gpuvector_hostwrap(1:3)
 
-    w = TestWorld(A => Storage{GPUVector{:CPU}})
+    w = TestWorld(A => Storage(GPUVector{:CPU}))
     new_entity!(w, (A(1.0),))
     @test _storage_from_component(w, A) == GPUVector{:CPU,A,Vector{A}}
 end
@@ -183,4 +183,78 @@ end
 
     copyto!(dest, 1, src, 2, 2)
     @test dest == [2, 3, 2, 3, 0]
+end
+
+@testset "GPUVector copyto! bounds" begin
+    src = GPUVector{:CPU,Int,Vector{Int}}()
+    resize!(src, 4)
+    copyto!(src, 1, [1, 2, 3, 4], 1, 4)
+
+    dest = GPUVector{:CPU,Int,Vector{Int}}()
+    resize!(dest, 2)
+    sizehint!(dest, 100)
+    @test length(dest.mem) == 100
+    @test length(dest) == 2
+
+    copyto!(dest, 1, src, 1, 2)
+    @test dest[1] == 1 && dest[2] == 2
+
+    @test_throws BoundsError copyto!(dest, 1, src, 1, 3)
+    @test_throws BoundsError copyto!(dest, 2, src, 1, 2)
+    @test_throws BoundsError copyto!(dest, 1, [1, 2, 3], 1, 3)
+    @test_throws BoundsError copyto!(dest, 0, src, 1, 1)
+    @test_throws ArgumentError copyto!(dest, 1, src, 1, -1)
+
+    copyto!(dest, 1, [7, 8], 1, 2)
+    @test dest[1] == 7 && dest[2] == 8
+
+    copyto!(dest, 100, src, 100, 0)
+    @test dest[1] == 7 && dest[2] == 8
+end
+
+if !@isdefined(_TestGPUDevice)
+    struct _TestGPUDevice end
+    Ark._gpuvector_ordinal(::_TestGPUDevice) = 1
+end
+
+@testset "GPUVector device selection" begin
+    @test _gpuvector_device(Val{:CPU}()) === nothing
+    @test _gpuvector_withdev(() -> 42, nothing) == 42
+
+    @test _gpuvector_type(Int, Val{:CPU}()) == Vector{Int}
+    @test _gpuvector_type(Int, Val{_GPUDevice{:CPU,0}}()) == Vector{Int}
+    @test_throws MethodError _gpuvector_type(Int, Val{(:CPU, 0)}())
+    @test_throws ArgumentError _gpuvector_device(Val{_GPUDevice{:CPU,0}}())
+    @test_throws ArgumentError _gpuvector_device(Val{_GPUDevice{:RUNTIME,0}}())
+
+    @test_throws ArgumentError TestWorld(A => Storage(GPUVector{:CPU}, _TestGPUDevice()))
+    @test_throws ArgumentError TestWorld(A => Storage(GPUStructArray{:CPU}, _TestGPUDevice()))
+end
+
+if !@isdefined(_TestRuntimeBackend)
+    struct _TestRuntimeBackend end
+end
+Ark._gpuvector_type(::Type{T}, ::Val{:RUNTIME}) where {T} = Vector{T}
+
+@testset "GPU back-end registered at runtime (world age)" begin
+    w = TestWorld(A => Storage(GPUVector{:RUNTIME}))
+    new_entity!(w, (A(1.0),))
+    @test collect(Query(w, (A,)))[1][2][1] == A(1.0)
+
+    w = TestWorld(A => Storage(GPUStructArray{:RUNTIME}))
+    new_entity!(w, (A(2.0),))
+    @test collect(Query(w, (A,)))[1][2][1] == A(2.0)
+
+    @test_throws ArgumentError TestWorld(A => Storage(GPUVector{:RUNTIME}, _TestGPUDevice()))
+end
+
+@testset "GPUVector device normalization" begin
+    s = Storage(GPUVector{:CPU}, _TestGPUDevice())
+    @test s == Storage{GPUVector{_GPUDevice{:CPU,1}}}
+    s = Storage(GPUStructArray{:CPU}, _TestGPUDevice())
+    @test s == Storage{GPUStructArray{_GPUDevice{:CPU,1}}}
+
+    @test_throws ArgumentError Storage(GPUVector{:CPU}, :unknown_device)
+    @test_throws ArgumentError Storage(GPUVector{:CPU,Int,Vector{Int}}, _TestGPUDevice())
+    @test_throws ArgumentError Storage(Vector, _TestGPUDevice())
 end

@@ -426,7 +426,7 @@ end
     world = TestWorld(
         Dummy,
         Position,
-        Velocity => Storage{StructArray},
+        Velocity => Storage(StructArray),
     )
 
     for i in 1:10
@@ -454,7 +454,7 @@ end
     world = TestWorld(
         Dummy,
         Position,
-        Velocity => Storage{StructArray},
+        Velocity => Storage(StructArray),
         NoIsBits,
         Int64,
     )
@@ -504,7 +504,7 @@ end
     world = TestWorld(
         Dummy,
         Position,
-        Velocity => Storage{StructArray},
+        Velocity => Storage(StructArray),
         Altitude,
         NoIsBits,
         Int64,
@@ -563,7 +563,7 @@ end
 @testset "Query JET" begin
     world = TestWorld(
         Position,
-        Velocity => Storage{StructArray},
+        Velocity => Storage(StructArray),
         Altitude,
         Health,
     )
@@ -605,7 +605,7 @@ end
 end
 
 @testset "Single eval of rhs for unpack" begin
-    world = TestWorld(Position => Storage{StructArray})
+    world = TestWorld(Position => Storage(StructArray))
     new_entity!(world, (Position(1.0, 2.0),))
 
     calls = Ref(0)

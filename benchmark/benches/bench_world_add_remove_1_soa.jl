@@ -2,8 +2,8 @@ using Random
 
 function setup_world_add_remove_1_soa(n_entities::Int)
     world = World(
-        Position => Storage{StructArray},
-        Velocity => Storage{StructArray};
+        Position => Storage(StructArray),
+        Velocity => Storage(StructArray);
         boxed=BOXED,
     )
 

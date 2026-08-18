@@ -252,7 +252,7 @@ end
 end
 
 @testset "GPUStructArray query columns" begin
-    w = TestWorld(A => Storage{GPUStructArray{:CPU}})
+    w = TestWorld(A => Storage(GPUStructArray{:CPU}))
     for i in 1:3
         new_entity!(w, (A(i),))
     end
@@ -269,7 +269,7 @@ end
 end
 
 @testset "StructArrayView adapts to the device view" begin
-    w = TestWorld(A => Storage{GPUStructArray{:CPU}})
+    w = TestWorld(A => Storage(GPUStructArray{:CPU}))
     for i in 1:5
         new_entity!(w, (A(i),))
     end
@@ -291,8 +291,8 @@ end
 
 @testset "GPUStructArray components" begin
     w = TestWorld(
-        A => Storage{GPUStructArray{:CPU}},
-        B => Storage{GPUStructArray{:CPU}},
+        A => Storage(GPUStructArray{:CPU}),
+        B => Storage(GPUStructArray{:CPU}),
     )
     e1 = new_entity!(w, (A(0.0), B(0.0)))
     @test get_components(w, e1, (A, B)) == (A(0.0), B(0.0))
@@ -354,7 +354,7 @@ end
 @testset "DiskStructArray invalid types" begin
     @test_throws(
         "for LabelComponent because it has no fields",
-        World(LabelComponent => Storage{DiskStructArray})
+        World(LabelComponent => Storage(DiskStructArray))
     )
     @test_throws(
         "DiskStructArray storage not allowed for components without fields",
@@ -362,11 +362,11 @@ end
     )
     @test_throws(
         "DiskVector storage requires an isbits component type, got Array",
-        World(NoIsBits => Storage{DiskStructArray})
+        World(NoIsBits => Storage(DiskStructArray))
     )
     @test_throws(
         "must be immutable because it uses StructArray storage",
-        World(MutableComponent => Storage{DiskStructArray}; allow_mutable=true)
+        World(MutableComponent => Storage(DiskStructArray); allow_mutable=true)
     )
 end
 
@@ -406,7 +406,7 @@ end
 end
 
 @testset "DiskStructArray query columns" begin
-    w = World(A => Storage{DiskStructArray})
+    w = World(A => Storage(DiskStructArray))
     for i in 1:3
         new_entity!(w, (A(i),))
     end
@@ -424,8 +424,8 @@ end
 
 @testset "DiskStructArray components" begin
     w = World(
-        A => Storage{DiskStructArray},
-        B => Storage{DiskStructArray},
+        A => Storage(DiskStructArray),
+        B => Storage(DiskStructArray),
     )
     e1 = new_entity!(w, (A(0.0), B(0.0)))
     @test get_components(w, e1, (A, B)) == (A(0.0), B(0.0))
@@ -454,7 +454,7 @@ end
 end
 
 @testset "DiskStructArray spills to disk" begin
-    w = World(Position => Storage{DiskStructArray})
+    w = World(Position => Storage(DiskStructArray))
     n = 4 * Ark.DISKVECTOR_MEMORY_LENGTH
     for i in 1:n
         new_entity!(w, (Position(i, 2i),))

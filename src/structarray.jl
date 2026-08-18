@@ -4,7 +4,7 @@
 A custom implementation of a StructArray similar to the one exported by StructArrays.jl.
 
 In the interface, it is only used to mark that a component has a struct array storage
-with `ComponentA => Storage{StructArray}`.
+with `ComponentA => Storage(StructArray)`.
 """
 struct StructArray{C,CS<:NamedTuple,N} <: _AbstractStructArray{C,CS,N}
     _components::CS

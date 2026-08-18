@@ -11,7 +11,7 @@ using PrecompileTools
     struct C end
     for boxed in (true, false)
         @compile_workload let
-            w = World(A, B => Storage{StructArray}, Relation{C}; boxed=boxed)
+            w = World(A, B => Storage(StructArray), Relation{C}; boxed=boxed)
             e1 = new_entity!(w, (A(0.0), B(0.0)))
             e2 = new_entity!(w, (A(0.0), B(0.0), C() => e1))
             e3 = copy_entity!(w, e1)

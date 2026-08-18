@@ -9,21 +9,34 @@ When passed as a storage the back-end must be specified (either :CUDA, :Metal,
 As for [`GPUVector`](@ref), the `:CPU` back-end is always available and stores
 each field in a plain `Vector`.
 
+As for [`GPUVector`](@ref), the storage can be pinned to a specific device on
+back-ends with more than one, by passing a device object to the storage, like
+`Storage(GPUStructArray{:CUDA}, CuDevice(1))` for the second GPU of the system.
+
 # Examples
 
 ```julia
 using CUDA
 
 world = World(
-    Position => Storage{GPUStructArray{:CUDA}},
-    Velocity => Storage{GPUStructArray{:CUDA}},
+    Position => Storage(GPUStructArray{:CUDA}),
+    Velocity => Storage(GPUStructArray{:CUDA}),
+)
+```
+
+```julia
+using CUDA
+
+world = World(
+    Position => Storage(GPUStructArray{:CUDA}, CuDevice(1)),
+    Velocity => Storage(GPUStructArray{:CUDA}, CuDevice(1)),
 )
 ```
 
 ```julia
 world = World(
-    Position => Storage{GPUStructArray{:CPU}},
-    Velocity => Storage{GPUStructArray{:CPU}},
+    Position => Storage(GPUStructArray{:CPU}),
+    Velocity => Storage(GPUStructArray{:CPU}),
 )
 ```
 """
@@ -46,11 +59,11 @@ end
     num_fields == 0 && error("GPUStructArray storage not allowed for components without fields")
 
     QB = QuoteNode(B)
-    vec_types = Expr[:(GPUVector{$QB,$t,_gpuvector_type($t, Val{$QB}())}) for t in types]
+    vec_types = Expr[:(GPUVector{$QB,$t}) for t in types]
     quoted_names = QuoteNode[QuoteNode(name) for name in names]
     nt_type = :(NamedTuple{($(quoted_names...),),Tuple{$(vec_types...)}})
     kv_exprs = Expr[
-        :($name = GPUVector{$QB,$t,_gpuvector_type($t, Val{$QB}())}()) for (name, t) in zip(names, types)
+        :($name = _new_gpuvector_storage($QB, $t)) for (name, t) in zip(names, types)
     ]
 
     return quote
@@ -65,7 +78,7 @@ end
     num_fields == 0 && error("GPUStructArray storage not allowed for components without fields")
 
     QB = QuoteNode(B)
-    vec_types = Expr[:(GPUVector{$QB,$t,_gpuvector_type($t, Val{$QB}())}) for t in types]
+    vec_types = Expr[:(GPUVector{$QB,$t}) for t in types]
     nt_type = :(NamedTuple{$names,Tuple{$(vec_types...)}})
 
     return quote
@@ -97,4 +110,13 @@ end
     return quote
         StructArrayView{C,$nt_type}((; $(view_exprs...)))
     end
+end
+
+function Storage(::Type{GPUStructArray{B}}) where {B}
+    return Storage{GPUStructArray{B}}
+end
+
+function Storage(::Type{GPUStructArray{B}}, device) where {B}
+    _gpuvector_device_check(B)
+    return Storage{GPUStructArray{_GPUDevice{B,_gpuvector_ordinal(device)}}}
 end

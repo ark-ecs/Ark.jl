@@ -9,6 +9,10 @@
 - Adds `DiskVector` and `DiskStructArray` to use the disk for components in very large simulations (#656).
 - Adds `GPUVector{:CPU}` and `GPUStructArray{:CPU}` to use a GPU storage on devices
   which do not have a GPU (#701).
+- Adds GPU device selection for GPU storages: a device object can be passed to the
+  storage, like `Storage(GPUVector{:CUDA}, CuDevice(1))`, to pin it to a specific
+  device. All memory of the storage is then allocated on that device, including
+  re-allocations during growth. Supported for the :CUDA, :Metal, :oneAPI and :OpenCL back-ends.
 - Adds the `boxed` keyword argument to the world constructor, which cuts the compilation cost of Ark, at the price of some slowdown in performance.
 - Adds `get_components`, `set_components!` and `has_components` for a `Query`, to access the
   components of a query for a single entity without iterating or closing the query.
@@ -16,6 +20,8 @@
 
 ### Breaking changes
 
+- Storage modes are now specified with `Storage(...)` instead of `Storage{...}`, e.g.
+  `World(Position => Storage(StructArray))`.
 - `unregister!` and `register!` now require the world as an argument (#660).
 - API functions for `Query` and `Filter` now require the world as an argument (#662).
 - `length` for a filter has been renamed to `count_tables` (#662).
@@ -28,6 +34,8 @@
 - Compile time performance is improved through a better internal specialization mechanism (#662).
 - Component registration no longer compiles one `Dict` insertion per component type during world construction.
 - Getting components performance improved by 10% (#664).
+- GPU storages now copy data device-to-device on reallocation and entity migration,
+  instead of going through the host.
 
 ## [[v0.5.1]](https://github.com/ark-ecs/Ark.jl/compare/v0.5.0...v0.5.1)
 

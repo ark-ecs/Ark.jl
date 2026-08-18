@@ -3,7 +3,7 @@ using Random
 
 @testset "Basic Shuffle" begin
     for register in (false, true)
-        world = TestWorld(Position, Velocity => Storage{StructArray})
+        world = TestWorld(Position, Velocity => Storage(StructArray))
         N = 100
         ids = Vector{Entity}(undef, N)
         for i in 1:N

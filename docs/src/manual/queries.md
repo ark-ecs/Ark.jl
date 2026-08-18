@@ -193,8 +193,8 @@ as it allows for SIMD-accelerated vectorized operations.
 
 ```jldoctest query-fields; setup = :(using Ark), output = false
 world = World(
-    Position => Storage{StructArray},
-    Velocity => Storage{StructArray},
+    Position => Storage(StructArray),
+    Velocity => Storage(StructArray),
 )
 
 # ...

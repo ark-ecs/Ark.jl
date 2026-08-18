@@ -2,15 +2,15 @@ using Random
 
 function setup_world_add_remove_8_soa(n_entities::Int)
     world = World(
-        Position => Storage{StructArray},
-        CompN{1} => Storage{StructArray},
-        CompN{2} => Storage{StructArray},
-        CompN{3} => Storage{StructArray},
-        CompN{4} => Storage{StructArray},
-        CompN{5} => Storage{StructArray},
-        CompN{6} => Storage{StructArray},
-        CompN{7} => Storage{StructArray},
-        CompN{8} => Storage{StructArray};
+        Position => Storage(StructArray),
+        CompN{1} => Storage(StructArray),
+        CompN{2} => Storage(StructArray),
+        CompN{3} => Storage(StructArray),
+        CompN{4} => Storage(StructArray),
+        CompN{5} => Storage(StructArray),
+        CompN{6} => Storage(StructArray),
+        CompN{7} => Storage(StructArray),
+        CompN{8} => Storage(StructArray);
         boxed=BOXED,
     )
 

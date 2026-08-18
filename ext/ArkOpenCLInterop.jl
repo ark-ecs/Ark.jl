@@ -20,4 +20,18 @@ function Ark._gpuvector_hostwrap(
     return unsafe_wrap(Vector{T}, mem)
 end
 
+function Ark._gpuvector_pinned_device(::Val{:OpenCL}, ordinal::Integer)
+    return cl.devices(cl.platform())[ordinal+1]
+end
+
+function Ark._gpuvector_ordinal(dev::cl.Device)
+    idx = findfirst(==(dev), cl.devices(cl.platform()))
+    idx === nothing && throw(ArgumentError("device not found among the OpenCL devices"))
+    return idx - 1
+end
+
+function Ark._gpuvector_withdev(f, dev::cl.Device)
+    return cl.device!(f, dev)
+end
+
 end

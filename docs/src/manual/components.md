@@ -172,9 +172,9 @@ The storage mode can be selected per component type by using the [Storage](@ref)
 
 ```jldoctest; output = false
 world = World(
-    Position => Storage{Vector},
-    Velocity => Storage{StructArray},
-    Health => Storage{DiskVector},
+    Position => Storage(Vector),
+    Velocity => Storage(StructArray),
+    Health => Storage(DiskVector),
 )
 
 # output
@@ -182,12 +182,12 @@ world = World(
 World(entities=0, comp_types=(Position, Velocity, Health))
 ```
 
-The default is `Storage{Vector}` if no storage mode is specified:
+The default is `Storage(Vector)` if no storage mode is specified:
 
 ```jldoctest; output = false
 world = World(
     Position,
-    Velocity => Storage{StructArray},
+    Velocity => Storage(StructArray),
 )
 
 # output
@@ -201,8 +201,8 @@ To use the [GPUVector](@ref) or the [GPUStructArray](@ref) storage, also the GPU
 using CUDA
 
 world = World(
-    Position => Storage{GPUVector{:CUDA}},
-    Velocity => Storage{GPUStructArray{:CUDA}},
+    Position => Storage(GPUVector{:CUDA}),
+    Velocity => Storage(GPUStructArray{:CUDA}),
 )
 ```
 
@@ -211,14 +211,31 @@ It is useful to run and test GPU-shaped code on machines without a device:
 
 ```jldoctest; output = false
 world = World(
-    Position => Storage{GPUVector{:CPU}},
-    Velocity => Storage{GPUStructArray{:CPU}},
+    Position => Storage(GPUVector{:CPU}),
+    Velocity => Storage(GPUStructArray{:CPU}),
 )
 
 # output
 
 World(entities=0, comp_types=(Position, Velocity))
 ```
+
+On back-ends with more than one GPU, a specific device can be selected by passing a
+device object to the storage, like `CuDevice(1)` for the second GPU of the system:
+
+```julia
+using CUDA
+
+world = World(
+    Position => Storage(GPUVector{:CUDA}, CuDevice(1)),
+    Velocity => Storage(GPUStructArray{:CUDA}, CuDevice(1)),
+)
+```
+
+All memory of these storages is allocated on the selected device, including
+re-allocations during growth. Device selection is currently supported for the
+`:CUDA`, `:Metal`, `:oneAPI` and `:OpenCL` back-ends. Kernels operating on the components
+still have to be launched on the matching device (e.g. via `CUDA.device!`).
 
 ## [User-defined component storages](@id new-component-storages)
 
@@ -239,8 +256,8 @@ Base.sizehint!(w::WrappedVector, i::Integer) = sizehint!(w.v, i)
 Base.pop!(w::WrappedVector) = pop!(w.v)
 
 world = World(
-    Position => Storage{WrappedVector},
-    Velocity => Storage{StructArray},
+    Position => Storage(WrappedVector),
+    Velocity => Storage(StructArray),
 )
 
 # output
