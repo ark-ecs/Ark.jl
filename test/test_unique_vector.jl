@@ -1,4 +1,6 @@
 
+using UniqueVectors
+
 @testset "UniqueVector storage" begin
     w = World(Position => Storage{UniqueVector})
     e1 = new_entity!(w, (Position(1.0, 2.0),))
