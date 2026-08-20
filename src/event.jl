@@ -214,10 +214,8 @@ function _remove_observer!(m::_EventManager{M}, o::Observer{M}) where {M}
 
     e = o._event._id
     observers = m.observers[e]
-    swapped, moved = _swap_remove!(observers, o._id.id)
-    if swapped
-        moved._id.id = o._id.id
-    end
+    moved = _swap_remove!(observers, o._id.id)
+    moved._id.id = o._id.id
     o._id.id = 0
 
     # rebuild mask unions

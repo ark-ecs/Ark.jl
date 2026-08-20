@@ -11,15 +11,9 @@ end
 end
 
 @inline function _swap_remove!(v::AbstractArray, i::UInt32)
-    last_index = length(v)
-    swapped = i != last_index
-    moved = if swapped
-        _swap!(v, i, last_index)
-    else
-        @inbounds v[i]
-    end
+    moved = _swap!(v, i, length(v))
     pop!(v)
-    return swapped, moved
+    return moved
 end
 
 function _type_parameter(::Type{Type{T}}) where {T}

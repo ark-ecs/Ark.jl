@@ -483,14 +483,12 @@ end
             _unlock(world_state._lock)
         end
 
-        swapped, swap_entity = _swap_remove!(table.entities._data, index.row)
+        swap_entity = _swap_remove!(table.entities._data, index.row)
 
         # Only operate on storages for components present in this archetype
         $remove_block
 
-        if swapped
-            @inbounds world_state._entities[swap_entity._id] = index
-        end
+        @inbounds world_state._entities[swap_entity._id] = index
 
         _recycle(world_state._entity_pool, entity)
 
@@ -1966,11 +1964,9 @@ end
 
     quote
         new_row = _add_entity!(new_table, entity)
-        swapped, swap_entity = _swap_remove!(old_table.entities._data, index.row)
+        swap_entity = _swap_remove!(old_table.entities._data, index.row)
 
-        if swapped
-            @inbounds state._entities[swap_entity._id] = index
-        end
+        @inbounds state._entities[swap_entity._id] = index
 
         @inbounds state._entities[entity._id] = _EntityIndex(table_index, UInt32(new_row))
 
