@@ -46,20 +46,14 @@ function TestWorld(
         end
     end
     for i in 1:length(storages)
-        if storages[i] == Storage{WrappedVector} && isbitstype(types[i]) && fieldcount(types[i]) > 0
-            storages[i] = Storage{DiskVector}
-            break
-        end
-    end
-    for i in 1:length(storages)
         if storages[i] == Storage{StructArray}
             storages[i] = Storage{GPUStructArray{:CPU}}
         end
     end
     storages = Tuple(storages)
     Ark._World_from_types(
-        Val{Tuple{fake_types[1:offset_ID]...,types...,fake_types[offset_ID+1:N_fake]...}}(),
-        Val{Tuple{fake_storage[1:offset_ID]...,storages...,fake_storage[offset_ID+1:N_fake]...}}(),
+        Val{Tuple{fake_types[1:offset_ID]...,types...,fake_types[(offset_ID+1):N_fake]...}}(),
+        Val{Tuple{fake_storage[1:offset_ID]...,storages...,fake_storage[(offset_ID+1):N_fake]...}}(),
         Val{Tuple{relation_types...}}(),
         Val(allow_mutable),
         Val(boxed),
