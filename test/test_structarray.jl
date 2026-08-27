@@ -90,7 +90,7 @@ end
 @testset "StructArray type" begin
     for T in (Position, Position_Mod)
         tp = _StructArray_type(T)
-        @test tp == StructArray{T,@NamedTuple{x::Vector{Float64},y::Vector{Float64}},2}
+        @test tp == StructArray{T,@NamedTuple{x::Vector{Float64}, y::Vector{Float64}},2}
     end
 end
 
