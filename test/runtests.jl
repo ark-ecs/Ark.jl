@@ -50,7 +50,6 @@ const MODE_AGNOSTIC_SUITES = [
     "test_registry.jl",
     "test_vec_map.jl",
     "test_linear_map.jl",
-    "test_disk_vector.jl",
     "test_quality.jl",
 ]
 

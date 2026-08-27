@@ -64,8 +64,6 @@ set_relations!
 ```@docs
 Storage
 StructArray
-DiskVector
-DiskStructArray
 GPUVector
 GPUStructArray
 ```

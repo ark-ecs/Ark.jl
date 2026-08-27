@@ -6,7 +6,6 @@
 
 - Adds command buffers support for deferred structural operations (#670).
 - Adds the possibility to specify that a query column is read-only (#677).
-- Adds `DiskVector` and `DiskStructArray` to use the disk for components in very large simulations (#656).
 - Adds `GPUVector{:CPU}` and `GPUStructArray{:CPU}` to use a GPU storage on devices
   which do not have a GPU (#701).
 - Adds the `boxed` keyword argument to the world constructor, which cuts the compilation cost of Ark, at the price of some slowdown in performance.
