@@ -98,6 +98,7 @@ end
 
 mutable struct _ObserverID
     id::UInt32
+    pending::Bool
 end
 
 """
@@ -128,8 +129,10 @@ mutable struct _EventManager{M}
     const observers::Vector{Vector{Observer{M}}}
     const comps::Vector{Tuple{_Mask{M},Bool}}
     const with::Vector{Tuple{_Mask{M},Bool}}
+    const pending_remove::Vector{Observer{M}}
     num_observers::Int
     max_event_type::Int
+    firing::Int
 end
 
 function _EventManager{M}() where {M}
@@ -138,8 +141,31 @@ function _EventManager{M}() where {M}
         [Vector{Observer{M}}() for _ in 1:len],
         [(_Mask{M}(), false) for _ in 1:len],
         [(_Mask{M}(), false) for _ in 1:len],
-        0, 0,
+        Vector{Observer{M}}(),
+        0, 0, 0,
     )
+end
+
+function _enter_fire!(m::_EventManager)
+    m.firing += 1
+    return nothing
+end
+
+@inline function _exit_fire!(m::_EventManager)
+    d = m.firing - 1
+    m.firing = d
+    if d == 0 && !isempty(m.pending_remove)
+        _flush_pending_removes!(m)
+    end
+    return nothing
+end
+
+function _flush_pending_removes!(m::_EventManager)
+    for o in m.pending_remove
+        _do_remove_observer!(m, o)
+    end
+    empty!(m.pending_remove)
+    return nothing
 end
 
 function _ensure_capacity!(m::_EventManager{M}, id::Int) where {M}
@@ -180,6 +206,7 @@ function _add_observer!(m::_EventManager, o::Observer)
     _ensure_capacity!(m, e)
     push!(m.observers[e], o)
     o._id.id = UInt32(length(m.observers[e]))
+    o._id.pending = false
 
     if e > m.max_event_type
         m.max_event_type = e
@@ -210,6 +237,19 @@ function _remove_observer!(m::_EventManager{M}, o::Observer{M}) where {M}
     if o._id.id == 0
         throw(InvalidStateException("observer is not registered", :observer_not_registered))
     end
+    if m.firing > 0
+        if o._id.pending
+            throw(InvalidStateException("observer is not registered", :observer_not_registered))
+        end
+        o._id.pending = true
+        push!(m.pending_remove, o)
+        return nothing
+    end
+    _do_remove_observer!(m, o)
+    return nothing
+end
+
+function _do_remove_observer!(m::_EventManager{M}, o::Observer{M}) where {M}
     m.num_observers -= 1
 
     e = o._event._id
@@ -233,7 +273,7 @@ function _remove_observer!(m::_EventManager{M}, o::Observer{M}) where {M}
     end
     m.with[e] = (with_mask, any_no_with)
 
-    if o._event == OnCreateEntity || o._event == OnRemoveEntity
+    if e == OnCreateEntity._id || e == OnRemoveEntity._id
         return
     end
 
@@ -264,6 +304,8 @@ function _reset!(m::_EventManager{M}) where {M}
 
     m.max_event_type = 0
     m.num_observers = 0
+    m.firing = 0
+    empty!(m.pending_remove)
 end
 
 function _fire_create_entity(m::_EventManager{M}, entity::Entity, mask::_Mask{M}) where {M}
@@ -300,7 +342,11 @@ function _fire_create_entities(m::_EventManager{M}, table::_BatchTable{M}) where
             return
         end
     end
-    for o in observers
+    _enter_fire!(m)
+    nobs = length(observers)
+    for oi in 1:nobs
+        o = @inbounds observers[oi]
+        o._id.pending && continue
         if o._has_with && !_contains_all(mask, o._with)
             continue
         end
@@ -312,6 +358,7 @@ function _fire_create_entities(m::_EventManager{M}, table::_BatchTable{M}) where
             o._fn(entities[i])
         end
     end
+    _exit_fire!(m)
 end
 
 function _fire_create_entities_relations(m::_EventManager{M}, table::_BatchTable{M}) where {M}
@@ -331,7 +378,11 @@ function _fire_remove_entities(
             return
         end
     end
-    for o in observers
+    _enter_fire!(m)
+    nobs = length(observers)
+    for oi in 1:nobs
+        o = @inbounds observers[oi]
+        o._id.pending && continue
         if o._has_with && !_contains_all(mask, o._with)
             continue
         end
@@ -342,6 +393,7 @@ function _fire_remove_entities(
             o._fn(entity)
         end
     end
+    _exit_fire!(m)
 end
 
 function _fire_remove_entities_relations(
@@ -361,7 +413,11 @@ function _fire_remove_entities_relations(
             return
         end
     end
-    for o in observers
+    _enter_fire!(m)
+    nobs = length(observers)
+    for oi in 1:nobs
+        o = @inbounds observers[oi]
+        o._id.pending && continue
         if o._has_comps && !_contains_all(mask, o._comps)
             continue
         end
@@ -375,6 +431,7 @@ function _fire_remove_entities_relations(
             o._fn(entity)
         end
     end
+    _exit_fire!(m)
 end
 
 function _fire_add(
@@ -399,7 +456,11 @@ function _fire_add(
         end
     end
     found = false
-    for o in observers
+    _enter_fire!(m)
+    nobs = length(observers)
+    for oi in 1:nobs
+        o = @inbounds observers[oi]
+        o._id.pending && continue
         if o._has_comps && (!_contains_all(new_mask, o._comps) || _contains_any(old_mask, o._comps))
             continue
         end
@@ -412,6 +473,7 @@ function _fire_add(
         o._fn(entity)
         found = true
     end
+    _exit_fire!(m)
     return found
 end
 
@@ -435,7 +497,11 @@ function _fire_add(
             return
         end
     end
-    for o in observers
+    _enter_fire!(m)
+    nobs = length(observers)
+    for oi in 1:nobs
+        o = @inbounds observers[oi]
+        o._id.pending && continue
         if o._has_comps && (!_contains_all(new_mask, o._comps) || _contains_any(old_mask, o._comps))
             continue
         end
@@ -450,6 +516,7 @@ function _fire_add(
             o._fn(entities[i])
         end
     end
+    _exit_fire!(m)
     return nothing
 end
 
@@ -475,7 +542,11 @@ function _fire_remove(
         end
     end
     found = false
-    for o in observers
+    _enter_fire!(m)
+    nobs = length(observers)
+    for oi in 1:nobs
+        o = @inbounds observers[oi]
+        o._id.pending && continue
         if o._has_comps && (!_contains_all(old_mask, o._comps) || _contains_any(new_mask, o._comps))
             continue
         end
@@ -488,6 +559,7 @@ function _fire_remove(
         o._fn(entity)
         found = true
     end
+    _exit_fire!(m)
     return found
 end
 
@@ -511,7 +583,11 @@ function _fire_remove(
             return
         end
     end
-    for o in observers
+    _enter_fire!(m)
+    nobs = length(observers)
+    for oi in 1:nobs
+        o = @inbounds observers[oi]
+        o._id.pending && continue
         if o._has_comps && (!_contains_all(old_mask, o._comps) || _contains_any(new_mask, o._comps))
             continue
         end
@@ -526,6 +602,7 @@ function _fire_remove(
             o._fn(entities[i])
         end
     end
+    _exit_fire!(m)
     return nothing
 end
 
@@ -580,7 +657,11 @@ end
         end
     end
     found = false
-    for o in observers
+    _enter_fire!(m)
+    nobs = length(observers)
+    for oi in 1:nobs
+        o = @inbounds observers[oi]
+        o._id.pending && continue
         if o._has_comps && !_contains_all(mask, o._comps)
             continue
         end
@@ -593,6 +674,7 @@ end
         o._fn(entity)
         found = true
     end
+    _exit_fire!(m)
     return found
 end
 
@@ -615,7 +697,11 @@ end
             return
         end
     end
-    for o in observers
+    _enter_fire!(m)
+    nobs = length(observers)
+    for oi in 1:nobs
+        o = @inbounds observers[oi]
+        o._id.pending && continue
         if o._has_comps && !_contains_all(mask, o._comps)
             continue
         end
@@ -630,6 +716,7 @@ end
             o._fn(entities[i])
         end
     end
+    _exit_fire!(m)
 end
 
 @inline function _do_fire_no_comps(
@@ -648,7 +735,11 @@ end
         end
     end
     found = false
-    for o in observers
+    _enter_fire!(m)
+    nobs = length(observers)
+    for oi in 1:nobs
+        o = @inbounds observers[oi]
+        o._id.pending && continue
         if o._has_with && !_contains_all(mask, o._with)
             continue
         end
@@ -658,5 +749,6 @@ end
         o._fn(entity)
         found = true
     end
+    _exit_fire!(m)
     return found
 end
