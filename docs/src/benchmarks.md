@@ -47,8 +47,8 @@ end
 end
 
 function run_world(backend; n_entities=10^6, n_iterations=1000)
-    T = backend isa CUDABackend ? GPUVector{:CUDA} : Vector
-    world = World(Position => Storage(T), Velocity => Storage(T))
+    storage = backend isa CUDABackend ? Storage(GPUVector, backend) : Storage(Vector)
+    world = World(Position => storage, Velocity => storage)
 
     for i in 1:n_entities
         new_entity!(world, (Position(Float32(i), Float32(i * 2)), Velocity(Float32(i), Float32(i))))
@@ -61,9 +61,16 @@ function run_world(backend; n_entities=10^6, n_iterations=1000)
         end
     end
 
+    # kernels run asynchronously: wait for them before any host-side access
+    KernelAbstractions.synchronize(backend)
+
     return world
 end
 ```
+
+Note the `synchronize` call: kernels on GPU storages execute asynchronously, and the host
+must not touch their memory - including structural operations - while one is in flight.
+See [Synchronization with GPU Storages](@ref gpu-storage-synchronization).
 
 Performance-wise [GPUVector](@ref) performs best in this case on some local test hardware, as you can
 see below:

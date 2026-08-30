@@ -4,20 +4,31 @@
 
 A vector implementation that uses unified memory for mixed CPU/GPU operations.
 The implementation is compatible with CUDA.jl, Metal.jl, oneAPI.jl and OpenCL.jl.
-When passed as a storage the back-end must be specified (either :CUDA, :Metal,
-:oneAPI, :OpenCL or :CPU).
+When passed as a storage, the back-end is specified with a KernelAbstractions
+back-end instance, like `Storage(GPUVector, CUDABackend())` or
+`Storage(GPUVector, CPU())`.
 
-The `:CPU` back-end is always available and stores the elements in a plain
+The `CPU()` back-end of KernelAbstractions.jl is always available and stores the elements in a plain
 `Vector`. It requires no GPU package and is useful for testing and for running
 GPU-shaped code on machines without a device.
 
 On back-ends with more than one device, the storage can be pinned to a specific
-device by passing a device object to the storage, like
-`Storage(GPUVector{:CUDA}, CuDevice(1))` for the second GPU of the system.
-All memory of the storage is then allocated on that device, including
+device by passing a device object, like
+`Storage(GPUVector, CUDABackend(), CuDevice(1))` for the second GPU of the
+system. All memory of the storage is then allocated on that device, including
 re-allocations during growth. Device selection is currently supported for the
-:CUDA, :Metal, :oneAPI and :OpenCL back-ends. Kernels operating on the components still
-have to be launched on the matching device (e.g. by using `CUDA.device!`).
+`:CUDA`, `:Metal`, `:oneAPI` and `:OpenCL` back-ends. Kernels operating on the
+components still have to be launched on the matching device (e.g. by using
+`CUDA.device!`).
+
+!!! warning "Synchronization"
+    Kernels launched on views of this storage (e.g. via KernelAbstractions) execute
+    asynchronously. While such a kernel is in flight, its memory must not be accessed
+    from the host. This includes reading or writing components as well as all structural
+    operations like `new_entity!`, `remove_entity!` or `set_components!`, which
+    swap-remove or reallocate the underlying arrays. Synchronize the backend first, e.g.
+    with `KernelAbstractions.synchronize(backend)`. See
+    [Synchronization with GPU Storages](@ref gpu-storage-synchronization) for details.
 
 # Examples
 
@@ -25,8 +36,8 @@ have to be launched on the matching device (e.g. by using `CUDA.device!`).
 using CUDA
 
 world = World(
-    Position => Storage(GPUVector{:CUDA}),
-    Velocity => Storage(GPUVector{:CUDA}),
+    Position => Storage(GPUVector, CUDABackend()),
+    Velocity => Storage(GPUVector, CUDABackend()),
 )
 ```
 
@@ -34,15 +45,17 @@ world = World(
 using CUDA
 
 world = World(
-    Position => Storage(GPUVector{:CUDA}, CuDevice(1)),
-    Velocity => Storage(GPUVector{:CUDA}, CuDevice(1)),
+    Position => Storage(GPUVector, CUDABackend(), CuDevice(1)),
+    Velocity => Storage(GPUVector, CUDABackend(), CuDevice(1)),
 )
 ```
 
 ```
+using KernelAbstractions
+
 world = World(
-    Position => Storage(GPUVector{:CPU}),
-    Velocity => Storage(GPUVector{:CPU}),
+    Position => Storage(GPUVector, CPU()),
+    Velocity => Storage(GPUVector, CPU()),
 )
 ```
 """
@@ -53,11 +66,18 @@ mutable struct GPUVector{B,T,M} <: AbstractVector{T}
 end
 
 # Internal marker for a GPU back-end pinned to a specific device, produced by
-# `Storage(GPUVector{:CUDA}, device)`. Users do not write this type directly.
+# `Storage(GPUVector, CUDABackend(), CuDevice(1))`. Users do not write this
+# type directly.
 struct _GPUDevice{B,D} end
 
 _gpu_backend_symbol(::Type{_GPUDevice{B,D}}) where {B,D} = B
 _gpu_device_ordinal(::Type{_GPUDevice{B,D}}) where {B,D} = D
+
+function _gpu_backend_symbol end
+
+function _gpu_backend_symbol(backend)
+    throw(ArgumentError(lazy"unsupported back-end $(nameof(typeof(backend))) for a GPU storage; load the corresponding GPU package (CUDA.jl, Metal.jl, oneAPI.jl or OpenCL.jl), or KernelAbstractions.jl for the CPU back-end"))
+end
 
 function _gpuvector_type end
 
@@ -99,19 +119,12 @@ function _gpuvector_ordinal(device)
     throw(ArgumentError(lazy"GPU device lookup is not supported for devices of type $(typeof(device))"))
 end
 
-@inline function _gpuvector_device_check(B)
-    (B isa Tuple{Symbol,<:Integer} || (B isa Type && B <: _GPUDevice)) &&
-        throw(ArgumentError("storage is already pinned to a GPU device"))
-    return
+function Storage(::Type{GPUVector}, backend)
+    return Storage{GPUVector{_gpu_backend_symbol(backend)}}
 end
 
-function Storage(::Type{GPUVector{B}}) where {B}
-    return Storage{GPUVector{B}}
-end
-
-function Storage(::Type{GPUVector{B}}, device) where {B}
-    _gpuvector_device_check(B)
-    return Storage{GPUVector{_GPUDevice{B,_gpuvector_ordinal(device)}}}
+function Storage(::Type{GPUVector}, backend, device)
+    return Storage{GPUVector{_GPUDevice{_gpu_backend_symbol(backend), _gpuvector_ordinal(device)}}}
 end
 
 function Storage(::Type{A}, device) where {A<:AbstractVector}

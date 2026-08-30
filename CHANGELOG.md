@@ -10,7 +10,7 @@
 - Adds `GPUVector{:CPU}` and `GPUStructArray{:CPU}` to use a GPU storage on devices
   which do not have a GPU (#701).
 - Adds GPU device selection for GPU storages: a device object can be passed to the
-  storage, like `Storage(GPUVector{:CUDA}, CuDevice(1))`, to pin it to a specific
+  storage, like `Storage(GPUVector, CUDABackend(), CuDevice(1))`, to pin it to a specific
   device. All memory of the storage is then allocated on that device, including
   re-allocations during growth. Supported for the :CUDA, :Metal, :oneAPI and :OpenCL back-ends.
 - Adds the `boxed` keyword argument to the world constructor, which cuts the compilation cost of Ark, at the price of some slowdown in performance.
@@ -20,6 +20,12 @@
 
 ### Breaking changes
 
+- `Storage` for GPU storages now takes back-end instances instead of back-end symbols:
+  `Storage(GPUVector, CUDABackend())`, `Storage(GPUVector, CUDABackend(), CuDevice(1))`
+  and `Storage(GPUVector, CPU())` (analogously for `GPUStructArray`), where the GPU
+  back-ends are the KernelAbstractions back-end instances of the corresponding packages
+  and `CPU()` is the CPU back-end of KernelAbstractions.jl (now a weak dependency).
+  The symbol-based forms like `Storage(GPUVector{:CUDA})` have been removed.
 - Storage modes are now specified with `Storage(...)` instead of `Storage{...}`, e.g.
   `World(Position => Storage(StructArray))`.
 - `unregister!` and `register!` now require the world as an argument (#660).
@@ -36,6 +42,15 @@
 - Getting components performance improved by 10% (#664).
 - GPU storages now copy data device-to-device on reallocation and entity migration,
   instead of going through the host.
+
+### Documentation
+
+- Documents the synchronization contract of GPU storages: kernels on GPU storages run
+  asynchronously, so all host-side access - including structural operations like
+  `new_entity!` or `set_components!` - must wait for in-flight kernels
+  (`KernelAbstractions.synchronize`). See the manual section
+  "Synchronization with GPU Storages" and the new `demos/gpu_hazards` directory,
+  which contains minimal working examples of the underlying failure modes.
 
 ## [[v0.5.1]](https://github.com/ark-ecs/Ark.jl/compare/v0.5.0...v0.5.1)
 

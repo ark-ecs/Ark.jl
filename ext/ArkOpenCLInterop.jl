@@ -14,6 +14,8 @@ function Ark._gpuvector_type(::Type{T}, ::Val{:OpenCL}) where T
     end
 end
 
+Ark._gpu_backend_symbol(::OpenCL.OpenCLBackend) = :OpenCL
+
 function Ark._gpuvector_hostwrap(
     mem::CLArray{T,1,<:Union{cl.UnifiedSharedMemory,cl.SharedVirtualMemory}},
 ) where {T}

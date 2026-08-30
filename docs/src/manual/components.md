@@ -24,6 +24,7 @@ One or more components of an entity can be accessed via [get_components](@ref ge
 ```@meta
 DocTestSetup = quote
     using Ark
+    using KernelAbstractions
 
     struct Position
         x::Float64
@@ -195,24 +196,26 @@ world = World(
 World(entities=0, comp_types=(Position, Velocity))
 ```
 
-To use the [GPUVector](@ref) or the [GPUStructArray](@ref) storage, also the GPU backend must be specified (which can be either `:CUDA`, `:Metal`, `:oneAPI` or `:OpenCL`) depending on the GPU, as shown below:
+To use the [GPUVector](@ref) or the [GPUStructArray](@ref) storage, the back-end is specified
+with a KernelAbstractions back-end instance (e.g. `CUDABackend()`, `MetalBackend()`,
+`oneAPIBackend()` or `OpenCLBackend()`) depending on the GPU, as shown below:
 
 ```julia
 using CUDA
 
 world = World(
-    Position => Storage(GPUVector{:CUDA}),
-    Velocity => Storage(GPUStructArray{:CUDA}),
+    Position => Storage(GPUVector, CUDABackend()),
+    Velocity => Storage(GPUStructArray, CUDABackend()),
 )
 ```
 
-The additional `:CPU` backend stores the components in plain `Vector`s and requires no GPU package.
-It is useful to run and test GPU-shaped code on machines without a device:
+The additional `CPU()` back-end of KernelAbstractions.jl stores the components in plain `Vector`s and requires no
+GPU package. It is useful to run and test GPU-shaped code on machines without a device:
 
 ```jldoctest; output = false
 world = World(
-    Position => Storage(GPUVector{:CPU}),
-    Velocity => Storage(GPUStructArray{:CPU}),
+    Position => Storage(GPUVector, CPU()),
+    Velocity => Storage(GPUStructArray, CPU()),
 )
 
 # output
@@ -221,14 +224,14 @@ World(entities=0, comp_types=(Position, Velocity))
 ```
 
 On back-ends with more than one GPU, a specific device can be selected by passing a
-device object to the storage, like `CuDevice(1)` for the second GPU of the system:
+device object, like `CuDevice(1)` for the second GPU of the system:
 
 ```julia
 using CUDA
 
 world = World(
-    Position => Storage(GPUVector{:CUDA}, CuDevice(1)),
-    Velocity => Storage(GPUStructArray{:CUDA}, CuDevice(1)),
+    Position => Storage(GPUVector, CUDABackend(), CuDevice(1)),
+    Velocity => Storage(GPUStructArray, CUDABackend(), CuDevice(1)),
 )
 ```
 
@@ -236,6 +239,62 @@ All memory of these storages is allocated on the selected device, including
 re-allocations during growth. Device selection is currently supported for the
 `:CUDA`, `:Metal`, `:oneAPI` and `:OpenCL` back-ends. Kernels operating on the components
 still have to be launched on the matching device (e.g. via `CUDA.device!`).
+
+## [Synchronization with GPU Storages](@id gpu-storage-synchronization)
+
+[GPUVector](@ref) and [GPUStructArray](@ref) store components in unified memory that is
+directly visible to the host. Kernels launched on views of these storages, e.g. via
+KernelAbstractions, execute *asynchronously*: launching a kernel only enqueues work,
+it does not run to completion before the next host-side statement.
+
+While any kernel that accesses GPU storages is still in flight, the same memory must
+not be touched from the host. In an ECS this is easy to hit, because host access is not
+limited to explicitly reading a query column. All of the following access GPU memory
+immediately:
+
+- Reading or writing components: indexing a storage or query column, `get_components`,
+  `set_components!`.
+- Structural operations: `new_entity!`, `remove_entity!`, `add_components!`,
+  `remove_components!`, `reset!` of the world, and applying
+  [command buffers](@ref command-buffer-api). These swap-remove, push or reallocate the
+  underlying arrays.
+- Growing a storage past its capacity, which reallocates and frees memory that an
+  in-flight kernel may still be using.
+
+The rule is therefore to **synchronize the backend before host code resumes working with
+the world** - not only before reading results back. A typical frame looks like this:
+
+```julia
+backend = CUDABackend()
+kernel = move_kernel(backend)
+
+for (entities, positions, velocities) in Query(world, (Position, Velocity))
+    kernel(positions, velocities; ndrange = length(entities))
+end
+
+# kernels are async: wait for them before *any* host access
+KernelAbstractions.synchronize(backend)
+
+# now safe: structural changes and host-side reads/writes
+add_components!(world, entity, (Health(100),))
+pos = get_components(world, entity, (Position,))[1]
+```
+
+Two remarks:
+
+- Kernels that are launched consecutively on the same backend run in launch order, so
+  dependent kernels do not need a `synchronize` in between. Only the boundary back to
+  host code needs one.
+- The `:CPU` back-end executes kernels synchronously, and unified-memory GPUs often
+  appear to tolerate host access during flight. Code that violates this contract can
+  therefore run correctly on `:CPU` - making CPU-only tests an unreliable way to catch
+  such races.
+
+!!! warning "Undefined behavior"
+    Violating this contract is undefined behavior. In practice this ranges from stale or
+    silently corrupted component values to kernels writing through memory that a
+    reallocation has already freed. The `demos/gpu_hazards` directory in the repository
+    contains minimal working examples of these failure modes.
 
 ## [User-defined component storages](@id new-component-storages)
 

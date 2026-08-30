@@ -2,6 +2,7 @@
 using Pkg
 using Preferences
 using Test
+using KernelAbstractions
 
 # TODO: re-enable when fixed on the Julia side.
 @static if VERSION < v"1.13.0-DEV"

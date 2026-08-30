@@ -8,6 +8,8 @@ function Ark._gpuvector_type(::Type{T}, ::Val{:oneAPI}) where T
     return oneVector{T,oneAPI.oneL0.SharedBuffer}
 end
 
+Ark._gpu_backend_symbol(::oneAPIBackend) = :oneAPI
+
 function Ark._gpuvector_hostwrap(mem::oneVector{T,oneAPI.oneL0.SharedBuffer}) where {T}
     return unsafe_wrap(Vector{T}, mem)
 end

@@ -252,7 +252,7 @@ end
 end
 
 @testset "GPUStructArray query columns" begin
-    w = TestWorld(A => Storage(GPUStructArray{:CPU}))
+    w = TestWorld(A => Storage(GPUStructArray, CPU()))
     for i in 1:3
         new_entity!(w, (A(i),))
     end
@@ -269,7 +269,7 @@ end
 end
 
 @testset "StructArrayView adapts to the device view" begin
-    w = TestWorld(A => Storage(GPUStructArray{:CPU}))
+    w = TestWorld(A => Storage(GPUStructArray, CPU()))
     for i in 1:5
         new_entity!(w, (A(i),))
     end
@@ -291,8 +291,8 @@ end
 
 @testset "GPUStructArray components" begin
     w = TestWorld(
-        A => Storage(GPUStructArray{:CPU}),
-        B => Storage(GPUStructArray{:CPU}),
+        A => Storage(GPUStructArray, CPU()),
+        B => Storage(GPUStructArray, CPU()),
     )
     e1 = new_entity!(w, (A(0.0), B(0.0)))
     @test get_components(w, e1, (A, B)) == (A(0.0), B(0.0))

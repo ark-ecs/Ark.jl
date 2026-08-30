@@ -3,15 +3,26 @@
     GPUStructArray
 
 A GPU-backed StructArray that stores each component field in a GPUVector.
-When passed as a storage the back-end must be specified (either :CUDA, :Metal,
-:oneAPI, :OpenCL or :CPU).
+When passed as a storage, the back-end is specified with a KernelAbstractions
+back-end instance, like `Storage(GPUStructArray, CUDABackend())` or
+`Storage(GPUStructArray, CPU())`.
 
-As for [`GPUVector`](@ref), the `:CPU` back-end is always available and stores
+As for [`GPUVector`](@ref), the `CPU()` back-end of KernelAbstractions.jl is always available and stores
 each field in a plain `Vector`.
 
 As for [`GPUVector`](@ref), the storage can be pinned to a specific device on
-back-ends with more than one, by passing a device object to the storage, like
-`Storage(GPUStructArray{:CUDA}, CuDevice(1))` for the second GPU of the system.
+back-ends with more than one, by passing a device object, like
+`Storage(GPUStructArray, CUDABackend(), CuDevice(1))` for the second GPU of
+the system.
+
+!!! warning "Synchronization"
+    Kernels launched on views of this storage (e.g. via KernelAbstractions) execute
+    asynchronously. While such a kernel is in flight, its memory must not be accessed
+    from the host. This includes reading or writing components as well as all structural
+    operations like `new_entity!`, `remove_entity!` or `set_components!`, which
+    swap-remove or reallocate the underlying arrays. Synchronize the backend first, e.g.
+    with `KernelAbstractions.synchronize(backend)`. See
+    [Synchronization with GPU Storages](@ref gpu-storage-synchronization) for details.
 
 # Examples
 
@@ -19,8 +30,8 @@ back-ends with more than one, by passing a device object to the storage, like
 using CUDA
 
 world = World(
-    Position => Storage(GPUStructArray{:CUDA}),
-    Velocity => Storage(GPUStructArray{:CUDA}),
+    Position => Storage(GPUStructArray, CUDABackend()),
+    Velocity => Storage(GPUStructArray, CUDABackend()),
 )
 ```
 
@@ -28,15 +39,17 @@ world = World(
 using CUDA
 
 world = World(
-    Position => Storage(GPUStructArray{:CUDA}, CuDevice(1)),
-    Velocity => Storage(GPUStructArray{:CUDA}, CuDevice(1)),
+    Position => Storage(GPUStructArray, CUDABackend(), CuDevice(1)),
+    Velocity => Storage(GPUStructArray, CUDABackend(), CuDevice(1)),
 )
 ```
 
 ```julia
+using KernelAbstractions
+
 world = World(
-    Position => Storage(GPUStructArray{:CPU}),
-    Velocity => Storage(GPUStructArray{:CPU}),
+    Position => Storage(GPUStructArray, CPU()),
+    Velocity => Storage(GPUStructArray, CPU()),
 )
 ```
 """
@@ -112,11 +125,10 @@ end
     end
 end
 
-function Storage(::Type{GPUStructArray{B}}) where {B}
-    return Storage{GPUStructArray{B}}
+function Storage(::Type{GPUStructArray}, backend)
+    return Storage{GPUStructArray{_gpu_backend_symbol(backend)}}
 end
 
-function Storage(::Type{GPUStructArray{B}}, device) where {B}
-    _gpuvector_device_check(B)
-    return Storage{GPUStructArray{_GPUDevice{B,_gpuvector_ordinal(device)}}}
+function Storage(::Type{GPUStructArray}, backend, device)
+    return Storage{GPUStructArray{_GPUDevice{_gpu_backend_symbol(backend), _gpuvector_ordinal(device)}}}
 end

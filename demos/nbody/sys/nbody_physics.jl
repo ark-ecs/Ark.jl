@@ -71,11 +71,16 @@ function update!(::NBodyPhysics, world, backend)
     pkernel = position_kernel(backend)
 
     for (entities, positions, velocities, masses) in Query(world, (Position, Velocity, Mass))
+        # Kernels on the same backend run in launch order, so the intermediate
+        # synchronize between the two kernels is not required.
         vkernel(unpack(positions), unpack(velocities), unpack(masses),
             n, dt, ndrange=n, workgroupsize=256)
-        KernelAbstractions.synchronize(backend)
         pkernel(unpack(positions), unpack(velocities),
             dt, ndrange=n, workgroupsize=256)
+        # Required: the plot system reads the components from the host right after
+        # this, and host code must not run while kernels are still in flight.
+        # See "Synchronization with GPU Storages" in the manual, and
+        # demos/gpu_hazards for what goes wrong otherwise.
         KernelAbstractions.synchronize(backend)
     end
 end

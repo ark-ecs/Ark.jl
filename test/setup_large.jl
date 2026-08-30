@@ -41,7 +41,7 @@ function TestWorld(
     storages = collect(Any, storages)
     for i in 1:length(storages)
         if isbitstype(types[i]) && storages[i] == Storage(WrappedVector)
-            storages[i] = Storage(GPUVector{:CPU})
+            storages[i] = Storage(GPUVector, CPU())
             break
         end
     end
@@ -53,7 +53,7 @@ function TestWorld(
     end
     for i in 1:length(storages)
         if storages[i] == Storage(StructArray)
-            storages[i] = Storage(GPUStructArray{:CPU})
+            storages[i] = Storage(GPUStructArray, CPU())
         end
     end
     storages = Tuple(storages)

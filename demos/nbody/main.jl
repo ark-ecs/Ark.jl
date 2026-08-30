@@ -12,11 +12,11 @@ include("sys/nbody_plot.jl")
 const IS_CI = "CI" in keys(ENV)
 
 function nbody_simulation(n, dt, backend)
-    T = (backend isa CPU) ? StructArray : GPUStructArray{:CUDA}
+    storage = (backend isa CPU) ? Storage(StructArray) : Storage(GPUStructArray, backend)
     world = World(
-        Position => Storage(T),
-        Velocity => Storage(T),
-        Mass => Storage(T),
+        Position => storage,
+        Velocity => storage,
+        Mass => storage,
     )
 
     add_resource!(world, TimeStep(dt))

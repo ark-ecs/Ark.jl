@@ -1,7 +1,7 @@
 using Ark
 using Documenter
 
-DocMeta.setdocmeta!(Ark, :DocTestSetup, :(using Ark); recursive=true)
+DocMeta.setdocmeta!(Ark, :DocTestSetup, :(using Ark, KernelAbstractions); recursive=true)
 
 if !("--skip-tests" in ARGS)
     doctest(Ark)
