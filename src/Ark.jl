@@ -48,6 +48,7 @@ include("shuffle.jl")
 include("sort.jl")
 include("partition.jl")
 include("batch_ops.jl")
+include("gpu_tables.jl")
 include("handle.jl")
 include("unchecked.jl")
 include("command_buffer.jl")
@@ -97,5 +98,7 @@ export SetComponentsCommand, SetRelationsCommand
 export Relation
 
 export Storage, StructArray, GPUStructArray, GPUVector, DiskVector, DiskStructArray
+
+export FlatQuery
 
 end

@@ -204,7 +204,7 @@ function Base.push!(gv::GPUVector, v)
     return gv
 end
 
-function Base.pop!(gv::GPUVector)
+function _pop!(gv::GPUVector)
     gv.len == 0 && throw(ArgumentError("array must be non-empty"))
     gv.len -= 1
     return gv

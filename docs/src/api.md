@@ -95,6 +95,11 @@ partition_entities!
 Entities
 @unpack
 unpack
+FlatQuery
+FlatQuery(::World, ::Filter)
+RaggedArray
+RaggedStructArray
+unpack(::RaggedStructArray)
 ```
 
 ## [Resources](@id resources-api)

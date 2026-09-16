@@ -41,6 +41,7 @@ const WORLD_SUITES = [
     "test_command_buffer.jl",
     "test_graph.jl",
     "test_gpu_vector.jl",
+    "test_gpu_tables.jl",
 ]
 
 const MODE_AGNOSTIC_SUITES = [

@@ -36,4 +36,11 @@ function Ark._gpuvector_withdev(f, dev::cl.Device)
     return cl.device!(f, dev)
 end
 
+function Ark._gpuvector_devview(
+    mem::CLArray{<:Any,1,<:Union{cl.UnifiedSharedMemory,cl.SharedVirtualMemory}},
+    rng::AbstractUnitRange,
+)
+    return OpenCL.kernel_convert(view(mem, rng))
+end
+
 end

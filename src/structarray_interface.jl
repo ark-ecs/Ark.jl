@@ -25,9 +25,15 @@ end
     return Expr(:block, push_exprs..., :(sa))
 end
 
+@generated function _pop!(sa::_AbstractStructArray{C}) where {C}
+    names = fieldnames(C)
+    pop_exprs = Expr[:(_pop!(getfield(sa, :_components).$name)) for name in names]
+    return Expr(:block, pop_exprs..., :(sa))
+end
+
 @generated function Base.pop!(sa::_AbstractStructArray{C}) where {C}
     names = fieldnames(C)
-    pop_exprs = Expr[:(pop!(getfield(sa, :_components).$name)) for name in names]
+    pop_exprs = Expr[:(_pop!(getfield(sa, :_components).$name)) for name in names]
     return Expr(:block, pop_exprs..., :(sa))
 end
 

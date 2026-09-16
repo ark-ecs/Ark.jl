@@ -34,7 +34,7 @@ end
         exclusive::Bool=false,
     )
 
-Creates a query.
+    Creates a query.
 
 A query is an iterator for processing all entities that match the query's criteria.
 The query itself iterates matching archetypes, while an inner loop or broadcast operations

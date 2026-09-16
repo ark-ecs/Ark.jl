@@ -147,7 +147,7 @@ end
     gv[1] = 1
     @test gv[1] == 1
 
-    pop!(gv)
+    _pop!(gv)
     @test length(gv) == 99
 
     push!(gv, 10)
@@ -159,7 +159,7 @@ end
 
     empty!(gv)
     @test length(gv) == 0
-    @test_throws ArgumentError pop!(gv)
+    @test_throws ArgumentError _pop!(gv)
 
     resize!(gv, 100)
     gv2 = GPUVector{:CPU,Int,Vector{Int}}()

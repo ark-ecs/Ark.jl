@@ -296,6 +296,65 @@ Two remarks:
     reallocation has already freed. The `demos/gpu_hazards` directory in the repository
     contains minimal working examples of these failure modes.
 
+## [Kernels over Multiple Tables](@id gpu-multi-table-kernels)
+
+Query iteration launches one kernel per matching table. For many small tables this
+scales poorly, and kernels that must read *all* matched entities (like n-body
+all-pairs interactions) cannot be expressed with per-table launches at all.
+[`FlatQuery`](@ref) creates a flat query over all matching tables that provides one
+flat, linearly indexed view per component:
+
+```julia
+q = FlatQuery(world, Filter(world, (Position, Velocity)))
+
+positions = q[Position]
+velocities = q[Velocity]
+move_kernel(backend)(positions, velocities, 0.5f0; ndrange = length(q))
+KernelAbstractions.synchronize(backend)
+```
+
+For components stored in a [`GPUStructArray`](@ref), `q[Position]` returns a
+`RaggedStructArray` whose field arrays are accessed by property or with
+[`unpack`](@ref unpack(::RaggedStructArray)):
+
+```julia
+positions = q[Position]
+px, py = unpack(positions)
+field_kernel(backend)(px, py; ndrange = length(q))
+```
+
+The views span all matching tables in table order. Element access resolves the
+owning table through the offsets, which costs one extra lookup per access
+compared to a query column; writes scatter into the owning table's column.
+
+The views can also be destructured in filter order, with the entity ids of all
+matching tables last:
+
+```julia
+positions, velocities = q # component views, without entities
+entities, positions, velocities = q # with entity ids
+```
+
+A flat query is a long-lived handle that re-derives its contents whenever it is
+accessed, so it stays valid across structural changes. Views must be re-read from
+the flat query after modifying the world - do not keep them across structural
+changes:
+
+```julia
+new_entity!(world, (Position(0, 0), Velocity(0, 0)))
+positions = q[Position] # re-read: picks up the new entity
+```
+
+Notes:
+
+- Components must use GPU storages ([`GPUVector`](@ref) or [`GPUStructArray`](@ref),
+  including the `CPU()` back-end). Optional components are not supported.
+- Entity views are backed by host memory and are meant for host-side access;
+  kernels should use only the component views.
+- Relation targets can be used to select tables, but have no column views.
+- Host-side indexing of views of real GPU memory is not supported; read components
+  through the world or a query instead.
+
 ## [User-defined component storages](@id new-component-storages)
 
 New storage modes can be created by the user. The new storage must be a one-indexed subtype of `AbstractVector` and must implement its required interface along with some optional methods. A complete example of a custom type is this one:

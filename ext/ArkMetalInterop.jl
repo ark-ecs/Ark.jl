@@ -35,4 +35,8 @@ function Ark._gpuvector_withdev(f, dev::Metal.MTLDevice)
     end
 end
 
+function Ark._gpuvector_devview(mem::MtlArray, rng::AbstractUnitRange)
+    return Metal.mtlconvert(view(mem, rng))
+end
+
 end

@@ -32,4 +32,8 @@ function Ark._gpuvector_withdev(f, dev::CuDevice)
     end
 end
 
+function Ark._gpuvector_devview(mem::CuArray, rng::AbstractUnitRange)
+    return CUDA.cudaconvert(view(mem, rng))
+end
+
 end

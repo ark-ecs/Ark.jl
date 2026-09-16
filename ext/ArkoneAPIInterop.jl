@@ -35,4 +35,8 @@ function Ark._gpuvector_withdev(f, dev::oneAPI.oneL0.ZeDevice)
     end
 end
 
+function Ark._gpuvector_devview(mem::oneArray, rng::AbstractUnitRange)
+    return oneAPI.kernel_convert(view(mem, rng))
+end
+
 end

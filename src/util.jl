@@ -6,13 +6,20 @@ _swap!(v::AbstractArray, i, j) = @inbounds v[i] = v[j]
     return
 end
 
+# Internal pop that does not return the popped element. Defaults to Base.pop!,
+# but storages may specialize it, e.g. to avoid a host read of the last element
+# for GPU-backed vectors.
+@inline function _pop!(v)
+    return Base.pop!(v)
+end
+
 @inline function _swap_remove!(v::AbstractArray, i::UInt32)::Bool
     last_index = length(v)
     swapped = i != last_index
     if swapped
         _swap!(v, i, last_index)
     end
-    pop!(v)
+    _pop!(v)
     return swapped
 end
 
