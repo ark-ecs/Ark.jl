@@ -1,3 +1,5 @@
+using Random
+
 function setup_world_has_1(n_entities::Int)
     world = World(Position, Velocity; boxed=BOXED)
 
@@ -6,6 +8,9 @@ function setup_world_has_1(n_entities::Int)
         e = new_entity!(world, (Position(i, i * 2),))
         push!(entities, e)
     end
+
+    rng = Xoshiro(42)
+    shuffle!(rng, entities)
 
     return (entities, world)
 end

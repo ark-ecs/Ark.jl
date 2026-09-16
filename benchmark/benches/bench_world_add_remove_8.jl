@@ -1,3 +1,4 @@
+using Random
 
 function setup_world_add_remove_8(n_entities::Int)
     world = World(Position,
@@ -23,6 +24,9 @@ function setup_world_add_remove_8(n_entities::Int)
                 CompN{5}, CompN{6}, CompN{7}, CompN{8}),
         )
     end
+
+    rng = Xoshiro(42)
+    shuffle!(rng, entities)
 
     return (entities, world)
 end

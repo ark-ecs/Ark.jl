@@ -1,71 +1,80 @@
 
 mutable struct _EntityPool
-    const entities::Vector{Entity}
-    next::Int
+    const gens::Vector{UInt32}
+    const free::Vector{UInt32}
 end
 
 function _EntityPool(cap::UInt32)
-    v = [_new_entity(UInt32(0), typemax(UInt32))]
-    sizehint!(v, cap)
+    gens = UInt32[typemax(UInt32)]
+    sizehint!(gens, cap)
 
-    return _EntityPool(v, 0)
+    return _EntityPool(gens, UInt32[])
 end
 
-function _get_entity(p::_EntityPool)::Entity
-    if p.next == 0
+@inline function _get_entity(p::_EntityPool)::Entity
+    if isempty(p.free)
         return _get_new_entity(p)
     end
-    curr = p.next
-    temp = p.entities[curr]
-
-    p.next = temp._id
-    entity = _Entity(curr % UInt32, temp._gen)
-    p.entities[curr] = entity
-
-    return entity
+    id = pop!(p.free)
+    @inbounds gen = p.gens[id]
+    return _Entity(id, gen)
 end
 
-function _get_new_entity(p::_EntityPool)::Entity
-    e = _new_entity(length(p.entities) + 1, 0)
-    push!(p.entities, e)
+@inline function _get_new_entity(p::_EntityPool)::Entity
+    e = _new_entity(length(p.gens) + 1, 0)
+    push!(p.gens, UInt32(0))
     return e
 end
 
-function _get_pending_entity(p::_EntityPool)::Entity
+@inline function _get_pending_entity(p::_EntityPool)::Entity
     entity = _get_entity(p)
     return _new_entity(entity._id, entity._gen + UInt32(1))
 end
 
-function _activate_entity!(p::_EntityPool, e::Entity)
-    @inbounds p.entities[e._id] = e
+@inline function _activate_entity!(p::_EntityPool, e::Entity)
+    @inbounds p.gens[e._id] = e._gen
     return nothing
 end
 
 function _get_new_entities!(p::_EntityPool, n::Integer)
-    old_len = length(p.entities)
+    old_len = length(p.gens)
     new_len = old_len + n
-    resize!(p.entities, new_len)
+    resize!(p.gens, new_len)
     for i in (old_len+1):new_len
-        @inbounds p.entities[i] = _new_entity(i % UInt32, UInt32(0))
+        @inbounds p.gens[i] = UInt32(0)
     end
     return
 end
 
-function _recycle(p::_EntityPool, e::Entity)
+@inline function _recycle(p::_EntityPool, e::Entity)
     if e._id < 2
         throw(ArgumentError("can't recycle the reserved zero entity"))
     end
-    temp = p.next
-    p.next = e._id
-    p.entities[e._id] = _new_entity(temp % UInt32, e._gen + UInt32(1))
+    push!(p.free, e._id)
+    @inbounds p.gens[e._id] = e._gen + UInt32(1)
     return nothing
 end
 
-function _is_alive(p::_EntityPool, e::Entity)::Bool
-    @inbounds return e._gen == p.entities[e._id]._gen
+@inline function _recycle_entities!(p::_EntityPool, entities::Vector{Entity})
+    n = length(entities)
+    n == 0 && return nothing
+    free = p.free
+    old_len = length(free)
+    resize!(free, old_len + n)
+    @inbounds for i in 1:n
+        e = entities[i]
+        free[old_len+i] = e._id
+        p.gens[e._id] = e._gen + UInt32(1)
+    end
+    return nothing
+end
+
+@inline function _is_alive(p::_EntityPool, e::Entity)::Bool
+    @inbounds return e._gen == p.gens[e._id]
 end
 
 function _reset!(p::_EntityPool)
-    resize!(p.entities, 1)
-    p.next = 0
+    resize!(p.gens, 1)
+    empty!(p.free)
+    return
 end

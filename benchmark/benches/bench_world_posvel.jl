@@ -1,3 +1,4 @@
+using Random
 
 function setup_world_posvel(n_entities::Int)
     world = World(Position, Velocity; boxed=BOXED)
@@ -12,6 +13,9 @@ function setup_world_posvel(n_entities::Int)
         pos, vel = world[e][(Position, Velocity)]
         world[e][Position] = Position(pos.x + vel.dx, pos.y + vel.dy)
     end
+
+    rng = Xoshiro(42)
+    shuffle!(rng, entities)
 
     return (entities, world)
 end

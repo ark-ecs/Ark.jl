@@ -11,7 +11,7 @@ using Ark: _Mask, _Not
 using Ark: _get_bit, _contains_all, _contains_any, _and, _or, _clear_bits, _active_bit_indices
 using Ark: _is_zero, _is_not_zero
 using Ark: _MutableMask, _get_bit, _set_bit!, _clear_bit!, _equals, _clear_mask!
-using Ark: _EntityPool, _get_entity, _recycle, _is_alive
+using Ark: _EntityPool, _get_entity, _get_pending_entity, _activate_entity!, _recycle, _is_alive
 using Ark: _Lock, _lock, _unlock, _is_locked
 using Ark: _VecMap, _get_map, _set_map!
 using Ark: _Linear_Map, _LOAD_FACTOR
@@ -21,7 +21,6 @@ using Ark: _has_observers
 using Ark: StructArray, _StructArray_type, StructArrayView, _new_storage, _storage_type
 using Ark: GPUStructArray, _GPUStructArray_type, _AbstractStructArray
 using Ark: _GPUStructArrayView_type, _gpuvectorview_type
-using Ark: DiskStructArray, _DiskStructArray_type, _DiskStructArrayView_type
 using Ark: GPUVectorView, _gpuvector_type, _gpuvector_hostwrap, _gpuvector_view
 using Ark: _gpuvector_device, _gpuvector_pinned_device, _gpuvector_withdev
 using Ark: _gpuvector_ordinal

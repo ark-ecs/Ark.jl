@@ -1,3 +1,4 @@
+using Random
 
 function setup_world_update_5(n_entities::Int)
     world = World(Position, Velocity, CompA, CompB, CompC; boxed=BOXED)
@@ -13,6 +14,9 @@ function setup_world_update_5(n_entities::Int)
         world[e][(Position, Velocity, CompA, CompB, CompC)] =
             (Position(pos.x + 1, 0), Velocity(vel.dx + 1, 0), CompA(a.x + 1, 0), CompB(b.x + 1, 0), CompC(c.x + 1, 0))
     end
+
+    rng = Xoshiro(42)
+    shuffle!(rng, entities)
 
     return (entities, world)
 end

@@ -1,3 +1,4 @@
+using Random
 
 function setup_world_add_remove_1_soa(n_entities::Int)
     world = World(
@@ -18,6 +19,9 @@ function setup_world_add_remove_1_soa(n_entities::Int)
     for e in entities
         remove_components!(world[e], (Velocity,))
     end
+
+    rng = Xoshiro(42)
+    shuffle!(rng, entities)
 
     return (entities, world)
 end
