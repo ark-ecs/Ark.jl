@@ -1148,7 +1148,7 @@ end
     comp_types = fieldtypes(TS)
 
     component_storage_types = fieldtypes(CS)
-    storage_types = DataType[
+    storage_types = Any[
         _storage_array_type(component_storage_types[_component_index(CS, T)])
         for T in comp_types
     ]
