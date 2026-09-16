@@ -224,6 +224,39 @@ end
 
 @inline _fields_of(col::GPUVector) = (col,)
 @inline _fields_of(col::GPUStructArray) = Tuple(getfield(col, :_components))
+@inline _fields_of(col::_AbstractStructArray) = Tuple(getfield(col, :_components))
+@inline _fields_of(col) = (col,)
+
+# Host storages (any AbstractVector other than the GPU storages) are exposed
+# through lazy contiguous views, which work for custom storages without a
+# `view` method.
+struct _ColumnView{C,P<:AbstractVector{C}} <: AbstractVector{C}
+    parent::P
+    len::Int
+end
+
+_ColumnView(parent::AbstractVector{C}) where {C} = _ColumnView{C,typeof(parent)}(parent, length(parent))
+
+Base.length(v::_ColumnView) = v.len
+Base.size(v::_ColumnView) = (v.len,)
+Base.IndexStyle(::Type{<:_ColumnView}) = IndexLinear()
+Base.@propagate_inbounds Base.getindex(v::_ColumnView, i::Int) = v.parent[i]
+Base.@propagate_inbounds function Base.setindex!(v::_ColumnView, x, i::Int)
+    @inbounds v.parent[i] = x
+    return x
+end
+
+@inline _is_gpu_storage(::Type{A}) where {A} = A <: GPUVector || A <: GPUStructArray
+
+_components_ntype(::Type{<:_AbstractStructArray{C,CS}}) where {C,CS} = CS
+
+# Column view types of the component fields of a host storage, as exposed to kernels.
+@inline function _host_field_view_types(::Type{A}) where {A<:AbstractArray}
+    if A <: _AbstractStructArray
+        return Tuple(_ColumnView{eltype(ft),ft} for ft in fieldtypes(_components_ntype(A)))
+    end
+    return (_ColumnView{eltype(A),A},)
+end
 
 const _EntitiesPart = SubArray{Entity,1,Vector{Entity},Tuple{UnitRange{Int}},true}
 
@@ -260,8 +293,11 @@ tables: `q[Comp]` returns a [`RaggedArray`](@ref), or a
 `length(q)` is the total number of matched entities. The entity ids of all
 matching tables are available via `q[Entity]`.
 
-Components must use GPU storages ([`GPUVector`](@ref) or [`GPUStructArray`](@ref),
-including the `CPU()` back-end). Optional components are not supported. The
+Components may use any storage. If any component uses a GPU storage
+([`GPUVector`](@ref) or [`GPUStructArray`](@ref)), all components must use GPU
+storages with the same back-end. Components with other storages (e.g. `Vector`
+or `StructArray`) live in host memory, so kernels launched on their views are
+restricted to the `CPU()` back-end. Optional components are not supported. The
 entity views are backed by host memory and are meant for host-side access;
 kernels should use only the component views.
 
@@ -312,16 +348,6 @@ end
     end
 end
 
-function _check_tables_storage(::Type{A}) where {A}
-    if !(A <: GPUVector || A <: GPUStructArray)
-        throw(
-            ArgumentError(
-                lazy"FlatQuery requires GPU storages (GPUVector or GPUStructArray), got $(_format_type(A))",
-            ),
-        )
-    end
-    return
-end
 
 @inline function _field_eltypes(::Type{<:GPUVector{B,T}}) where {B,T}
     return (T,)
@@ -337,30 +363,47 @@ end
 
 function _FlatQuery_from_storages(filter::F, storages::ST) where {F<:Filter,ST<:Tuple}
     isempty(storages) && throw(ArgumentError("FlatQuery requires at least one component"))
-    for cols in storages
-        _check_tables_storage(eltype(cols))
-    end
-    backend = _gpu_backend(eltype(first(storages)))
-    for cols in storages
-        _gpu_backend(eltype(cols)) == backend ||
-            throw(ArgumentError("FlatQuery requires all components to use the same back-end"))
+    gpu_mode = any(_is_gpu_storage ∘ eltype, storages)
+    backend = nothing
+    if gpu_mode
+        backend = _gpu_backend(eltype(first(s for s in storages if _is_gpu_storage(eltype(s)))))
+        for cols in storages
+            A = eltype(cols)
+            _is_gpu_storage(A) || throw(ArgumentError(
+                "FlatQuery requires all components to use GPU storages when any component uses a GPU storage",
+            ))
+            _gpu_backend(A) == backend ||
+                throw(ArgumentError("FlatQuery requires all components to use the same back-end"))
+        end
     end
 
     fstates = map(storages) do cols
         A = eltype(cols)
-        return map(_field_eltypes(A)) do T
-            _RaggedField(Val{_gpu_backend(A)}(), T)
+        if _is_gpu_storage(A)
+            return map(_field_eltypes(A)) do T
+                _RaggedField(Val{_gpu_backend(A)}(), T)
+            end
+        end
+        return map(_host_field_view_types(A)) do DT
+            DT[]
         end
     end
 
     offsets_staging = Int32[0]
-    OT = _offsets_payload_type(eltype(first(storages)))
-    offsets_payload = _gpuvector_withdev(() -> OT(undef, 1), _gpuvector_device(Val{backend}()))
+    if gpu_mode
+        OT = _offsets_payload_type(eltype(first(storages)))
+        offsets_payload = _gpuvector_withdev(() -> OT(undef, 1), _gpuvector_device(Val{backend}()))
+    else
+        offsets_payload = offsets_staging
+    end
 
     # Views have stable types across refreshes: payloads are replaced with
     # same-typed allocations on growth, never re-typed.
     views = map(storages, fstates) do cols, fst
-        _make_view(eltype(cols), fst, offsets_payload, 0)
+        if _is_gpu_storage(eltype(cols))
+            return _make_view(eltype(cols), fst, offsets_payload, 0)
+        end
+        return _make_host_view(eltype(cols), fst, offsets_staging, 0)
     end
 
     b = FlatQuery(
@@ -398,6 +441,28 @@ function _make_view(
     raggeds = map(fstates) do fst
         T = eltype(eltype(fst.payload))
         return RaggedArray{T}(fst.payload, offsets, len)
+    end
+    nt = NamedTuple{fieldnames(C)}(raggeds)
+    return RaggedStructArray{C,typeof(nt)}(nt)
+end
+
+function _make_host_view(
+    ::Type{A},
+    parts::NTuple{1,Vector{DT}},
+    offsets,
+    len::Int,
+) where {A,DT<:_ColumnView}
+    return RaggedArray{eltype(DT)}(parts[1], offsets, len)
+end
+
+function _make_host_view(
+    ::Type{A},
+    parts::NTuple{N,Vector{DT}},
+    offsets,
+    len::Int,
+) where {C,CS,N,A<:_AbstractStructArray{C,CS},DT<:_ColumnView}
+    raggeds = map(parts) do p
+        return RaggedArray{eltype(DT)}(p, offsets, len)
     end
     nt = NamedTuple{fieldnames(C)}(raggeds)
     return RaggedStructArray{C,typeof(nt)}(nt)
@@ -515,6 +580,7 @@ function _changed(b::FlatQuery)
     sig_ptrs = b._sig_ptrs
     fi = 0
     for cols in b._storages
+        gpu = _is_gpu_storage(eltype(cols))
         for k in 1:T
             table_id = Int(b._buf[k])
             table = b._filter._world_state._tables[table_id]
@@ -523,10 +589,8 @@ function _changed(b::FlatQuery)
             col = cols[table_id]
             for f in _fields_of(col)
                 fi += 1
-                (
-                    fi <= length(sig_ptrs) &&
-                    sig_ptrs[fi] == UInt(pointer(getfield(f, :mem)))
-                ) || return true
+                sig = gpu ? UInt(pointer(getfield(f, :mem))) : UInt(objectid(f))
+                (fi <= length(sig_ptrs) && sig_ptrs[fi] == sig) || return true
             end
         end
     end
@@ -537,8 +601,9 @@ function _rebuild!(b::FlatQuery)
     state = b._filter._world_state
     buf = b._buf
     T = length(buf)
+    gpu_mode = any(_is_gpu_storage ∘ eltype, b._storages)
 
-    if b._cap < T
+    if gpu_mode && b._cap < T
         new_cap = max(T, 2 * b._cap)
         for fstates in b._fstates
             for f in fstates
@@ -561,36 +626,58 @@ function _rebuild!(b::FlatQuery)
         offset += length(state._tables[Int(buf[k])].entities)
     end
     @inbounds offsets[T+1] = offset
-    copyto!(b._offsets_payload, 1, offsets, 1, T + 1)
+    if gpu_mode
+        copyto!(b._offsets_payload, 1, offsets, 1, T + 1)
+    end
 
-    # Stage per-table device views, upload them, and refresh the signature.
+    # Stage per-table views, upload them for GPU storages, and refresh the signature.
     resize!(b._sig_ids, T)
     resize!(b._sig_lens, T)
     resize!(b._sig_ptrs, 0)
     map(b._storages, b._fstates) do cols, fstates
-        for f in fstates
-            resize!(f.devviews, T)
-        end
-        for k in 1:T
-            table_id = Int(buf[k])
-            table = state._tables[table_id]
-            b._sig_lens[k] = length(table.entities)
-            col = cols[table_id]
-            fields = _fields_of(col)
-            foreach(fields, fstates) do f, fst
-                push!(b._sig_ptrs, UInt(pointer(getfield(f, :mem))))
-                fst.devviews[k] = _gpuvector_devview(getfield(f, :mem), 1:length(table.entities))
+        if _is_gpu_storage(eltype(cols))
+            for f in fstates
+                resize!(f.devviews, T)
             end
-        end
-        for f in fstates
-            copyto!(f.payload, 1, f.devviews, 1, T)
+            for k in 1:T
+                table_id = Int(buf[k])
+                table = state._tables[table_id]
+                b._sig_lens[k] = length(table.entities)
+                col = cols[table_id]
+                fields = _fields_of(col)
+                foreach(fields, fstates) do f, fst
+                    push!(b._sig_ptrs, UInt(pointer(getfield(f, :mem))))
+                    fst.devviews[k] = _gpuvector_devview(getfield(f, :mem), 1:length(table.entities))
+                end
+            end
+            for f in fstates
+                copyto!(f.payload, 1, f.devviews, 1, T)
+            end
+        else
+            for parts in fstates
+                resize!(parts, T)
+            end
+            for k in 1:T
+                table_id = Int(buf[k])
+                table = state._tables[table_id]
+                b._sig_lens[k] = length(table.entities)
+                col = cols[table_id]
+                fields = _fields_of(col)
+                foreach(fields, fstates) do f, parts
+                    push!(b._sig_ptrs, UInt(objectid(f)))
+                    parts[k] = _ColumnView(f)
+                end
+            end
         end
         return nothing
     end
     copyto!(b._sig_ids, 1, buf, 1, T)
 
     b._views = map(b._storages, b._fstates) do cols, fstates
-        return _make_view(eltype(cols), fstates, b._offsets_payload, Int(offset))
+        if _is_gpu_storage(eltype(cols))
+            return _make_view(eltype(cols), fstates, b._offsets_payload, Int(offset))
+        end
+        return _make_host_view(eltype(cols), fstates, b._offsets_staging, Int(offset))
     end
 
     # Entity views reference host memory directly; growth of a table's entity

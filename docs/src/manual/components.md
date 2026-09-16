@@ -330,8 +330,11 @@ positions = q[Position] # re-read: picks up the new entity
 
 Notes:
 
-- Components must use GPU storages ([`GPUVector`](@ref) or [`GPUStructArray`](@ref),
-  including the `CPU()` back-end). Optional components are not supported.
+- Components may use any storage. If any component uses a GPU storage
+  ([`GPUVector`](@ref) or [`GPUStructArray`](@ref)), all components must use GPU
+  storages with the same back-end. Components with other storages live in host
+  memory, so kernels launched on their views are restricted to the `CPU()`
+  back-end. Optional components are not supported.
 - Entity views are backed by host memory and are meant for host-side access;
   kernels should use only the component views.
 - Relation targets can be used to select tables, but have no column views.

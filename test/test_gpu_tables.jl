@@ -25,6 +25,20 @@ struct TabAcc
     val::Float64
 end
 
+struct TabWrap{C} <: AbstractVector{C}
+    v::Vector{C}
+end
+
+TabWrap{C}() where {C} = TabWrap{C}(Vector{C}())
+
+Base.size(w::TabWrap) = size(w.v)
+Base.getindex(w::TabWrap, i::Int) = w.v[i]
+Base.setindex!(w::TabWrap, v, i::Int) = (w.v[i] = v)
+Base.resize!(w::TabWrap, n::Int) = (resize!(w.v, n); w)
+Base.push!(w::TabWrap, x) = (push!(w.v, x); w)
+Base.sizehint!(w::TabWrap, n::Int) = (sizehint!(w.v, n); w)
+Base.empty!(w::TabWrap) = (empty!(w.v); w)
+
 @kernel function tab_move_kernel!(positions, velocities, dt)
     i = @index(Global)
     @inbounds positions[i] =
@@ -169,6 +183,84 @@ end
         @test positions[9] == TabPos(9, 9)
 
         reset!(world)
+    end
+
+    @testset "host storages" begin
+        backend = CPU()
+
+        @testset "default Vector storage" begin
+            world = World(TabPos, TabVel)
+            for i in 1:5
+                new_entity!(world, (TabPos(i, 2i), TabVel(1, 1)))
+            end
+            for i in 1:3
+                new_entity!(world, (TabPos(100 + i, i), TabVel(1, 1)))
+            end
+
+            q = FlatQuery(world, Filter(world, (TabPos, TabVel)))
+            positions, velocities, entities = q
+            @test length(positions) == 8
+            @test positions[3] == TabPos(3, 6)
+            @test positions[6] == TabPos(101, 1)
+            @test velocities[8] == TabVel(1, 1)
+
+            tab_move_kernel!(backend)(positions, velocities, 0.5; ndrange = length(positions))
+            expected = _tab_query_columns(world, TabPos)
+            positions, velocities, entities = q
+            for i in eachindex(positions)
+                @test positions[i] == expected[i]
+            end
+
+            e9 = new_entity!(world, (TabPos(9, 9), TabVel(1, 1)))
+            positions, velocities, entities = q
+            @test length(positions) == 9
+            @test positions[9] == TabPos(9, 9)
+            @test entities[9] == e9
+
+            reset!(world)
+        end
+
+        @testset "StructArray storage" begin
+            world = World(TabPos => Storage(StructArray))
+            for i in 1:4
+                new_entity!(world, (TabPos(i, 2i),))
+            end
+
+            q = FlatQuery(world, Filter(world, (TabPos,)))
+            positions = q[TabPos]
+            @test positions[2] == TabPos(2, 4)
+            x, y = unpack(positions)
+            @test x == [1.0, 2.0, 3.0, 4.0]
+            @test y == [2.0, 4.0, 6.0, 8.0]
+
+            positions[1] = TabPos(9, 9)
+            @test q[TabPos][1] == TabPos(9, 9)
+
+            reset!(world)
+        end
+
+        @testset "custom storage" begin
+            world = World(TabPos => Storage(TabWrap))
+            for i in 1:3
+                new_entity!(world, (TabPos(i, 2i),))
+            end
+
+            q = FlatQuery(world, Filter(world, (TabPos,)))
+            positions = q[TabPos]
+            @test positions[3] == TabPos(3, 6)
+            positions[1] = TabPos(8, 8)
+            @test q[TabPos][1] == TabPos(8, 8)
+
+            reset!(world)
+        end
+
+        @testset "mixed GPU and host storages are rejected" begin
+            world = World(TabPos => Storage(GPUVector, CPU()), TabVel => Storage(StructArray))
+            new_entity!(world, (TabPos(1, 1), TabVel(1, 1)))
+            @test_throws ArgumentError FlatQuery(world, Filter(world, (TabPos, TabVel)))
+
+            reset!(world)
+        end
     end
 
     @testset "flat indexing spans all tables in order" begin
