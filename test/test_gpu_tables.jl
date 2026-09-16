@@ -300,7 +300,7 @@ end
             @test masses.val[i] == Float64(expected_pos[i].x)
         end
 
-        # row gather/destructuring on the ragged struct array
+        # row gather/destructuring on the flat struct array view
         @test positions[4] == TabPos(4.0, 4.0)
         let (a, b) = (positions[1], positions[2])
             @test a.x == 1.0 && b.y == 2.0
@@ -472,7 +472,7 @@ end
         reset!(world)
     end
 
-    @testset "ragged struct array fields and scatter" begin
+    @testset "flat struct array view fields and scatter" begin
         world = TestWorld(
             TabPos => Storage(GPUStructArray, CPU()),
             TabVel => Storage(GPUVector, CPU()),
@@ -490,15 +490,15 @@ end
         positions = q[TabPos]
         velocities = q[TabVel]
 
-        # property access yields ragged field arrays
-        @test positions.x isa Ark.RaggedArray
+        # property access yields flat field views
+        @test positions.x isa Ark.FlatVectorView
         @test length(positions.x) == 10
         @test positions.x[9] == 103.0
         @test_throws ErrorException positions.z
 
         # unpack
         fields = unpack(positions)
-        @test fields.x isa Ark.RaggedArray && fields.y isa Ark.RaggedArray
+        @test fields.x isa Ark.FlatVectorView && fields.y isa Ark.FlatVectorView
         @test fields.y[3] == 6.0
 
         # kernel writing through field arrays

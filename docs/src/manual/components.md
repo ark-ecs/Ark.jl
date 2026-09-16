@@ -297,8 +297,8 @@ KernelAbstractions.synchronize(backend)
 ```
 
 For components stored in a [`GPUStructArray`](@ref), `q[Position]` returns a
-`RaggedStructArray` whose field arrays are accessed by property or with
-[`unpack`](@ref unpack(::RaggedStructArray)):
+`FlatStructArrayView` whose field arrays are accessed by property or with
+[`unpack`](@ref unpack(::FlatStructArrayView)):
 
 ```julia
 positions = q[Position]

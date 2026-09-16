@@ -95,9 +95,9 @@ Entities
 unpack
 FlatQuery
 FlatQuery(::World, ::Filter)
-RaggedArray
-RaggedStructArray
-unpack(::RaggedStructArray)
+FlatVectorView
+FlatStructArrayView
+unpack(::FlatStructArrayView)
 ```
 
 ## [Resources](@id resources-api)

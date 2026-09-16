@@ -1,6 +1,6 @@
 
 """
-    RaggedArray
+    FlatVectorView
 
 A linearly indexed view over the component columns of all tables matched by a
 [`FlatQuery`](@ref). Elements `1:length(r)` span the tables in table order, so
@@ -21,24 +21,24 @@ Each element access resolves its owning table through the offsets, which
 costs one extra lookup per access compared to a plain query column. Writes
 scatter into the owning table's column.
 
-Ragged arrays are passed to kernels like any other argument and are converted to
+Flat views are passed to kernels like any other argument and are converted to
 device memory automatically. Like other GPU storage views, kernels on them run
 asynchronously: synchronize the back-end before touching the world again.
 """
-struct RaggedArray{T,PT,OT} <: AbstractVector{T}
+struct FlatVectorView{T,PT,OT} <: AbstractVector{T}
     parts::PT
     offsets::OT
     len::Int
 end
 
-function RaggedArray{T}(parts, offsets, len::Integer) where {T}
-    return RaggedArray{T,typeof(parts),typeof(offsets)}(parts, offsets, Int(len))
+function FlatVectorView{T}(parts, offsets, len::Integer) where {T}
+    return FlatVectorView{T,typeof(parts),typeof(offsets)}(parts, offsets, Int(len))
 end
 
-Base.length(r::RaggedArray) = r.len
-Base.size(r::RaggedArray) = (r.len,)
-Base.IndexStyle(::Type{<:RaggedArray}) = IndexLinear()
-Base.eltype(::Type{<:RaggedArray{T}}) where {T} = T
+Base.length(r::FlatVectorView) = r.len
+Base.size(r::FlatVectorView) = (r.len,)
+Base.IndexStyle(::Type{<:FlatVectorView}) = IndexLinear()
+Base.eltype(::Type{<:FlatVectorView{T}}) where {T} = T
 
 @inline function _find_table(offsets, i::Int)
     n = length(offsets) - 1
@@ -62,14 +62,14 @@ Base.eltype(::Type{<:RaggedArray{T}}) where {T} = T
     return lo
 end
 
-Base.@propagate_inbounds function Base.getindex(r::RaggedArray, i::Integer)
+Base.@propagate_inbounds function Base.getindex(r::FlatVectorView, i::Integer)
     i1 = Int(i)
     @boundscheck (1 <= i1 <= r.len) || throw(BoundsError(r, i1))
     t = _find_table(r.offsets, i1)
     @inbounds return r.parts[t][i1 - Int(r.offsets[t])]
 end
 
-Base.@propagate_inbounds function Base.setindex!(r::RaggedArray, v, i::Integer)
+Base.@propagate_inbounds function Base.setindex!(r::FlatVectorView, v, i::Integer)
     i1 = Int(i)
     @boundscheck (1 <= i1 <= r.len) || throw(BoundsError(r, i1))
     t = _find_table(r.offsets, i1)
@@ -77,23 +77,23 @@ Base.@propagate_inbounds function Base.setindex!(r::RaggedArray, v, i::Integer)
     return v
 end
 
-function Adapt.adapt_structure(to, r::RaggedArray)
-    return RaggedArray{eltype(r)}(Adapt.adapt(to, r.parts), Adapt.adapt(to, r.offsets), r.len)
+function Adapt.adapt_structure(to, r::FlatVectorView)
+    return FlatVectorView{eltype(r)}(Adapt.adapt(to, r.parts), Adapt.adapt(to, r.offsets), r.len)
 end
 
-function Base.show(io::IO, r::RaggedArray{T}) where {T}
-    return print(io, "$(r.len)-element RaggedArray{$(_format_type(T))}")
+function Base.show(io::IO, r::FlatVectorView{T}) where {T}
+    return print(io, "$(r.len)-element FlatVectorView{$(_format_type(T))}")
 end
 
 """
-    RaggedStructArray
+    FlatStructArrayView
 
-The ragged analog of a `StructArrayView`: a view over the columns of all tables
-matched by a [`FlatQuery`](@ref) for a component stored in a
-[`GPUStructArray`](@ref).
+The flat analog of a `StructArrayView`: a view over the columns of all tables
+matched by a [`FlatQuery`](@ref) for a component stored in a struct-array
+storage ([`GPUStructArray`](@ref) or `StructArray`).
 
 Field arrays are accessed by property (e.g. `positions.x`) or with
-[`unpack`](@ref unpack(::RaggedStructArray)), yielding [`RaggedArray`](@ref)s
+[`unpack`](@ref unpack(::FlatStructArrayView)), yielding [`FlatVectorView`](@ref)s
 that can be passed to kernels. Indexing gathers component values across tables:
 
 ```julia
@@ -101,12 +101,12 @@ positions = q[Position]
 @inbounds positions[1] = Position(0, 0)
 ```
 """
-struct RaggedStructArray{C,CS<:NamedTuple} <: AbstractArray{C,1}
+struct FlatStructArrayView{C,CS<:NamedTuple} <: AbstractArray{C,1}
     _components::CS
 end
 
 Base.@propagate_inbounds @generated function Base.getindex(
-    sa::RaggedStructArray{C},
+    sa::FlatStructArrayView{C},
     i::Int,
 ) where {C}
     names = fieldnames(C)
@@ -115,7 +115,7 @@ Base.@propagate_inbounds @generated function Base.getindex(
 end
 
 Base.@propagate_inbounds @generated function Base.setindex!(
-    sa::RaggedStructArray{C},
+    sa::FlatStructArrayView{C},
     c::C,
     i::Int,
 ) where {C}
@@ -126,7 +126,7 @@ Base.@propagate_inbounds @generated function Base.setindex!(
     return Expr(:block, set_exprs..., :(c))
 end
 
-@generated function Base.getproperty(sa::RaggedStructArray{C}, name::Symbol) where {C}
+@generated function Base.getproperty(sa::FlatStructArrayView{C}, name::Symbol) where {C}
     names = fieldnames(C)
     cases = Expr[
         :(name === $(QuoteNode(n)) && return getfield(sa, :_components).$n) for n in names
@@ -134,49 +134,49 @@ end
     return Expr(:block, cases..., :(throw(ErrorException(lazy"type $C has no field $name"))))
 end
 
-Base.@propagate_inbounds function Base.iterate(sa::RaggedStructArray{C}) where {C}
+Base.@propagate_inbounds function Base.iterate(sa::FlatStructArrayView{C}) where {C}
     length(sa) == 0 && return nothing
     return sa[1], 2
 end
 
-Base.@propagate_inbounds function Base.iterate(sa::RaggedStructArray{C}, i::Int) where {C}
+Base.@propagate_inbounds function Base.iterate(sa::FlatStructArrayView{C}, i::Int) where {C}
     i > length(sa) && return nothing
     return sa[i], i + 1
 end
 
-Base.size(sa::RaggedStructArray) = (length(sa),)
-Base.length(sa::RaggedStructArray) = length(first(getfield(sa, :_components)))
-Base.eltype(::Type{<:RaggedStructArray{C}}) where {C} = C
-Base.IndexStyle(::Type{<:RaggedStructArray}) = IndexLinear()
-Base.eachindex(sa::RaggedStructArray) = 1:length(sa)
-Base.firstindex(sa::RaggedStructArray) = 1
-Base.lastindex(sa::RaggedStructArray) = length(sa)
+Base.size(sa::FlatStructArrayView) = (length(sa),)
+Base.length(sa::FlatStructArrayView) = length(first(getfield(sa, :_components)))
+Base.eltype(::Type{<:FlatStructArrayView{C}}) where {C} = C
+Base.IndexStyle(::Type{<:FlatStructArrayView}) = IndexLinear()
+Base.eachindex(sa::FlatStructArrayView) = 1:length(sa)
+Base.firstindex(sa::FlatStructArrayView) = 1
+Base.lastindex(sa::FlatStructArrayView) = length(sa)
 
 """
-    unpack(a::RaggedStructArray)
+    unpack(a::FlatStructArrayView)
 
-Unpacks the field arrays of a `RaggedStructArray` returned from a [`FlatQuery`](@ref),
+Unpacks the field arrays of a `FlatStructArrayView` returned from a [`FlatQuery`](@ref),
 like [`unpack(::StructArrayView)`](@ref) does for query columns.
 """
-unpack(a::RaggedStructArray) = getfield(a, :_components)
+unpack(a::FlatStructArrayView) = getfield(a, :_components)
 
-@generated function Adapt.adapt_structure(to, sa::RaggedStructArray{C}) where {C}
+@generated function Adapt.adapt_structure(to, sa::FlatStructArrayView{C}) where {C}
     names = fieldnames(C)
     adapted_exprs =
         Expr[:($name = Adapt.adapt(to, getfield(sa, :_components).$name)) for name in names]
     adapted_tuple_expr = Expr(:tuple, adapted_exprs...)
     return quote
         adapted_tuple = $(adapted_tuple_expr)
-        RaggedStructArray{C,typeof(adapted_tuple)}(adapted_tuple)
+        FlatStructArrayView{C,typeof(adapted_tuple)}(adapted_tuple)
     end
 end
 
-function Base.show(io::IO, sa::RaggedStructArray{C,CS}) where {C,CS<:NamedTuple}
+function Base.show(io::IO, sa::FlatStructArrayView{C,CS}) where {C,CS<:NamedTuple}
     names = fieldnames(CS)
-    fields_string = join(map(n -> "$(n)::RaggedArray", names), ", ")
+    fields_string = join(map(n -> "$(n)::FlatVectorView", names), ", ")
     return print(
         io,
-        "$(length(sa))-element RaggedStructArray($fields_string) with eltype $(_format_type(C))",
+        "$(length(sa))-element FlatStructArrayView($fields_string) with eltype $(_format_type(C))",
     )
 end
 
@@ -199,22 +199,22 @@ end
 
 # Reusable staging and payload memory for one component field. `devviews` holds
 # the per-table device views on the host; `payload` is the uploaded array of
-# device views that kernels access through [`RaggedArray`](@ref).
-mutable struct _RaggedField{B,T,DT,PT}
+# device views that kernels access through [`FlatVectorView`](@ref).
+mutable struct _FieldStaging{B,T,DT,PT}
     const devviews::Vector{DT}
     payload::PT
 end
 
-function _RaggedField(::Val{B}, ::Type{T}) where {B,T}
+function _FieldStaging(::Val{B}, ::Type{T}) where {B,T}
     dev = _gpuvector_device(Val{B}())
     mem0 = _gpuvector_withdev(() -> _gpuvector_type(T, Val{B}())(undef, 0), dev)
     DT = typeof(_gpuvector_devview(mem0, 1:0))
     PT = _gpuvector_type(DT, Val{B}())
     payload = _gpuvector_withdev(() -> PT(undef, 0), dev)
-    return _RaggedField{B,T,DT,PT}(DT[], payload)
+    return _FieldStaging{B,T,DT,PT}(DT[], payload)
 end
 
-@inline function _grow_payload!(f::_RaggedField{B}, cap::Int) where {B}
+@inline function _grow_payload!(f::_FieldStaging{B}, cap::Int) where {B}
     if length(f.payload) < cap
         PT = typeof(f.payload)
         f.payload = _gpuvector_withdev(() -> PT(undef, cap), _gpuvector_device(Val{B}()))
@@ -288,8 +288,8 @@ launch a single GPU kernel over all of them instead of one kernel per table, as
 A flat query is a long-lived handle that re-derives its contents whenever it is
 accessed, so it stays valid across structural changes of the world. It provides
 one flat, linearly indexed view per filtered component spanning all matching
-tables: `q[Comp]` returns a [`RaggedArray`](@ref), or a
-[`RaggedStructArray`](@ref) for components stored in a [`GPUStructArray`](@ref).
+tables: `q[Comp]` returns a [`FlatVectorView`](@ref), or a
+[`FlatStructArrayView`](@ref) for components stored in a [`GPUStructArray`](@ref).
 `length(q)` is the total number of matched entities. The entity ids of all
 matching tables are available via `q[Entity]`.
 
@@ -381,7 +381,7 @@ function _FlatQuery_from_storages(filter::F, storages::ST) where {F<:Filter,ST<:
         A = eltype(cols)
         if _is_gpu_storage(A)
             return map(_field_eltypes(A)) do T
-                _RaggedField(Val{_gpu_backend(A)}(), T)
+                _FieldStaging(Val{_gpu_backend(A)}(), T)
             end
         end
         return map(_host_field_view_types(A)) do DT
@@ -414,7 +414,7 @@ function _FlatQuery_from_storages(filter::F, storages::ST) where {F<:Filter,ST<:
         offsets_payload,
         views,
         _EntitiesPart[],
-        RaggedArray{Entity}(_EntitiesPart[], offsets_staging, 0),
+        FlatVectorView{Entity}(_EntitiesPart[], offsets_staging, 0),
         UInt32[],
         UInt32[],
         Int[],
@@ -427,23 +427,23 @@ function _FlatQuery_from_storages(filter::F, storages::ST) where {F<:Filter,ST<:
     return b
 end
 
-function _make_view(::Type{A}, fstates::NTuple{1,_RaggedField}, offsets, len::Int) where {A<:GPUVector}
+function _make_view(::Type{A}, fstates::NTuple{1,_FieldStaging}, offsets, len::Int) where {A<:GPUVector}
     T = eltype(A)
-    return RaggedArray{T}(fstates[1].payload, offsets, len)
+    return FlatVectorView{T}(fstates[1].payload, offsets, len)
 end
 
 function _make_view(
     ::Type{A},
-    fstates::NTuple{N,_RaggedField},
+    fstates::NTuple{N,_FieldStaging},
     offsets,
     len::Int,
 ) where {B,C,N,A<:GPUStructArray{B,C}}
-    raggeds = map(fstates) do fst
+    flatviews = map(fstates) do fst
         T = eltype(eltype(fst.payload))
-        return RaggedArray{T}(fst.payload, offsets, len)
+        return FlatVectorView{T}(fst.payload, offsets, len)
     end
-    nt = NamedTuple{fieldnames(C)}(raggeds)
-    return RaggedStructArray{C,typeof(nt)}(nt)
+    nt = NamedTuple{fieldnames(C)}(flatviews)
+    return FlatStructArrayView{C,typeof(nt)}(nt)
 end
 
 function _make_host_view(
@@ -452,7 +452,7 @@ function _make_host_view(
     offsets,
     len::Int,
 ) where {A,DT<:_ColumnView}
-    return RaggedArray{eltype(DT)}(parts[1], offsets, len)
+    return FlatVectorView{eltype(DT)}(parts[1], offsets, len)
 end
 
 function _make_host_view(
@@ -461,11 +461,11 @@ function _make_host_view(
     offsets,
     len::Int,
 ) where {C,CS,N,A<:_AbstractStructArray{C,CS},DT<:_ColumnView}
-    raggeds = map(parts) do p
-        return RaggedArray{eltype(DT)}(p, offsets, len)
+    flatviews = map(parts) do p
+        return FlatVectorView{eltype(DT)}(p, offsets, len)
     end
-    nt = NamedTuple{fieldnames(C)}(raggeds)
-    return RaggedStructArray{C,typeof(nt)}(nt)
+    nt = NamedTuple{fieldnames(C)}(flatviews)
+    return FlatStructArrayView{C,typeof(nt)}(nt)
 end
 
 Base.length(b::FlatQuery) = ((_refresh!(b); b._len))
@@ -687,7 +687,7 @@ function _rebuild!(b::FlatQuery)
         table = state._tables[Int(buf[k])]
         b._entities_parts[k] = view(table.entities._data, 1:length(table.entities))
     end
-    b._entities = RaggedArray{Entity}(b._entities_parts, b._offsets_staging, Int(offset))
+    b._entities = FlatVectorView{Entity}(b._entities_parts, b._offsets_staging, Int(offset))
 
     b._ntables = T
     b._len = Int(offset)
