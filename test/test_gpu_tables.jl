@@ -263,6 +263,49 @@ end
         end
     end
 
+    @testset "reductions and bulk operations" begin
+        backend = CPU()
+        world = World(
+            Float64 => Storage(GPUVector, CPU()),
+            TabPos => Storage(GPUStructArray, CPU()),
+            TabTag;
+            initial_capacity = 2,
+        )
+        new_entity!(world, (1.0, TabPos(1, 1)))
+        new_entity!(world, (2.0, TabPos(2, 2), TabTag()))
+
+        scalars, positions = FlatQuery(world, Filter(world, (Float64, TabPos)))
+        @test scalars.ntables == 2
+
+        @test sum(scalars) == 3.0
+        @test sum(x -> 2x, scalars) == 6.0
+        @test sum(scalars; init = 10.0) == 13.0
+        @test maximum(scalars) == 2.0
+        @test minimum(scalars) == 1.0
+        @test extrema(scalars) == (1.0, 2.0)
+        @test count(x -> x > 1.5, scalars) == 1
+        @test sum(x -> x.x, positions) == 3.0
+
+        fill!(scalars, 5.0)
+        @test collect(scalars) == [5.0, 5.0]
+
+        dest = Vector{Float64}(undef, 2)
+        copyto!(dest, scalars)
+        @test dest == [5.0, 5.0]
+
+        copyto!(scalars, [1.0, 2.0])
+        @test collect(scalars) == [1.0, 2.0]
+
+        world2 = World(Float64 => Storage(GPUVector, CPU()))
+        new_entities!(world2, 2, (9.0,))
+        dest2 = FlatQuery(world2, Filter(world2, (Float64,)))[Float64]
+        copyto!(dest2, scalars)
+        @test collect(dest2) == [1.0, 2.0]
+
+        reset!(world)
+        reset!(world2)
+    end
+
     @testset "flat indexing spans all tables in order" begin
         world = TestWorld(
             TabPos => Storage(GPUStructArray, CPU()),

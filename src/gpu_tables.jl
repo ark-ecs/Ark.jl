@@ -19,7 +19,9 @@ move_kernel(backend)(velocities, 1.0; ndrange = length(velocities))
 
 Each element access resolves its owning table through the offsets, which
 costs one extra lookup per access compared to a plain query column. Writes
-scatter into the owning table's column.
+scatter into the owning table's column. Reductions like `sum`, `maximum` or
+`count`, and bulk operations like `fill!` or `copyto!`, are applied per table
+and avoid the per-element lookup entirely.
 
 Flat views are passed to kernels like any other argument and are converted to
 device memory automatically. Like other GPU storage views, kernels on them run
@@ -100,6 +102,60 @@ end
 
 function Base.show(io::IO, r::FlatVectorView{T}) where {T}
     return print(io, "$(r.len)-element FlatVectorView{$(_format_type(T))}")
+end
+
+# Reductions and bulk operations are applied per table, so each segment is
+# processed as contiguous memory without the per-element table lookup.
+function Base.mapreduce(f, op, r::FlatVectorView; init = Base._InitialValue(), kwargs...)
+    return mapfoldl(
+        k -> mapreduce(f, op, @inbounds(r.parts[k]); kwargs...),
+        op,
+        1:r.ntables;
+        init,
+    )
+end
+
+function Base.fill!(r::FlatVectorView, x)
+    for k in 1:r.ntables
+        @inbounds fill!(r.parts[k], x)
+    end
+    return r
+end
+
+function Base.copyto!(dest::AbstractVector, src::FlatVectorView)
+    length(dest) >= length(src) || throw(BoundsError(dest, length(src)))
+    off = 0
+    for k in 1:src.ntables
+        p = @inbounds src.parts[k]
+        n = length(p)
+        copyto!(dest, off + 1, p, 1, n)
+        off += n
+    end
+    return dest
+end
+
+function Base.copyto!(dest::FlatVectorView, src::AbstractVector)
+    length(dest) >= length(src) || throw(BoundsError(dest, length(src)))
+    off = 0
+    for k in 1:dest.ntables
+        p = @inbounds dest.parts[k]
+        n = length(p)
+        copyto!(p, 1, src, off + 1, n)
+        off += n
+    end
+    return dest
+end
+
+function Base.copyto!(dest::FlatVectorView, src::FlatVectorView)
+    length(dest) >= length(src) || throw(BoundsError(dest, length(src)))
+    off = 0
+    for k in 1:dest.ntables
+        p = @inbounds dest.parts[k]
+        n = length(p)
+        copyto!(p, 1, src, off + 1, n)
+        off += n
+    end
+    return dest
 end
 
 """
