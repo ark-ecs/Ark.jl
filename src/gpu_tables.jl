@@ -122,7 +122,7 @@ function Base.fill!(r::FlatVectorView, x)
     return r
 end
 
-function Base.copyto!(dest::AbstractVector, src::FlatVectorView)
+function _copyto_flat_view!(dest::AbstractVector, src::FlatVectorView)
     length(dest) >= length(src) || throw(BoundsError(dest, length(src)))
     off = 0
     for k in 1:src.ntables
@@ -134,7 +134,7 @@ function Base.copyto!(dest::AbstractVector, src::FlatVectorView)
     return dest
 end
 
-function Base.copyto!(dest::FlatVectorView, src::AbstractVector)
+function _copyto_into_flat_view!(dest::FlatVectorView, src::AbstractVector)
     length(dest) >= length(src) || throw(BoundsError(dest, length(src)))
     off = 0
     for k in 1:dest.ntables
@@ -146,17 +146,11 @@ function Base.copyto!(dest::FlatVectorView, src::AbstractVector)
     return dest
 end
 
-function Base.copyto!(dest::FlatVectorView, src::FlatVectorView)
-    length(dest) >= length(src) || throw(BoundsError(dest, length(src)))
-    off = 0
-    for k in 1:dest.ntables
-        p = @inbounds dest.parts[k]
-        n = length(p)
-        copyto!(p, 1, src, off + 1, n)
-        off += n
-    end
-    return dest
-end
+Base.copyto!(dest::AbstractVector, src::FlatVectorView) = _copyto_flat_view!(dest, src)
+
+Base.copyto!(dest::FlatVectorView, src::AbstractVector) = _copyto_into_flat_view!(dest, src)
+
+Base.copyto!(dest::FlatVectorView, src::FlatVectorView) = _copyto_into_flat_view!(dest, src)
 
 """
     FlatStructArrayView
