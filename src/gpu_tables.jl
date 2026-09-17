@@ -29,10 +29,11 @@ struct FlatVectorView{T,PT,OT} <: AbstractVector{T}
     parts::PT
     offsets::OT
     len::Int
+    ntables::Int
 end
 
-function FlatVectorView{T}(parts, offsets, len::Integer) where {T}
-    return FlatVectorView{T,typeof(parts),typeof(offsets)}(parts, offsets, Int(len))
+function FlatVectorView{T}(parts, offsets, len::Integer, ntables::Integer) where {T}
+    return FlatVectorView{T,typeof(parts),typeof(offsets)}(parts, offsets, Int(len), Int(ntables))
 end
 
 Base.length(r::FlatVectorView) = r.len
@@ -44,10 +45,14 @@ Base.eltype(::Type{<:FlatVectorView{T}}) where {T} = T
     n = length(offsets) - 1
     if n <= 32
         t = 1
+        off = Int(@inbounds offsets[1])
         @inbounds for k in 2:n
-            t += Int(Int(offsets[k]) < i)
+            ok = offsets[k]
+            c = Int(Int(ok) < i)
+            t += c
+            off = ifelse(c == 1, Int(ok), off)
         end
-        return t
+        return t, off
     end
     lo = 1
     hi = n
@@ -59,26 +64,38 @@ Base.eltype(::Type{<:FlatVectorView{T}}) where {T} = T
             hi = mid - 1
         end
     end
-    return lo
+    return lo, Int(@inbounds offsets[lo])
 end
 
 Base.@propagate_inbounds function Base.getindex(r::FlatVectorView, i::Integer)
     i1 = Int(i)
     @boundscheck (1 <= i1 <= r.len) || throw(BoundsError(r, i1))
-    t = _find_table(r.offsets, i1)
-    @inbounds return r.parts[t][i1 - Int(r.offsets[t])]
+    if r.ntables == 1
+        @inbounds return r.parts[1][i1]
+    end
+    t, off = _find_table(r.offsets, i1)
+    @inbounds return r.parts[t][i1 - off]
 end
 
 Base.@propagate_inbounds function Base.setindex!(r::FlatVectorView, v, i::Integer)
     i1 = Int(i)
     @boundscheck (1 <= i1 <= r.len) || throw(BoundsError(r, i1))
-    t = _find_table(r.offsets, i1)
-    @inbounds r.parts[t][i1 - Int(r.offsets[t])] = v
+    if r.ntables == 1
+        @inbounds r.parts[1][i1] = v
+        return v
+    end
+    t, off = _find_table(r.offsets, i1)
+    @inbounds r.parts[t][i1 - off] = v
     return v
 end
 
 function Adapt.adapt_structure(to, r::FlatVectorView)
-    return FlatVectorView{eltype(r)}(Adapt.adapt(to, r.parts), Adapt.adapt(to, r.offsets), r.len)
+    return FlatVectorView{eltype(r)}(
+        Adapt.adapt(to, r.parts),
+        Adapt.adapt(to, r.offsets),
+        r.len,
+        r.ntables,
+    )
 end
 
 function Base.show(io::IO, r::FlatVectorView{T}) where {T}
@@ -110,8 +127,20 @@ Base.@propagate_inbounds @generated function Base.getindex(
     i::Int,
 ) where {C}
     names = fieldnames(C)
-    field_exprs = Expr[:($(name) = getfield(sa, :_components).$name[i]) for name in names]
-    return Expr(:block, Expr(:new, C, field_exprs...))
+    comps = :(getfield(sa, :_components))
+    first_field = :(getfield($comps, $(QuoteNode(names[1]))))
+    single = Expr[:($(name) = @inbounds getfield($comps, $(QuoteNode(name))).parts[1][i]) for name in names]
+    multi = Expr[
+        :($(name) = @inbounds getfield($comps, $(QuoteNode(name))).parts[t][i - off]) for name in names
+    ]
+    return quote
+        @boundscheck (1 <= i <= length(sa)) || throw(BoundsError(sa, i))
+        if $first_field.ntables == 1
+            $(Expr(:block, single..., Expr(:new, C, single...)))
+        end
+        t, off = _find_table($first_field.offsets, i)
+        $(Expr(:block, multi..., Expr(:new, C, multi...)))
+    end
 end
 
 Base.@propagate_inbounds @generated function Base.setindex!(
@@ -120,10 +149,25 @@ Base.@propagate_inbounds @generated function Base.setindex!(
     i::Int,
 ) where {C}
     names = fieldnames(C)
-    set_exprs = Expr[
-        :(getfield(sa, :_components).$name[i] = getfield(c, $(QuoteNode(name)))) for name in names
+    comps = :(getfield(sa, :_components))
+    first_field = :(getfield($comps, $(QuoteNode(names[1]))))
+    single = Expr[
+        :(getfield($comps, $(QuoteNode(name))).parts[1][i] = getfield(c, $(QuoteNode(name)))) for name in names
     ]
-    return Expr(:block, set_exprs..., :(c))
+    multi = Expr[
+        :(getfield($comps, $(QuoteNode(name))).parts[t][i - off] = getfield(c, $(QuoteNode(name)))) for
+        name in names
+    ]
+    return quote
+        @boundscheck (1 <= i <= length(sa)) || throw(BoundsError(sa, i))
+        if $first_field.ntables == 1
+            $(Expr(:block, single...))
+            return c
+        end
+        t, off = _find_table($first_field.offsets, i)
+        $(Expr(:block, multi...))
+        return c
+    end
 end
 
 @generated function Base.getproperty(sa::FlatStructArrayView{C}, name::Symbol) where {C}
@@ -302,6 +346,7 @@ entity views are backed by host memory and are meant for host-side access;
 kernels should use only the component views.
 
 The returned views reference the storages directly and copy no component data.
+When the filter matches a single table, views have no lookup overhead at all.
 For multiple matching tables, element access on a view costs one extra offset
 lookup compared to a plain query column.
 
@@ -401,9 +446,9 @@ function _FlatQuery_from_storages(filter::F, storages::ST) where {F<:Filter,ST<:
     # same-typed allocations on growth, never re-typed.
     views = map(storages, fstates) do cols, fst
         if _is_gpu_storage(eltype(cols))
-            return _make_view(eltype(cols), fst, offsets_payload, 0)
+            return _make_view(eltype(cols), fst, offsets_payload, 0, 0)
         end
-        return _make_host_view(eltype(cols), fst, offsets_staging, 0)
+        return _make_host_view(eltype(cols), fst, offsets_staging, 0, 0)
     end
 
     b = FlatQuery(
@@ -414,7 +459,7 @@ function _FlatQuery_from_storages(filter::F, storages::ST) where {F<:Filter,ST<:
         offsets_payload,
         views,
         _EntitiesPart[],
-        FlatVectorView{Entity}(_EntitiesPart[], offsets_staging, 0),
+        FlatVectorView{Entity}(_EntitiesPart[], offsets_staging, 0, 0),
         UInt32[],
         UInt32[],
         Int[],
@@ -427,9 +472,9 @@ function _FlatQuery_from_storages(filter::F, storages::ST) where {F<:Filter,ST<:
     return b
 end
 
-function _make_view(::Type{A}, fstates::NTuple{1,_FieldStaging}, offsets, len::Int) where {A<:GPUVector}
+function _make_view(::Type{A}, fstates::NTuple{1,_FieldStaging}, offsets, len::Int, ntables::Int) where {A<:GPUVector}
     T = eltype(A)
-    return FlatVectorView{T}(fstates[1].payload, offsets, len)
+    return FlatVectorView{T}(fstates[1].payload, offsets, len, ntables)
 end
 
 function _make_view(
@@ -437,10 +482,11 @@ function _make_view(
     fstates::NTuple{N,_FieldStaging},
     offsets,
     len::Int,
+    ntables::Int,
 ) where {B,C,N,A<:GPUStructArray{B,C}}
     flatviews = map(fstates) do fst
         T = eltype(eltype(fst.payload))
-        return FlatVectorView{T}(fst.payload, offsets, len)
+        return FlatVectorView{T}(fst.payload, offsets, len, ntables)
     end
     nt = NamedTuple{fieldnames(C)}(flatviews)
     return FlatStructArrayView{C,typeof(nt)}(nt)
@@ -451,8 +497,9 @@ function _make_host_view(
     parts::NTuple{1,Vector{DT}},
     offsets,
     len::Int,
+    ntables::Int,
 ) where {A,DT<:_ColumnView}
-    return FlatVectorView{eltype(DT)}(parts[1], offsets, len)
+    return FlatVectorView{eltype(DT)}(parts[1], offsets, len, ntables)
 end
 
 function _make_host_view(
@@ -460,9 +507,10 @@ function _make_host_view(
     parts::NTuple{N,Vector{DT}},
     offsets,
     len::Int,
+    ntables::Int,
 ) where {C,CS,N,A<:_AbstractStructArray{C,CS},DT<:_ColumnView}
     flatviews = map(parts) do p
-        return FlatVectorView{eltype(DT)}(p, offsets, len)
+        return FlatVectorView{eltype(DT)}(p, offsets, len, ntables)
     end
     nt = NamedTuple{fieldnames(C)}(flatviews)
     return FlatStructArrayView{C,typeof(nt)}(nt)
@@ -675,9 +723,9 @@ function _rebuild!(b::FlatQuery)
 
     b._views = map(b._storages, b._fstates) do cols, fstates
         if _is_gpu_storage(eltype(cols))
-            return _make_view(eltype(cols), fstates, b._offsets_payload, Int(offset))
+            return _make_view(eltype(cols), fstates, b._offsets_payload, Int(offset), T)
         end
-        return _make_host_view(eltype(cols), fstates, b._offsets_staging, Int(offset))
+        return _make_host_view(eltype(cols), fstates, b._offsets_staging, Int(offset), T)
     end
 
     # Entity views reference host memory directly; growth of a table's entity
@@ -687,7 +735,7 @@ function _rebuild!(b::FlatQuery)
         table = state._tables[Int(buf[k])]
         b._entities_parts[k] = view(table.entities._data, 1:length(table.entities))
     end
-    b._entities = FlatVectorView{Entity}(b._entities_parts, b._offsets_staging, Int(offset))
+    b._entities = FlatVectorView{Entity}(b._entities_parts, b._offsets_staging, Int(offset), T)
 
     b._ntables = T
     b._len = Int(offset)
