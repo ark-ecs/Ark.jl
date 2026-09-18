@@ -40,9 +40,10 @@ end
 function nbody_simulation(n, dt, backend; clusters=8)
     world, _ = nbody_world(n, dt, backend, clusters)
 
-    # The q reports what it covers: all entities, spread over `clusters` tables.
+    The flat query reports what it covers: all entities, spread over `clusters` tables.
     q = FlatQuery(world, Filter(world, (Position, Velocity, Mass)))
     @info "FlatQuery" entities=length(q) tables=q._ntables
+    close!(q)
 
     initialize!(NBodyPlot(), world)
 
@@ -71,7 +72,7 @@ function nbody_simulation(n, dt, backend; clusters=8)
 end
 
 # ---------------------------------------------------------------------------
-# Verification: with bodies spread over multiple tables, the q launch must
+# Verification: with bodies spread over multiple tables, the FlatQuery launch must
 # reproduce true all-pairs physics. Per-table launches only compute interactions
 # within each table and therefore diverge.
 # ---------------------------------------------------------------------------
@@ -203,6 +204,7 @@ function verify_nbody_multi(backend; n=160, dt=0.01f0, clusters=4, steps=5)
     @assert q._ntables == clusters "expected $clusters tables, got $(q._ntables)"
     @assert length(q) == n
     @info "Verification setup" entities=n tables=q._ntables backend=typeof(backend)
+    close!(q)
 
     # Reference initial state, taken from the world (query order defines the index
     # space; for a freshly built world this is table/creation order).
@@ -239,7 +241,7 @@ function verify_nbody_multi(backend; n=160, dt=0.01f0, clusters=4, steps=5)
     @assert dev_flat < 1e-2 "q physics deviates from the all-pairs reference: $dev_flat"
     @assert dev_per > 1e-2 "per-table launches should diverge from the all-pairs reference when bodies q multiple tables, but deviation was only $dev_per"
 
-    println("verified: q launch matches all-pairs physics across $clusters tables,")
+    println("verified: FlatQuery launch matches all-pairs physics across $clusters tables,")
     println("while per-table launches miss cross-table interactions (deviation $dev_per)")
     return
 end

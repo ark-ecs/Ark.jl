@@ -354,22 +354,18 @@ end
 
 const _EntitiesPart = SubArray{Entity,1,Vector{Entity},Tuple{UnitRange{Int}},true}
 
-mutable struct FlatQuery{F<:Filter,ST<:Tuple,FS<:Tuple,V<:Tuple}
-    const _filter::F
-    const _storages::ST
-    const _fstates::FS
-    const _offsets_staging::Vector{Int32}
+struct FlatQuery{F<:Filter,ST<:Tuple,FS<:Tuple,V<:Tuple}
+    _filter::F
+    _storages::ST
+    _fstates::FS
+    _offsets_staging::Vector{Int32}
     _offsets_payload
     _views::V
-    const _entities_parts::Vector{_EntitiesPart}
+    _entities_parts::Vector{_EntitiesPart}
     _entities
-    const _buf::Vector{UInt32}
-    const _sig_ids::Vector{UInt32}
-    const _sig_lens::Vector{Int}
-    const _sig_ptrs::Vector{UInt}
-    _cap::Int
     _ntables::Int
     _len::Int
+    _q_lock::_QueryCursor
 end
 
 """
@@ -379,13 +375,17 @@ Creates a flat query over all tables matching the given [Filter](@ref), e.g. to
 launch a single GPU kernel over all of them instead of one kernel per table, as
 [Query](@ref) iteration would.
 
-A flat query is a long-lived handle that re-derives its contents whenever it is
-accessed, so it stays valid across structural changes of the world. It provides
-one flat, linearly indexed view per filtered component spanning all matching
-tables: `q[Comp]` returns a [`FlatVectorView`](@ref), or a
-[`FlatStructArrayView`](@ref) for components stored in a [`GPUStructArray`](@ref).
+The flat query [locks](@ref world-lock) the world at construction and builds all
+views once. It provides one flat, linearly indexed view per filtered component
+spanning all matching tables: `q[Comp]` returns a [`FlatVectorView`](@ref), or a
+[`FlatStructArrayView`](@ref) for components stored in a struct-array storage.
 `length(q)` is the total number of matched entities. The entity ids of all
 matching tables are available via `q[Entity]`.
+
+While the flat query is open, structural operations like `new_entity!` or
+`add_components!` throw an error, so the views are guaranteed to stay valid.
+Call [`close!`](@ref close!(::FlatQuery)) to unlock the world; the flat query
+can't be used anymore afterwards.
 
 Components may use any storage. If any component uses a GPU storage
 ([`GPUVector`](@ref) or [`GPUStructArray`](@ref)), all components must use GPU
@@ -400,11 +400,10 @@ When the filter matches a single table, views have no lookup overhead at all.
 For multiple matching tables, element access on a view costs one extra offset
 lookup compared to a plain query column.
 
-Views taken from the flat query must not be kept across structural changes of
-the world: re-read them after modifying it.
-
 Like with queries, kernels launched on the views execute asynchronously; see
-[Synchronization with GPU Storages](@ref gpu-storage-synchronization).
+[Synchronization with GPU Storages](@ref gpu-storage-synchronization). The world
+must not be modified while kernels are still in flight, even after closing the
+flat query - synchronize the back-end first.
 
 The views can also be destructured in filter order, with the entity ids last:
 
@@ -417,6 +416,7 @@ positions = q[Position]
 velocities = q[Velocity]
 move_kernel(backend)(positions, velocities, 0.1f0; ndrange = length(q))
 KernelAbstractions.synchronize(backend)
+close!(q)
 ```
 """
 function FlatQuery(world::W, filter::F) where {W<:World,F<:Filter}
@@ -425,7 +425,15 @@ function FlatQuery(world::W, filter::F) where {W<:World,F<:Filter}
         throw(ArgumentError("optional components are not supported by FlatQuery"))
     end
     storages = _flatquery_storages(world, F)
-    return _FlatQuery_from_storages(filter, storages)
+    state = filter._world_state
+    _lock(state._lock)
+    b = try
+        _FlatQuery_from_storages(filter, storages)
+    catch
+        _unlock(state._lock)
+        rethrow()
+    end
+    return b
 end
 
 @generated function _flatquery_storages(world::W, ::Type{F}) where {W<:World,F<:Filter}
@@ -484,42 +492,96 @@ function _FlatQuery_from_storages(filter::F, storages::ST) where {F<:Filter,ST<:
         end
     end
 
+    state = filter._world_state
+    buf = _scan_tables(state, filter)
+    T = length(buf)
+
     offsets_staging = Int32[0]
     if gpu_mode
+        for fs in fstates, f in fs
+            _grow_payload!(f, T)
+        end
         OT = _offsets_payload_type(eltype(first(storages)))
-        offsets_payload = _gpuvector_withdev(() -> OT(undef, 1), _gpuvector_device(Val{backend}()))
+        offsets_payload = _gpuvector_withdev(() -> OT(undef, T + 1), _gpuvector_device(Val{backend}()))
     else
         offsets_payload = offsets_staging
     end
 
-    # Views have stable types across refreshes: payloads are replaced with
-    # same-typed allocations on growth, never re-typed.
-    views = map(storages, fstates) do cols, fst
-        if _is_gpu_storage(eltype(cols))
-            return _make_view(eltype(cols), fst, offsets_payload, 0, 0)
-        end
-        return _make_host_view(eltype(cols), fst, offsets_staging, 0, 0)
+    # Offsets: table t covers global indices (offsets[t], offsets[t+1]].
+    resize!(offsets_staging, T + 1)
+    offset = Int32(0)
+    for k in 1:T
+        @inbounds offsets_staging[k] = offset
+        offset += length(state._tables[Int(buf[k])].entities)
+    end
+    @inbounds offsets_staging[T+1] = offset
+    if gpu_mode
+        copyto!(offsets_payload, 1, offsets_staging, 1, T + 1)
     end
 
-    b = FlatQuery(
+    # Stage per-table views. GPU storages upload an array of device views that
+    # kernels index into; host storages wrap their columns lazily.
+    map(storages, fstates) do cols, fstates
+        if _is_gpu_storage(eltype(cols))
+            for f in fstates
+                resize!(f.devviews, T)
+            end
+            for k in 1:T
+                table = state._tables[Int(buf[k])]
+                col = cols[table.id]
+                fields = _fields_of(col)
+                foreach(fields, fstates) do f, fst
+                    fst.devviews[k] = _gpuvector_devview(getfield(f, :mem), 1:length(table.entities))
+                end
+            end
+            for f in fstates
+                copyto!(f.payload, 1, f.devviews, 1, T)
+            end
+        else
+            for parts in fstates
+                resize!(parts, T)
+            end
+            for k in 1:T
+                table = state._tables[Int(buf[k])]
+                col = cols[table.id]
+                fields = _fields_of(col)
+                foreach(fields, fstates) do f, parts
+                    parts[k] = _ColumnView(f)
+                end
+            end
+        end
+        return nothing
+    end
+
+    entities_parts = _EntitiesPart[]
+    resize!(entities_parts, T)
+    for k in 1:T
+        table = state._tables[Int(buf[k])]
+        entities_parts[k] = view(table.entities._data, 1:length(table.entities))
+    end
+    entities = FlatVectorView{Entity}(entities_parts, offsets_staging, Int(offset), T)
+
+    views = map(storages, fstates) do cols, fstates
+        if _is_gpu_storage(eltype(cols))
+            return _make_view(eltype(cols), fstates, offsets_payload, Int(offset), T)
+        end
+        return _make_host_view(eltype(cols), fstates, offsets_staging, Int(offset), T)
+    end
+
+    cursor = _QueryCursor(false)
+    return FlatQuery(
         filter,
         storages,
         fstates,
         offsets_staging,
         offsets_payload,
         views,
-        _EntitiesPart[],
-        FlatVectorView{Entity}(_EntitiesPart[], offsets_staging, 0, 0),
-        UInt32[],
-        UInt32[],
-        Int[],
-        UInt[],
-        0,
-        0,
-        0,
+        entities_parts,
+        entities,
+        T,
+        Int(offset),
+        cursor,
     )
-    _refresh!(b)
-    return b
 end
 
 function _make_view(::Type{A}, fstates::NTuple{1,_FieldStaging}, offsets, len::Int, ntables::Int) where {A<:GPUVector}
@@ -566,7 +628,14 @@ function _make_host_view(
     return FlatStructArrayView{C,typeof(nt)}(nt)
 end
 
-Base.length(b::FlatQuery) = ((_refresh!(b); b._len))
+@inline function _check_not_closed(b::FlatQuery)
+    if b._q_lock.closed
+        throw(InvalidStateException("flat query closed, it can't be used anymore", :query_closed))
+    end
+    return nothing
+end
+
+Base.length(b::FlatQuery) = ((_check_not_closed(b); b._len))
 
 @generated function Base.getindex(b::FlatQuery, ::Type{C}) where {C}
     views = fieldtype(b, :_views)
@@ -574,7 +643,7 @@ Base.length(b::FlatQuery) = ((_refresh!(b); b._len))
     for (i, ct) in enumerate(comp_types)
         if ct === C
             return quote
-                _refresh!(b)
+                _check_not_closed(b)
                 getfield(b, :_views)[$i]
             end
         end
@@ -603,7 +672,7 @@ end
 # ids, so a flat query can be destructured both with and without entities:
 # `positions, velocities = q` or `entities, positions, velocities = q`.
 function Base.iterate(b::FlatQuery)
-    _refresh!(b)
+    _check_not_closed(b)
     return iterate(getfield(b, :_views))
 end
 
@@ -615,18 +684,30 @@ function Base.iterate(b::FlatQuery, state::Int)
 end
 
 function Base.getindex(b::FlatQuery, ::Type{Entity})
-    _refresh!(b)
+    _check_not_closed(b)
     return b._entities
 end
 
-# Scans the world for all non-empty tables matching the filter into `b._buf`,
-# mirroring query iteration (including relation filtering within archetypes).
-function _scan_tables!(b::FlatQuery)
-    state = b._filter._world_state
-    filter = b._filter._filter
-    buf = b._buf
-    empty!(buf)
+"""
+    close!(q::FlatQuery)
 
+Closes the flat query and unlocks the world, so that structural operations can
+be performed again. The flat query can't be used anymore afterwards.
+"""
+function close!(q::FlatQuery)
+    if q._q_lock.closed
+        return nothing
+    end
+    _unlock(q._filter._world_state._lock)
+    q._q_lock.closed = true
+    return nothing
+end
+
+# Scans the world for all non-empty tables matching the filter, mirroring query
+# iteration (including relation filtering within archetypes).
+function _scan_tables(state::_WorldState, f::Filter)
+    filter = f._filter
+    buf = UInt32[]
     if _is_cached(filter)
         for id in filter.tables.ids
             table = state._tables[Int(id)]
@@ -636,7 +717,7 @@ function _scan_tables!(b::FlatQuery)
         return buf
     end
 
-    arches, arches_hot = _get_archetypes(state, b._filter)
+    arches, arches_hot = _get_archetypes(state, f)
     for i in eachindex(arches)
         archetype_hot = @inbounds arches_hot[i]
         if !_matches(filter, archetype_hot)
@@ -661,133 +742,3 @@ function _scan_tables!(b::FlatQuery)
     return buf
 end
 
-function _refresh!(b::FlatQuery)
-    _scan_tables!(b)
-    _changed(b) || return b
-    _rebuild!(b)
-    return b
-end
-
-# Detects whether any matching table id, table length or column memory location
-# changed since the last build. Assumes `b._buf` was just re-scanned.
-function _changed(b::FlatQuery)
-    T = length(b._buf)
-    sig_ids = b._sig_ids
-    length(sig_ids) == T || return true
-    sig_lens = b._sig_lens
-    sig_ptrs = b._sig_ptrs
-    fi = 0
-    for cols in b._storages
-        gpu = _is_gpu_storage(eltype(cols))
-        for k in 1:T
-            table_id = Int(b._buf[k])
-            table = b._filter._world_state._tables[table_id]
-            (k <= length(sig_lens) && sig_lens[k] == length(table.entities)) || return true
-            sig_ids[k] == b._buf[k] || return true
-            col = cols[table_id]
-            for f in _fields_of(col)
-                fi += 1
-                sig = gpu ? UInt(pointer(getfield(f, :mem))) : UInt(objectid(f))
-                (fi <= length(sig_ptrs) && sig_ptrs[fi] == sig) || return true
-            end
-        end
-    end
-    return false
-end
-
-function _rebuild!(b::FlatQuery)
-    state = b._filter._world_state
-    buf = b._buf
-    T = length(buf)
-    gpu_mode = any(_is_gpu_storage ∘ eltype, b._storages)
-
-    if gpu_mode && b._cap < T
-        new_cap = max(T, 2 * b._cap)
-        for fstates in b._fstates
-            for f in fstates
-                _grow_payload!(f, new_cap)
-            end
-        end
-        OT = typeof(b._offsets_payload)
-        backend = _gpu_backend(eltype(first(b._storages)))
-        b._offsets_payload =
-            _gpuvector_withdev(() -> OT(undef, new_cap + 1), _gpuvector_device(Val{backend}()))
-        b._cap = new_cap
-    end
-
-    # Offsets: table t covers global indices (offsets[t], offsets[t+1]].
-    offsets = b._offsets_staging
-    length(offsets) < T + 1 && resize!(offsets, T + 1)
-    offset = Int32(0)
-    for k in 1:T
-        @inbounds offsets[k] = offset
-        offset += length(state._tables[Int(buf[k])].entities)
-    end
-    @inbounds offsets[T+1] = offset
-    if gpu_mode
-        copyto!(b._offsets_payload, 1, offsets, 1, T + 1)
-    end
-
-    # Stage per-table views, upload them for GPU storages, and refresh the signature.
-    resize!(b._sig_ids, T)
-    resize!(b._sig_lens, T)
-    resize!(b._sig_ptrs, 0)
-    map(b._storages, b._fstates) do cols, fstates
-        if _is_gpu_storage(eltype(cols))
-            for f in fstates
-                resize!(f.devviews, T)
-            end
-            for k in 1:T
-                table_id = Int(buf[k])
-                table = state._tables[table_id]
-                b._sig_lens[k] = length(table.entities)
-                col = cols[table_id]
-                fields = _fields_of(col)
-                foreach(fields, fstates) do f, fst
-                    push!(b._sig_ptrs, UInt(pointer(getfield(f, :mem))))
-                    fst.devviews[k] = _gpuvector_devview(getfield(f, :mem), 1:length(table.entities))
-                end
-            end
-            for f in fstates
-                copyto!(f.payload, 1, f.devviews, 1, T)
-            end
-        else
-            for parts in fstates
-                resize!(parts, T)
-            end
-            for k in 1:T
-                table_id = Int(buf[k])
-                table = state._tables[table_id]
-                b._sig_lens[k] = length(table.entities)
-                col = cols[table_id]
-                fields = _fields_of(col)
-                foreach(fields, fstates) do f, parts
-                    push!(b._sig_ptrs, UInt(objectid(f)))
-                    parts[k] = _ColumnView(f)
-                end
-            end
-        end
-        return nothing
-    end
-    copyto!(b._sig_ids, 1, buf, 1, T)
-
-    b._views = map(b._storages, b._fstates) do cols, fstates
-        if _is_gpu_storage(eltype(cols))
-            return _make_view(eltype(cols), fstates, b._offsets_payload, Int(offset), T)
-        end
-        return _make_host_view(eltype(cols), fstates, b._offsets_staging, Int(offset), T)
-    end
-
-    # Entity views reference host memory directly; growth of a table's entity
-    # column always changes its length, so the signature length check covers it.
-    resize!(b._entities_parts, T)
-    for k in 1:T
-        table = state._tables[Int(buf[k])]
-        b._entities_parts[k] = view(table.entities._data, 1:length(table.entities))
-    end
-    b._entities = FlatVectorView{Entity}(b._entities_parts, b._offsets_staging, Int(offset), T)
-
-    b._ntables = T
-    b._len = Int(offset)
-    return b
-end

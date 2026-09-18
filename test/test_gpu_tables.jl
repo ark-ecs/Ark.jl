@@ -108,6 +108,7 @@ end
             @test positions[i] == expected[i]
         end
 
+        close!(q)
         reset!(world)
     end
 
@@ -125,7 +126,8 @@ end
             new_entity!(world, (TabPos(100 + i, i), TabVel(1, 1)))
         end
 
-        positions, velocities = FlatQuery(world, Filter(world, (TabPos, TabVel)))
+        q1 = FlatQuery(world, Filter(world, (TabPos, TabVel)))
+        positions, velocities = q1
         @test length(positions) == 8
         @test length(velocities) == 8
         @test positions[3] == TabPos(3, 6)
@@ -134,12 +136,15 @@ end
         px, py = unpack(positions)
         @test px[3] == 3.0 && py[3] == 6.0
 
-        positions, velocities, entities = FlatQuery(world, Filter(world, (TabPos, TabVel)))
+        q2 = FlatQuery(world, Filter(world, (TabPos, TabVel)))
+        positions, velocities, entities = q2
         @test length(entities) == 8
         @test entities[1] == es[1]
         @test entities[5] == es[5]
         @test length(positions) == 8 && length(velocities) == 8
 
+        close!(q1)
+        close!(q2)
         reset!(world)
     end
 
@@ -160,11 +165,11 @@ end
         q = FlatQuery(world, Filter(world, (TabPos, TabVel)))
         @test q isa FlatQuery
 
-        positions, velocities = FlatQuery(world, Filter(world, (TabPos, TabVel)))
+        positions, velocities = q
         @test length(positions) == 8
         @test positions[3] == TabPos(3, 6)
 
-        positions, velocities, entities = FlatQuery(world, Filter(world, (TabPos, TabVel)))
+        positions, velocities, entities = q
         @test length(entities) == 8
         @test entities[1] == es[1]
         @test entities[5] == es[5]
@@ -174,13 +179,16 @@ end
         # entity ids are exposed by type as well
         @test length(q[Entity]) == 8
         @test q[Entity][5] == es[5]
+        close!(q)
 
-        # structural changes are picked up, entity views included
+        # structural changes require closing; a fresh flat query picks them up
         e9 = new_entity!(world, (TabPos(9, 9), TabVel(1, 1)))
+        q = FlatQuery(world, Filter(world, (TabPos, TabVel)))
         positions, velocities, entities = q
         @test length(entities) == 9
         @test entities[9] == e9
         @test positions[9] == TabPos(9, 9)
+        close!(q)
 
         reset!(world)
     end
@@ -210,12 +218,15 @@ end
             for i in eachindex(positions)
                 @test positions[i] == expected[i]
             end
+            close!(q)
 
             e9 = new_entity!(world, (TabPos(9, 9), TabVel(1, 1)))
+            q = FlatQuery(world, Filter(world, (TabPos, TabVel)))
             positions, velocities, entities = q
             @test length(positions) == 9
             @test positions[9] == TabPos(9, 9)
             @test entities[9] == e9
+            close!(q)
 
             reset!(world)
         end
@@ -235,6 +246,7 @@ end
 
             positions[1] = TabPos(9, 9)
             @test q[TabPos][1] == TabPos(9, 9)
+            close!(q)
 
             reset!(world)
         end
@@ -250,6 +262,7 @@ end
             @test positions[3] == TabPos(3, 6)
             positions[1] = TabPos(8, 8)
             @test q[TabPos][1] == TabPos(8, 8)
+            close!(q)
 
             reset!(world)
         end
@@ -258,6 +271,7 @@ end
             world = World(TabPos => Storage(GPUVector, CPU()), TabVel => Storage(StructArray))
             new_entity!(world, (TabPos(1, 1), TabVel(1, 1)))
             @test_throws ArgumentError FlatQuery(world, Filter(world, (TabPos, TabVel)))
+            @test !is_locked(world)
 
             reset!(world)
         end
@@ -274,7 +288,8 @@ end
         new_entity!(world, (1.0, TabPos(1, 1)))
         new_entity!(world, (2.0, TabPos(2, 2), TabTag()))
 
-        scalars, positions = FlatQuery(world, Filter(world, (Float64, TabPos)))
+        q = FlatQuery(world, Filter(world, (Float64, TabPos)))
+        scalars, positions = q
         @test scalars.ntables == 2
 
         @test sum(scalars) == 3.0
@@ -298,10 +313,13 @@ end
 
         world2 = World(Float64 => Storage(GPUVector, CPU()))
         new_entities!(world2, 2, (9.0,))
-        dest2 = FlatQuery(world2, Filter(world2, (Float64,)))[Float64]
+        q2 = FlatQuery(world2, Filter(world2, (Float64,)))
+        dest2 = q2[Float64]
         copyto!(dest2, scalars)
         @test collect(dest2) == [1.0, 2.0]
 
+        close!(q)
+        close!(q2)
         reset!(world)
         reset!(world2)
     end
@@ -349,6 +367,7 @@ end
             @test a.x == 1.0 && b.y == 2.0
         end
 
+        close!(q)
         reset!(world)
     end
 
@@ -384,10 +403,11 @@ end
             @test accs[i].val == acc
         end
 
+        close!(q)
         reset!(world)
     end
 
-    @testset "refresh on structural changes" begin
+    @testset "locking and structural changes" begin
         world = TestWorld(
             TabPos => Storage(GPUStructArray, CPU()),
             TabVel => Storage(GPUVector, CPU()),
@@ -405,22 +425,31 @@ end
 
         q = FlatQuery(world, Filter(world, (TabPos, TabVel)))
         @test length(q) == 8
+        @test is_locked(world)
+
+        # structural operations are blocked while the flat query is open
+        @test_throws InvalidStateException new_entity!(world, (TabPos(-1, -2), TabVel(1, 1)))
+        @test_throws InvalidStateException remove_entity!(world, e1)
+        @test length(q) == 8
+
+        close!(q)
+        @test !is_locked(world)
 
         # growth of an existing table (forces column reallocation)
         for i in 1:4
             new_entity!(world, (TabPos(-i, -2i), TabVel(1, 1)))
         end
-        @test length(q) == 12
-        positions = q[TabPos]
-        @test positions[9] == TabPos(-4, -8)
-
         # new archetype / table
         new_entity!(world, (TabPos(50, 50), TabVel(1, 1), TabTag()))
+
+        q = FlatQuery(world, Filter(world, (TabPos, TabVel)))
         @test length(q) == 13
         @test q[TabPos][13] == TabPos(50, 50)
+        close!(q)
 
         # removal swap-removes rows within tables
         remove_entity!(world, e1)
+        q = FlatQuery(world, Filter(world, (TabPos, TabVel)))
         @test length(q) == 12
         @test q[TabPos][1] == TabPos(-4, -8)
 
@@ -429,6 +458,11 @@ end
         KernelAbstractions.synchronize(backend)
         expected_vel = _tab_query_columns(world, TabVel)
         @test q[TabVel] == expected_vel
+        close!(q)
+
+        # a closed flat query can't be used anymore
+        @test_throws InvalidStateException length(q)
+        @test_throws InvalidStateException q[TabPos]
 
         reset!(world)
     end
@@ -456,6 +490,8 @@ end
         @test length(q_f) == 8
         @test q_f[TabVel][8] == TabVel(1, 1)
 
+        close!(q)
+        close!(q_f)
         reset!(world)
     end
 
@@ -476,10 +512,13 @@ end
         filter = Filter(world, (TabPos, TabVel); register=true)
         q = FlatQuery(world, filter)
         @test length(q) == 6
+        close!(q)
 
         new_entity!(world, (TabPos(9, 9), TabVel(1, 1)))
+        q = FlatQuery(world, filter)
         @test length(q) == 7
         @test q[TabPos][5] == TabPos(9, 9)
+        close!(q)
 
         unregister!(world, filter)
         reset!(world)
@@ -512,6 +551,9 @@ end
         batch_all = FlatQuery(world, Filter(world, (TabPos, TabVel)))
         @test length(batch_all) == 8
 
+        close!(batch1)
+        close!(batch2)
+        close!(batch_all)
         reset!(world)
     end
 
@@ -554,6 +596,7 @@ end
         positions[2] = TabPos(-1, -2)
         @test positions[2] == TabPos(-1, -2)
 
+        close!(q)
         reset!(world)
     end
 
@@ -573,6 +616,7 @@ end
         tab_heal_kernel!(backend)(q[TabPos], 1.0; ndrange = length(q))
         KernelAbstractions.synchronize(backend)
 
+        close!(q)
         reset!(world)
     end
 
@@ -586,9 +630,11 @@ end
         @test_throws ArgumentError FlatQuery(world, Filter(world, (TabPos, TabVel)))
         filter_opt = Filter(world, (TabPos,); optional=(TabVel,))
         @test_throws ArgumentError FlatQuery(world, filter_opt)
+        @test !is_locked(world)
 
         q = FlatQuery(world, Filter(world, (TabVel,)))
         @test_throws ArgumentError q[TabPos]
+        close!(q)
 
         reset!(world)
     end
@@ -606,5 +652,6 @@ end
         @test_throws BoundsError positions[0]
         @test_throws BoundsError positions[5]
         @test_throws BoundsError (positions.x)[5]
+        close!(q)
     end
 end

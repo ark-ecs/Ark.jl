@@ -318,14 +318,21 @@ positions, velocities = q # component views, without entities
 entities, positions, velocities = q # with entity ids
 ```
 
-A flat query is a long-lived handle that re-derives its contents whenever it is
-accessed, so it stays valid across structural changes. Views must be re-read from
-the flat query after modifying the world - do not keep them across structural
-changes:
+The flat query [locks](@ref world-lock) the world at construction, so the views
+are guaranteed to stay valid for its whole lifetime: structural operations like
+`new_entity!` or `add_components!` throw an error while it is open. Call
+[`close!`](@ref close!(::FlatQuery)) to unlock the world and perform structural
+changes; the flat query can't be used anymore afterwards:
 
 ```julia
-new_entity!(world, (Position(0, 0), Velocity(0, 0)))
-positions = q[Position] # re-read: picks up the new entity
+q = FlatQuery(world, Filter(world, (Position, Velocity)))
+positions, velocities = q
+move_kernel(backend)(positions, velocities, dt; ndrange = length(q))
+KernelAbstractions.synchronize(backend)
+close!(q)
+
+new_entity!(world, (Position(0, 0), Velocity(0, 0))) # allowed after close!
+q = FlatQuery(world, Filter(world, (Position, Velocity))) # picks up the new entity
 ```
 
 Notes:

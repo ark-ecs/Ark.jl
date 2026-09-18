@@ -95,6 +95,7 @@ Entities
 unpack
 FlatQuery
 FlatQuery(::World, ::Filter)
+close!(::FlatQuery)
 FlatVectorView
 FlatStructArrayView
 unpack(::FlatStructArrayView)

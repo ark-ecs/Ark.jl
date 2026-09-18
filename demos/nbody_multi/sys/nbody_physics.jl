@@ -98,4 +98,5 @@ function update!(::NBodyPhysics, world, backend)
     # See "Synchronization with GPU Storages" in the manual, and
     # demos/gpu_hazards for what goes wrong otherwise.
     KernelAbstractions.synchronize(backend)
+    close!(q)
 end
