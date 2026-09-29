@@ -3,12 +3,12 @@
     Event
 
 Type for built-in and custom events.
-See [EventRegistry](@ref) for creating custom event types.
+See [`EventRegistry`](@ref) for creating custom event types.
 
 # Built-in event types
 
   - `OnCreateEntity`: Event emitted after a new entity is created.
-  - `OnRemoveEntity`: Event emitted before an entity is removed from the [World](@ref).
+  - `OnRemoveEntity`: Event emitted before an entity is removed from the [`World`](@ref).
   - `OnAddComponents`: Event emitted after components are added to an entity.
   - `OnRemoveComponents`: Event emitted before components are removed from an entity.
   - `OnAddRelations`: Event emitted after relation targets are added to an entity.
@@ -48,7 +48,7 @@ end
 """
     EventRegistry()
 
-Creates a new [EventRegistry](@ref).
+Creates a new [`EventRegistry`](@ref).
 """
 function EventRegistry()
     reg = EventRegistry(Dict{Symbol,Int}())
@@ -71,7 +71,7 @@ end
 """
     new_event_type!(reg::EventRegistry, symbol::Symbol)
 
-Creates a new custom [Event](@ref).
+Creates a new custom [`Event`](@ref).
 Custom event types are best stored in global constants.
 
 The symbol is only used for printing.
@@ -105,8 +105,8 @@ end
 
 Observer for reacting on built-in and custom events.
 
-See [observe!](@ref) for details.
-See [Event](@ref) for built-in, and [EventRegistry](@ref) for custom event types.
+See [`observe!`](@ref) for details.
+See [`Event`](@ref) for built-in, and [`EventRegistry`](@ref) for custom event types.
 """
 struct Observer{M}
     _id::_ObserverID

@@ -4,7 +4,7 @@
 
 A filter for components. See function
 [Filter](@ref Filter(::World,::Tuple;::Tuple,::Tuple,::Tuple,::Bool)) for details.
-See also [Query](@ref).
+See also [`Query`](@ref).
 """
 struct Filter{OM,IDS,RO,M,K}
     _filter::_MaskFilter{M,K}
@@ -176,7 +176,7 @@ end
 """
     unregister!(world::World, filter::Filter)
 
-Un-registers a [Filter](@ref).
+Un-registers a [`Filter`](@ref).
 """
 function unregister!(world::World, filter::Filter)
     _check_filter_world(world, filter)

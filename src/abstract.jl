@@ -6,7 +6,7 @@ abstract type _AbstractStructArray{C,CS<:NamedTuple,N} <: AbstractVector{C} end
 """
     Relation{T}
 
-Marks `T` as a relation component during [World](@ref) construction.
+Marks `T` as a relation component during [`World`](@ref) construction.
 
 # Example
 

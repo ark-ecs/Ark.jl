@@ -18,7 +18,7 @@ This design encourages a declarative, data-driven approach while maintaining per
 
 ## Example
 
-Use [observe!](@ref) to observe for events:
+Use [`observe!`](@ref) to observe for events:
 
 ```@meta
 DocTestSetup = quote
@@ -225,7 +225,7 @@ Event(:OnTimerElapsed)
 
 Ideally, custom event types are stored as global variables of the applications.
 
-Use [emit_event!](@ref) to emit custom events:
+Use [`emit_event!`](@ref) to emit custom events:
 
 ```jldoctest; output=false
 registry = EventRegistry()

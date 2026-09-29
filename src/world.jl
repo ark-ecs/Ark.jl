@@ -37,7 +37,7 @@ end
 """
     const zero_entity::Entity
 
-The reserved zero [Entity](@ref) value.
+The reserved zero [`Entity`](@ref) value.
 Can be used to represent "no entity"/"nil".
 """
 const zero_entity::Entity = _new_entity(1, 0)
@@ -168,7 +168,7 @@ end
         boxed::Bool=false,
     )
 
-Creates a new, empty [World](@ref) for the given component types.
+Creates a new, empty [`World`](@ref) for the given component types.
 
 All component types that will be used with the world must be specified.
 This allows Ark to use Julia's compile-time method generation to achieve the best performance.
@@ -238,7 +238,7 @@ end
 """
     new_entity!(world::World, values::Tuple)::Entity
 
-Creates a new [Entity](@ref) with the given component values. Types are inferred from the values.
+Creates a new [`Entity`](@ref) with the given component values. Types are inferred from the values.
 
 # Arguments
 
@@ -316,7 +316,7 @@ end
         mode=:copy,
     )
 
-Copies an [Entity](@ref), optionally adding and/or removing components.
+Copies an [`Entity`](@ref), optionally adding and/or removing components.
 
 Mutable and non-isbits components are shallow copied by default. This can be changed with the `mode` argument.
 
@@ -382,7 +382,7 @@ end
 """
     remove_entity!(world::World, entity::Entity)
 
-Removes an [Entity](@ref) from the [World](@ref).
+Removes an [`Entity`](@ref) from the [`World`](@ref).
 
 # Example
 
@@ -512,7 +512,7 @@ end
 """
     get_components(world::World, entity::Entity, comp_types::Tuple)
 
-Get the given components for an [Entity](@ref).
+Get the given components for an [`Entity`](@ref).
 Components are returned as a tuple.
 
 # Example
@@ -537,7 +537,7 @@ end
 """
     has_components(world::World, entity::Entity, comp_types::Tuple)::Bool
 
-Returns whether an [Entity](@ref) has all given components.
+Returns whether an [`Entity`](@ref) has all given components.
 
 # Example
 
@@ -561,7 +561,7 @@ end
 """
     set_components!(world::World, entity::Entity, values::Tuple)
 
-Sets the given component values for an [Entity](@ref). Types are inferred from the values.
+Sets the given component values for an [`Entity`](@ref). Types are inferred from the values.
 The entity must already have all these components.
 
 # Example
@@ -593,7 +593,7 @@ end
 """
     get_relations(world::World, entity::Entity, relations::Tuple)
 
-Get the relation targets for components of an [Entity](@ref).
+Get the relation targets for components of an [`Entity`](@ref).
 Targets are returned as a tuple.
 
 # Example
@@ -618,7 +618,7 @@ end
 """
     set_relations!(world::World, entity::Entity, relations::Tuple)
 
-Sets relation targets for the given components of an [Entity](@ref).
+Sets relation targets for the given components of an [`Entity`](@ref).
 The entity must already have all these relationship components.
 
 # Example
@@ -644,7 +644,7 @@ end
 """
     add_components!(world::World, entity::Entity, values::Tuple)
 
-Adds the given component values to an [Entity](@ref). Types are inferred from the values.
+Adds the given component values to an [`Entity`](@ref). Types are inferred from the values.
 
 Relation pairs like `(ChildOf() => parent,)` can be included in the values.
 
@@ -673,7 +673,7 @@ end
 """
     remove_components!(world::World, entity::Entity, comp_types::Tuple)
 
-Removes the given components from an [Entity](@ref).
+Removes the given components from an [`Entity`](@ref).
 
 # Example
 
@@ -709,7 +709,7 @@ end
         remove::Tuple=(),
     )
 
-Adds and removes components on an [Entity](@ref). Types are inferred from the add values.
+Adds and removes components on an [`Entity`](@ref). Types are inferred from the add values.
 
 Inline relation pairs like `ChildOf() => parent` can be included in `add`.
 
@@ -822,7 +822,7 @@ end
 """
     is_alive(world::World, entity::Entity)::Bool
 
-Returns whether an [Entity](@ref) is alive.
+Returns whether an [`Entity`](@ref) is alive.
 """
 function is_alive(world::World, entity::Entity)::Bool
     return is_alive(_state(world), entity)
@@ -848,12 +848,12 @@ end
 """
     emit_event!(world::World, event::Event, entity::Entity, components::Tuple=())
 
-Emits a custom event for the given [Event](@ref), [Entity](@ref) and optional components.
-The entity must have the given components. The entity can be the reserved [zero_entity](@ref).
+Emits a custom event for the given [`Event`](@ref), [`Entity`](@ref) and optional components.
+The entity must have the given components. The entity can be the reserved [`zero_entity`](@ref).
 
-  - `world::World`: The [World](@ref) to emit the event.
-  - `event::Event`: The [Event](@ref) to emit.
-  - `entity::Entity`: The [Entity](@ref) to emit the event for.
+  - `world::World`: The [`World`](@ref) to emit the event.
+  - `event::Event`: The [`Event`](@ref) to emit.
+  - `entity::Entity`: The [`Entity`](@ref) to emit the event for.
   - `components::Tuple=()`: The component types to emit the event for. Optional.
 
 # Example
@@ -1073,6 +1073,22 @@ end
 @generated function _get_component_empty(stores::_WorldStorage{CS}, ::Type{C}) where {CS<:Tuple,C}
     index = _component_index(CS, C)
     return _empty_ref(:stores, stores, index)
+end
+
+# see the performance bug at https://github.com/JuliaLang/julia/issues/63480 for why
+# this function is needed. When that issue is fixed, this function can be removed and
+# the code can be inlined.
+@generated function _move_component_data_at!(
+    stores::S,
+    ::Val{I},
+    old_table::UInt32,
+    new_table::UInt32,
+    row::UInt32,
+) where {S<:_WorldStorage,I}
+    return quote
+        @inline _move_component_data!($(_storage_ref(:stores, S, I)), old_table, new_table, row)
+        return nothing
+    end
 end
 
 @generated function _get_relations_storage(
@@ -1891,7 +1907,7 @@ end
         move_call =
             inline_jtable ?
             :(@inline _move_component_data!($storage, index.table, table_index, index.row)) :
-            :(_move_component_data!($storage, index.table, table_index, index.row))
+            :(_move_component_data_at!(stores, $(Val(i)), index.table, table_index, index.row))
         push!(move_exprs, :(
             if _get_bit(old_mask, $i)
                 $move_call
@@ -2811,7 +2827,7 @@ end
     end
     call_exprs =
         Expr[
-            :(_move_component_data!($(_storage_ref(:stores, stores, i)), old_table, new_table, row)) for
+            :(_move_component_data_at!(stores, $(Val(i)), old_table, new_table, row)) for
             i in 1:fieldcount(CS)
         ]
     _generate_component_switch(:comp, call_exprs)

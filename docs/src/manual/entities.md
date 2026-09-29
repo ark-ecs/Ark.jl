@@ -6,7 +6,7 @@ which contain the entity's properties or state variables.
 
 ## [Creating entities](@id creating-entities)
 
-An entity can only exist in a [World](@ref), and thus can only be created through a World.
+An entity can only exist in a [`World`](@ref), and thus can only be created through a World.
 
 ```@meta
 DocTestSetup = quote
@@ -26,7 +26,7 @@ DocTestSetup = quote
 end
 ```
 
-Here, we use [new_entity!](@ref) to create an entity with a `Position` and a `Velocity` components.
+Here, we use [`new_entity!`](@ref) to create an entity with a `Position` and a `Velocity` components.
 Note that component values are passed as a tuple!
 
 ```jldoctest; output = false
@@ -48,7 +48,7 @@ See chapter [Batch operations](@ref) for details.
 
 ## Removing entities
 
-Removing an entity from the World is as simple as this, using [remove_entity!](@ref):
+Removing an entity from the World is as simple as this, using [`remove_entity!`](@ref):
 
 ```jldoctest; output = false
 remove_entity!(world, entity)
@@ -62,7 +62,7 @@ For removing many entities in batches, see chapter [Batch operations](@ref).
 ## Alive status
 
 Entities can be safely stored, e.g. in the [Components](@ref) of other entities to represent relationships. However, as they may have been removed from the world elsewhere,
-it may be necessary to check whether an entity is still alive with [is_alive](@ref):
+it may be necessary to check whether an entity is still alive with [`is_alive`](@ref):
 
 ```@meta
 DocTestSetup = quote
@@ -83,9 +83,9 @@ end
 
 ## Zero entity
 
-There is a reserved [zero_entity](@ref) that can be used as a placeholder for "no entity".
+There is a reserved [`zero_entity`](@ref) that can be used as a placeholder for "no entity".
 The zero entity is never alive.
-The function [is_zero](@ref) can be used to determine whether an entity is the zero entity:
+The function [`is_zero`](@ref) can be used to determine whether an entity is the zero entity:
 
 ```jldoctest entities; output = false
 if is_zero(entity)

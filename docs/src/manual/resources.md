@@ -1,15 +1,15 @@
 # Resources
 
-[Resources](@ref resources-api) are singular data structures in an ECS [World](@ref).
+[Resources](@ref resources-api) are singular data structures in an ECS [`World`](@ref).
 As such, they can be thought of as [Components](@ref) that exist only once
-and are not associated to an [Entity](@ref).
+and are not associated to an [`Entity`](@ref).
 Examples could be the current game/simulation tick,
 a grid that your entities live on, or an acceleration structure for spatial indexing.
 
 ## Creating resources
 
 Resources can be of any type, but only one resource of a particular type can exist in a World.
-They are simply added to the world with [add_resource!](@ref):
+They are simply added to the world with [`add_resource!`](@ref):
 
 ```@meta
 DocTestSetup = quote
@@ -33,7 +33,7 @@ Tick(0)
 
 ## Accessing resources
 
-Resources can be retrieved via [get_resource](@ref):
+Resources can be retrieved via [`get_resource`](@ref):
 
 ```@meta
 DocTestSetup = quote
@@ -60,7 +60,7 @@ time = tick.time
 As getting a resource is not particularly fast (≈10ns),
 this should not be done in hot loops like queries, but beforehand.
 
-The existence of a resource type in the World can be checked with [has_resource](@ref):
+The existence of a resource type in the World can be checked with [`has_resource`](@ref):
 
 ```@meta
 DocTestSetup = quote
@@ -85,8 +85,8 @@ end
 
 ## Setting and removing resources
 
-Resources can also be removed from the world using [remove_resource!](@ref),
-or overwritten with [set_resource!](@ref), which is particularly useful for immutable types:
+Resources can also be removed from the world using [`remove_resource!`](@ref),
+or overwritten with [`set_resource!`](@ref), which is particularly useful for immutable types:
 
 ```@meta
 DocTestSetup = quote

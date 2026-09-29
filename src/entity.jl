@@ -3,7 +3,7 @@
 
 [Entity](@ref Entities) identifier.
 
-Entities can be constructed using a [World](@ref) via [new_entity!](@ref) and [new_entities!](@ref).
+Entities can be constructed using a [`World`](@ref) via [`new_entity!`](@ref) and [`new_entities!`](@ref).
 
 Entities can be safely stored in [components](@ref Components) and [resources](@ref Resources).
 """
@@ -17,7 +17,7 @@ end
 """
     is_zero(entity::Entity)::Bool
 
-Returns whether an [Entity](@ref) is the reserved [zero_entity](@ref).
+Returns whether an [`Entity`](@ref) is the reserved [`zero_entity`](@ref).
 """
 function is_zero(entity::Entity)::Bool
     return entity._id == 1

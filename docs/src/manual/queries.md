@@ -187,7 +187,7 @@ Filters support all keyword arguments of queries (see above).
 
 ## Component field views
 
-Individual fields of components can be accessed as vectors in queries, e.g. using [@unpack](@ref).
+Individual fields of components can be accessed as vectors in queries, e.g. using [`@unpack`](@ref).
 This is particularly useful for components that use the [StructArray storage](@ref component-storages),
 as it allows for SIMD-accelerated vectorized operations.
 
@@ -272,7 +272,7 @@ When breaking out of a query loop, however, it must be unlocked by calling
 
 ## Single entity access
 
-Components of a single [Entity](@ref) can also be accessed through a query, without
+Components of a single [`Entity`](@ref) can also be accessed through a query, without
 iterating it. Only the components of the query are accessible, optional and
 [`Const`](@ref) ones included:
 

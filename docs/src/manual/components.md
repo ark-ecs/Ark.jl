@@ -12,7 +12,7 @@ In Ark, any type can be used as a component.
 However, it is highly recommended to use immutable types,
 because mutable objects are usually allocated on the heap in Julia,
 which defeats Ark's claim of high performance.
-Mutable types are disallowed by default, but can be enabled when constructing a [World](@ref)
+Mutable types are disallowed by default, but can be enabled when constructing a [`World`](@ref)
 by the optional argument `allow_mutable` of the [world constructor](@ref World(::Type...; ::Bool)).
 
 ## Accessing components
@@ -83,7 +83,7 @@ we[(Position, Velocity)] = (Position(0, 0), Velocity(1, 1))
 
 A feature that makes ECS particularly flexible and powerful is the ability to
 add components to and remove them from entities at runtime.
-This works similar to component access and can be done via [add_components!](@ref) and [remove_components!](@ref):
+This works similar to component access and can be done via [`add_components!`](@ref) and [`remove_components!`](@ref):
 
 ```jldoctest; output = false
 entity = new_entity!(world, ())
@@ -99,7 +99,7 @@ Note that adding an already existing component or removing a missing one results
 
 Also note that it is more efficient to add/remove multiple components at once instead of one by one.
 To allow for efficient exchange of components (i.e. add some and remove others in the same operation),
-[exchange_components!](@ref) can be used:
+[`exchange_components!`](@ref) can be used:
 
 
 ```jldoctest; output = false
@@ -114,7 +114,7 @@ exchange_components!(world, entity;
 
 ```
 
-For manipulating entities in batches, [add_components!](@ref), [remove_components!](@ref) and [exchange_components!](@ref)
+For manipulating entities in batches, [`add_components!`](@ref), [`remove_components!`](@ref) and [`exchange_components!`](@ref)
 come with versions that take a filter instead of a single entity as argument.
 See chapter [Batch operations](@ref) for details.
 
@@ -130,11 +130,11 @@ For these columns, Ark offers storage types for both CPU anf GPU computing by de
 
 - **Vector storage** stores components in a simple vector per column. This is the default.
 
-- **[StructArray](@ref) storage** stores components in an SoA data structure similar to  
+- **[`StructArray`](@ref) storage** stores components in an SoA data structure similar to  
   [StructArrays](https://github.com/JuliaArrays/StructArrays.jl).  
   This allows access to field vectors in [queries](@ref Queries), enabling SIMD-accelerated,  
   vectorized operations and increased cache-friendliness if not all of the component's fields are used.
-  [StructArray](@ref) storage has some limitations:  
+  [`StructArray`](@ref) storage has some limitations:  
   - Not allowed for mutable components.
   - Not allowed for components without fields, like labels and primitives.
   - ≈10-20% runtime overhead for component operations and entity creation.
@@ -144,14 +144,14 @@ For these columns, Ark offers storage types for both CPU anf GPU computing by de
 
 #### Unified Memory Storages
 
-- **[GPUVector](@ref) storage** stores components using unified memory for mixed CPU/GPU operations. [GPUVector](@ref) is compatible with CUDA.jl, Metal.jl, oneAPI.jl or OpenCL.jl, and with a device-less CPU backend. Mutable components are not allowed.
+- **[`GPUVector`](@ref) storage** stores components using unified memory for mixed CPU/GPU operations. [`GPUVector`](@ref) is compatible with CUDA.jl, Metal.jl, oneAPI.jl or OpenCL.jl, and with a device-less CPU backend. Mutable components are not allowed.
 
-- **[GPUStructArray](@ref) storage** stores components in an SoA data structure similar to  
-  [StructArrays](https://github.com/JuliaArrays/StructArrays.jl) using unified memory for mixed CPU/GPU operations. [GPUVector](@ref) is compatible with CUDA.jl, Metal.jl, oneAPI.jl or OpenCL.jl, and with a device-less CPU backend. The same limitations of [StructArray](@ref) storage apply.
+- **[`GPUStructArray`](@ref) storage** stores components in an SoA data structure similar to  
+  [StructArrays](https://github.com/JuliaArrays/StructArrays.jl) using unified memory for mixed CPU/GPU operations. [`GPUVector`](@ref) is compatible with CUDA.jl, Metal.jl, oneAPI.jl or OpenCL.jl, and with a device-less CPU backend. The same limitations of [`StructArray`](@ref) storage apply.
 
 ## Storage Selection
 
-The storage mode can be selected per component type by using the [Storage](@ref) wrapper during world construction.
+The storage mode can be selected per component type by using the [`Storage`](@ref) wrapper during world construction.
 
 ```jldoctest; output = false
 world = World(
@@ -178,7 +178,7 @@ world = World(
 World(entities=0, comp_types=(Position, Velocity))
 ```
 
-To use the [GPUVector](@ref) or the [GPUStructArray](@ref) storage, also the GPU backend must be specified (which can be either `:CUDA`, `:Metal`, `:oneAPI` or `:OpenCL`) depending on the GPU, as shown below:
+To use the [`GPUVector`](@ref) or the [`GPUStructArray`](@ref) storage, also the GPU backend must be specified (which can be either `:CUDA`, `:Metal`, `:oneAPI` or `:OpenCL`) depending on the GPU, as shown below:
 
 ```julia
 using CUDA

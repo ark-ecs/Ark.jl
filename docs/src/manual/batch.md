@@ -11,7 +11,7 @@ Often, multiple entities with the same set of components are created at the same
 Batch entity creation is therefore probably the most frequently used batch operation.
 There are different ways to create entities in batches:
 
-From **default component values** using [new_entities!](@ref). Here, we create 100 entities, all with the same `Position` and `Velocity`:
+From **default component values** using [`new_entities!`](@ref). Here, we create 100 entities, all with the same `Position` and `Velocity`:
 
 ```@meta
 DocTestSetup = quote
@@ -49,7 +49,7 @@ new_entities!(world, 100, (
 
 This may be sufficient in some use cases, but most often we will use a second approach:
 
-From **component types** with subsequent manual initialization using [new_entities!](@ref) with a tuple of types:
+From **component types** with subsequent manual initialization using [`new_entities!`](@ref) with a tuple of types:
 
 ```jldoctest; output = false
 new_entities!(world, 100, (Position, Velocity)) do (entities, positions, velocities)
@@ -72,8 +72,8 @@ Therefore, the callback is mandatory here, while it is optional for batch creati
 
 ## Removing entities
 
-Similar to entity creation, entities can also be removed in batches with [remove_entities!](@ref).
-It takes a [Filter](@ref) instead of a single entity as argument:
+Similar to entity creation, entities can also be removed in batches with [`remove_entities!`](@ref).
+It takes a [`Filter`](@ref) instead of a single entity as argument:
 
 ```jldoctest; output = false
 filter = Filter(world, (Position, Velocity))
@@ -98,12 +98,12 @@ end
 
 ## Adding and removing components
 
-The functions [add_components!](@ref), [remove_components!](@ref) and [exchange_components!](@ref) also come with batch versions.
+The functions [`add_components!`](@ref), [`remove_components!`](@ref) and [`exchange_components!`](@ref) also come with batch versions.
 
 Similarly to batch entity creation, components to be added can be given either in the form of default values, or as types.
 In the case of default values, usage of the callback is optional, while it is mandatory for initialization with the types version.
 
-Here, we add a default `Velocity` component to all entities with `Position`, using [add_components!](@ref):
+Here, we add a default `Velocity` component to all entities with `Position`, using [`add_components!`](@ref):
 
 ```jldoctest; output = false
 filter = Filter(world, (Position,))
@@ -131,7 +131,7 @@ Note that the tuple elements of the callback argument are entity and component c
 that need to be iterated to access individual items.
 See also the chapter on [Queries](@ref), which use a similar nested loop structure.
 
-Removing components works in a similar way, with [remove_components!](@ref):
+Removing components works in a similar way, with [`remove_components!`](@ref):
 
 ```jldoctest; output = false
 filter = Filter(world, (Velocity,))
@@ -153,7 +153,7 @@ end
 
 ```
 
-Finally, exchanging components with [exchange_components!](@ref) follows the same pattern as adding components:
+Finally, exchanging components with [`exchange_components!`](@ref) follows the same pattern as adding components:
 
 ```jldoctest; output = false
 filter = Filter(world, (Velocity,))
@@ -187,7 +187,7 @@ end
 
 ## Setting relationships
 
-As with other operations, relation targets can be set in batches using [set_relations!](@ref) combined with a [Filter](@ref):
+As with other operations, relation targets can be set in batches using [`set_relations!`](@ref) combined with a [`Filter`](@ref):
 
 ```jldoctest; output=false
 filter = Filter(world, (ChildOf => parent,))

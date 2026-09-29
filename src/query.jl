@@ -91,7 +91,7 @@ end
 """
     Query(world::World, filter::Filter)
 
-Creates a query from a [Filter](@ref).
+Creates a query from a [`Filter`](@ref).
 """
 Base.@constprop :aggressive function Query(world::World, filter::Filter)
     return _Query_from_filter(world, filter)
@@ -329,11 +329,11 @@ end
 """
     get_components(query::Query, entity::Entity, comp_types::Tuple)
 
-Get the given components for an [Entity](@ref) through a [Query](@ref).
+Get the given components for an [`Entity`](@ref) through a [`Query`](@ref).
 Components are returned as a tuple.
 
 Only components which are part of the query can be accessed, optional and
-[Const](@ref) ones included. The entity must match the query and have all the
+[`Const`](@ref) ones included. The entity must match the query and have all the
 requested components.
 
 Does not iterate or [close!](@ref close!(::Query)) the query.
@@ -361,11 +361,11 @@ end
 """
     set_components!(query::Query, entity::Entity, values::Tuple)
 
-Sets the given component values for an [Entity](@ref) through a [Query](@ref).
+Sets the given component values for an [`Entity`](@ref) through a [`Query`](@ref).
 Types are inferred from the values.
 
 Only components which are part of the query can be set, optional ones included.
-Components marked as [Const](@ref) in the query are read-only and can't be set.
+Components marked as [`Const`](@ref) in the query are read-only and can't be set.
 The entity must match the query and have all the given components.
 
 Does not iterate or [close!](@ref close!(::Query)) the query.
@@ -399,10 +399,10 @@ end
 """
     has_components(query::Query, entity::Entity, comp_types::Tuple)::Bool
 
-Returns whether an [Entity](@ref) has all the given components.
+Returns whether an [`Entity`](@ref) has all the given components.
 
 Only components which are part of the query can be checked, optional and
-[Const](@ref) ones included. An entity that does not match the query returns
+[`Const`](@ref) ones included. An entity that does not match the query returns
 `false`.
 
 Does not iterate or [close!](@ref close!(::Query)) the query.
