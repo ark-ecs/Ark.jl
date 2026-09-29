@@ -1075,6 +1075,22 @@ end
     return _empty_ref(:stores, stores, index)
 end
 
+# see the performance bug at https://github.com/JuliaLang/julia/issues/63480 for why
+# this function is needed. When that issue is fixed, this function can be removed and
+# the code can be inlined.
+@generated function _move_component_data_at!(
+    stores::S,
+    ::Val{I},
+    old_table::UInt32,
+    new_table::UInt32,
+    row::UInt32,
+) where {S<:_WorldStorage,I}
+    return quote
+        @inline _move_component_data!($(_storage_ref(:stores, S, I)), old_table, new_table, row)
+        return nothing
+    end
+end
+
 @generated function _get_relations_storage(
     state::_WorldState,
     ::Type{C},
@@ -1891,7 +1907,7 @@ end
         move_call =
             inline_jtable ?
             :(@inline _move_component_data!($storage, index.table, table_index, index.row)) :
-            :(_move_component_data!($storage, index.table, table_index, index.row))
+            :(_move_component_data_at!(stores, $(Val(i)), index.table, table_index, index.row))
         push!(move_exprs, :(
             if _get_bit(old_mask, $i)
                 $move_call
@@ -2811,7 +2827,7 @@ end
     end
     call_exprs =
         Expr[
-            :(_move_component_data!($(_storage_ref(:stores, stores, i)), old_table, new_table, row)) for
+            :(_move_component_data_at!(stores, $(Val(i)), old_table, new_table, row)) for
             i in 1:fieldcount(CS)
         ]
     _generate_component_switch(:comp, call_exprs)
