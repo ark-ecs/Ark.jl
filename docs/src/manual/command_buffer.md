@@ -1,12 +1,12 @@
 # Command buffer
 
-The [CommandBuffer](@ref) allows deferring structural changes and applying them later in batch.
-This is useful when you need to record changes during [Query](@ref) iteration (when the [World](@ref) is locked),
+The [`CommandBuffer`](@ref) allows deferring structural changes and applying them later in batch.
+This is useful when you need to record changes during [`Query`](@ref) iteration (when the [`World`](@ref) is locked),
 or when you want to amortize the cost of structural changes across many operations.
 
 ## Creating a buffer
 
-Create a [CommandBuffer](@ref) by providing the [World](@ref) and a tuple of operation specs:
+Create a [`CommandBuffer`](@ref) by providing the [`World`](@ref) and a tuple of operation specs:
 
 ```@meta
 DocTestSetup = quote
@@ -47,12 +47,12 @@ Arbitrary command types can also be included in the specs and recorded with [`re
 
 ## Recording commands
 
-All recording methods mirror the [World](@ref) API but take the buffer as an extra argument.
+All recording methods mirror the [`World`](@ref) API but take the buffer as an extra argument.
 
 ### Creating entities
 
-Use [new_entity!](@ref) to stage entity creation. An [Entity](@ref) ID is pre-allocated
-immediately and returned, allowing it to be used in subsequent commands before [apply!](@ref)
+Use [`new_entity!`](@ref) to stage entity creation. An [`Entity`](@ref) ID is pre-allocated
+immediately and returned, allowing it to be used in subsequent commands before [`apply!`](@ref)
 is called. The returned entity is not considered alive until the buffer is applied.
 
 ```jldoctest
@@ -69,7 +69,7 @@ CommandBuffer{World{Ark._WorldStorage{Tuple{Vector{Position}, Vector{Velocity}},
 
 ## Applying commands
 
-Call [apply!](@ref) to execute all staged commands in FIFO order:
+Call [`apply!`](@ref) to execute all staged commands in FIFO order:
 
 ```jldoctest
 world = World(Position, Velocity, Health);

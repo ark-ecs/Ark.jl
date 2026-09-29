@@ -58,7 +58,7 @@ for relations with different target entities.
 
 ## Relation components
 
-To use entity relations, define a normal component type and declare it as a relation in the [World](@ref) constructor with [Relation{T}](@ref Relation):
+To use entity relations, define a normal component type and declare it as a relation in the [`World`](@ref) constructor with [Relation{T}](@ref Relation):
 
 ```jldoctest; output=false
 struct ChildOf
@@ -80,7 +80,7 @@ Relation targets are specified by pairing the relation component with its target
 
 ### On new entities
 
-To create an entity with relations, add a relation component and specify its target entity using [new_entity!](@ref):
+To create an entity with relations, add a relation component and specify its target entity using [`new_entity!`](@ref):
 
 ```jldoctest; output=false
 entity = new_entity!(world, (Position(0, 0), ChildOf() => parent))
@@ -90,7 +90,7 @@ entity = new_entity!(world, (Position(0, 0), ChildOf() => parent))
 Entity(6, 0)
 ```
 
-This works in the same way for batch entity creation with [new_entities!](@ref).
+This works in the same way for batch entity creation with [`new_entities!`](@ref).
 
 Multiple relationships can be used in a similar way:
 
@@ -106,7 +106,7 @@ Note that, when creating entities with relation components, targets for all rela
 
 ### When adding components
 
-Relation target must also be given when adding relation components to an entity with [add_components!](@ref):
+Relation target must also be given when adding relation components to an entity with [`add_components!`](@ref):
 
 ```jldoctest; output=false
 add_components!(world, entity, (ChildOf() => parent,))
@@ -115,12 +115,12 @@ add_components!(world, entity, (ChildOf() => parent,))
 
 ```
 
-The same applies for [exchange_components!](@ref),
+The same applies for [`exchange_components!`](@ref),
 
 ## Get and set relations
 
 We can also change the target entity of an already assigned relation component.
-This is done via [set_relations!](@ref) or by indexing with an entity handle:
+This is done via [`set_relations!`](@ref) or by indexing with an entity handle:
 
 ```jldoctest; output=false
 entity = new_entity!(world, (Position(0, 0), ChildOf() => parent))
@@ -137,7 +137,7 @@ Entity(4, 0)
 
 This also works for changing the targets of multiple relations in one function call.
 
-Target entities can be retrieved with [get_relations](@ref) or by indexing:
+Target entities can be retrieved with [`get_relations`](@ref) or by indexing:
 
 ```jldoctest; output=false
 entity = new_entity!(world, (Position(0, 0), ChildOf() => parent))
@@ -152,7 +152,7 @@ parent_entity = we.rel[ChildOf]
 Entity(3, 0)
 ```
 
-Note that [get_relations](@ref) always returns a tuple of entities, while indexing `we.rel[RelationComponent]` returns the single target entity directly.
+Note that [`get_relations`](@ref) always returns a tuple of entities, while indexing `we.rel[RelationComponent]` returns the single target entity directly.
 
 As with other operations, relation targets can be set in batches. See chapter [Batch operations](@ref) for details.
 

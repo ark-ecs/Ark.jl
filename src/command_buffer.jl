@@ -244,7 +244,7 @@ end
 """
     CommandBuffer(world::World, specs::Tuple)
 
-Creates a new command buffer for the given [World](@ref)
+Creates a new command buffer for the given [`World`](@ref)
 for staging structural changes to apply later.
 
 The `specs` tuple specifies which operations the buffer supports.

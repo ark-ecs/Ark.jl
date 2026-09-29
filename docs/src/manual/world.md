@@ -67,7 +67,7 @@ Ark's primary goal is to empower high-performance simulation models.
 In this domain, it is common to run large numbers of simulations, whether to explore model stochasticity,
 perform calibration, or for optimization purposes.
 
-To maximize efficiency, Ark provides a [reset!](@ref) function that resets a simulation world for subsequent reuse.
+To maximize efficiency, Ark provides a [`reset!`](@ref) function that resets a simulation world for subsequent reuse.
 This significantly accelerates model initialization by reusing already allocated memory and avoiding costly reallocation.
 
 ```jldoctest world; output = false

@@ -6,9 +6,9 @@ end
 """
     unpack(a::FieldViewable)
 
-Unpacks the components (i.e. field vectors) of a column returned from a [Query](@ref)
+Unpacks the components (i.e. field vectors) of a column returned from a [`Query`](@ref)
 when the storage is different from `Storage{StructArray}`.
-See also [@unpack](@ref).
+See also [`@unpack`](@ref).
 
 !!! note
 

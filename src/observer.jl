@@ -11,15 +11,15 @@
         register::Bool=true,
     )
 
-Creates an [Observer](@ref) and (optionally, default) registers it.
+Creates an [`Observer`](@ref) and (optionally, default) registers it.
 
-See [Event](@ref) for built-in, and [EventRegistry](@ref) for custom event types.
+See [`Event`](@ref) for built-in, and [`EventRegistry`](@ref) for custom event types.
 
 # Arguments
 
   - `fn::Function`: A callback function to execute when a matching event is received. Can be used via a `do` block.
-  - `world::World`: The [World](@ref) to observe.
-  - `event::Event`: The [Event](@ref) to observe.
+  - `world::World`: The [`World`](@ref) to observe.
+  - `event::Event`: The [`Event`](@ref) to observe.
   - `components::Tuple=()`: The component types to observe. Must be empty for `OnCreateEntity` and `OnRemoveEntity`.
   - `with::Tuple=()`: Components the entity must have.
   - `without::Tuple=()`: Components the entity must not have.
@@ -181,8 +181,8 @@ end
 """
     register!(world::World, observer::Observer)
 
-Registers the given [Observer](@ref) with the specified world.
-Note that observers created with [observe!](@ref) are automatically registered by default.
+Registers the given [`Observer`](@ref) with the specified world.
+Note that observers created with [`observe!`](@ref) are automatically registered by default.
 """
 function register!(world::World, observer::Observer)
     _add_observer!(_state(world)._event_manager, observer)
@@ -191,7 +191,7 @@ end
 """
     unregister!(world::World, observer::Observer)
 
-Un-registers the given [Observer](@ref) from the specified world.
+Un-registers the given [`Observer`](@ref) from the specified world.
 """
 function unregister!(world::World, observer::Observer)
     _remove_observer!(_state(world)._event_manager, observer)

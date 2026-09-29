@@ -19,7 +19,7 @@ Note that components are not initialized/undef unless set in the callback in thi
 # Arguments
 
   - `f::Function`: Optional callback for initialization, can be passed as a `do` block.
-  - `world::World`: The [World](@ref) instance to use.
+  - `world::World`: The [`World`](@ref) instance to use.
   - `n::Int`: The number of entities to create.
   - `components::Tuple`: A tuple of components to add. Either default values like
     `(Position(0, 0), Velocity(1, 1), ChildOf() => parent)`, or types like
@@ -199,7 +199,7 @@ end
 """
     remove_entities!([f::Function], world::World, filter::Filter)
 
-Removes all entities that match the given [Filter](@ref) from the [World](@ref).
+Removes all entities that match the given [`Filter`](@ref) from the [`World`](@ref).
 
 The optional callback/`do` block is called on them before the removal.
 The callback's argument is an [Entities](@ref) list.
@@ -240,7 +240,7 @@ end
 """
     set_relations!([f::Function], world::World, filter::Filter::Entity, relations::Tuple)
 
-Sets relation targets for the given components of all [entities](@ref Entity) matching the given [Filter](@ref).
+Sets relation targets for the given components of all [entities](@ref Entity) matching the given [`Filter`](@ref).
 Optionally runs a callback/`do`-block on the affected entities.
 
 # Example
@@ -295,7 +295,7 @@ end
         add::Tuple=(),
     )
 
-Adds components to all [entities](@ref Entity) matching the given [Filter](@ref).
+Adds components to all [entities](@ref Entity) matching the given [`Filter`](@ref).
 
 Components can be added as types or as values.
 In the latter case, types are inferred from the add values.
@@ -308,8 +308,8 @@ Note that components are not initialized/undef unless set in the callback in thi
 # Arguments
 
   - `f::Function`: Optional callback for initialization, can be passed as a `do` block.
-  - `world::World`: The [World](@ref) instance to use.
-  - `filter::Filter`: The [Filter](@ref) to select entities.
+  - `world::World`: The [`World`](@ref) instance to use.
+  - `filter::Filter`: The [`Filter`](@ref) to select entities.
   - `add::Tuple`: A tuple of components to add. Either default values like
     `(Position(0, 0), Velocity(1, 1), ChildOf() => parent,)` or types
     like `(Position, Velocity, ChildOf => parent)`.
@@ -394,7 +394,7 @@ end
         remove::Tuple=(),
     )
 
-Removes components from all [entities](@ref Entity) matching the given [Filter](@ref).
+Removes components from all [entities](@ref Entity) matching the given [`Filter`](@ref).
 
 A callback/`do`-block can be run on the affected entities.
 It takes an [entities column](@ref Ark.Entities) as argument.
@@ -402,8 +402,8 @@ It takes an [entities column](@ref Ark.Entities) as argument.
 # Arguments
 
   - `f::Function`: Optional callback for initialization, can be passed as a `do` block.
-  - `world::World`: The [World](@ref) instance to use.
-  - `filter::Filter`: The [Filter](@ref) to select entities.
+  - `world::World`: The [`World`](@ref) instance to use.
+  - `filter::Filter`: The [`Filter`](@ref) to select entities.
   - `remove::Tuple`: A tuple of component types to remove, like `(Position, Velocity)`
 
 # Examples
@@ -469,7 +469,7 @@ end
         remove::Tuple=(),
     )
 
-Adds and removes components on all [entities](@ref Entity) matching the given [Filter](@ref).
+Adds and removes components on all [entities](@ref Entity) matching the given [`Filter`](@ref).
 
 Components can be added as types or as values.
 In the latter case, types are inferred from the add values.
@@ -482,8 +482,8 @@ Note that components are not initialized/undef unless set in the callback in thi
 # Arguments
 
   - `f::Function`: Optional callback for initialization, can be passed as a `do` block.
-  - `world::World`: The [World](@ref) instance to use.
-  - `filter::Filter`: The [Filter](@ref) to select entities.
+  - `world::World`: The [`World`](@ref) instance to use.
+  - `filter::Filter`: The [`Filter`](@ref) to select entities.
   - `add::Tuple`: A tuple of components to add. Either default values like
     `(Position(0, 0), Velocity(1, 1), ChildOf() => parent,) or types like `(Position, Velocity, ChildOf => parent,)`.
   - `remove::Tuple`: A tuple of component types to remove, like `(Position, Velocity)`

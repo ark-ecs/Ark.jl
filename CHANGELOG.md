@@ -27,6 +27,8 @@
 - Compile time performance is improved through a better internal specialization mechanism (#662).
 - Component registration no longer compiles one `Dict` insertion per component type during world construction.
 - Getting components performance improved by 10% (#664).
+- Structural operations in worlds with more than 10 component types are up to 4x faster when
+  executed in a loop, as their cost no longer grows with the number of component types in the world.
 
 ## [[v0.5.1]](https://github.com/ark-ecs/Ark.jl/compare/v0.5.0...v0.5.1)
 

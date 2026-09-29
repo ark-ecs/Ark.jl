@@ -65,7 +65,7 @@ function run_world(backend; n_entities=10^6, n_iterations=1000)
 end
 ```
 
-Performance-wise [GPUVector](@ref) performs best in this case on some local test hardware, as you can
+Performance-wise [`GPUVector`](@ref) performs best in this case on some local test hardware, as you can
 see below:
 
 ```

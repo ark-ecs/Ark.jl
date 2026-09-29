@@ -164,22 +164,22 @@ end
 """
     unpack(a::StructArrayView)
 
-Unpacks the components (i.e. field vectors) of a `StructArray` column returned from a [Query](@ref).
-See also [@unpack](@ref).
+Unpacks the components (i.e. field vectors) of a `StructArray` column returned from a [`Query`](@ref).
+See also [`@unpack`](@ref).
 """
 unpack(a::StructArrayView) = getfield(a, :_components)
 
 """
     @unpack ...
 
-Unpacks the tuple returned from a [Query](@ref) during iteration into field vectors.
+Unpacks the tuple returned from a [`Query`](@ref) during iteration into field vectors.
 Field vectors are particularly useful when the component is stored in a `StructArray`,
 but can also be used with other storages, although those are currently not
 equally efficient in broadcasted operations.
 
 Columns for components without fields, like primitives or label components, fall through `@unpack` unaltered.
 
-See also [unpack(::StructArrayView)](@ref) and [unpack(::FieldViewable)](@ref).
+See also [`unpack(::StructArrayView)`](@ref) and [`unpack(::FieldViewable)`](@ref).
 
 # Example
 
