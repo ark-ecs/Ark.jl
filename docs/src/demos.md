@@ -111,10 +111,10 @@ Exploits GPU computing for performance.
 
 ## NBody Multi-Table
 
-The same n-body model, but with the bodies spread over multiple tables using relations.
-Shows how to launch a single kernel over all matching tables with [`FlatQuery`](@ref),
-which - unlike one launch per table - keeps the all-pairs interaction correct across
-table boundaries. Includes a headless verification mode (`--verify`) that checks the
-simulation against a brute-force reference.
+The same n-body model, but powered by [`FlatQuery`](@ref): a single kernel launch
+per system covers all matching tables. Two black holes flank the particle cloud
+from the start - as tagged entities they live in their own table, which the flat
+views span automatically. Includes a headless verification mode (`--verify`) that
+checks the simulation against a brute-force reference.
 [Source code](https://github.com/ark-ecs/Ark.jl/tree/main/demos/nbody_multi).
 

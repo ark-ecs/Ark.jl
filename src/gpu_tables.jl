@@ -43,9 +43,12 @@ Base.size(r::FlatVectorView) = (r.len,)
 Base.IndexStyle(::Type{<:FlatVectorView}) = IndexLinear()
 Base.eltype(::Type{<:FlatVectorView{T}}) where {T} = T
 
-@inline function _find_table(offsets, i::Int)
-    n = length(offsets) - 1
-    if n <= 32
+# Finds the table `t` owning global index `i`, and its offset. Only the first
+# `n + 1` offsets are valid: the device copy of the offsets may be larger.
+# The branchless linear scan only beats binary search for very few tables; from
+# about 8 tables on, it is increasingly slower on both GPU and CPU.
+@inline function _find_table(offsets, n::Int, i::Int)
+    if n <= 4
         t = 1
         off = Int(@inbounds offsets[1])
         @inbounds for k in 2:n
@@ -75,7 +78,7 @@ Base.@propagate_inbounds function Base.getindex(r::FlatVectorView, i::Integer)
     if r.ntables == 1
         @inbounds return r.parts[1][i1]
     end
-    t, off = _find_table(r.offsets, i1)
+    t, off = _find_table(r.offsets, r.ntables, i1)
     @inbounds return r.parts[t][i1 - off]
 end
 
@@ -86,7 +89,7 @@ Base.@propagate_inbounds function Base.setindex!(r::FlatVectorView, v, i::Intege
         @inbounds r.parts[1][i1] = v
         return v
     end
-    t, off = _find_table(r.offsets, i1)
+    t, off = _find_table(r.offsets, r.ntables, i1)
     @inbounds r.parts[t][i1 - off] = v
     return v
 end
@@ -172,7 +175,11 @@ struct FlatStructArrayView{C,CS<:NamedTuple} <: AbstractArray{C,1}
     _components::CS
 end
 
-Base.@propagate_inbounds @generated function Base.getindex(
+# The inlining and bounds-check propagation meta must be part of the generated
+# code: `Base.@propagate_inbounds` on a generated function only reaches the
+# generator. Without it, element access is a call per element, which is
+# particularly slow in GPU kernels.
+@generated function Base.getindex(
     sa::FlatStructArrayView{C},
     i::Int,
 ) where {C}
@@ -184,16 +191,17 @@ Base.@propagate_inbounds @generated function Base.getindex(
         :($(name) = @inbounds getfield($comps, $(QuoteNode(name))).parts[t][i - off]) for name in names
     ]
     return quote
+        $(Expr(:meta, :inline, :propagate_inbounds))
         @boundscheck (1 <= i <= length(sa)) || throw(BoundsError(sa, i))
         if $first_field.ntables == 1
-            $(Expr(:block, single..., Expr(:new, C, single...)))
+            $(Expr(:block, single..., Expr(:return, Expr(:new, C, single...))))
         end
-        t, off = _find_table($first_field.offsets, i)
+        t, off = _find_table($first_field.offsets, $first_field.ntables, i)
         $(Expr(:block, multi..., Expr(:new, C, multi...)))
     end
 end
 
-Base.@propagate_inbounds @generated function Base.setindex!(
+@generated function Base.setindex!(
     sa::FlatStructArrayView{C},
     c::C,
     i::Int,
@@ -209,12 +217,13 @@ Base.@propagate_inbounds @generated function Base.setindex!(
         name in names
     ]
     return quote
+        $(Expr(:meta, :inline, :propagate_inbounds))
         @boundscheck (1 <= i <= length(sa)) || throw(BoundsError(sa, i))
         if $first_field.ntables == 1
             $(Expr(:block, single...))
             return c
         end
-        t, off = _find_table($first_field.offsets, i)
+        t, off = _find_table($first_field.offsets, $first_field.ntables, i)
         $(Expr(:block, multi...))
         return c
     end
@@ -291,9 +300,17 @@ function _gpuvector_devview(mem, rng::AbstractUnitRange)
     )
 end
 
+# Migrates the first `n` elements of storage memory to the device ahead of
+# kernel launches. Kernels on flat views reach the storages through device views,
+# so back-ends only prefetch their payload at launch, not the storage memory.
+# Back-ends with migrating unified memory provide a method in their interop
+# extension; the fallback does nothing.
+_gpuvector_prefetch(mem, n::Int) = nothing
+
 # Reusable staging and payload memory for one component field. `devviews` holds
 # the per-table device views on the host; `payload` is the uploaded array of
-# device views that kernels access through [`FlatVectorView`](@ref).
+# device views that kernels access through [`FlatVectorView`](@ref). After each
+# staging, `payload` mirrors `devviews`, so unchanged views skip the upload.
 mutable struct _FieldStaging{B,T,DT,PT}
     const devviews::Vector{DT}
     payload::PT
@@ -308,12 +325,20 @@ function _FieldStaging(::Val{B}, ::Type{T}) where {B,T}
     return _FieldStaging{B,T,DT,PT}(DT[], payload)
 end
 
-@inline function _grow_payload!(f::_FieldStaging{B}, cap::Int) where {B}
-    if length(f.payload) < cap
-        PT = typeof(f.payload)
-        f.payload = _gpuvector_withdev(() -> PT(undef, cap), _gpuvector_device(Val{B}()))
-    end
-    return f
+# Grows the payload geometrically to hold at least `n` views. Returns whether it
+# was replaced, in which case its contents must be uploaded again.
+@inline function _grow_payload!(f::_FieldStaging{B}, n::Int) where {B}
+    length(f.payload) >= n && return false
+    PT = typeof(f.payload)
+    cap = max(n, 2 * length(f.payload))
+    f.payload = _gpuvector_withdev(() -> PT(undef, cap), _gpuvector_device(Val{B}()))
+    return true
+end
+
+# The world's GPU storage types leave the memory type of their vectors open, so
+# it is asserted from the back-end and element type to keep staging type-stable.
+@inline function _gpuvector_mem(v::GPUVector{B,T}) where {B,T}
+    return getfield(v, :mem)::_gpuvector_type(T, Val{B}())
 end
 
 @inline _fields_of(col::GPUVector) = (col,)
@@ -352,24 +377,108 @@ _components_ntype(::Type{<:_AbstractStructArray{C,CS}}) where {C,CS} = CS
     return (_ColumnView{eltype(A),A},)
 end
 
+@inline function _field_eltypes(::Type{<:GPUVector{B,T}}) where {B,T}
+    return (T,)
+end
+
+@inline function _field_eltypes(::Type{<:GPUStructArray{B,C,CS}}) where {B,C,CS}
+    return Tuple(eltype(S) for S in fieldtypes(CS))
+end
+
+# The GPU back-end shared by all component storages of a flat query, or `nothing`
+# if all of them live in host memory. Rejects mixed GPU and host storages.
+@generated function _flat_backend(::Type{ST}) where {ST<:Tuple}
+    storage_types = Any[eltype(S) for S in fieldtypes(ST)]
+    any(_is_gpu_storage, storage_types) || return :(nothing)
+    if !all(_is_gpu_storage, storage_types)
+        return :(throw(ArgumentError(
+            "FlatQuery requires all components to use GPU storages when any component uses a GPU storage",
+        )))
+    end
+    backends = unique(Any[_gpu_backend(A) for A in storage_types])
+    if length(backends) > 1
+        return :(throw(ArgumentError("FlatQuery requires all components to use the same back-end")))
+    end
+    return :(Val{$(QuoteNode(backends[1]))}())
+end
+
+# Per-field staging memory for each component storage: `_FieldStaging`s for GPU
+# storages, vectors of per-table column views for host storages.
+@generated function _new_fstates(::Type{ST}) where {ST<:Tuple}
+    exprs = map(fieldtypes(ST)) do S
+        A = eltype(S)
+        if _is_gpu_storage(A)
+            B = QuoteNode(_gpu_backend(A))
+            return Expr(:tuple, (:(_FieldStaging(Val{$B}(), $T)) for T in _field_eltypes(A))...)
+        end
+        return Expr(:tuple, (:($DT[]) for DT in _host_field_view_types(A))...)
+    end
+    return Expr(:tuple, exprs...)
+end
+
 const _EntitiesPart = SubArray{Entity,1,Vector{Entity},Tuple{UnitRange{Int}},true}
 
-struct FlatQuery{F<:Filter,ST<:Tuple,FS<:Tuple,V<:Tuple}
+# Reusable memory of a flat query. Flat queries over the same storages and
+# filter masks share a pool of buffers in the world, so that only the first one
+# allocates. An open flat query owns its buffers exclusively and returns them
+# to the pool on `close!`. Each release increments `session`, so a closed flat
+# query stays closed when its buffers are reused.
+mutable struct _FlatBuffers{FS<:Tuple,OP<:AbstractVector{Int32}}
+    const fstates::FS
+    const tables::Vector{UInt32}
+    const offsets::Vector{Int32}
+    offsets_payload::OP
+    const entities_parts::Vector{_EntitiesPart}
+    const pool::Vector{Any}
+    session::Int
+end
+
+function _new_flat_buffers(::Type{ST}, pool::Vector{Any}) where {ST<:Tuple}
+    offsets = Int32[]
+    return _FlatBuffers(
+        _new_fstates(ST),
+        UInt32[],
+        offsets,
+        _new_offsets_payload(_flat_backend(ST), offsets),
+        _EntitiesPart[],
+        pool,
+        0,
+    )
+end
+
+# Host storages index the staged offsets directly.
+_new_offsets_payload(::Nothing, offsets::Vector{Int32}) = offsets
+
+function _new_offsets_payload(::Val{B}, ::Vector{Int32}) where {B}
+    OT = _gpuvector_type(Int32, Val{B}())
+    return _gpuvector_withdev(() -> OT(undef, 0), _gpuvector_device(Val{B}()))
+end
+
+# Like queries, flat queries may be created and closed from multiple threads.
+function _acquire_flat_buffers(state::_WorldState, filter::_MaskFilter, ::Type{ST}) where {ST<:Tuple}
+    pools = state._pool
+    local pool, buffers
+    @_maybe_locked pools.flat_buffers_lock begin
+        pool = get!(() -> Any[], pools.flat_buffers, (ST, filter.mask, filter.exclude_mask))
+        buffers = isempty(pool) ? nothing : pop!(pool)
+    end
+    buffers === nothing && return _new_flat_buffers(ST, pool)
+    return buffers::Base.promote_op(_new_flat_buffers, Type{ST}, Vector{Any})
+end
+
+struct FlatQuery{F<:Filter,ST<:Tuple,B<:_FlatBuffers,V<:Tuple,E<:FlatVectorView}
     _filter::F
     _storages::ST
-    _fstates::FS
-    _offsets_staging::Vector{Int32}
-    _offsets_payload
+    _buffers::B
     _views::V
-    _entities_parts::Vector{_EntitiesPart}
-    _entities
+    _entities::E
     _ntables::Int
     _len::Int
-    _q_lock::_QueryCursor
+    _session::Int
 end
 
 """
-    FlatQuery(world::World, filter::Filter)
+    FlatQuery(world::World, filter::Filter; prefetch::Bool = true)
 
 Creates a flat query over all tables matching the given [Filter](@ref), e.g. to
 launch a single GPU kernel over all of them instead of one kernel per table, as
@@ -386,6 +495,13 @@ While the flat query is open, structural operations like `new_entity!` or
 `add_components!` throw an error, so the views are guaranteed to stay valid.
 Call [`close!`](@ref close!(::FlatQuery)) to unlock the world; the flat query
 can't be used anymore afterwards.
+
+Flat queries are meant to be re-created whenever they are needed, e.g. once per
+frame: `close!` hands the flat query's internal buffers back to the world, and
+the next flat query with the same components and filter criteria reuses them.
+Only the first flat query allocates, apart from creating the [Filter](@ref). For
+GPU storages, the table layout is only uploaded to the device again after
+structural changes of the matching tables.
 
 Components may use any storage. If any component uses a GPU storage
 ([`GPUVector`](@ref) or [`GPUStructArray`](@ref)), all components must use GPU
@@ -405,12 +521,21 @@ Like with queries, kernels launched on the views execute asynchronously; see
 must not be modified while kernels are still in flight, even after closing the
 flat query - synchronize the back-end first.
 
+With `prefetch`, the matched component memory is migrated to the device when the
+flat query is created, on back-ends with migrating unified memory (currently
+CUDA). Kernels reach the components through the flat views only indirectly, so
+the back-end can't prefetch them at launch as it does for query columns. This
+avoids slow on-demand page migration in kernels after components were accessed
+from the host, e.g. for rendering. If the components are only ever accessed by
+kernels, `prefetch = false` saves the prefetch calls (a few microseconds per
+table and field).
+
 The views can also be destructured in filter order, with the entity ids last:
 
 ```julia
 q = FlatQuery(world, Filter(world, (Position, Velocity)))
 positions, velocities = q # component views, without entities
-entities, positions, velocities = q # with entity ids
+positions, velocities, entities = q # with entity ids
 
 positions = q[Position]
 velocities = q[Velocity]
@@ -419,21 +544,25 @@ KernelAbstractions.synchronize(backend)
 close!(q)
 ```
 """
-function FlatQuery(world::W, filter::F) where {W<:World,F<:Filter}
+function FlatQuery(world::W, filter::F; prefetch::Bool = true) where {W<:World,F<:Filter}
     _check_filter_world(world, filter)
-    if !isempty(_active_bit_indices(_filter_optional_mask(F)))
+    if _is_not_zero(_filter_optional_mask(F))
         throw(ArgumentError("optional components are not supported by FlatQuery"))
     end
     storages = _flatquery_storages(world, F)
+    isempty(storages) && throw(ArgumentError("FlatQuery requires at least one component"))
+    _flat_backend(typeof(storages)) # rejects mixed storages before locking
     state = filter._world_state
+    buffers = _acquire_flat_buffers(state, filter._filter, typeof(storages))
     _lock(state._lock)
-    b = try
-        _FlatQuery_from_storages(filter, storages)
+    q = try
+        _FlatQuery_from_buffers(filter, storages, buffers, prefetch)
     catch
+        # The buffers may be partially staged, so they are not returned to the pool.
         _unlock(state._lock)
         rethrow()
     end
-    return b
+    return q
 end
 
 @generated function _flatquery_storages(world::W, ::Type{F}) where {W<:World,F<:Filter}
@@ -451,137 +580,123 @@ end
     end
 end
 
-
-@inline function _field_eltypes(::Type{<:GPUVector{B,T}}) where {B,T}
-    return (T,)
-end
-
-@inline function _field_eltypes(::Type{<:GPUStructArray{B,C,CS}}) where {B,C,CS}
-    return Tuple(eltype(S) for S in fieldtypes(CS))
-end
-
-function _offsets_payload_type(::Type{A}) where {A<:Union{GPUVector,GPUStructArray}}
-    return _gpuvector_type(Int32, Val{_gpu_backend(A)}())
-end
-
-function _FlatQuery_from_storages(filter::F, storages::ST) where {F<:Filter,ST<:Tuple}
-    isempty(storages) && throw(ArgumentError("FlatQuery requires at least one component"))
-    gpu_mode = any(_is_gpu_storage ∘ eltype, storages)
-    backend = nothing
-    if gpu_mode
-        backend = _gpu_backend(eltype(first(s for s in storages if _is_gpu_storage(eltype(s)))))
-        for cols in storages
-            A = eltype(cols)
-            _is_gpu_storage(A) || throw(ArgumentError(
-                "FlatQuery requires all components to use GPU storages when any component uses a GPU storage",
-            ))
-            _gpu_backend(A) == backend ||
-                throw(ArgumentError("FlatQuery requires all components to use the same back-end"))
-        end
-    end
-
-    fstates = map(storages) do cols
-        A = eltype(cols)
-        if _is_gpu_storage(A)
-            return map(_field_eltypes(A)) do T
-                _FieldStaging(Val{_gpu_backend(A)}(), T)
-            end
-        end
-        return map(_host_field_view_types(A)) do DT
-            DT[]
-        end
-    end
-
+function _FlatQuery_from_buffers(filter::Filter, storages::ST, buffers::_FlatBuffers, prefetch::Bool) where {ST<:Tuple}
     state = filter._world_state
-    buf = _scan_tables(state, filter)
-    T = length(buf)
+    tables = _scan_tables!(buffers.tables, state, filter)
+    ntables = length(tables)
+    len = _stage_offsets!(buffers, state, _flat_backend(ST))
 
-    offsets_staging = Int32[0]
-    if gpu_mode
-        for fs in fstates, f in fs
-            _grow_payload!(f, T)
-        end
-        OT = _offsets_payload_type(eltype(first(storages)))
-        offsets_payload = _gpuvector_withdev(() -> OT(undef, T + 1), _gpuvector_device(Val{backend}()))
-    else
-        offsets_payload = offsets_staging
+    map(storages, buffers.fstates) do cols, fstates
+        return _stage_columns!(fstates, cols, state, tables, prefetch)
     end
 
-    # Offsets: table t covers global indices (offsets[t], offsets[t+1]].
-    resize!(offsets_staging, T + 1)
-    offset = Int32(0)
-    for k in 1:T
-        @inbounds offsets_staging[k] = offset
-        offset += length(state._tables[Int(buf[k])].entities)
-    end
-    @inbounds offsets_staging[T+1] = offset
-    if gpu_mode
-        copyto!(offsets_payload, 1, offsets_staging, 1, T + 1)
-    end
-
-    # Stage per-table views. GPU storages upload an array of device views that
-    # kernels index into; host storages wrap their columns lazily.
-    map(storages, fstates) do cols, fstates
-        if _is_gpu_storage(eltype(cols))
-            for f in fstates
-                resize!(f.devviews, T)
-            end
-            for k in 1:T
-                table = state._tables[Int(buf[k])]
-                col = cols[table.id]
-                fields = _fields_of(col)
-                foreach(fields, fstates) do f, fst
-                    fst.devviews[k] = _gpuvector_devview(getfield(f, :mem), 1:length(table.entities))
-                end
-            end
-            for f in fstates
-                copyto!(f.payload, 1, f.devviews, 1, T)
-            end
-        else
-            for parts in fstates
-                resize!(parts, T)
-            end
-            for k in 1:T
-                table = state._tables[Int(buf[k])]
-                col = cols[table.id]
-                fields = _fields_of(col)
-                foreach(fields, fstates) do f, parts
-                    parts[k] = _ColumnView(f)
-                end
-            end
-        end
-        return nothing
-    end
-
-    entities_parts = _EntitiesPart[]
-    resize!(entities_parts, T)
-    for k in 1:T
-        table = state._tables[Int(buf[k])]
+    entities_parts = buffers.entities_parts
+    resize!(entities_parts, ntables)
+    for k in 1:ntables
+        table = state._tables[Int(tables[k])]
         entities_parts[k] = view(table.entities._data, 1:length(table.entities))
     end
-    entities = FlatVectorView{Entity}(entities_parts, offsets_staging, Int(offset), T)
+    entities = FlatVectorView{Entity}(entities_parts, buffers.offsets, len, ntables)
 
-    views = map(storages, fstates) do cols, fstates
+    views = map(storages, buffers.fstates) do cols, fstates
         if _is_gpu_storage(eltype(cols))
-            return _make_view(eltype(cols), fstates, offsets_payload, Int(offset), T)
+            return _make_view(eltype(cols), fstates, buffers.offsets_payload, len, ntables)
         end
-        return _make_host_view(eltype(cols), fstates, offsets_staging, Int(offset), T)
+        return _make_host_view(eltype(cols), fstates, buffers.offsets_payload, len, ntables)
     end
 
-    cursor = _QueryCursor(false)
-    return FlatQuery(
-        filter,
-        storages,
-        fstates,
-        offsets_staging,
-        offsets_payload,
-        views,
-        entities_parts,
-        entities,
-        T,
-        Int(offset),
-        cursor,
-    )
+    return FlatQuery(filter, storages, buffers, views, entities, ntables, len, buffers.session)
+end
+
+# Stages the offsets of the scanned tables, where table t covers the global
+# indices (offsets[t], offsets[t+1]]. Returns the total number of entities.
+function _stage_offsets!(buffers::_FlatBuffers, state::_WorldState, backend)
+    tables = buffers.tables
+    offsets = buffers.offsets
+    ntables = length(tables)
+    changed = length(offsets) != ntables + 1
+    resize!(offsets, ntables + 1)
+    offset = 0
+    for k in 1:ntables
+        changed = changed || @inbounds(offsets[k]) != offset
+        @inbounds offsets[k] = offset
+        offset += length(state._tables[Int(tables[k])].entities)
+    end
+    changed = changed || @inbounds(offsets[ntables+1]) != offset
+    @inbounds offsets[ntables+1] = offset
+    _upload_offsets!(buffers, backend, changed)
+    return offset
+end
+
+_upload_offsets!(::_FlatBuffers, ::Nothing, ::Bool) = nothing
+
+function _upload_offsets!(buffers::_FlatBuffers, ::Val{B}, changed::Bool) where {B}
+    offsets = buffers.offsets
+    n = length(offsets)
+    if length(buffers.offsets_payload) < n
+        OT = typeof(buffers.offsets_payload)
+        cap = max(n, 2 * length(buffers.offsets_payload))
+        buffers.offsets_payload = _gpuvector_withdev(() -> OT(undef, cap), _gpuvector_device(Val{B}()))
+        changed = true
+    end
+    changed && copyto!(buffers.offsets_payload, 1, offsets, 1, n)
+    return nothing
+end
+
+# Stages the per-table views of each field of a component storage.
+@generated function _stage_columns!(
+    fstates::Tuple,
+    cols::Vector,
+    state::_WorldState,
+    tables::Vector{UInt32},
+    prefetch::Bool,
+)
+    calls = Expr[:(_stage_field!(fstates[$i], cols, Val($i), state, tables, prefetch)) for i in 1:fieldcount(fstates)]
+    return Expr(:block, calls..., :(return nothing))
+end
+
+# Stages the device views of field `I` of a GPU storage, and uploads them if
+# they changed since the buffers were last used.
+function _stage_field!(
+    f::_FieldStaging,
+    cols::Vector,
+    ::Val{I},
+    state::_WorldState,
+    tables::Vector{UInt32},
+    prefetch::Bool,
+) where {I}
+    ntables = length(tables)
+    changed = length(f.devviews) != ntables
+    resize!(f.devviews, ntables)
+    for k in 1:ntables
+        table = state._tables[Int(tables[k])]
+        mem = _gpuvector_mem(_fields_of(cols[table.id])[I])
+        prefetch && _gpuvector_prefetch(mem, length(table.entities))
+        v = _gpuvector_devview(mem, 1:length(table.entities))
+        changed = changed || @inbounds(f.devviews[k]) !== v
+        @inbounds f.devviews[k] = v
+    end
+    if (_grow_payload!(f, ntables) | changed) && ntables > 0
+        copyto!(f.payload, 1, f.devviews, 1, ntables)
+    end
+    return nothing
+end
+
+# Host storages are exposed through lazy column views, which need no upload.
+function _stage_field!(
+    parts::Vector{<:_ColumnView},
+    cols::Vector,
+    ::Val{I},
+    state::_WorldState,
+    tables::Vector{UInt32},
+    ::Bool,
+) where {I}
+    resize!(parts, length(tables))
+    for k in eachindex(tables)
+        table = state._tables[Int(tables[k])]
+        @inbounds parts[k] = _ColumnView(_fields_of(cols[table.id])[I])
+    end
+    return nothing
 end
 
 function _make_view(::Type{A}, fstates::NTuple{1,_FieldStaging}, offsets, len::Int, ntables::Int) where {A<:GPUVector}
@@ -629,7 +744,7 @@ function _make_host_view(
 end
 
 @inline function _check_not_closed(b::FlatQuery)
-    if b._q_lock.closed
+    if b._buffers.session != b._session
         throw(InvalidStateException("flat query closed, it can't be used anymore", :query_closed))
     end
     return nothing
@@ -693,21 +808,25 @@ end
 
 Closes the flat query and unlocks the world, so that structural operations can
 be performed again. The flat query can't be used anymore afterwards.
+
+Closing hands the flat query's internal buffers back to the world, for reuse by
+the next flat query with the same components and filter criteria.
 """
 function close!(q::FlatQuery)
-    if q._q_lock.closed
-        return nothing
-    end
-    _unlock(q._filter._world_state._lock)
-    q._q_lock.closed = true
+    buffers = q._buffers
+    buffers.session == q._session || return nothing
+    buffers.session += 1
+    state = q._filter._world_state
+    _unlock(state._lock)
+    @_maybe_locked state._pool.flat_buffers_lock push!(buffers.pool, buffers)
     return nothing
 end
 
-# Scans the world for all non-empty tables matching the filter, mirroring query
-# iteration (including relation filtering within archetypes).
-function _scan_tables(state::_WorldState, f::Filter)
+# Scans the world for all non-empty tables matching the filter into `buf`,
+# mirroring query iteration (including relation filtering within archetypes).
+function _scan_tables!(buf::Vector{UInt32}, state::_WorldState, f::Filter)
     filter = f._filter
-    buf = UInt32[]
+    empty!(buf)
     if _is_cached(filter)
         for id in filter.tables.ids
             table = state._tables[Int(id)]

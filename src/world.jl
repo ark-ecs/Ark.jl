@@ -54,6 +54,9 @@ struct _WorldPool{M}
     batches::Vector{_BatchTable{M}}
     mask::_MutableMask{M}
     bit_indices::Vector{Int}
+    # Free flat query buffers per (storages type, filter mask, filter exclude mask).
+    flat_buffers::Dict{Tuple{DataType,_Mask{M},_Mask{M}},Vector{Any}}
+    flat_buffers_lock::ReentrantLock
 end
 
 function _WorldPool{M}() where {M}
@@ -65,6 +68,8 @@ function _WorldPool{M}() where {M}
         Vector{_BatchTable{M}}(),
         _MutableMask{M}(),
         Int[],
+        Dict{Tuple{DataType,_Mask{M},_Mask{M}},Vector{Any}}(),
+        ReentrantLock(),
     )
 end
 

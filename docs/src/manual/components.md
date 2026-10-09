@@ -315,7 +315,7 @@ matching tables last:
 
 ```julia
 positions, velocities = q # component views, without entities
-entities, positions, velocities = q # with entity ids
+positions, velocities, entities = q # with entity ids
 ```
 
 The flat query [locks](@ref world-lock) the world at construction, so the views
@@ -334,6 +334,14 @@ close!(q)
 new_entity!(world, (Position(0, 0), Velocity(0, 0))) # allowed after close!
 q = FlatQuery(world, Filter(world, (Position, Velocity))) # picks up the new entity
 ```
+
+Flat queries are meant to be re-created whenever they are needed, e.g. once per
+frame or system update. `close!` hands the flat query's internal buffers back to
+the world, and the next flat query with the same components and filter criteria
+reuses them: only the first flat query allocates. For GPU storages, the table
+layout is only uploaded to the device again after structural changes of the
+matching tables. To avoid any allocation, also create the [Filter](@ref) once and
+reuse it.
 
 Notes:
 

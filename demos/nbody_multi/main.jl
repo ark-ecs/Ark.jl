@@ -16,33 +16,34 @@ if !VERIFY_ONLY
 end
 
 """
-Creates the multi-table world: bodies are spread over `clusters` tables using a
-relation, all belonging to the same archetype. Components use GPU storages
-(including the `CPU()` back-end), which [`FlatQuery`](@ref) requires.
+Creates the world: all bodies start in a single table (like demos/nbody), and
+the two black holes live in their own table (extra `BlackHole` tag). Components
+use GPU storages (including the `CPU()` back-end), which [`FlatQuery`](@ref)
+requires.
 """
-function nbody_world(n, dt, backend, clusters; seed=42)
+function nbody_world(n, dt, backend; bh=BlackHoleConfig(1.0f6, 350.0f0), seed=42)
     storage = Storage(GPUStructArray, backend)
     world = World(
         Position => storage,
         Velocity => storage,
         Mass => storage,
-        Relation{Cluster},
+        BlackHole,
     )
 
     add_resource!(world, TimeStep(dt))
     add_resource!(world, NParticles(n))
+    add_resource!(world, bh)
 
     Random.seed!(seed)
-    targets = initialize!(NBodyPhysics(), world, clusters)
-    return world, targets
+    initialize!(NBodyPhysics(), world)
+    return world
 end
 
-function nbody_simulation(n, dt, backend; clusters=8)
-    world, _ = nbody_world(n, dt, backend, clusters)
+function nbody_simulation(n, dt, backend; bh=BlackHoleConfig(1.0f6, 350.0f0))
+    world = nbody_world(n, dt, backend; bh)
 
-    The flat query reports what it covers: all entities, spread over `clusters` tables.
     q = FlatQuery(world, Filter(world, (Position, Velocity, Mass)))
-    @info "FlatQuery" entities=length(q) tables=q._ntables
+    @info "FlatQuery" entities=length(q)
     close!(q)
 
     initialize!(NBodyPlot(), world)
@@ -71,16 +72,23 @@ function nbody_simulation(n, dt, backend; clusters=8)
     end
 end
 
+function main(backend)
+    n, dt = 10000, 0.01f0
+    nbody_simulation(n, dt, backend)
+end
+
 # ---------------------------------------------------------------------------
-# Verification: with bodies spread over multiple tables, the FlatQuery launch must
-# reproduce true all-pairs physics. Per-table launches only compute interactions
-# within each table and therefore diverge.
+# Verification: the FlatQuery launch must reproduce true all-pairs physics
+# across table boundaries. Both black holes live in their own table from the
+# start, so the flat views span two tables on every single update.
 # ---------------------------------------------------------------------------
 
 const BodyState = Tuple{Float32,Float32,Float32}
 
 function snapshot!(pos, vel, mass, world)
-    empty!(pos); empty!(vel); empty!(mass)
+    empty!(pos)
+    empty!(vel)
+    empty!(mass)
     for (entities, positions, velocities, masses) in Query(world, (Position, Velocity, Mass))
         (px, py, pz) = unpack(positions)
         (vx, vy, vz) = unpack(velocities)
@@ -135,49 +143,6 @@ function reference_step!(pos, vel, mass, dt)
     return
 end
 
-# What per-table launches compute: interactions only within each table. Tables
-# are reconstructed from the relation targets, so this mirrors the old
-# one-launch-per-table behavior of demos/nbody.
-function pertable_reference!(pos, vel, mass, dt, tables)
-    for tbl in tables
-        n = length(tbl)
-        acc = Vector{BodyState}(undef, n)
-        for i in 1:n
-            gi = tbl[i]
-            px_i, py_i, pz_i = pos[gi]
-            accx = accy = accz = 0.0f0
-            for j in 1:n
-                gj = tbl[j]
-                gj == gi && continue
-                px_j, py_j, pz_j = pos[gj]
-                dx = px_j - px_i
-                dy = py_j - py_i
-                dz = pz_j - pz_i
-                dist_sq = dx * dx + dy * dy + dz * dz + SOFTEN
-                inv_dist = 1.0f0 / sqrt(dist_sq)
-                inv_dist3 = inv_dist * inv_dist * inv_dist
-                f = G * mass[gj] * inv_dist3
-                accx += f * dx
-                accy += f * dy
-                accz += f * dz
-            end
-            acc[i] = (accx, accy, accz)
-        end
-        for i in 1:n
-            gi = tbl[i]
-            vx, vy, vz = vel[gi]
-            ax, ay, az = acc[i]
-            vx += ax * dt
-            vy += ay * dt
-            vz += az * dt
-            vel[gi] = (vx, vy, vz)
-            px, py, pz = pos[gi]
-            pos[gi] = (px + vx * dt, py + vy * dt, pz + vz * dt)
-        end
-    end
-    return
-end
-
 function world_state!(pos, vel, world)
     mass = Float32[]
     snapshot!(pos, vel, mass, world)
@@ -194,54 +159,49 @@ function max_deviation(a, b)
     return m
 end
 
-function verify_nbody_multi(backend; n=160, dt=0.01f0, clusters=4, steps=5)
-    # FlatQuery world: the physics under test. Heavy masses make cross-table
-    # interactions dominant, so missing them is clearly measurable.
-    world, targets = nbody_world(n, dt, backend, clusters; seed=1234)
+function verify_nbody_multi(backend; n=160, dt=0.01f0, steps=6)
+    config = BlackHoleConfig(1.0f6, 120.0f0)
+    world = nbody_world(n, dt, backend; bh=config, seed=1234)
 
-    # Table layout check: the relation must have produced multiple tables.
-    q = FlatQuery(world, Filter(world, (Position, Velocity, Mass)))
-    @assert q._ntables == clusters "expected $clusters tables, got $(q._ntables)"
-    @assert length(q) == n
-    @info "Verification setup" entities=n tables=q._ntables backend=typeof(backend)
-    close!(q)
-
-    # Reference initial state, taken from the world (query order defines the index
-    # space; for a freshly built world this is table/creation order).
-    pos = BodyState[]; vel = BodyState[]; mass = Float32[]
+    # Reference initial state, taken from the world (query order defines the
+    # index space; this includes both black holes in their table).
+    pos = BodyState[]
+    vel = BodyState[]
+    mass = Float32[]
     snapshot!(pos, vel, mass, world)
+    @assert length(pos) == n + 2
 
-    # Run the world with the q-based physics.
+    # Run the world with the FlatQuery-based physics.
     for _ in 1:steps
         update!(NBodyPhysics(), world, backend)
     end
     KernelAbstractions.synchronize(backend)
 
-    # Run the reference, all pairs across all tables.
-    ref_pos = copy(pos); ref_vel = copy(vel)
+    # Run the reference, all pairs.
+    ref_pos = copy(pos)
+    ref_vel = copy(vel)
+    ref_mass = copy(mass)
     for _ in 1:steps
-        reference_step!(ref_pos, ref_vel, mass, dt)
+        reference_step!(ref_pos, ref_vel, ref_mass, dt)
     end
 
-    # What per-table launches would have computed.
-    per_pos = copy(pos); per_vel = copy(vel)
-    per = cld(n, clusters)
-    tables = [collect((c-1)*per .+ (1:min(per, n - (c-1)*per))) for c in 1:clusters]
-    for _ in 1:steps
-        pertable_reference!(per_pos, per_vel, mass, dt, tables)
-    end
-
-    got_pos = BodyState[]; got_vel = BodyState[]
+    got_pos = BodyState[]
+    got_vel = BodyState[]
     world_state!(got_pos, got_vel, world)
 
-    dev_flat = max_deviation(got_pos, ref_pos)
-    dev_per = max_deviation(per_pos, ref_pos)
-    @info "Results" flat_vs_reference=dev_flat pertable_vs_reference=dev_per
+    # The black holes must live in their own table, and the flat views must
+    # cover every body in both tables.
+    ntables = count(_ -> true, Query(world, (Position, Velocity, Mass)))
+    @assert ntables == 2 "expected 2 tables (bodies + black holes), got $ntables"
+    q = FlatQuery(world, Filter(world, (Position, Velocity, Mass)))
+    @assert length(q) == n + 2
+    close!(q)
 
-    @assert dev_flat < 1e-2 "q physics deviates from the all-pairs reference: $dev_flat"
-    @assert dev_per > 1e-2 "per-table launches should diverge from the all-pairs reference when bodies q multiple tables, but deviation was only $dev_per"
+    dev = max_deviation(got_pos, ref_pos)
+    @info "Results" entities=(n + 2) tables=ntables deviation=dev
+    @assert dev < 1e-2 "FlatQuery physics deviates from the all-pairs reference: $dev"
 
-    println("verified: FlatQuery launch matches all-pairs physics across $clusters tables,")
-    println("while per-table launches miss cross-table interactions (deviation $dev_per)")
+    println("verified: FlatQuery physics matches the all-pairs reference across")
+    println("both tables, including the two black holes")
     return
 end

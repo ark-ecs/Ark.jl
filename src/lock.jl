@@ -7,6 +7,10 @@ macro _maybe_atomic(expr)
     return THREAD_SAFE_LOCK == "true" ? esc(:(@atomic :monotonic $expr)) : esc(:($expr))
 end
 
+macro _maybe_locked(lock, expr)
+    return THREAD_SAFE_LOCK == "true" ? esc(:(Base.@lock $lock $expr)) : esc(:($expr))
+end
+
 mutable struct _Lock
     @_maybe_atomic_f _counter::Int
 end

@@ -115,6 +115,16 @@ end
     end
 end
 
+@testset "StructArray indexing propagates inbounds" begin
+    for T in (Position, Position_Mod)
+        a = StructArray(T)
+        for A in (typeof(a), typeof(view(a, 1:0)))
+            @test _propagates_inbounds(getindex, A, Int)
+            @test _propagates_inbounds(setindex!, A, T, Int)
+        end
+    end
+end
+
 @testset "StructArray view" begin
     for T in (Position, Position_Mod)
         a = StructArray(T)

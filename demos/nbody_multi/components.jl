@@ -15,6 +15,6 @@ struct Mass
     val::Float32
 end
 
-# Relation component: bodies are grouped into clusters, and each cluster is its
-# own table. All clusters still belong to the same archetype.
-struct Cluster end
+# Marker component for the black hole. The extra tag places it in its own
+# table, which the FlatQuery views pick up automatically once it has spawned.
+struct BlackHole end

@@ -50,27 +50,39 @@ end
     positions.z[i] += velocities.z[i] * dt
 end
 
-function initialize!(::NBodyPhysics, world, clusters)
+function initialize!(::NBodyPhysics, world)
     n = get_resource(world, NParticles).n
-    targets = [new_entity!(world, ()) for _ in 1:clusters]
-    per_cluster = cld(n, clusters)
-    created = 0
-    for c in 1:clusters
-        for i in 1:(c == clusters ? n - created : per_cluster)
-            created += 1
-            new_entity!(
-                world,
-                (
-                    Position(((randn(), randn(), randn()) .* 50.0f0)...),
-                    Velocity(((randn(), randn(), randn()) .* 0.01f0)...),
-                    # Heavy masses so that cross-table interactions are significant.
-                    Mass(randexp() * 1000.0f0),
-                    Cluster() => targets[c],
-                ),
-            )
-        end
+    for i in 1:n
+        new_entity!(
+            world,
+            (
+                Position(((randn(), randn(), randn()) .* 50.0f0)...),
+                Velocity(((randn(), randn(), randn()) .* 0.01f0)...),
+                Mass(randexp() * 10.0f0),
+            ),
+        )
     end
-    return targets
+    create_black_holes!(world)
+    return
+end
+
+# Deterministic initial states derived from the config, mirrored to the left
+# and right of the cloud, so that the headless verification can reproduce the
+# black holes on the host.
+function black_hole_states(config::BlackHoleConfig)
+    dir = (0.8f0, 0.45f0, -0.35f0)
+    norm = sqrt(dir[1]^2 + dir[2]^2 + dir[3]^2)
+    off = dir .* (config.distance / norm)
+    vel = (-0.5f0, -0.25f0, 0.2f0) # slow drift toward the cloud
+    return (
+        (Position(off...), Velocity(vel...), Mass(config.mass)),
+        (Position(-off[1], off[2], off[3]), Velocity(-vel[1], vel[2], vel[3]), Mass(config.mass)),
+    )
+end
+
+function create_black_holes!(world)
+    states = black_hole_states(get_resource(world, BlackHoleConfig))
+    return new_entity!.(Ref(world), ((p, v, m, BlackHole()) for (p, v, m) in states))
 end
 
 function update!(::NBodyPhysics, world, backend)
@@ -78,10 +90,10 @@ function update!(::NBodyPhysics, world, backend)
     vkernel = velocity_kernel(backend)
     pkernel = position_kernel(backend)
 
-    # One q over all matching tables: a single launch per kernel, covering all
-    # entities. Because the views q every table, the all-pairs interaction in
-    # `velocity_kernel` also acts across table boundaries - which per-table
-    # launches (as in demos/nbody) would silently miss.
+    # One query over all matching tables: a single launch per kernel, covering
+    # all bodies. The black holes carry the extra BlackHole tag and live in
+    # their own table, so the flat views span two tables and the all-pairs
+    # interaction automatically includes them.
     q = FlatQuery(world, Filter(world, (Position, Velocity, Mass)))
     n = length(q)
     positions = q[Position]

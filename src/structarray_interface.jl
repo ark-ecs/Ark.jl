@@ -56,16 +56,19 @@ end
 
 Base.view(sa::_AbstractStructArray, ::Colon) = view(sa, 1:length(sa))
 
-Base.@propagate_inbounds @generated function Base.getindex(sa::_AbstractStructArray{C}, i::Int) where {C}
+# The inlining and bounds-check propagation meta must be part of the generated
+# code: `Base.@propagate_inbounds` on a generated function only reaches the
+# generator, so `@inbounds` at the call site would not elide the field checks.
+@generated function Base.getindex(sa::_AbstractStructArray{C}, i::Int) where {C}
     names = fieldnames(C)
     field_exprs = Expr[:($(name) = getfield(sa, :_components).$name[i]) for name in names]
-    return Expr(:block, Expr(:new, C, field_exprs...))
+    return Expr(:block, Expr(:meta, :inline, :propagate_inbounds), Expr(:new, C, field_exprs...))
 end
 
-Base.@propagate_inbounds @generated function Base.setindex!(sa::_AbstractStructArray{C}, c::C, i::Int) where {C}
+@generated function Base.setindex!(sa::_AbstractStructArray{C}, c::C, i::Int) where {C}
     names = fieldnames(C)
     set_exprs = Expr[:(getfield(sa, :_components).$name[i] = getfield(c, $(QuoteNode(name)))) for name in names]
-    return Expr(:block, set_exprs..., :(c))
+    return Expr(:block, Expr(:meta, :inline, :propagate_inbounds), set_exprs..., :(c))
 end
 
 Base.@propagate_inbounds function Base.iterate(sa::_AbstractStructArray{C}) where {C}
@@ -96,16 +99,16 @@ struct StructArrayView{C,CS<:NamedTuple} <: AbstractArray{C,1}
     _components::CS
 end
 
-Base.@propagate_inbounds @generated function Base.getindex(sa::StructArrayView{C}, i::Int) where {C}
+@generated function Base.getindex(sa::StructArrayView{C}, i::Int) where {C}
     names = fieldnames(C)
     field_exprs = Expr[:($(name) = getfield(sa, :_components).$name[i]) for name in names]
-    return Expr(:block, Expr(:new, C, field_exprs...))
+    return Expr(:block, Expr(:meta, :inline, :propagate_inbounds), Expr(:new, C, field_exprs...))
 end
 
-Base.@propagate_inbounds @generated function Base.setindex!(sa::StructArrayView{C}, c::C, i::Int) where {C}
+@generated function Base.setindex!(sa::StructArrayView{C}, c::C, i::Int) where {C}
     names = fieldnames(C)
     set_exprs = Expr[:(getfield(sa, :_components).$name[i] = getfield(c, $(QuoteNode(name)))) for name in names]
-    return Expr(:block, set_exprs..., :(c))
+    return Expr(:block, Expr(:meta, :inline, :propagate_inbounds), set_exprs..., :(c))
 end
 
 @generated function Base.getproperty(sa::StructArrayView{C}, name::Symbol) where {C}

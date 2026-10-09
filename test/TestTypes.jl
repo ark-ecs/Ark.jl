@@ -79,3 +79,11 @@ function Ark.apply!(world::World, cmd::TestExternalCommand)
     push!(cmd.log, count_entities(world, Filter(world, (Position,))) + cmd.value)
     return nothing
 end
+
+# Whether the method code for these argument types is marked for inlining and
+# bounds-check propagation, like by `Base.@propagate_inbounds`. For generated
+# methods, the macro alone does not reach the generated code.
+function _propagates_inbounds(f, types...)
+    ci = only(code_lowered(f, types))
+    return ci.inlining == 1 && ci.propagate_inbounds
+end

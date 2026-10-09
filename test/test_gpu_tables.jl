@@ -75,6 +75,13 @@ function _tab_query_columns(world::World, ::Type{C}) where {C}
     return cols
 end
 
+function _tab_open_close(world::World, filter::Filter)
+    q = FlatQuery(world, filter)
+    n = length(q)
+    close!(q)
+    return n
+end
+
 @testset "FlatQuery on the :CPU back-end" begin
     backend = CPU()
 
@@ -371,6 +378,59 @@ end
         reset!(world)
     end
 
+    @testset "flat indexing over many tables" begin
+        # few tables are searched linearly for the owning table, more by bisection
+        for ntables in (3, 7, 40)
+            world = TestWorld(
+                TabPos => Storage(GPUStructArray, CPU()),
+                TabVel => Storage(GPUVector, CPU()),
+                Relation{ChildOf};
+                initial_capacity = 2,
+            )
+            parents = [new_entity!(world, ()) for _ in 1:ntables]
+            for (k, parent) in enumerate(parents), j in 1:k
+                new_entity!(world, (TabPos(k, j), TabVel(0, 0), ChildOf() => parent))
+            end
+
+            q = FlatQuery(world, Filter(world, (TabPos, TabVel)))
+            positions, velocities = q
+            @test length(q) == ntables * (ntables + 1) ÷ 2
+            @test positions == _tab_query_columns(world, TabPos)
+
+            tab_scatter_kernel!(backend)(positions, velocities; ndrange = length(q))
+            KernelAbstractions.synchronize(backend)
+            expected_vel = [TabVel(p.x, p.y) for p in _tab_query_columns(world, TabPos)]
+            @test _tab_query_columns(world, TabVel) == expected_vel
+
+            for i in eachindex(positions)
+                positions[i] = TabPos(i, -i)
+            end
+            @test _tab_query_columns(world, TabPos) == [TabPos(i, -i) for i in 1:length(q)]
+
+            # element access must inline into callers such as kernels
+            @test _propagates_inbounds(getindex, typeof(positions), Int)
+            @test _propagates_inbounds(setindex!, typeof(positions), TabPos, Int)
+            close!(q)
+        end
+    end
+
+    @testset "prefetch keyword" begin
+        world = TestWorld(
+            TabPos => Storage(GPUStructArray, CPU()),
+            TabVel => Storage(GPUVector, CPU()),
+        )
+        for i in 1:3
+            new_entity!(world, (TabPos(i, i), TabVel(1, 1)))
+        end
+        filter = Filter(world, (TabPos, TabVel))
+        for prefetch in (true, false)
+            q = FlatQuery(world, filter; prefetch)
+            @test q[TabPos] == [TabPos(i, i) for i in 1:3]
+            close!(q)
+        end
+        reset!(world)
+    end
+
     @testset "all-pairs interaction across table boundaries" begin
         world = TestWorld(
             TabPos => Storage(GPUStructArray, CPU()),
@@ -467,6 +527,122 @@ end
         reset!(world)
     end
 
+    @testset "flat queries reuse their buffers" begin
+        world = TestWorld(
+            TabPos => Storage(GPUStructArray, CPU()),
+            TabVel => Storage(GPUVector, CPU()),
+            TabHealth => Storage(GPUVector, CPU()),
+            TabTag;
+            initial_capacity = 2,
+        )
+        for i in 1:5
+            new_entity!(world, (TabPos(i, i), TabVel(1, 1)))
+        end
+        for i in 1:3
+            new_entity!(world, (TabPos(100 + i, i), TabVel(1, 1), TabTag()))
+        end
+        filter = Filter(world, (TabPos, TabVel))
+
+        q1 = FlatQuery(world, filter)
+        buffers = q1._buffers
+        close!(q1)
+
+        # the next flat query with the same filter criteria takes over the buffers
+        q2 = FlatQuery(world, Filter(world, (TabPos, TabVel)))
+        @test q2._buffers === buffers
+        @test length(q2) == 8
+
+        # the closed flat query stays closed, and closing it again doesn't unlock the world
+        @test_throws InvalidStateException length(q1)
+        @test_throws InvalidStateException q1[TabPos]
+        close!(q1)
+        @test is_locked(world)
+
+        # flat queries open at the same time get separate buffers
+        q3 = FlatQuery(world, filter)
+        @test q3._buffers !== q2._buffers
+        @test q3[TabPos] == q2[TabPos]
+        close!(q3)
+        close!(q2)
+        @test !is_locked(world)
+
+        # other filter criteria use other buffers
+        q4 = FlatQuery(world, Filter(world, (TabPos, TabVel); without=(TabTag,)))
+        @test q4._buffers !== buffers
+        @test length(q4) == 5
+        close!(q4)
+
+        # reused buffers pick up column reallocation and new tables
+        for i in 1:10
+            new_entity!(world, (TabPos(-i, -i), TabVel(2, 2)))
+        end
+        new_entity!(world, (TabPos(0, 0), TabVel(3, 3), TabHealth(1)))
+        positions = _tab_query_columns(world, TabPos)
+        velocities = _tab_query_columns(world, TabVel)
+
+        q5 = FlatQuery(world, filter)
+        @test q5._buffers === buffers
+        @test length(q5) == 19
+        tab_move_kernel!(backend)(q5[TabPos], q5[TabVel], 1.0; ndrange = length(q5))
+        KernelAbstractions.synchronize(backend)
+        close!(q5)
+        expected = [TabPos(p.x + v.dx, p.y + v.dy) for (p, v) in zip(positions, velocities)]
+        @test _tab_query_columns(world, TabPos) == expected
+
+        # and survive resetting the world
+        reset!(world)
+        for i in 1:3
+            new_entity!(world, (TabPos(i, i), TabVel(1, 1)))
+        end
+        q6 = FlatQuery(world, filter)
+        @test q6._buffers === buffers
+        @test length(q6) == 3
+        tab_move_kernel!(backend)(q6[TabPos], q6[TabVel], 1.0; ndrange = length(q6))
+        KernelAbstractions.synchronize(backend)
+        @test q6[TabPos] == [TabPos(i + 1, i + 1) for i in 1:3]
+        close!(q6)
+
+        # fewer tables than before leave stale entries behind the staged ones
+        reset!(world)
+        new_entity!(world, (TabPos(1, 1), TabVel(1, 1)))
+        new_entity!(world, (TabPos(2, 2), TabVel(1, 1), TabTag()))
+        e3 = new_entity!(world, (TabPos(3, 3), TabVel(1, 1), TabHealth(1)))
+        e4 = new_entity!(world, (TabPos(4, 4), TabVel(1, 1), TabHealth(1), TabTag()))
+        q7 = FlatQuery(world, filter)
+        @test length(q7) == 4
+        close!(q7)
+        remove_entity!(world, e3)
+        remove_entity!(world, e4)
+        new_entity!(world, (TabPos(5, 5), TabVel(1, 1)))
+        new_entity!(world, (TabPos(6, 6), TabVel(1, 1)))
+        q8 = FlatQuery(world, filter)
+        @test q8._buffers === buffers
+        @test length(q8) == 4
+        @test q8[TabPos] == [TabPos(1, 1), TabPos(5, 5), TabPos(6, 6), TabPos(2, 2)]
+        @test q8[TabVel] == fill(TabVel(1, 1), 4)
+        close!(q8)
+
+        # re-creating a flat query doesn't allocate
+        _tab_open_close(world, filter)
+        if VERSION >= v"1.12"
+            @test @allocated(_tab_open_close(world, filter)) == 0
+        end
+
+        host_world = TestWorld(TabPos => Storage(StructArray), TabVel, TabTag)
+        for i in 1:3
+            new_entity!(host_world, (TabPos(i, i), TabVel(1, 1)))
+            new_entity!(host_world, (TabPos(i, i), TabVel(1, 1), TabTag()))
+        end
+        host_filter = Filter(host_world, (TabPos, TabVel))
+        @test _tab_open_close(host_world, host_filter) == 6
+        if VERSION >= v"1.12"
+            @test @allocated(_tab_open_close(host_world, host_filter)) == 0
+        end
+
+        reset!(world)
+        reset!(host_world)
+    end
+
     @testset "without filter and Filter constructor" begin
         world = TestWorld(
             TabPos => Storage(GPUStructArray, CPU()),
@@ -554,6 +730,15 @@ end
         close!(batch1)
         close!(batch2)
         close!(batch_all)
+
+        # relation targets are not part of the buffer pool key: alternating
+        # targets reuse the same buffers, but stage their own tables
+        for (parent, n, first_pos) in ((parent1, 5, TabPos(1, 1)), (parent2, 3, TabPos(101, 1)), (parent1, 5, TabPos(1, 1)))
+            q = FlatQuery(world, Filter(world, (TabPos, TabVel, ChildOf => parent)))
+            @test length(q) == n
+            @test q[TabPos][1] == first_pos
+            close!(q)
+        end
         reset!(world)
     end
 
