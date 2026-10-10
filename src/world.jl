@@ -119,7 +119,7 @@ _schema_relation_types(::Type{<:_WorldStorage{CS,RT}}) where {CS,RT} =
 
 _is_boxed(::Type{<:_WorldStorage{CS,RT,S}}) where {CS,RT,S} = S === Memory{Any}
 
-function _storage_ref(sym::Symbol, Storage::Type{<:_WorldStorage}, i::Int)
+function _storage_ref(sym::Symbol, @nospecialize(Storage::Type{<:_WorldStorage}), i::Int)
     if _is_boxed(Storage)
         A = fieldtype(_schema_storage_types(Storage), i)
         return :((@inbounds $sym._storages[$i])::Vector{$A})
@@ -127,7 +127,7 @@ function _storage_ref(sym::Symbol, Storage::Type{<:_WorldStorage}, i::Int)
     return :($sym._storages.$i)
 end
 
-function _empty_ref(sym::Symbol, Storage::Type{<:_WorldStorage}, i::Int)
+function _empty_ref(sym::Symbol, @nospecialize(Storage::Type{<:_WorldStorage}), i::Int)
     if _is_boxed(Storage)
         A = fieldtype(_schema_storage_types(Storage), i)
         return :((@inbounds $sym._empty_storages[$i])::$A)
@@ -1672,9 +1672,9 @@ function _cleanup_archetypes(
 end
 
 function _new_entity_expr(
-    Storage::Type{<:_WorldStorage},
-    TS::Type{<:Tuple},
-    TR::Type{<:Tuple},
+    @nospecialize(Storage::Type{<:_WorldStorage}),
+    @nospecialize(TS::Type{<:Tuple}),
+    @nospecialize(TR::Type{<:Tuple}),
     Unchecked::Bool,
     Preallocated::Bool,
 )
@@ -2278,14 +2278,14 @@ end
     end
 end
 
-function _query_mask(::Type{Storage}, types::Vector{DataType}) where {Storage<:_WorldStorage}
+function _query_mask(@nospecialize(Storage::Type{<:_WorldStorage}), types::Vector{DataType})
     CS = _schema_storage_types(Storage)
     ids = Int[_component_index(CS, T) for T in types]
     M = max(1, cld(fieldcount(CS), 64))
     return _Mask{M}(ids...), ids
 end
 
-function _mask_presence_check_expr(::Type{Storage}, types::Vector{DataType}) where {Storage<:_WorldStorage}
+function _mask_presence_check_expr(@nospecialize(Storage::Type{<:_WorldStorage}), types::Vector{DataType})
     query_mask, ids = _query_mask(Storage, types)
     return quote
         @inbounds entity_mask = world_state._table_masks[idx.table]

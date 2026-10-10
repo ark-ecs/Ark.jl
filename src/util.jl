@@ -28,19 +28,19 @@ function _pair_first_type(::Type{<:Pair{T}}) where {T}
     return T
 end
 
-@inline function _to_types(::Type{TS})::Vector{DataType} where {TS<:Tuple}
+function _to_types(@nospecialize(TS::Type{<:Tuple}))::Vector{DataType}
     return DataType[_unwrap_const_type(_val_parameter(x)) for x in fieldtypes(TS)]
 end
 
-@inline function _to_types(::Type{Val{TS}})::Vector{DataType} where {TS<:Tuple}
-    return DataType[_unwrap_const_type(x <: Val ? _val_parameter(x) : x) for x in fieldtypes(TS)]
+function _to_types(@nospecialize(V::Type{<:Val{<:Tuple}}))::Vector{DataType}
+    return DataType[_unwrap_const_type(x <: Val ? _val_parameter(x) : x) for x in fieldtypes(_val_parameter(V))]
 end
 
-@inline function _to_types(::Type{Val{V}})::Vector{DataType} where {V<:Val}
-    return _to_types(V)
+function _to_types(@nospecialize(V::Type{<:Val{<:Val}}))::Vector{DataType}
+    return _to_types(_val_parameter(V))
 end
 
-@inline function _to_types(types::Tuple)::Vector{DataType}
+function _to_types(@nospecialize(types::Tuple))::Vector{DataType}
     return DataType[_unwrap_const_type(x) for x in types]
 end
 
@@ -75,6 +75,17 @@ end
             throw(ArgumentError("component $(nameof(T)) is not a relationship"))
         end
     end
+end
+
+function _union_types(a::Vector{DataType}, b::Vector{DataType})::Vector{DataType}
+    out = DataType[]
+    for T in a
+        T in out || push!(out, T)
+    end
+    for T in b
+        T in out || push!(out, T)
+    end
+    return out
 end
 
 @inline function _check_is_subset(subset::Vector{DataType}, types::Vector{DataType})
@@ -163,11 +174,11 @@ function _generate_component_switch(comp_idx_sym::Symbol, call_exprs::Vector{Exp
     return Expr(:block, exprs...)
 end
 
-@inline function _to_requested_types(::Type{TS})::Vector{DataType} where {TS<:Tuple}
+function _to_requested_types(@nospecialize(TS::Type{<:Tuple}))::Vector{DataType}
     return DataType[x <: Val ? _val_parameter(x) : x for x in fieldtypes(TS)]
 end
 
-function _component_index(CS::Type{<:Tuple}, TargetType::Type)::Union{Int,Nothing}
+function _component_index(@nospecialize(CS::Type{<:Tuple}), @nospecialize(TargetType::Type))::Union{Int,Nothing}
     TargetType = _unwrap_const_type(TargetType)
     _storage_types = fieldtypes(CS)
     for (i, S) in enumerate(_storage_types)

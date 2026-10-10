@@ -42,7 +42,7 @@ end
     return table <= length(cols) ? (@inbounds cols[table]) : empty
 end
 
-@noinline function _type_vector(::Type{T})::Vector{Any} where {T<:Tuple}
+@noinline function _type_vector(@nospecialize(T::Type{<:Tuple}))::Vector{Any}
     n = fieldcount(T)
     types = Vector{Any}(undef, n)
     for i in 1:n

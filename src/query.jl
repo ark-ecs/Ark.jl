@@ -112,7 +112,7 @@ function _format_mask_types_except(world_state::_WorldState, mask::_Mask, exclud
     return join(map(_format_type, types), ", ")
 end
 
-function _Query_from_filter_expr(::Type{W}, ::Type{F}) where {W<:World,F<:Filter}
+function _Query_from_filter_expr(@nospecialize(W::Type{<:World}), @nospecialize(F::Type{<:Filter}))
     Storage = _world_storage(W)
     CM = _filter_component_mask(F)
     OM = _filter_optional_mask(F)
@@ -139,9 +139,12 @@ function _Query_from_filter_expr(::Type{W}, ::Type{F}) where {W<:World,F<:Filter
     output_optional_ids = Int[i for i in eachindex(output_ids) if _get_bit(query_optional_mask, output_ids[i])]
     output_optional_mask = _Mask{M}(output_optional_ids...)
     CT = Tuple{map(A -> Vector{A}, query_storage_types)...}
-    query_storages =
-        Expr(:tuple, (_storage_ref(:world_storage, Storage, id) for id in output_ids)...)
-    query_empties = Expr(:tuple, (_empty_ref(:world_storage, Storage, id) for id in output_ids)...)
+    query_storages = Expr(:tuple)
+    query_empties = Expr(:tuple)
+    for id in output_ids
+        push!(query_storages.args, _storage_ref(:world_storage, Storage, id))
+        push!(query_empties.args, _empty_ref(:world_storage, Storage, id))
+    end
 
     return quote
         _check_filter_world(world, filter)

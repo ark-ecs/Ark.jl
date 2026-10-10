@@ -9,6 +9,7 @@ using PrecompileTools
         x::Float64
     end
     struct C end
+    @compile_workload _world_type_params(ntuple(_ -> A, 40))
     for boxed in (true, false)
         @compile_workload let
             w = World(A, B => Storage{StructArray}, Relation{C}; boxed=boxed)
