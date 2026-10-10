@@ -77,15 +77,13 @@ end
     end
 end
 
-# Order-preserving `union` for type vectors. Base's `union` dispatches `setindex!` on each
-# element's singleton type, compiling a new `Dict` method for every component type.
 function _union_types(a::Vector{DataType}, b::Vector{DataType})::Vector{DataType}
     out = DataType[]
     for T in a
-        any(x -> x === T, out) || push!(out, T)
+        T in out || push!(out, T)
     end
     for T in b
-        any(x -> x === T, out) || push!(out, T)
+        T in out || push!(out, T)
     end
     return out
 end

@@ -139,7 +139,6 @@ function _Query_from_filter_expr(@nospecialize(W::Type{<:World}), @nospecialize(
     output_optional_ids = Int[i for i in eachindex(output_ids) if _get_bit(query_optional_mask, output_ids[i])]
     output_optional_mask = _Mask{M}(output_optional_ids...)
     CT = Tuple{map(A -> Vector{A}, query_storage_types)...}
-    # Plain loops: a generator closure would capture (and specialize on) the concrete `Storage`.
     query_storages = Expr(:tuple)
     query_empties = Expr(:tuple)
     for id in output_ids
