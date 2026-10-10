@@ -109,10 +109,10 @@ end
     _check_no_duplicates(rel_types)
     _check_relations(rel_types, relation_types)
 
-    comp_types = union(required_types, optional_types)
-    non_exclude_types = union(comp_types, with_types)
+    comp_types = _union_types(required_types, optional_types)
+    non_exclude_types = _union_types(comp_types, with_types)
 
-    _check_is_subset(rel_types, union(required_types, with_types))
+    _check_is_subset(rel_types, _union_types(required_types, with_types))
 
     exclusive = EX === Val{true}
     if exclusive && !isempty(without_types)

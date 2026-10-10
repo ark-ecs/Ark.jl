@@ -9,6 +9,8 @@ using PrecompileTools
         x::Float64
     end
     struct C end
+    # Worlds with many components take the `Vector` path of tuple `filter`.
+    @compile_workload _world_type_params(ntuple(_ -> A, 40))
     for boxed in (true, false)
         @compile_workload let
             w = World(A, B => Storage{StructArray}, Relation{C}; boxed=boxed)
