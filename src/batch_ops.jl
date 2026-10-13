@@ -130,10 +130,10 @@ function _get_tables(
     state::_WorldState,
     arches::Vector{<:_Archetype},
     arches_hot::Vector{<:_ArchetypeHot},
-    filter::Filter,
+    filter::_MaskFilter,
 )::Tuple{Vector{UInt32},Bool}
-    if _is_cached(filter._filter)
-        tables = filter._filter.tables.ids
+    if _is_cached(filter)
+        tables = filter.tables.ids
         any_relations = false
         for table_id in tables
             if _has_relations(state._tables[table_id])
@@ -147,7 +147,7 @@ function _get_tables(
     any_relations = false
     for arch in eachindex(arches)
         @inbounds archetype_hot = arches_hot[arch]
-        if !_matches(filter._filter, archetype_hot)
+        if !_matches(filter, archetype_hot)
             continue
         end
         if !archetype_hot.has_relations
@@ -162,10 +162,10 @@ function _get_tables(
         if isempty(archetype.tables)
             continue
         end
-        arch_tables = _get_tables(state, archetype, filter._filter.relations)
+        arch_tables = _get_tables(state, archetype, filter.relations)
         for table_id in arch_tables
             table = @inbounds state._tables[Int(table_id)]
-            if !isempty(table.entities) && _matches(state._relations, table, filter._filter.relations)
+            if !isempty(table.entities) && _matches(state._relations, table, filter.relations)
                 push!(tables, table.id)
                 any_relations = true
             end
@@ -593,7 +593,7 @@ end
         _lock(world_state._lock)
 
         arches, arches_hot = _get_archetypes(world_state, filter)
-        tables, _ = _get_tables(world_state, arches, arches_hot, filter)
+        tables, _ = _get_tables(world_state, arches, arches_hot, filter._filter)
         batches = world_state._pool.batches
 
         for table_id in tables
@@ -703,7 +703,7 @@ end
         _lock(world_state._lock)
 
         arches, arches_hot = _get_archetypes(world_state, filter)
-        tables, _ = _get_tables(world_state, arches, arches_hot, filter)
+        tables, _ = _get_tables(world_state, arches, arches_hot, filter._filter)
         batches = world_state._pool.batches
 
         for table_id in tables
@@ -907,7 +907,7 @@ end
         _check_locked(world_state)
 
         arches, arches_hot = _get_archetypes(world_state, filter)
-        tables, any_relations = _get_tables(world_state, arches, arches_hot, filter)
+        tables, any_relations = _get_tables(world_state, arches, arches_hot, filter._filter)
 
         has_entity_obs = _has_observers(world_state._event_manager, OnRemoveEntity)
         has_rel_obs = any_relations && _has_observers(world_state._event_manager, OnRemoveRelations)
