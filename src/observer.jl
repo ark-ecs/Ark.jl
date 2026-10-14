@@ -157,7 +157,7 @@ end
             )
         end
         obs = Observer(
-            _ObserverID(UInt32(0)),
+            _ObserverID(UInt32(0), false),
             event,
             $mask,
             $with_mask,
