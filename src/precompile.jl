@@ -89,11 +89,11 @@ using PrecompileTools
     # archetype graph paths for the common transition shapes (up to 4 components added/removed)
     @compile_workload begin
         for n_add in 0:4
-            precompile(_find_or_create_path, (_Graph{1}, _NoGraphNode{1}, NTuple{n_add,Int}, Tuple{}))
+            precompile(_find_or_create_path, (_Graph{1}, _NoGraphNode{1}, _Mask{1}, NTuple{n_add,Int}, Tuple{}))
         end
         for n_add in 0:4, n_rem in 0:4
             1 <= n_add + n_rem <= 4 || continue
-            precompile(_find_or_create_path, (_Graph{1}, _GraphNode{1}, NTuple{n_add,Int}, NTuple{n_rem,Int}))
+            precompile(_find_or_create_path, (_Graph{1}, UInt32, _Mask{1}, NTuple{n_add,Int}, NTuple{n_rem,Int}))
         end
     end
 end
