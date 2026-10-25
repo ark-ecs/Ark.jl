@@ -475,10 +475,10 @@ end
         if has_entity_obs || has_rel_obs
             _lock(world_state._lock)
             if has_entity_obs
-                _fire_remove_entity(world_state._event_manager, entity, archetype.node.mask)
+                _fire_remove_entity(world_state._event_manager, entity, archetype.mask)
             end
             if has_rel_obs
-                _fire_remove_entity_relations(world_state._event_manager, entity, archetype.node.mask)
+                _fire_remove_entity_relations(world_state._event_manager, entity, archetype.mask)
             end
             _unlock(world_state._lock)
         end
@@ -1040,8 +1040,8 @@ end
             index,
             targets,
             $relations_vec,
-            [_Archetype(UInt32(1), node, UInt32(1))],
-            [_ArchetypeHot(node, UInt32(1))],
+            [_Archetype(UInt32(1), node, $start_mask, UInt32(1))],
+            [_ArchetypeHot($start_mask, UInt32(1))],
             Vector{UInt32}(),
             [_new_table(UInt32(1), UInt32(1), 0, _empty_relations)],
             _Mask{$M}[$start_mask],
@@ -1102,10 +1102,11 @@ end
 end
 
 @inline function _archetype_start_node(state::_WorldState, old_table::_Table)
-    return @inbounds state._archetypes[old_table.archetype].node
+    arch = @inbounds state._archetypes[old_table.archetype]
+    return arch.node, arch.mask
 end
 
-@inline function _table_had_relations(state::_WorldState, old_table::_Table, start::_GraphNode)
+@inline function _table_had_relations(state::_WorldState, old_table::_Table, start::UInt32)
     return @inbounds _has_relations(state._archetypes[old_table.archetype])
 end
 
@@ -1116,7 +1117,8 @@ end
 @inline function _find_or_create_archetype!(
     state::_WorldState{M,K},
     stores::Storage,
-    start::Union{_GraphNode{M},_NoGraphNode{M}},
+    start::Union{UInt32,_NoGraphNode{M}},
+    start_mask::Union{_Mask{M},_NoMask{M}},
     add::Tuple{Vararg{Int}},
     remove::Tuple{Vararg{Int}},
     relations::Tuple{Vararg{Int}},
@@ -1124,20 +1126,22 @@ end
     rem_mask::Union{_Mask{M},_NoMask{M}},
     use_map::Union{_NoUseMap,_UseMap},
 )::Tuple{UInt32,Bool} where {M,K,Storage<:_WorldStorage}
-    node = _find_node(state._graph, start, add, remove, add_mask, rem_mask, use_map)
+    node = _find_node(state._graph, start, start_mask, add, remove, add_mask, rem_mask, use_map)
 
-    if node.archetype[] == typemax(UInt32)
+    @inbounds arch = state._graph.archetypes[Int(node)]
+    if arch == typemax(UInt32)
         table = ifelse(isempty(relations), UInt32(length(state._tables) + 1), UInt32(0))
         return (_create_archetype!(state, stores, node, table), true)
     else
-        return (node.archetype[], false)
+        return (arch, false)
     end
 end
 
 @inline function _find_or_create_table!(
     state::_WorldState{M,K},
     stores::Storage,
-    start::Union{_GraphNode{M},_NoGraphNode{M}},
+    start::Union{UInt32,_NoGraphNode{M}},
+    start_mask::Union{_Mask{M},_NoMask{M}},
     old_table::_Table,
     add::Tuple{Vararg{Int}},
     remove::Tuple{Vararg{Int}},
@@ -1149,7 +1153,7 @@ end
     world_has_rel::Val{true},
 )::Tuple{UInt32,Bool} where {M,K,Storage<:_WorldStorage}
     new_arch_index, is_new = _find_or_create_archetype!(
-        state, stores, start, add, remove, relations, add_mask, rem_mask, use_map,
+        state, stores, start, start_mask, add, remove, relations, add_mask, rem_mask, use_map,
     )
     @inbounds new_arch_hot = state._archetypes_hot[new_arch_index]
 
@@ -1178,7 +1182,8 @@ end
 @inline function _find_or_create_table!(
     state::_WorldState{M,K},
     stores::Storage,
-    start::Union{_GraphNode{M},_NoGraphNode{M}},
+    start::Union{UInt32,_NoGraphNode{M}},
+    start_mask::Union{_Mask{M},_NoMask{M}},
     old_table::_Table,
     add::Tuple{Vararg{Int}},
     remove::Tuple{Vararg{Int}},
@@ -1189,14 +1194,14 @@ end
     use_map::Union{_NoUseMap,_UseMap},
     world_has_rel::Val{false},
 )::Tuple{UInt32,Bool} where {M,K,Storage<:_WorldStorage}
-    _check_find_node(start, add_mask, rem_mask)
+    _check_find_node(start_mask, add_mask, rem_mask)
     last_table = state._last_table
-    new_mask = _new_mask(start, add_mask, rem_mask)
+    new_mask = _new_mask(start_mask, add_mask, rem_mask)
     if new_mask.bits == last_table.mask.bits
         return last_table.id, false
     end
     new_arch_index, is_new = _find_or_create_archetype!(
-        state, stores, start, add, remove, relations, add_mask, rem_mask, use_map,
+        state, stores, start, start_mask, add, remove, relations, add_mask, rem_mask, use_map,
     )
     if is_new
         @inbounds new_arch = state._archetypes[new_arch_index]
@@ -1226,7 +1231,7 @@ end
     return _find_or_create_table!(
         state,
         stores,
-        _archetype_start_node(state, old_table),
+        _archetype_start_node(state, old_table)...,
         old_table,
         add,
         remove,
@@ -1255,7 +1260,7 @@ end
     return _find_or_create_table!(
         state,
         stores,
-        _archetype_start_node(state, old_table),
+        _archetype_start_node(state, old_table)...,
         old_table,
         add,
         remove,
@@ -1374,7 +1379,7 @@ function _create_table!(
     new_table_id = length(state._tables) + 1
     table = _new_table(UInt32(new_table_id), arch.id, state._initial_capacity, relations)
     push!(state._tables, table)
-    push!(state._table_masks, arch.node.mask)
+    push!(state._table_masks, arch.mask)
 
     for comp in arch.components
         _activate_new_column_for_comp!(state, stores, comp, new_table_id, state._initial_capacity)
@@ -1439,10 +1444,11 @@ end
 function _create_archetype!(
     state::_WorldState{M,K},
     stores::Storage,
-    node::_GraphNode,
+    node::UInt32,
     table::UInt32,
 )::UInt32 where {M,K,Storage<:_WorldStorage}
-    components = _active_bit_indices!(state._pool.bit_indices, node.mask)
+    mask = @inbounds state._graph.masks[Int(node)]
+    components = _active_bit_indices!(state._pool.bit_indices, mask)
     relations = Int[]
     for id in components
         if _is_relation(state._registry, id)
@@ -1450,9 +1456,9 @@ function _create_archetype!(
         end
     end
 
-    arch = _Archetype(UInt32(length(state._archetypes) + 1), node, relations, components)
+    arch = _Archetype(UInt32(length(state._archetypes) + 1), node, mask, relations, components)
     push!(state._archetypes, arch)
-    arch_hot = _ArchetypeHot(node, table, relations)
+    arch_hot = _ArchetypeHot(mask, table, relations)
     push!(state._archetypes_hot, arch_hot)
 
     if _has_relations(arch)
@@ -1460,7 +1466,7 @@ function _create_archetype!(
     end
 
     index = length(state._archetypes)
-    node.archetype[] = UInt32(index)
+    @inbounds state._graph.archetypes[Int(node)] = UInt32(index)
 
     _push_zero_to_all_archetype_relations!(state, stores)
 
@@ -1711,6 +1717,7 @@ function _new_entity_expr(
                 world_state,
                 stores,
                 _NoGraphNode{$M}(),
+                _Mask{$M}(),
                 world_state._tables[1],
                 $ids,
                 (),
@@ -2032,7 +2039,7 @@ function _move_entities!(
         state._entities[entity._id] = _EntityIndex(new_table.id, to)
     end
     for comp in old_archetype.components
-        if _get_bit(new_archetype.node.mask, comp)
+        if _get_bit(new_archetype.mask, comp)
             _copy_component_data_to_end!(state, stores, comp, old_table_index, table_index)
         end
         _clear_component_data!(state, stores, comp, old_table_index)
@@ -2156,10 +2163,10 @@ end
         world_state._entities[new_entity._id] = _EntityIndex(index.table, UInt32(new_row))
 
         if _has_observers(world_state._event_manager, OnCreateEntity)
-            _fire_create_entity(world_state._event_manager, new_entity, archetype.node.mask)
+            _fire_create_entity(world_state._event_manager, new_entity, archetype.mask)
         end
         if _has_relations(archetype) && _has_observers(world_state._event_manager, OnAddRelations)
-            _fire_create_entity_relations(world_state._event_manager, new_entity, archetype.node.mask)
+            _fire_create_entity_relations(world_state._event_manager, new_entity, archetype.mask)
         end
         return new_entity
     end

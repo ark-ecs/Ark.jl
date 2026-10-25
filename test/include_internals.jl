@@ -15,7 +15,7 @@ using Ark: _EntityPool, _get_entity, _get_pending_entity, _activate_entity!, _re
 using Ark: _Lock, _lock, _unlock, _is_locked
 using Ark: _VecMap, _get_map, _set_map!
 using Ark: _Linear_Map, _LOAD_FACTOR
-using Ark: _Graph, _GraphNode, _find_node, _find_or_create, _UseMap, _NoUseMap
+using Ark: _Graph, _find_node, _find_or_create, _start_mask, _UseMap, _NoUseMap
 using Ark: _BatchTable
 using Ark: _has_observers
 using Ark: StructArray, _StructArray_type, StructArrayView, _new_storage, _storage_type
