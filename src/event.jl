@@ -293,7 +293,7 @@ end
 function _fire_create_entities(m::_EventManager{M}, table::_BatchTable{M}) where {M}
     evt = OnCreateEntity._id
     observers = m.observers[evt]
-    mask = table.archetype.node.mask
+    mask = table.archetype.mask
     if length(observers) > 1
         with, any_no_with = m.with[evt]
         if !any_no_with && !_contains_any(with, mask)
@@ -315,7 +315,7 @@ function _fire_create_entities(m::_EventManager{M}, table::_BatchTable{M}) where
 end
 
 function _fire_create_entities_relations(m::_EventManager{M}, table::_BatchTable{M}) where {M}
-    _do_fire_comps(m, OnAddRelations, table, table.archetype.node.mask)
+    _do_fire_comps(m, OnAddRelations, table, table.archetype.mask)
 end
 
 function _fire_remove_entities(
@@ -604,7 +604,7 @@ end
 ) where {MK<:_AbstractMask{M}} where {M}
     evt = event._id
     observers = m.observers[evt]
-    entity_mask = table.archetype.node.mask
+    entity_mask = table.archetype.mask
     if length(observers) > 1
         comps, any_no_comps = m.comps[evt]
         if !any_no_comps && !_contains_any(comps, mask)

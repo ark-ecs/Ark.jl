@@ -869,14 +869,14 @@ end
                             _fire_add(
                                 world_state._event_manager,
                                 OnAddComponents, batch_table,
-                                old_mask, new_archetype.node.mask,
+                                old_mask, new_archetype.mask,
                             )
                         end
                         if has_rel_obs
                             _fire_add(
                                 world_state._event_manager,
                                 OnAddRelations, batch_table,
-                                old_mask, new_archetype.node.mask,
+                                old_mask, new_archetype.mask,
                             )
                         end
                     end

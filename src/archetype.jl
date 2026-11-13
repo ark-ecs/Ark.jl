@@ -5,21 +5,21 @@ struct _ArchetypeHot{M}
     has_relations::Bool
 end
 
-function _ArchetypeHot(node::_GraphNode, table::UInt32)
+function _ArchetypeHot(mask::_Mask, table::UInt32)
     _ArchetypeHot(
-        node.mask,
+        mask,
         table,
         false,
     )
 end
 
 function _ArchetypeHot(
-    node::_GraphNode,
+    mask::_Mask,
     table::UInt32,
     relations::Vector{Int},
 )
     _ArchetypeHot(
-        node.mask,
+        mask,
         table,
         !isempty(relations),
     )
@@ -31,19 +31,21 @@ mutable struct _Archetype{M}
     const index::Vector{_Linear_Map{UInt32,_IdCollection,true,false,NoZero,_IdCollection}}
     const target_tables::_Linear_Map{UInt32,_IdCollection,true,false,NoZero,_IdCollection}
     const free_tables::Vector{UInt32}
-    const node::_GraphNode{M}
+    const node::UInt32
+    const mask::_Mask{M}
     const num_relations::UInt32
     const id::UInt32
 end
 
-function _Archetype(id::UInt32, node::_GraphNode, table::UInt32)
-    _Archetype(
+function _Archetype(id::UInt32, node::UInt32, mask::_Mask{M}, table::UInt32) where M
+    _Archetype{M}(
         Memory{Int}(),
         _IdCollection(table),
         Vector{_Linear_Map{UInt32,_IdCollection,true,false,NoZero,_IdCollection}}(),
         _Linear_Map{UInt32,_IdCollection}(; zero_value=_empty_id_collection),
         Vector{UInt32}(),
         node,
+        mask,
         UInt32(0),
         id,
     )
@@ -51,17 +53,19 @@ end
 
 function _Archetype(
     id::UInt32,
-    node::_GraphNode,
+    node::UInt32,
+    mask::_Mask{M},
     relations::Vector{Int},
     components::Vector{Int},
-)
-    _Archetype(
+) where M
+    _Archetype{M}(
         Memory{Int}(components),
         _IdCollection(),
         [_Linear_Map{UInt32,_IdCollection}(; zero_value=_empty_id_collection) for _ in eachindex(relations)],
         _Linear_Map{UInt32,_IdCollection}(; zero_value=_empty_id_collection),
         Vector{UInt32}(),
         node,
+        mask,
         UInt32(length(relations)),
         id,
     )
